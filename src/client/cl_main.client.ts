@@ -10,17 +10,33 @@ import { SH_PlayerSetup } from "shared/sh_player"
 import { SH_RPCSetup } from "shared/sh_rpc"
 import { DoneCreatingNVs, SH_PlayerNetVarsSetup } from "shared/sh_player_netvars"
 import { AddGameStateNetVars } from "shared/sh_gamestate"
+import { Workspace } from "@rbxts/services"
 
-u.Thread( SH_RPCSetup )
-u.Thread( SH_PlayerNetVarsSetup )
-u.Thread( CL_RoomSetup )
-u.Thread( CL_TasksSetup )
-u.Thread( CL_TasksContentSetup )
-u.Thread( CL_CameraSetup )
-u.Thread( CL_InputSetup )
-u.Thread( CL_PlayerSetup )
-u.Thread( SH_PlayerSetup )
+class File
+{
+   finishedInit = false
+}
+let file = new File()
+
+function FinishCheck()
+{
+   wait()
+   u.Assert( file.finishedInit, "Never finished init" )
+}
+u.Thread( FinishCheck )
+
+SH_RPCSetup()
+SH_PlayerNetVarsSetup()
+CL_RoomSetup()
+CL_TasksSetup()
+CL_TasksContentSetup()
+CL_CameraSetup()
+CL_InputSetup()
+CL_PlayerSetup()
+SH_PlayerSetup()
 AddGameStateNetVars()
-u.Thread( CL_UISetup )
+CL_UISetup()
 
 DoneCreatingNVs()
+
+file.finishedInit = true

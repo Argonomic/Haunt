@@ -2,6 +2,7 @@ import * as u from "shared/sh_utils"
 import { Players, RunService } from "@rbxts/services"
 import { AddTaskSpec, AddTaskUI, TASK_UI } from "client/cl_tasks"
 import { CheckOutOfBoundsOfParent, AddStickyButton, GetDraggedButton, ReleaseDraggedButton, ElementWithinElement } from "client/cl_ui"
+import { AddCallback_OnPlayerConnected } from "shared/sh_player"
 
 class File
 {
@@ -14,21 +15,24 @@ let file = new File()
 
 export function CL_TasksContentSetup()
 {
-   let gui = Players.LocalPlayer.WaitForChild( 'PlayerGui' )
-   let taskUI = gui.WaitForChild( 'TaskUI' ) as ScreenGui
-   taskUI.Enabled = false
-   AddTaskUI( TASK_UI.TASK_CONTROLLER, taskUI )
-
-   let frame = taskUI.WaitForChild( 'Frame' )
-   let tasksFolder = frame.WaitForChild( 'tasks' ) as Folder
-   let taskFrames = tasksFolder.GetChildren() as Array<Frame>
-
-   for ( let taskFrame of taskFrames )
+   AddCallback_OnPlayerConnected( function ( player: Player )
    {
-      let startFunc = GetStartFunc( taskFrame.Name )
-      let title = GetTitle( taskFrame.Name )
-      AddTaskSpec( taskFrame.Name, startFunc, title, taskFrame )
-   }
+      let gui = player.WaitForChild( 'PlayerGui' )
+      let taskUI = gui.WaitForChild( 'TaskUI' ) as ScreenGui
+      taskUI.Enabled = false
+      AddTaskUI( TASK_UI.TASK_CONTROLLER, taskUI )
+
+      let frame = taskUI.WaitForChild( 'Frame' )
+      let tasksFolder = frame.WaitForChild( 'tasks' ) as Folder
+      let taskFrames = tasksFolder.GetChildren() as Array<Frame>
+
+      for ( let taskFrame of taskFrames )
+      {
+         let startFunc = GetStartFunc( taskFrame.Name )
+         let title = GetTitle( taskFrame.Name )
+         AddTaskSpec( taskFrame.Name, startFunc, title, taskFrame )
+      }
+   } )
 }
 
 function GetStartFunc( name: string ): Function

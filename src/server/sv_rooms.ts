@@ -2,17 +2,43 @@ import { AddRPC } from "shared/sh_rpc"
 import * as sv from "server/sv_utils"
 import * as u from "shared/sh_utils"
 import { AddCallback_OnPlayerConnected } from "shared/sh_player"
-import { Room, Task, AddRoomsFromWorkspace } from "shared/sh_rooms"
+import { Room, Task, AddRoomsFromWorkspace, RoomAndTask } from "shared/sh_rooms"
 
 //import { ReplicatedStorage } from "@rbxts/services";
 
 class File
 {
    dev_startRoom: string = "library"
-   rooms: Record<string, Room> = {}
+   rooms = new Map<string, Room>()
 }
 
 let file = new File()
+
+export function GetAllRoomsAndTasks(): Array<RoomAndTask>
+{
+   let rooms = GetAllRooms()
+   let roomsAndTasks: Array<RoomAndTask> = []
+   for ( let room of rooms )
+   {
+      for ( let task of room.tasks )
+      {
+         roomsAndTasks.push( new RoomAndTask( room, task ) )
+      }
+   }
+
+   return roomsAndTasks
+}
+
+export function GetAllRooms(): Array<Room>
+{
+   let rooms: Array<Room> = []
+   for ( let room of file.rooms )
+   {
+      rooms.push( room[1] )
+   }
+
+   return rooms
+}
 
 export function GetStartRoom(): string
 {
@@ -23,8 +49,6 @@ export function SV_RoomsSetup()
 {
    AddCallback_OnPlayerConnected( PutPlayerInStartRoom )
    AddRPC( "RPC_FromClient_OnPlayerUseFromRoom", RPC_FromClient_OnPlayerUseFromRoom )
-
-   wait() // give models a chance to load?
 
    file.rooms = AddRoomsFromWorkspace()
 }
@@ -88,6 +112,6 @@ function RPC_FromClient_OnPlayerUseFromRoom( player: Player, roomName: string )
 
 export function GetRoom( name: string ): Room
 {
-   u.Assert( file.rooms[name] !== undefined, "Unknown room " + name )
-   return file.rooms[name]
+   u.Assert( file.rooms.has( name ), "Unknown room " + name )
+   return file.rooms.get( name ) as Room
 }

@@ -9,7 +9,7 @@ class File
    currentRoom: Room
    currentDoorTrigger: BasePart | undefined
    clientCurrentDoorTrigger: BasePart | undefined
-   rooms: Record<string, Room> = {}
+   rooms = new Map<string, Room>()
 
    constructor( room: Room )
    {
@@ -103,6 +103,6 @@ function OnTriggerDoorSetup( childPart: BasePart, room: Room )
 
 export function GetRoom( name: string ): Room
 {
-   u.Assert( file.rooms[name] !== undefined, "Unknown room " + name )
-   return file.rooms[name]
+   u.Assert( file.rooms.has( name ), "Unknown room " + name )
+   return file.rooms.get( name ) as Room
 }

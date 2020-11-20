@@ -156,7 +156,6 @@ export function ArrayRandomize( tbl: Array<unknown> )
    for ( let i = 0; i < tbl.size(); i++ )
    {
       let p = math.random( i + 1 )
-      Assert( p >= 0 && p < tbl.size(), "bad!" )
       let swap = tbl[p]
       tbl[p] = tbl[i]
       tbl[i] = swap

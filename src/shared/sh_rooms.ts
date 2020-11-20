@@ -67,6 +67,17 @@ export class Room
    clientBlockerInfo: Array<BlockerInfo> = []
 }
 
+export class RoomAndTask
+{
+   room: Room
+   task: Task
+   constructor( room: Room, task: Task )
+   {
+      this.room = room
+      this.task = task
+   }
+}
+
 export class Task
 {
    name = ""
@@ -232,10 +243,10 @@ export function CreateClientBlockers( room: Room ): Array<BasePart>
    return parts
 }
 
-export function AddRoomsFromWorkspace(): Record<string, Room>
+export function AddRoomsFromWorkspace(): Map<string, Room>
 {
    const base = u.GetWorkspaceChildByName( "Base" ) as BaseFolder
-   let rooms: Record<string, Room> = {}
+   let rooms = new Map<string, Room>()
 
    let roomFolders = base.Rooms.GetChildren()
    for ( let _roomFolder of roomFolders )
@@ -244,7 +255,7 @@ export function AddRoomsFromWorkspace(): Record<string, Room>
       u.Assert( roomFolder.ClassName === "Folder", "A non-folder thing was put in Workspace.Base.Rooms" )
 
       let room = CreateRoomFromFolder( roomFolder )
-      rooms[room.name] = room
+      rooms.set( room.name, room )
    }
 
    return rooms
