@@ -1,6 +1,6 @@
 import { Players } from "@rbxts/services";
 import { Workspace } from "@rbxts/services";
-import { PutPlayerInStartRoom } from "server/sv_rooms";
+import { ReplicatedStorage } from "@rbxts/services"
 
 class File
 {
@@ -163,5 +163,18 @@ export function ArrayRandomize( tbl: Array<unknown> )
    }
 }
 
+export function CreateRemoteEvent( name: string ): RemoteEvent
+{
+   Assert( IsServer(), "Can't do this on the client" )
+   let remoteEvent = new Instance( "RemoteEvent" )
+   remoteEvent.Name = name
+   remoteEvent.Parent = ReplicatedStorage
+   return remoteEvent
+}
 
-
+export function Thread( func: Function ): thread
+{
+   let result = coroutine.create( func )
+   coroutine.resume( result )
+   return result
+}

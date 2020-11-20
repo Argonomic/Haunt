@@ -1,8 +1,8 @@
 import * as u from "shared/sh_utils"
-import { Players } from "@rbxts/services";
 import { Room } from "shared/sh_rooms"
 import { RunService } from "@rbxts/services";
 import { Workspace } from "@rbxts/services";
+import { AddCallback_OnPlayerConnected } from "shared/sh_player";
 
 class File
 {
@@ -21,27 +21,29 @@ let file = new File( camera )
 
 export function CL_CameraSetup()
 {
-   let player = Players.LocalPlayer
-   let camera = file.camera
-   camera.CameraType = Enum.CameraType.Scriptable
-
-   if ( 1 )
-      return
-
-   RunService.RenderStepped.Connect( function ()
+   AddCallback_OnPlayerConnected( function ( player: Player )
    {
-      if ( file.currentRoom === undefined )
+      let camera = file.camera
+      camera.CameraType = Enum.CameraType.Scriptable
+
+      if ( 1 )
          return
 
-      // pop origin
-      let org = u.GetPosition( player )
-      let offset = file.currentRoom.cameraStart.sub( file.currentRoom.cameraEnd )
-      offset = offset.mul( 0.667 )
-      camera.CFrame = new CFrame( org.add( offset ), org )
+      RunService.RenderStepped.Connect( function ()
+      {
+         if ( file.currentRoom === undefined )
+            return
 
-      // blend fov
-      let dif = 0.001
-      camera.FieldOfView = ( camera.FieldOfView * dif ) + ( file.currentRoom.fieldOfView * ( 1.0 - dif ) )
+         // pop origin
+         let org = u.GetPosition( player )
+         let offset = file.currentRoom.cameraStart.sub( file.currentRoom.cameraEnd )
+         offset = offset.mul( 0.667 )
+         camera.CFrame = new CFrame( org.add( offset ), org )
+
+         // blend fov
+         let dif = 0.001
+         camera.FieldOfView = ( camera.FieldOfView * dif ) + ( file.currentRoom.fieldOfView * ( 1.0 - dif ) )
+      } )
    } )
 }
 

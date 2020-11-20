@@ -1,7 +1,7 @@
 import * as cl_camera from "client/cl_camera"
 import * as u from "shared/sh_utils"
 import { AddRPC } from "shared/sh_rpc"
-import { AddCallback_OnRoomSetup, CreateClientBlockers, Room, GetRoom, AddRoomsFromWorkspace } from "shared/sh_rooms"
+import { AddCallback_OnRoomSetup, CreateClientBlockers, Room, AddRoomsFromWorkspace } from "shared/sh_rooms"
 
 class File
 {
@@ -9,6 +9,7 @@ class File
    currentRoom: Room
    currentDoorTrigger: BasePart | undefined
    clientCurrentDoorTrigger: BasePart | undefined
+   rooms: Record<string, Room> = {}
 
    constructor( room: Room )
    {
@@ -24,7 +25,7 @@ export function CL_RoomSetup()
    AddRPC( "RPC_FromServer_SetPlayerRoom", RPC_FromServer_SetPlayerRoom )
 
    AddCallback_OnRoomSetup( "trigger_door", OnTriggerDoorSetup )
-   AddRoomsFromWorkspace()
+   file.rooms = AddRoomsFromWorkspace()
 
    let delay = coroutine.create( Delay )
    coroutine.resume( delay )
@@ -98,4 +99,10 @@ function OnTriggerDoorSetup( childPart: BasePart, room: Room )
       SetCurrentRoom( room )
    } )
 
+}
+
+export function GetRoom( name: string ): Room
+{
+   u.Assert( file.rooms[name] !== undefined, "Unknown room " + name )
+   return file.rooms[name]
 }

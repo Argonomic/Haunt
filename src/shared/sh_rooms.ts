@@ -20,7 +20,6 @@ class BlockerInfo
 
 class File
 {
-   rooms: Record<string, Room> = {}
    onRoomSetupCallbacks: Record<string, Array<Function>> = {}
 }
 
@@ -75,7 +74,7 @@ export class Task
    volume: BasePart | undefined
 }
 
-function AddRoomFolderToRooms( folder: Folder ): Room
+function CreateRoomFromFolder( folder: Folder ): Room
 {
    let children = folder.GetChildren()
    let room = new Room()
@@ -233,9 +232,10 @@ export function CreateClientBlockers( room: Room ): Array<BasePart>
    return parts
 }
 
-export function AddRoomsFromWorkspace()
+export function AddRoomsFromWorkspace(): Record<string, Room>
 {
    const base = u.GetWorkspaceChildByName( "Base" ) as BaseFolder
+   let rooms: Record<string, Room> = {}
 
    let roomFolders = base.Rooms.GetChildren()
    for ( let _roomFolder of roomFolders )
@@ -243,14 +243,11 @@ export function AddRoomsFromWorkspace()
       const roomFolder = _roomFolder as Folder
       u.Assert( roomFolder.ClassName === "Folder", "A non-folder thing was put in Workspace.Base.Rooms" )
 
-      file.rooms[roomFolder.Name] = AddRoomFolderToRooms( roomFolder )
+      let room = CreateRoomFromFolder( roomFolder )
+      rooms[room.name] = room
    }
-}
 
-export function GetRoom( name: string ): Room
-{
-   u.Assert( file.rooms[name] !== undefined, "Unknown room " + name )
-   return file.rooms[name]
+   return rooms
 }
 
 export function AddCallback_OnRoomSetup( name: string, func: Function )

@@ -1,12 +1,17 @@
 import { AddRPC } from "shared/sh_rpc"
 import * as u from "shared/sh_utils"
 import { ReleaseDraggedButton, AddDragButtonCallback, AddCallback_MouseUp } from "client/cl_ui"
-//import { Room, Task, GetRoom, AddRoomsFromWorkspace } from "shared/sh_rooms"
+
+export enum TASK_UI
+{
+   TASK_LIST,
+   TASK_CONTROLLER,
+}
 
 class File
 {
    camera: Camera | undefined
-   taskUI: Record<string, ScreenGui> = {}
+   taskUI: Record<TASK_UI, ScreenGui | undefined> = { 0: undefined, 1: undefined }
 
    taskSpecs: Record<string, TaskSpec> = {}
 
@@ -44,7 +49,7 @@ export function CL_TasksSetup()
    AddDragButtonCallback( DragButtonInFrame )
 }
 
-export function AddTaskUI( name: string, ui: ScreenGui )
+export function AddTaskUI( name: TASK_UI, ui: ScreenGui )
 {
    file.taskUI[name] = ui
 }
@@ -54,10 +59,10 @@ export function AddTaskSpec( name: string, startFunc: Function, title: string, t
    file.taskSpecs[name] = new TaskSpec( title, taskFrame, startFunc )
 }
 
-function GetTaskUI( name: string ): ScreenGui
+function GetTaskUI( name: TASK_UI ): ScreenGui
 {
    if ( file.taskUI[name] !== undefined )
-      return file.taskUI[name]
+      return file.taskUI[name] as ScreenGui
 
    throw undefined
 }
@@ -66,7 +71,7 @@ function GetTaskUI( name: string ): ScreenGui
 export function DragButtonInFrame( input: InputObject, button: GuiObject, xOffset: number, yOffset: number )
 {
    // probably shouldn't do this every frame
-   let taskUIController = GetTaskUI( "TaskUIController" )
+   let taskUIController = GetTaskUI( TASK_UI.TASK_CONTROLLER )
    let frame = u.GetInstanceChildWithName( taskUIController, "Frame" ) as Frame
    //let constraint = u.GetInstanceChildWithName( taskUIController, "UISizeConstraint" ) as UISizeConstraint
 
@@ -81,7 +86,7 @@ export function DragButtonInFrame( input: InputObject, button: GuiObject, xOffse
 
 export function RPC_FromServer_OnPlayerUseTask( taskName: string )
 {
-   let taskUIController = GetTaskUI( "TaskUIController" ) as EDITOR_TaskUI
+   let taskUIController = GetTaskUI( TASK_UI.TASK_CONTROLLER ) as EDITOR_TaskUI
 
    // already active task?
    if ( taskUIController.Enabled )

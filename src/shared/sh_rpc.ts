@@ -29,6 +29,13 @@ export function AddRPC( name: string, func: Callback )
 
 export function SH_RPCSetup()
 {
+   if ( u.IsServer() )
+   {
+      u.CreateRemoteEvent( "RPC_FromServer_SetPlayerRoom" )
+      u.CreateRemoteEvent( "RPC_FromServer_OnPlayerUseTask" )
+      u.CreateRemoteEvent( "RPC_FromClient_OnPlayerUseFromRoom" )
+   }
+
    AddRemoteEvent( "RPC_FromServer_SetPlayerRoom" )
    AddRemoteEvent( "RPC_FromServer_OnPlayerUseTask" )
    AddRemoteEvent( "RPC_FromClient_OnPlayerUseFromRoom" )
