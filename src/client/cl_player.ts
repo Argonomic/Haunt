@@ -1,26 +1,18 @@
 import * as u from "shared/sh_utils"
-import { AddCallback_OnPlayerConnected } from "shared/sh_player"
+import { AnyPlayerHasConnected } from "shared/sh_onPlayerConnect"
 
 class File
 {
-   localPlayerReady: boolean = false
 }
 
 let file = new File()
 
-export function SetLocalPlayerReady( player: Player )
-{
-   file.localPlayerReady = true
-
-}
-
 export function GetLocalPlayerReady(): boolean
 {
-   return file.localPlayerReady
+   return AnyPlayerHasConnected()
 }
 
 export function CL_PlayerSetup()
 {
 
-   AddCallback_OnPlayerConnected( SetLocalPlayerReady )
 }

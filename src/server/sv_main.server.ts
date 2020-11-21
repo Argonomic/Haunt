@@ -1,5 +1,5 @@
 import * as u from "shared/sh_utils"
-import { SH_PlayerSetup } from "shared/sh_player"
+import { SH_OnPlayerConnectSetup } from "shared/sh_onPlayerConnect"
 import { SH_RPCSetup } from "shared/sh_rpc"
 import { SV_RoomsSetup } from "server/sv_rooms";
 import { SV_GameStateSetup } from "server/sv_gameState";
@@ -23,7 +23,7 @@ u.Thread( FinishCheck )
 u.SetServer()
 SH_RPCSetup()
 SH_PlayerNetVarsSetup()
-SH_PlayerSetup()
+SH_OnPlayerConnectSetup()
 SV_RoomsSetup()
 SV_GameStateSetup()
 

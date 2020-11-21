@@ -2,7 +2,7 @@ import * as u from "shared/sh_utils"
 import { Room } from "shared/sh_rooms"
 import { RunService } from "@rbxts/services";
 import { Workspace } from "@rbxts/services";
-import { AddCallback_OnPlayerConnected } from "shared/sh_player";
+import { AddCallback_OnPlayerCharacterAdded } from "shared/sh_onPlayerConnect";
 
 class File
 {
@@ -21,7 +21,7 @@ let file = new File( camera )
 
 export function CL_CameraSetup()
 {
-   AddCallback_OnPlayerConnected( function ( player: Player )
+   AddCallback_OnPlayerCharacterAdded( function ( player: Player )
    {
       let camera = file.camera
       camera.CameraType = Enum.CameraType.Scriptable

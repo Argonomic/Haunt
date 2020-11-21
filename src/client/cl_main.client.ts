@@ -6,11 +6,11 @@ import { CL_TasksContentSetup } from "client/content/cl_tasks_content"
 import { CL_TasksSetup } from "client/cl_tasks"
 import { CL_UISetup } from "client/cl_ui"
 import { CL_PlayerSetup } from "client/cl_player"
-import { SH_PlayerSetup } from "shared/sh_player"
+import { SH_OnPlayerConnectSetup } from "shared/sh_onPlayerConnect"
 import { SH_RPCSetup } from "shared/sh_rpc"
 import { DoneCreatingNVs, SH_PlayerNetVarsSetup } from "shared/sh_player_netvars"
 import { AddGameStateNetVars } from "shared/sh_gamestate"
-import { Workspace } from "@rbxts/services"
+import { CL_TaskListSetup } from "./cl_taskList"
 
 class File
 {
@@ -25,6 +25,7 @@ function FinishCheck()
 }
 u.Thread( FinishCheck )
 
+
 SH_RPCSetup()
 SH_PlayerNetVarsSetup()
 CL_RoomSetup()
@@ -33,10 +34,10 @@ CL_TasksContentSetup()
 CL_CameraSetup()
 CL_InputSetup()
 CL_PlayerSetup()
-SH_PlayerSetup()
 AddGameStateNetVars()
 CL_UISetup()
+CL_TaskListSetup()
 
 DoneCreatingNVs()
-
+SH_OnPlayerConnectSetup()
 file.finishedInit = true

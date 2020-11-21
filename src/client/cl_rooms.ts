@@ -2,6 +2,7 @@ import * as cl_camera from "client/cl_camera"
 import * as u from "shared/sh_utils"
 import { AddRPC } from "shared/sh_rpc"
 import { AddCallback_OnRoomSetup, CreateClientBlockers, Room, AddRoomsFromWorkspace } from "shared/sh_rooms"
+import { UserInputService } from "@rbxts/services"
 
 class File
 {
@@ -29,19 +30,20 @@ export function CL_RoomSetup()
 
    let delay = coroutine.create( Delay )
    coroutine.resume( delay )
-
-   /*
-   while false do
-      wait(0.5)
-      UserInputService.MouseIconEnabled = true
-   end
-   */
 }
 
 function Delay()
 {
    wait( 0.75 )
    SetCurrentRoom( file.currentRoom )
+
+   for ( ; ; )
+   {
+      wait( 0.5 )
+      UserInputService.MouseIconEnabled = true
+   }
+
+
 }
 
 export function RPC_FromServer_SetPlayerRoom( name: string )
@@ -79,7 +81,6 @@ function OnTriggerDoorSetup( childPart: BasePart, room: Room )
    childPart.Touched.Connect( function ( toucher )
    {
       let player = u.GetPlayerFromDescendant( toucher )
-      u.Assert( player !== undefined, "Trigger found no player" )
       if ( player === undefined )
          return
 

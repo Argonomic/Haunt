@@ -58,9 +58,9 @@ export function AddStickyButton( button: ImageButton ): RBXScriptConnection
    } )
 }
 
-export function AddCallback_MouseUp( button: GuiButton, func: Callback )
+export function AddCallback_MouseUp( button: GuiButton, func: Callback ): RBXScriptConnection
 {
-   button.MouseButton1Up.Connect( func )
+   return button.MouseButton1Up.Connect( func )
 }
 
 export function ReleaseDraggedButton()

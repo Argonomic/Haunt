@@ -1,6 +1,7 @@
 import { Players } from "@rbxts/services";
 import { Workspace } from "@rbxts/services";
 import { ReplicatedStorage } from "@rbxts/services"
+import { CL_TasksSetup } from "client/cl_tasks";
 
 class File
 {
@@ -46,7 +47,7 @@ export function Assert( bool: boolean, msg: string )
    print( "ASSERT FAILED: " + msg )
 }
 
-export function GetInstanceChildWithName( parent: Instance, name: string ): unknown
+export function GetInstanceChildWithName( parent: Instance, name: string ): Instance | undefined
 {
    let kids = parent.GetChildren()
    for ( let kid of kids )
@@ -56,6 +57,46 @@ export function GetInstanceChildWithName( parent: Instance, name: string ): unkn
    }
 
    return undefined
+}
+
+export function GetChildren_NoFutureOffspring( parent: Instance ): Array<Instance>
+{
+   function catchOffspring( child: Instance )
+   {
+      Assert( false, "Parent " + parent.Name + " tried to create offspring " + child.Name )
+   }
+
+   parent.ChildAdded.Connect( catchOffspring )
+
+   return parent.GetChildren()
+}
+
+
+export function ExecOnChildWhenItExists( parent: Instance, name: string, func: Function )
+{
+   let instance = GetInstanceChildWithName( parent, name )
+   if ( instance === undefined )
+      OnChildConnect( parent, name, func )
+   else
+      func( instance )
+}
+
+function OnChildConnect( instance: Instance, name: string, func: Function )
+{
+   //huzz
+   let connection: RBXScriptConnection | undefined
+   let connectTable = { connection: connection }
+
+   let onConnect = function ( child: Instance )
+   {
+      if ( child.Name !== name )
+         return
+      if ( connectTable.connection !== undefined )
+         connectTable.connection.Disconnect()
+      func( child )
+   }
+
+   connectTable.connection = instance.ChildAdded.Connect( onConnect )
 }
 
 export function GetPlayerFromCharacter( character: Model ): Player | undefined
@@ -155,7 +196,7 @@ export function ArrayRandomize( tbl: Array<unknown> )
 {
    for ( let i = 0; i < tbl.size(); i++ )
    {
-      let p = math.random( i + 1 )
+      let p = math.random( i + 1 ) - 1
       let swap = tbl[p]
       tbl[p] = tbl[i]
       tbl[i] = swap
@@ -176,4 +217,37 @@ export function Thread( func: Function ): thread
    let result = coroutine.create( func )
    coroutine.resume( result )
    return result
+}
+
+export function SetPlayerState( player: Player, setting: Enum.HumanoidStateType, value: boolean )
+{
+   let character = player.Character
+   if ( character === undefined )
+      throw undefined
+
+   let human = GetInstanceChildWithName( character, "Humanoid" )
+   if ( human === undefined )
+      throw undefined;
+
+   ( human as Humanoid ).SetStateEnabled( setting, value )
+}
+
+export function PlayerTouchesPart( player: Player, basePart: BasePart, maxDist: number ): boolean
+{
+   let playerOrg = GetPosition( player )
+   let dist = math.abs( ( playerOrg.sub( basePart.Position ) ).Magnitude )
+
+   if ( dist > maxDist )
+      return false
+
+   let parts = GetTouchingParts( basePart )
+
+   for ( let part of parts )
+   {
+      let partPlayer = GetPlayerFromDescendant( part )
+      if ( partPlayer === player )
+         return true
+   }
+
+   return false
 }

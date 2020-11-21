@@ -43,17 +43,17 @@ type EDITOR_UsableTask = BasePart &
    }
 }
 
-type EDITOR_NumberValue =
-   {
-      $className: "NumberValue",
-      Value: number
-   }
+type EDITOR_NumberValue = Instance &
+{
+   $className: "NumberValue",
+   Value: number
+}
 
-type EDITOR_Vector3Value =
-   {
-      $className: "Vector3Value",
-      Value: Vector3
-   }
+type EDITOR_Vector3Value = Instance &
+{
+   $className: "Vector3Value",
+   Value: Vector3
+}
 
 export class Room
 {
@@ -80,14 +80,19 @@ export class RoomAndTask
 
 export class Task
 {
-   name = ""
-   position = new Vector3( 0, 0, 0 )
-   volume: BasePart | undefined
+   readonly name: string
+   readonly volume: BasePart
+
+   constructor( name: string, volume: BasePart )
+   {
+      this.name = name
+      this.volume = volume
+   }
 }
 
 function CreateRoomFromFolder( folder: Folder ): Room
 {
-   let children = folder.GetChildren()
+   let children = u.GetChildren_NoFutureOffspring( folder )
    let room = new Room()
    room.name = folder.Name
 
@@ -103,12 +108,8 @@ function CreateRoomFromFolder( folder: Folder ): Room
                childPart.CanCollide = false
                childPart.Transparency = 1.0
 
-               let task = new Task()
                let taskRef = childPart as EDITOR_UsableTask
-
-               task.name = taskRef.taskName.Value
-               task.position = childPart.Position
-               task.volume = taskRef
+               let task = new Task( taskRef.taskName.Value, taskRef )
                room.tasks.push( task )
             }
             break
@@ -178,7 +179,7 @@ function CreateRoomFromFolder( folder: Folder ): Room
 
          case "client_blockers":
             {
-               let blockers = child.GetChildren()
+               let blockers = u.GetChildren_NoFutureOffspring( child )
                for ( let instance of blockers )
                {
                   let blocker = instance as BasePart
@@ -248,7 +249,7 @@ export function AddRoomsFromWorkspace(): Map<string, Room>
    const base = u.GetWorkspaceChildByName( "Base" ) as BaseFolder
    let rooms = new Map<string, Room>()
 
-   let roomFolders = base.Rooms.GetChildren()
+   let roomFolders = u.GetChildren_NoFutureOffspring( base.Rooms )
    for ( let _roomFolder of roomFolders )
    {
       const roomFolder = _roomFolder as Folder

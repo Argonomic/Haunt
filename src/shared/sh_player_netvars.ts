@@ -1,31 +1,14 @@
 import * as u from "shared/sh_utils"
 import { Players, Workspace, ReplicatedStorage, RunService } from "@rbxts/services"
-import { AddCallback_OnPlayerConnected } from "./sh_player"
 
 const RESEND_HEARTBEAT_TIME = 2.0
+const RPC_NETVAR = "RPC_NetVar"
 
-const VARTYPE_TO_RPC: Record<string, string> =
-{
-   "number": "RPC_NetVar_Number",
-   "string": "RPC_NetVar_String",
-   "Vector3": "RPC_NetVar_Vector3",
-}
+type NVTypeNames = ( "number" | "string" | "Vector3" )
 
-class NVNumber
+class NV
 {
-   value = 0
-   changeTime = 0
-}
-
-class NVString
-{
-   value = ""
-   changeTime = 0
-}
-
-class NVVector
-{
-   value = new Vector3( 0, 0, 0 )
+   value: ( number | string | Vector3 ) = 0
    changeTime = 0
 }
 
@@ -50,21 +33,14 @@ class File
    remoteEvents: Record<string, RemoteEvent> = {}
 
    NVsDefined = false
-   nvNumbers = new Map<Player, Record<string, NVNumber>>()
-   nvStrings = new Map<Player, Record<string, NVString>>()
-   nvVectors = new Map<Player, Record<string, NVVector>>()
+
+   netvars = new Map<Player, Record<string, NV>>()
    nvChangedVars = new Map<Player, Map<string, boolean>>()
 
-   defaultNVs = new DefaultNVs()
+   defaultNVs = new Map<string, NV>()
 
    nameToType: Record<string, string> = {}
-}
-
-class DefaultNVs
-{
-   nvNumbers = new Map<string, NVNumber>()
-   nvStrings = new Map<string, NVString>()
-   nvVectors = new Map<string, NVVector>()
+   nameToCallback: Record<string, Function> = {}
 }
 
 let file = new File()
@@ -76,96 +52,37 @@ export function AssignDefaultNVs( player: Player )
    let changedVars = new Map<string, boolean>()
    file.nvChangedVars.set( player, changedVars )
 
+   let playersNVs: Record<string, NV> = {}
+   for ( let defaults of file.defaultNVs )
    {
-      let playersNVs: Record<string, NVNumber> = {}
-      for ( let defaults of file.defaultNVs.nvNumbers )
-      {
-         let nvName = defaults[0]
-         let nvValue = defaults[1].value
+      let nvName = defaults[0]
+      let nvValue = defaults[1].value
 
-         let playerNV = new NVNumber()
-         playerNV.value = nvValue
-
-         playersNVs[nvName] = playerNV
-      }
-      file.nvNumbers.set( player, playersNVs )
+      let playerNV = new NV()
+      playerNV.value = nvValue
+      playersNVs[nvName] = playerNV
    }
 
-   {
-      let playersNVs: Record<string, NVString> = {}
-      for ( let defaults of file.defaultNVs.nvStrings )
-      {
-         let nvName = defaults[0]
-         let nvValue = defaults[1].value
-
-         let playerNV = new NVString()
-         playerNV.value = nvValue
-
-         playersNVs[nvName] = playerNV
-      }
-      file.nvStrings.set( player, playersNVs )
-   }
-
-   {
-      let playersNVs: Record<string, NVVector> = {}
-      for ( let defaults of file.defaultNVs.nvVectors )
-      {
-         let nvName = defaults[0]
-         let nvValue = defaults[1].value
-
-         let playerNV = new NVVector()
-         playerNV.value = nvValue
-
-         playersNVs[nvName] = playerNV
-      }
-      file.nvVectors.set( player, playersNVs )
-   }
-
+   file.netvars.set( player, playersNVs )
 }
 
 
-export function AddNetVar_Number( name: string, preset: number )
+export function AddNetVar( nvType: NVTypeNames, name: string, value: ( number | string | Vector3 ) )
 {
    u.Assert( !file.NVsDefined, "Can't define NVs after this period" )
-   u.Assert( file.defaultNVs.nvNumbers.get( name ) === undefined, "Tried to create the same netvar twice" )
+   u.Assert( file.defaultNVs.get( name ) === undefined, "Tried to create the same netvar twice" )
    u.Assert( file.nameToType[name] === undefined, "Tried to reuse netvar name " + name )
 
-   file.nameToType[name] = "number"
-   let nvNumber = new NVNumber()
-   nvNumber.value = preset
-   file.defaultNVs.nvNumbers.set( name, nvNumber )
+   file.nameToType[name] = nvType
+   let nvNumber = new NV()
+   nvNumber.value = value
+   file.defaultNVs.set( name, nvNumber )
 }
 
-export function AddNetVar_String( name: string, preset: string )
+export function AddNetVarChangedCallback( name: string, func: Function )
 {
-   u.Assert( !file.NVsDefined, "Can't define NVs after this period" )
-   u.Assert( file.defaultNVs.nvStrings.get( name ) === undefined, "Tried to create the same netvar twice" )
-   u.Assert( file.nameToType[name] === undefined, "Tried to reuse netvar name " + name )
-
-   file.nameToType[name] = "string"
-   let nvString = new NVString()
-   nvString.value = preset
-   file.defaultNVs.nvStrings.set( name, nvString )
-}
-
-export function AddNetVar_Vector( name: string, preset: Vector3 )
-{
-   u.Assert( !file.NVsDefined, "Can't define NVs after this period" )
-   u.Assert( file.defaultNVs.nvVectors.get( name ) === undefined, "Tried to create the same netvar twice" )
-   u.Assert( file.nameToType[name] === undefined, "Tried to reuse netvar name " + name )
-
-   file.nameToType[name] = "Vector3"
-   let nvVector = new NVVector()
-   nvVector.value = preset
-   file.defaultNVs.nvVectors.set( name, nvVector )
-}
-
-function ClientConfirmsChange( name: string, changeTime: number )
-{
-   let varType = file.nameToType[name]
-   let rpcName = VARTYPE_TO_RPC[varType]
-   let remoteEvent = GetRemoteEvent( rpcName )
-   remoteEvent.FireServer( name, changeTime )
+   u.Assert( file.nameToType[name] !== undefined, "No netvar named " + name )
+   file.nameToCallback[name] = func
 }
 
 function SendVarChange( player: Player, name: string )
@@ -179,142 +96,85 @@ function SendVarChange( player: Player, name: string )
    SendVarChangeRemoteEvent( player, name )
 }
 
-export function SetNetVar_Number( player: Player, name: string, value: number )
+export function SetNetVar( player: Player, name: string, value: ( number | string | Vector3 ) )
 {
    u.Assert( u.IsServer(), "Can't set a netvar from the client" )
-   u.Assert( file.nvNumbers.has( player ), "tried to set netvar of player that doesn't have netvars" )
-   let nvNumbers = file.nvNumbers.get( player )
-   if ( nvNumbers === undefined )
+   u.Assert( file.netvars.has( player ), "tried to set netvar of player that doesn't have netvars" )
+   let netvars = file.netvars.get( player )
+   if ( netvars === undefined )
       return
-   let nvNumber = nvNumbers[name]
-   nvNumber.changeTime = Workspace.DistributedGameTime
-   nvNumber.value = value
+
+   let netvar = netvars[name]
+   netvar.changeTime = Workspace.DistributedGameTime
+   netvar.value = value
    SendVarChange( player, name )
 }
 
-export function SetNetVar_String( player: Player, name: string, value: string )
+export function GetNetVarValue( player: Player, name: string ): ( number | string | Vector3 )
 {
-   u.Assert( u.IsServer(), "Can't set a netvar from the client" )
-   u.Assert( file.nvStrings.has( player ), "tried to set netvar of player that doesn't have netvars" )
-   let nvStrings = file.nvStrings.get( player )
-   if ( nvStrings === undefined )
-      return
-   let nvString = nvStrings[name]
-   nvString.changeTime = Workspace.DistributedGameTime
-   nvString.value = value
-   SendVarChange( player, name )
+   u.Assert( file.netvars.has( player ), "tried to get netvar of player that doesn't have netvars" )
+   let netvars = file.netvars.get( player )
+   if ( netvars === undefined )
+      throw undefined
+
+   return netvars[name].value
 }
 
-export function SetNetVar_Vector3( player: Player, name: string, value: Vector3 )
+export function GetNetVarNV( player: Player, name: string ): NV
 {
-   u.Assert( u.IsServer(), "Can't set a netvar from the client" )
-   u.Assert( file.nvVectors.has( player ), "tried to set netvar of player that doesn't have netvars" )
-   let nvVectors = file.nvVectors.get( player )
-   if ( nvVectors === undefined )
-      return
-   let nvVector = nvVectors[name]
-   nvVector.changeTime = Workspace.DistributedGameTime
-   nvVector.value = value
-   SendVarChange( player, name )
+   u.Assert( file.netvars.has( player ), "tried to get netvar of player that doesn't have netvars" )
+   let netvars = file.netvars.get( player )
+   if ( netvars === undefined )
+      throw undefined
+
+   return netvars[name]
 }
 
 export function GetNetVar_Number( player: Player, name: string ): number
 {
-   u.Assert( file.nvNumbers.has( player ), "tried to get netvar of player that doesn't have netvars" )
-   let nvNumbers = file.nvNumbers.get( player )
-   if ( nvNumbers === undefined )
-      throw undefined
-
-   return nvNumbers[name].value
+   u.Assert( file.nameToType[name] === "number", "Expected type number" )
+   return GetNetVarValue( player, name ) as number
 }
-
-export function GetNetVar_NVNumber( player: Player, name: string ): NVNumber
-{
-   u.Assert( file.nvNumbers.has( player ), "tried to get netvar of player that doesn't have netvars" )
-   let nvNumbers = file.nvNumbers.get( player )
-   if ( nvNumbers === undefined )
-      throw undefined
-
-   return nvNumbers[name]
-}
-
 
 export function GetNetVar_String( player: Player, name: string ): string
 {
-   u.Assert( file.nvStrings.has( player ), "tried to get netvar of player that doesn't have netvars" )
-   let nvStrings = file.nvStrings.get( player )
-   if ( nvStrings === undefined )
-      throw undefined
-
-   return nvStrings[name].value
+   u.Assert( file.nameToType[name] === "string", "Expected type string" )
+   return GetNetVarValue( player, name ) as string
 }
 
-export function GetNetVar_NVString( player: Player, name: string ): NVString
+export function GetNetVar_Vector3( player: Player, name: string ): Vector3
 {
-   u.Assert( file.nvStrings.get( player ) !== undefined, "tried to get netvar of player that doesn't have netvars" )
-   let nvStrings = file.nvStrings.get( player )
-   if ( nvStrings === undefined )
-      throw undefined
-
-   return nvStrings[name]
+   u.Assert( file.nameToType[name] === "Vector3", "Expected type Vector3" )
+   return GetNetVarValue( player, name ) as Vector3
 }
-
-
-export function GetNetVar_Vector( player: Player, name: string ): Vector3
-{
-   u.Assert( file.nvVectors.get( player ) !== undefined, "tried to get netvar of player that doesn't have netvars" )
-   let nvVectors = file.nvVectors.get( player )
-   if ( nvVectors === undefined )
-      throw undefined
-
-   return nvVectors[name].value
-}
-
-export function GetNetVar_NVVector( player: Player, name: string ): NVVector
-{
-   u.Assert( file.nvVectors.get( player ) !== undefined, "tried to get netvar of player that doesn't have netvars" )
-   let nvVectors = file.nvVectors.get( player )
-   if ( nvVectors === undefined )
-      throw undefined
-
-   return nvVectors[name]
-}
-
-
-
-
-
 
 function AddRPC( name: string, func: Callback )
 {
    u.Assert( file.remoteEvents[name] !== undefined, "RPC " + name + " has not been added to remote events yet" );
    u.Assert( file.remoteFunctions[name] === undefined, "Already added rpc for " + name );
 
-   if ( u.IsServer() )
-      ( ReplicatedStorage.WaitForChild( name ) as RemoteEvent ).OnServerEvent.Connect( func )
-   else
-      ( ReplicatedStorage.WaitForChild( name ) as RemoteEvent ).OnClientEvent.Connect( func )
+   u.ExecOnChildWhenItExists( ReplicatedStorage, name, function ( remoteEvent: RemoteEvent )
+   {
+      if ( u.IsServer() )
+         remoteEvent.OnServerEvent.Connect( func )
+      else
+         remoteEvent.OnClientEvent.Connect( func )
+   } )
 
    file.remoteFunctions[name] = func
 }
 
 export function SH_PlayerNetVarsSetup()
 {
-   CreateOrWaitForRemoteEvent( "RPC_NetVar_Number" )
-   CreateOrWaitForRemoteEvent( "RPC_NetVar_String" )
-   CreateOrWaitForRemoteEvent( "RPC_NetVar_Vector" )
+   CreateOrWaitForRemoteEvent( RPC_NETVAR )
 
    if ( u.IsServer() )
    {
-      AddRPC( "RPC_NetVar_Number", RPC_NetVar_ServerReceivesConfirmation )
-      AddRPC( "RPC_NetVar_String", RPC_NetVar_ServerReceivesConfirmation )
-      AddRPC( "RPC_NetVar_Vector", RPC_NetVar_ServerReceivesConfirmation )
+      AddRPC( RPC_NETVAR, RPC_NetVar_ServerReceivesConfirmation )
    }
    else
    {
-      AddRPC( "RPC_NetVar_Number", RPC_NetVar_Number_ClientAcceptsChange )
-      AddRPC( "RPC_NetVar_String", RPC_NetVar_String_ClientAcceptsChange )
-      AddRPC( "RPC_NetVar_Vector", RPC_NetVar_Vector_ClientAcceptsChange )
+      AddRPC( RPC_NETVAR, RPC_NetVar_ClientAcceptsChange )
    }
 }
 
@@ -328,10 +188,10 @@ export function DoneCreatingNVs()
    }
 }
 
-function RPC_NetVar_Number_ClientAcceptsChange( name: string, value: number, changeTime: number )
+function RPC_NetVar_ClientAcceptsChange( name: string, value: ( number | string | Vector3 ), changeTime: number )
 {
    let player = Players.LocalPlayer
-   let netVars = file.nvNumbers.get( player )
+   let netVars = file.netvars.get( player )
    if ( netVars === undefined )
    {
       u.Assert( false, "tried to receive netvar of player that doesn't have netvars" )
@@ -339,60 +199,29 @@ function RPC_NetVar_Number_ClientAcceptsChange( name: string, value: number, cha
    }
 
    u.Assert( netVars[name] !== undefined, "Missing netvar " + name )
-   let nvNumber = netVars[name]
-   nvNumber.changeTime = changeTime
-   nvNumber.value = value
-   print( "Netvar " + name + " changed to " + value )
-   ClientConfirmsChange( name, changeTime )
-}
+   let netvar = netVars[name]
+   netvar.changeTime = changeTime
+   netvar.value = value as number
 
-function RPC_NetVar_String_ClientAcceptsChange( name: string, value: string, changeTime: number )
-{
-   let player = Players.LocalPlayer
-   let netVars = file.nvStrings.get( player )
-   if ( netVars === undefined )
-   {
-      u.Assert( false, "tried to receive netvar of player that doesn't have netvars" )
-      return
-   }
+   // client confirms change
+   let remoteEvent = GetRemoteEvent( RPC_NETVAR )
+   remoteEvent.FireServer( name, changeTime )
 
-   u.Assert( netVars[name] !== undefined, "Missing netvar " + name )
-   let nvString = netVars[name]
-   nvString.changeTime = changeTime
-   nvString.value = value
-   print( "Netvar " + name + " changed to " + value )
-   ClientConfirmsChange( name, changeTime )
-}
-
-function RPC_NetVar_Vector_ClientAcceptsChange( name: string, value: Vector3, changeTime: number )
-{
-   let player = Players.LocalPlayer
-   let netVars = file.nvVectors.get( player )
-   if ( netVars === undefined )
-   {
-      u.Assert( false, "tried to receive netvar of player that doesn't have netvars" )
-      return
-   }
-
-   u.Assert( netVars[name] !== undefined, "Missing netvar " + name )
-   let nvVector = netVars[name]
-   nvVector.changeTime = changeTime
-   nvVector.value = value
-   print( "Netvar " + name + " changed to " + value )
-   ClientConfirmsChange( name, changeTime )
+   // any onchange functions?
+   let callback = file.nameToCallback[name]
+   if ( callback !== undefined )
+      callback()
 }
 
 function RPC_NetVar_ServerReceivesConfirmation( player: Player, name: string, changeTime: number )
 {
-   let netVars = file.nvNumbers
-
-   u.Assert( netVars.get( player ) !== undefined, "tried to confirm netvar of player that doesn't have netvars" )
-   let nvNumbers = file.nvNumbers.get( player )
-   if ( nvNumbers === undefined )
+   u.Assert( file.netvars.get( player ) !== undefined, "tried to confirm netvar of player that doesn't have netvars" )
+   let netvars = file.netvars.get( player )
+   if ( netvars === undefined )
       return
 
-   u.Assert( nvNumbers[name] !== undefined, "No variable " + name + " created for player " + player.Name )
-   let nvNumber = nvNumbers[name]
+   u.Assert( netvars[name] !== undefined, "No variable " + name + " created for player " + player.Name )
+   let nvNumber = netvars[name]
    if ( changeTime < nvNumber.changeTime )
       return
 
@@ -422,41 +251,11 @@ function SendVarChangeRemoteEvent( player: Player, name: string )
 
    u.Assert( varType !== undefined, "netvar " + name + " has no type defined" )
 
-   let rpcName = VARTYPE_TO_RPC[varType]
-   let value: number | string | Vector3 | undefined
-   let changeTime: number | undefined
-   switch ( varType )
-   {
-      case "number":
-         {
-            let myVal = GetNetVar_NVNumber( player, name )
-            value = myVal.value
-            changeTime = myVal.changeTime
-         }
-         break
+   let myVal = GetNetVarNV( player, name )
+   let value = myVal.value
+   let changeTime = myVal.changeTime
 
-      case "string":
-         {
-            let myVal = GetNetVar_NVString( player, name )
-            value = myVal.value
-            changeTime = myVal.changeTime
-         }
-         break
-
-      case "Vector3":
-         {
-            let myVal = GetNetVar_NVVector( player, name )
-            value = myVal.value
-            changeTime = myVal.changeTime
-         }
-         break
-
-      default:
-         u.Assert( false, "Unknown var type " + varType )
-         return
-   }
-
-   let remoteEvent = GetRemoteEvent( rpcName )
+   let remoteEvent = GetRemoteEvent( RPC_NETVAR )
    remoteEvent.FireClient( player, name, value, changeTime )
 
    if ( file.resendHeartbeatConnection === undefined )
@@ -475,16 +274,19 @@ function GetRemoteEvent( name: string ): RemoteEvent
 function CreateOrWaitForRemoteEvent( name: string )
 {
    u.Assert( file.remoteEvents[name] === undefined, "Already added remote event " + name )
-   let remoteEvent: RemoteEvent | undefined
 
    if ( u.IsServer() )
-      remoteEvent = u.CreateRemoteEvent( name )
+   {
+      file.remoteEvents[name] = u.CreateRemoteEvent( name )
+   }
    else
-      remoteEvent = ReplicatedStorage.WaitForChild( name ) as RemoteEvent
-
-   file.remoteEvents[name] = remoteEvent
+   {
+      u.ExecOnChildWhenItExists( ReplicatedStorage, name, function ( remoteEvent: RemoteEvent )
+      {
+         file.remoteEvents[name] = remoteEvent
+      } )
+   }
 }
-
 
 function GetResends(): Array<Resends>
 {

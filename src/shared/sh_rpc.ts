@@ -11,7 +11,10 @@ let file = new File()
 
 function AddRemoteEvent( name: string )
 {
-   file.remoteEvents[name] = ReplicatedStorage.WaitForChild( name ) as RemoteEvent
+   u.ExecOnChildWhenItExists( ReplicatedStorage, name, function ( remoteEvent: RemoteEvent )
+   {
+      file.remoteEvents[name] = remoteEvent
+   } )
 }
 
 export function AddRPC( name: string, func: Callback )
@@ -19,26 +22,34 @@ export function AddRPC( name: string, func: Callback )
    u.Assert( file.remoteEvents[name] !== undefined, "RPC " + name + " has not been added to remote events yet" );
    u.Assert( file.remoteFunctions[name] === undefined, "Already added rpc for " + name );
 
-   if ( u.IsServer() )
-      ( ReplicatedStorage.WaitForChild( name ) as RemoteEvent ).OnServerEvent.Connect( func )
-   else
-      ( ReplicatedStorage.WaitForChild( name ) as RemoteEvent ).OnClientEvent.Connect( func )
+   u.ExecOnChildWhenItExists( ReplicatedStorage, name, function ( remoteEvent: RemoteEvent )
+   {
+      if ( u.IsServer() )
+         remoteEvent.OnServerEvent.Connect( func )
+      else
+         remoteEvent.OnClientEvent.Connect( func )
+   } )
 
    file.remoteFunctions[name] = func
 }
 
 export function SH_RPCSetup()
 {
-   if ( u.IsServer() )
-   {
-      u.CreateRemoteEvent( "RPC_FromServer_SetPlayerRoom" )
-      u.CreateRemoteEvent( "RPC_FromServer_OnPlayerUseTask" )
-      u.CreateRemoteEvent( "RPC_FromClient_OnPlayerUseFromRoom" )
-   }
+   let rpcs =
+      [
+         "RPC_FromServer_SetPlayerRoom",
+         "RPC_FromServer_OnPlayerUseTask",
+         "RPC_FromServer_CancelTask",
+         "RPC_FromClient_OnPlayerUseFromRoom",
+         "RPC_FromClient_OnPlayerFinishTask",
+      ]
 
-   AddRemoteEvent( "RPC_FromServer_SetPlayerRoom" )
-   AddRemoteEvent( "RPC_FromServer_OnPlayerUseTask" )
-   AddRemoteEvent( "RPC_FromClient_OnPlayerUseFromRoom" )
+   for ( let rpc of rpcs )
+   {
+      if ( u.IsServer() )
+         u.CreateRemoteEvent( rpc )
+      AddRemoteEvent( rpc )
+   }
 }
 
 export function GetRPCRemoteEvent( name: string ): RemoteEvent

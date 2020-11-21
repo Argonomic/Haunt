@@ -1,6 +1,9 @@
 import { AddRPC } from "shared/sh_rpc"
 import * as u from "shared/sh_utils"
 import { ReleaseDraggedButton, AddDragButtonCallback, AddCallback_MouseUp } from "client/cl_ui"
+import { GetLocalPlayerReady } from "./cl_player"
+import { SendRPC } from "./cl_utils"
+import { Players } from "@rbxts/services"
 
 export enum TASK_UI
 {
@@ -16,6 +19,8 @@ class File
    taskSpecs: Record<string, TaskSpec> = {}
 
    successSound = u.LoadSound( 4612375233 )
+
+   activeTaskStatus = new TaskStatus()
 }
 
 class TaskSpec
@@ -32,6 +37,14 @@ class TaskSpec
    }
 }
 
+export class TaskStatus
+{
+   think: RBXScriptConnection | undefined
+   closeButtonCallback: RBXScriptConnection | undefined
+   closeFunction: Function | undefined
+   success = false
+}
+
 type EDITOR_TaskUI = ScreenGui &
 {
    Frame: GuiObject &
@@ -46,11 +59,19 @@ let file = new File()
 export function CL_TasksSetup()
 {
    AddRPC( "RPC_FromServer_OnPlayerUseTask", RPC_FromServer_OnPlayerUseTask )
+   AddRPC( "RPC_FromServer_CancelTask", RPC_FromServer_CancelTask )
+
    AddDragButtonCallback( DragButtonInFrame )
 }
 
 export function AddTaskUI( name: TASK_UI, ui: ScreenGui )
 {
+   if ( ui.Name === "TaskList" )
+   {
+      print( "****** * * ADD TASK UI " + name + " " + ui.Name )
+   }
+
+   u.Assert( GetLocalPlayerReady(), "Tried to add UI before local player connecs" )
    file.taskUI[name] = ui
 }
 
@@ -59,7 +80,13 @@ export function AddTaskSpec( name: string, startFunc: Function, title: string, t
    file.taskSpecs[name] = new TaskSpec( title, taskFrame, startFunc )
 }
 
-function GetTaskUI( name: TASK_UI ): ScreenGui
+export function GetTaskSpec( name: string ): TaskSpec
+{
+   u.Assert( file.taskSpecs[name] !== undefined, "Unknown taskspec " + name )
+   return file.taskSpecs[name]
+}
+
+export function GetTaskUI( name: TASK_UI ): ScreenGui
 {
    if ( file.taskUI[name] !== undefined )
       return file.taskUI[name] as ScreenGui
@@ -84,7 +111,14 @@ export function DragButtonInFrame( input: InputObject, button: GuiObject, xOffse
 }
 
 
-export function RPC_FromServer_OnPlayerUseTask( taskName: string )
+export function RPC_FromServer_CancelTask()
+{
+   let closeFunction = file.activeTaskStatus.closeFunction
+   if ( closeFunction )
+      closeFunction()
+}
+
+export function RPC_FromServer_OnPlayerUseTask( roomName: string, taskName: string )
 {
    let taskUIController = GetTaskUI( TASK_UI.TASK_CONTROLLER ) as EDITOR_TaskUI
 
@@ -99,33 +133,43 @@ export function RPC_FromServer_OnPlayerUseTask( taskName: string )
    newFrame.Visible = true
    newFrame.Parent = taskSpec.frame.Parent
 
+   //u.SetPlayerState( Players.LocalPlayer, Enum.HumanoidStateType.Running, false )
+
    taskUIController.Frame.Header.Text = taskSpec.title
    taskUIController.Enabled = true
    let closeButton = taskUIController.Frame.CloseButton
 
-   let status: Record<string, any> = {}
-   status.success = false
+   file.activeTaskStatus = new TaskStatus()
 
-   let closeTask = function ()
+   let closeFunction = function ()
    {
-      if ( status.success as boolean )
+      if ( file.activeTaskStatus.success )
+      {
          file.successSound.Play()
+         SendRPC( "RPC_FromClient_OnPlayerFinishTask", roomName, taskName )
+      }
 
+      //u.SetPlayerState( Players.LocalPlayer, Enum.HumanoidStateType.Running, true )
       newFrame.Destroy()
       taskUIController.Enabled = false;
-      ( status.think as RBXScriptConnection ).Disconnect();
-      ( status.closeButtonCallback as RBXScriptConnection ).Disconnect();
+      let think = file.activeTaskStatus.think
+      if ( think !== undefined )
+         think.Disconnect()
+
+      let closeButtonCallback = file.activeTaskStatus.closeButtonCallback
+      if ( closeButtonCallback !== undefined )
+         closeButtonCallback.Disconnect()
 
       ReleaseDraggedButton()
    }
 
-   let closeTaskThread = coroutine.create( closeTask )
+   file.activeTaskStatus.closeFunction = closeFunction
 
-   status.closeButtonCallback = AddCallback_MouseUp( closeButton, function ()
+   file.activeTaskStatus.closeButtonCallback = AddCallback_MouseUp( closeButton, function ()
    {
-      coroutine.resume( closeTaskThread )
+      closeFunction()
    } )
 
-   status.think = taskSpec.startFunc( newFrame, closeTaskThread )
+   file.activeTaskStatus.think = taskSpec.startFunc( newFrame, closeFunction, file.activeTaskStatus )
 
 }
