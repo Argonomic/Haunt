@@ -3,10 +3,11 @@ import { Workspace } from "@rbxts/services"
 
 const DEFAULT_FIELDOFVIEW = 20
 
+type BLOCKER_STYLES = "CornerWedgePart" | "FlagStand" | "MeshPart" | "NegateOperation" | "Part" | "PartOperation" | "Platform" | "Seat" | "SkateboardPlatform" | "SpawnLocation" | "Terrain" | "TrussPart" | "UnionOperation" | "VehicleSeat" | "WedgePart"
+
 class BlockerInfo
 {
-   // blocks visibility into other rooms
-   //className = "Part"
+   className: BLOCKER_STYLES = "Part"
    part: boolean = true
    position: Vector3 = new Vector3( 0, 0, 0 )
    anchored: boolean = false
@@ -184,6 +185,7 @@ function CreateRoomFromFolder( folder: Folder ): Room
                {
                   let blocker = instance as BasePart
                   let blockerInfo = new BlockerInfo()
+                  blockerInfo.className = blocker.ClassName
                   blockerInfo.position = blocker.Position
                   blockerInfo.anchored = blocker.Anchored
                   blockerInfo.canCollide = blocker.CanCollide
@@ -228,7 +230,23 @@ export function CreateClientBlockers( room: Room ): Array<BasePart>
    let parts: Array<BasePart> = []
    for ( let blockerInfo of room.clientBlockerInfo )
    {
-      let part = new Instance( "Part", Workspace )
+      //let str = blockerInfo.className as string
+      let createPart: BasePart | undefined = undefined
+      switch ( blockerInfo.className )
+      {
+         case "Part":
+            createPart = new Instance( "Part", Workspace )
+            break
+
+         case "WedgePart":
+            createPart = new Instance( "WedgePart", Workspace )
+            break
+
+         default:
+            u.Assert( false, "Part type " + blockerInfo.className + " isn't handled yet, add here" )
+      }
+      let part = createPart as BasePart
+
       part.Position = blockerInfo.position
       part.Anchored = blockerInfo.anchored
       part.CanCollide = blockerInfo.canCollide
