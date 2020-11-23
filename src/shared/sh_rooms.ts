@@ -28,11 +28,7 @@ let file = new File()
 
 type BaseFolder = Folder &
 {
-   $className: "Folder",
-   Rooms: Folder &
-   {
-      $className: "Folder"
-   },
+   Folder: Folder
 }
 
 type EDITOR_UsableTask = BasePart &
@@ -234,13 +230,54 @@ export function CreateClientBlockers( room: Room ): Array<BasePart>
       let createPart: BasePart | undefined = undefined
       switch ( blockerInfo.className )
       {
+         case "CornerWedgePart":
+            createPart = new Instance( "CornerWedgePart", Workspace )
+            break
+
+         case "MeshPart":
+            createPart = new Instance( "MeshPart", Workspace )
+            break
+
+         case "NegateOperation":
+            createPart = new Instance( "NegateOperation", Workspace )
+            break
+
          case "Part":
             createPart = new Instance( "Part", Workspace )
+            break
+
+         case "PartOperation":
+            createPart = new Instance( "PartOperation", Workspace )
+            break
+
+         case "Seat":
+            createPart = new Instance( "Seat", Workspace )
+            break
+
+         case "SkateboardPlatform":
+            createPart = new Instance( "SkateboardPlatform", Workspace )
+            break
+
+         case "SpawnLocation":
+            createPart = new Instance( "SpawnLocation", Workspace )
+            break
+
+         case "TrussPart":
+            createPart = new Instance( "TrussPart", Workspace )
+            break
+
+         case "UnionOperation":
+            createPart = new Instance( "UnionOperation", Workspace )
+            break
+
+         case "VehicleSeat":
+            createPart = new Instance( "VehicleSeat", Workspace )
             break
 
          case "WedgePart":
             createPart = new Instance( "WedgePart", Workspace )
             break
+
 
          default:
             u.Assert( false, "Part type " + blockerInfo.className + " isn't handled yet, add here" )
@@ -264,10 +301,10 @@ export function CreateClientBlockers( room: Room ): Array<BasePart>
 
 export function AddRoomsFromWorkspace(): Map<string, Room>
 {
-   const base = u.GetWorkspaceChildByName( "Base" ) as BaseFolder
+   const roomFolder = u.GetWorkspaceChildByName( "Rooms" ) as BaseFolder
+   let roomFolders = u.GetChildren_NoFutureOffspring( roomFolder )
    let rooms = new Map<string, Room>()
 
-   let roomFolders = u.GetChildren_NoFutureOffspring( base.Rooms )
    for ( let _roomFolder of roomFolders )
    {
       const roomFolder = _roomFolder as Folder

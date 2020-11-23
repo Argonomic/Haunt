@@ -8,7 +8,7 @@ import { Room, AddRoomsFromWorkspace, RoomAndTask } from "shared/sh_rooms"
 
 class File
 {
-   dev_startRoom: string = "kitchen"
+   dev_startRoom: string = "downstairs hallway"
    rooms = new Map<string, Room>()
 }
 
