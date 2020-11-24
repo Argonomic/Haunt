@@ -3,7 +3,6 @@ import * as u from "shared/sh_utils"
 import { ReleaseDraggedButton, AddDragButtonCallback, AddCallback_MouseUp } from "client/cl_ui"
 import { GetLocalPlayerReady } from "./cl_player"
 import { SendRPC } from "./cl_utils"
-import { Players } from "@rbxts/services"
 
 export enum TASK_UI
 {

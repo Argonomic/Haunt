@@ -424,7 +424,7 @@ function Task_CleanOutFridge( frame: Frame, closeTaskThread: Function, status: T
 
    u.ArrayRandomize( items )
 
-   let remove = 2
+   let remove = 3
    for ( let i = 0; i < remove; i++ )
    {
       items[i].Destroy()

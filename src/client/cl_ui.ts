@@ -50,6 +50,10 @@ export function AddStickyButton( button: ImageButton ): RBXScriptConnection
 
       let xOffset = input.Position.X - button.AbsolutePosition.X
       let yOffset = input.Position.Y - button.AbsolutePosition.Y
+
+      xOffset = 0
+      yOffset = 0
+
       file.dragOffset = new Vector2( xOffset, yOffset )
 
       file.draggedButton = button as ImageButtonWithParent

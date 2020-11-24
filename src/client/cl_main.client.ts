@@ -11,6 +11,7 @@ import { SH_RPCSetup } from "shared/sh_rpc"
 import { DoneCreatingNVs, SH_PlayerNetVarsSetup } from "shared/sh_player_netvars"
 import { AddGameStateNetVars } from "shared/sh_gamestate"
 import { CL_TaskListSetup } from "./cl_taskList"
+import { CL_MinimapSetup } from "./cl_minimap"
 
 class File
 {
@@ -37,6 +38,7 @@ CL_PlayerSetup()
 AddGameStateNetVars()
 CL_UISetup()
 CL_TaskListSetup()
+CL_MinimapSetup()
 
 DoneCreatingNVs()
 SH_OnPlayerConnectSetup()

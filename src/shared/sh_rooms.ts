@@ -26,9 +26,9 @@ class File
 
 let file = new File()
 
-type BaseFolder = Folder &
+type RoomBaseFolder = Folder &
 {
-   Folder: Folder
+   BaseFolderObject: Folder | PackageLink
 }
 
 type EDITOR_UsableTask = BasePart &
@@ -129,6 +129,14 @@ function CreateRoomFromFolder( folder: Folder ): Room
                   room.fieldOfView = ( childCameraFov as EDITOR_NumberValue ).Value
                }
 
+               let cameraPosOffset = new Vector3( 0, 0, 0 )
+               let childCameraPosOffset = u.GetInstanceChildWithName( childPart, "camera_pos_offset" )
+               if ( childCameraPosOffset !== undefined )
+               {
+                  u.Assert( ( childCameraPosOffset as Instance ).ClassName === "Vector3Value", "Wrong type" )
+                  cameraPosOffset = ( childCameraPosOffset as EDITOR_Vector3Value ).Value
+               }
+
                let cameraDist: number | undefined
 
                let childCameraDist = u.GetInstanceChildWithName( childPart, "camera_dist" )
@@ -159,6 +167,8 @@ function CreateRoomFromFolder( folder: Folder ): Room
                }
 
                room.cameraStart = room.cameraEnd.add( camOffset.mul( cameraDist ) )
+               room.cameraStart = room.cameraStart.add( cameraPosOffset )
+               room.cameraEnd = room.cameraEnd.add( cameraPosOffset )
             }
             break
 
@@ -301,17 +311,27 @@ export function CreateClientBlockers( room: Room ): Array<BasePart>
 
 export function AddRoomsFromWorkspace(): Map<string, Room>
 {
-   const roomFolder = u.GetWorkspaceChildByName( "Rooms" ) as BaseFolder
+   const roomFolder = u.GetWorkspaceChildByName( "Rooms" ) as RoomBaseFolder
    let roomFolders = u.GetChildren_NoFutureOffspring( roomFolder )
    let rooms = new Map<string, Room>()
 
    for ( let _roomFolder of roomFolders )
    {
-      const roomFolder = _roomFolder as Folder
-      u.Assert( roomFolder.ClassName === "Folder", "A non-folder thing was put in Workspace.Base.Rooms" )
+      switch ( _roomFolder.ClassName )
+      {
+         case "Folder":
+            const roomFolder = _roomFolder as Folder
+            let room = CreateRoomFromFolder( roomFolder )
+            rooms.set( room.name, room )
+            break
 
-      let room = CreateRoomFromFolder( roomFolder )
-      rooms.set( room.name, room )
+         case "PackageLink":
+            break
+
+         default:
+            u.Assert( false, "unexpected ClassName in Workspace.Rooms" )
+            break
+      }
    }
 
    return rooms
