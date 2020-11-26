@@ -1,8 +1,8 @@
 import { AddRPC } from "shared/sh_rpc"
-import * as u from "shared/sh_utils"
-import { ReleaseDraggedButton, AddDragButtonCallback, AddCallback_MouseUp } from "client/cl_ui"
+import { ReleaseDraggedButton, AddCallback_MouseUp } from "client/cl_ui"
 import { GetLocalPlayerReady } from "./cl_player"
 import { SendRPC } from "./cl_utils"
+import { Assert, LoadSound } from "shared/sh_utils"
 
 export enum TASK_UI
 {
@@ -17,7 +17,7 @@ class File
 
    taskSpecs: Record<string, TaskSpec> = {}
 
-   successSound = u.LoadSound( 4612375233 )
+   successSound = LoadSound( 4612375233 )
 
    activeTaskStatus = new TaskStatus()
 }
@@ -59,8 +59,6 @@ export function CL_TasksSetup()
 {
    AddRPC( "RPC_FromServer_OnPlayerUseTask", RPC_FromServer_OnPlayerUseTask )
    AddRPC( "RPC_FromServer_CancelTask", RPC_FromServer_CancelTask )
-
-   AddDragButtonCallback( DragButtonInFrame )
 }
 
 export function AddTaskUI( name: TASK_UI, ui: ScreenGui )
@@ -70,7 +68,7 @@ export function AddTaskUI( name: TASK_UI, ui: ScreenGui )
       print( "****** * * ADD TASK UI " + name + " " + ui.Name )
    }
 
-   u.Assert( GetLocalPlayerReady(), "Tried to add UI before local player connecs" )
+   Assert( GetLocalPlayerReady(), "Tried to add UI before local player connecs" )
    file.taskUI[name] = ui
 }
 
@@ -81,7 +79,7 @@ export function AddTaskSpec( name: string, startFunc: Function, title: string, t
 
 export function GetTaskSpec( name: string ): TaskSpec
 {
-   u.Assert( file.taskSpecs[name] !== undefined, "Unknown taskspec " + name )
+   Assert( file.taskSpecs[name] !== undefined, "Unknown taskspec " + name )
    return file.taskSpecs[name]
 }
 
@@ -93,21 +91,6 @@ export function GetTaskUI( name: TASK_UI ): ScreenGui
    throw undefined
 }
 
-
-export function DragButtonInFrame( input: InputObject, button: GuiObject, xOffset: number, yOffset: number )
-{
-   // probably shouldn't do this every frame
-   let taskUIController = GetTaskUI( TASK_UI.TASK_CONTROLLER )
-   let frame = u.GetInstanceChildWithName( taskUIController, "Frame" ) as Frame
-   //let constraint = u.GetInstanceChildWithName( taskUIController, "UISizeConstraint" ) as UISizeConstraint
-
-   xOffset -= button.AnchorPoint.X * button.AbsoluteSize.X
-   yOffset -= button.AnchorPoint.Y * button.AbsoluteSize.Y
-   let x = u.Graph( input.Position.X - xOffset, frame.AbsolutePosition.X, frame.AbsolutePosition.X + frame.AbsoluteSize.X, 0, 1 )
-   let y = u.Graph( input.Position.Y - yOffset, frame.AbsolutePosition.Y, frame.AbsolutePosition.Y + frame.AbsoluteSize.Y, 0, 1 )
-
-   button.Position = new UDim2( x, 0, y, 0 )
-}
 
 
 export function RPC_FromServer_CancelTask()
@@ -126,13 +109,13 @@ export function RPC_FromServer_OnPlayerUseTask( roomName: string, taskName: stri
       return
 
    let taskSpec = file.taskSpecs[taskName]
-   u.Assert( taskSpec !== undefined, "Unknown task " + taskName )
+   Assert( taskSpec !== undefined, "Unknown task " + taskName )
 
    let newFrame = taskSpec.frame.Clone()
    newFrame.Visible = true
    newFrame.Parent = taskSpec.frame.Parent
 
-   //u.SetPlayerState( Players.LocalPlayer, Enum.HumanoidStateType.Running, false )
+   //SetPlayerState( Players.LocalPlayer, Enum.HumanoidStateType.Running, false )
 
    taskUIController.Frame.Header.Text = taskSpec.title
    taskUIController.Enabled = true
@@ -148,7 +131,7 @@ export function RPC_FromServer_OnPlayerUseTask( roomName: string, taskName: stri
          SendRPC( "RPC_FromClient_OnPlayerFinishTask", roomName, taskName )
       }
 
-      //u.SetPlayerState( Players.LocalPlayer, Enum.HumanoidStateType.Running, true )
+      //SetPlayerState( Players.LocalPlayer, Enum.HumanoidStateType.Running, true )
       newFrame.Destroy()
       taskUIController.Enabled = false;
       let think = file.activeTaskStatus.think
@@ -172,3 +155,4 @@ export function RPC_FromServer_OnPlayerUseTask( roomName: string, taskName: stri
    file.activeTaskStatus.think = taskSpec.startFunc( newFrame, closeFunction, file.activeTaskStatus )
 
 }
+

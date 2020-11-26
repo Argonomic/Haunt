@@ -12,6 +12,7 @@ import { DoneCreatingNVs, SH_PlayerNetVarsSetup } from "shared/sh_player_netvars
 import { AddGameStateNetVars } from "shared/sh_gamestate"
 import { CL_TaskListSetup } from "./cl_taskList"
 import { CL_MinimapSetup } from "./cl_minimap"
+import { CL_CalloutsSetup } from "./cl_callouts2d"
 
 class File
 {
@@ -37,8 +38,9 @@ CL_InputSetup()
 CL_PlayerSetup()
 AddGameStateNetVars()
 CL_UISetup()
-CL_TaskListSetup()
 CL_MinimapSetup()
+CL_TaskListSetup()
+CL_CalloutsSetup()
 
 DoneCreatingNVs()
 SH_OnPlayerConnectSetup()

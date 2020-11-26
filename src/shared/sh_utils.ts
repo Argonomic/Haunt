@@ -10,6 +10,9 @@ class File
 
 let file = new File()
 
+export type TextLabels = Array<TextLabel>
+
+
 export function SetServer()
 {
    file.isServer = true
@@ -59,8 +62,22 @@ export function GetInstanceChildWithName( parent: Instance, name: string ): Inst
    return undefined
 }
 
+export function GetChildrenWithName( parent: Instance, name: string ): Array<Instance>
+{
+   let kids = parent.GetChildren()
+   let found = []
+   for ( let kid of kids )
+   {
+      if ( kid.Name === name )
+         found.push( kid )
+   }
+
+   return found
+}
+
 export function GetChildren_NoFutureOffspring( parent: Instance ): Array<Instance>
 {
+   Assert( parent !== undefined, "No parent defined" )
    function catchOffspring( child: Instance )
    {
       Assert( false, "Parent " + parent.Name + " tried to create offspring " + child.Name )

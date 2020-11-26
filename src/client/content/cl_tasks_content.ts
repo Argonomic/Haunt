@@ -1,35 +1,35 @@
-import * as u from "shared/sh_utils"
-import { Players, RunService, Workspace } from "@rbxts/services"
+import { RunService, Workspace } from "@rbxts/services"
 import { AddTaskSpec, AddTaskUI, TaskStatus, TASK_UI } from "client/cl_tasks"
-import { CheckOutOfBoundsOfParent, AddStickyButton, GetDraggedButton, ReleaseDraggedButton, ElementWithinElement, AddCallback_MouseUp } from "client/cl_ui"
+import { AddDraggedButton, GetDraggedButton, ReleaseDraggedButton, ElementWithinElement, AddCallback_MouseUp, MoveOverTime, ElementDist } from "client/cl_ui"
 import { AddCallback_OnPlayerConnected } from "shared/sh_onPlayerConnect"
+import { ArrayRandomize, Assert, ExecOnChildWhenItExists, GetChildren_NoFutureOffspring, LoadSound } from "shared/sh_utils"
+
 
 class File
 {
-   trashSound = u.LoadSound( 411946349 )
-   bookSound = u.LoadSound( 1238528678 )
-   kingSound = u.LoadSound( 4994284848 )
-   checkerSound = u.LoadSound( 4880817564 )
+   trashSound = LoadSound( 411946349 )
+   bookSound = LoadSound( 1238528678 )
+   kingSound = LoadSound( 4994284848 )
+   checkerSound = LoadSound( 4880817564 )
 }
 
 let file = new File()
-
 
 
 export function CL_TasksContentSetup()
 {
    AddCallback_OnPlayerConnected( function ( player: Player )
    {
-      u.ExecOnChildWhenItExists( player, 'PlayerGui', function ( gui: Instance )
+      ExecOnChildWhenItExists( player, 'PlayerGui', function ( gui: Instance )
       {
-         u.ExecOnChildWhenItExists( gui, 'TaskUI', function ( taskUI: ScreenGui )
+         ExecOnChildWhenItExists( gui, 'TaskUI', function ( taskUI: ScreenGui )
          {
             taskUI.Enabled = false
             AddTaskUI( TASK_UI.TASK_CONTROLLER, taskUI )
 
-            u.ExecOnChildWhenItExists( taskUI, 'Frame', function ( frame: Frame )
+            ExecOnChildWhenItExists( taskUI, 'Frame', function ( frame: Frame )
             {
-               u.ExecOnChildWhenItExists( frame, 'tasks', function ( tasksFolder: Folder )
+               ExecOnChildWhenItExists( frame, 'tasks', function ( tasksFolder: Folder )
                {
                   let taskFrames = tasksFolder.GetChildren() as Array<Frame>
 
@@ -61,7 +61,7 @@ function GetStartFunc( name: string ): Function
          return Task_WinAtCheckers
    }
 
-   u.Assert( false, "No func for " + name )
+   Assert( false, "No func for " + name )
 
    throw undefined
 }
@@ -80,7 +80,7 @@ function GetTitle( name: string ): string
          return "Win at Checkers"
    }
 
-   u.Assert( false, "No title found for " + name )
+   Assert( false, "No title found for " + name )
 
    throw undefined
 }
@@ -91,7 +91,7 @@ function Task_PutBooksAway( frame: Frame, closeTaskThread: Function, status: Tas
    let bookPositions: Array<UDim2> = []
    let bookSpots: Array<ImageLabel> = []
 
-   let children = u.GetChildren_NoFutureOffspring( frame )
+   let children = GetChildren_NoFutureOffspring( frame )
    for ( let child of children )
    {
       switch ( child.Name )
@@ -108,18 +108,16 @@ function Task_PutBooksAway( frame: Frame, closeTaskThread: Function, status: Tas
       }
    }
 
-   u.ArrayRandomize( books )
-   u.ArrayRandomize( bookSpots )
+   ArrayRandomize( books )
+   ArrayRandomize( bookSpots )
 
-   const startPositions = new Map<ImageButton, UDim2>()
    const buttonConnections = new Map<ImageButton, RBXScriptConnection>()
 
    for ( let i = 0; i < books.size(); i++ )
    {
       let book = books[i]
       book.Position = bookPositions[i]
-      startPositions.set( book, book.Position )
-      buttonConnections.set( book, AddStickyButton( book ) )
+      buttonConnections.set( book, AddDraggedButton( book ) )
    }
 
    const bookSpotDestinations = new Map<ImageButton, ImageLabel>()
@@ -142,6 +140,7 @@ function Task_PutBooksAway( frame: Frame, closeTaskThread: Function, status: Tas
       }
    }
 
+
    class Counter
    {
       count: number = 0
@@ -156,10 +155,7 @@ function Task_PutBooksAway( frame: Frame, closeTaskThread: Function, status: Tas
          return
 
       let dest = bookSpotDestinations.get( button ) as ImageLabel
-      let x = math.abs( dest.AbsolutePosition.X - button.AbsolutePosition.X )
-      let y = math.abs( dest.AbsolutePosition.Y - button.AbsolutePosition.Y )
-
-      if ( x < 8 && y < 8 )
+      if ( ElementDist( button, dest ) < 8 )
       {
          file.bookSound.Play()
          ReleaseDraggedButton()
@@ -172,12 +168,6 @@ function Task_PutBooksAway( frame: Frame, closeTaskThread: Function, status: Tas
             closeTaskThread()
          }
          return
-      }
-
-      if ( CheckOutOfBoundsOfParent( button ) )
-      {
-         ReleaseDraggedButton()
-         button.Position = startPositions.get( button as ImageButton ) as UDim2
       }
 
    } )
@@ -202,7 +192,7 @@ function Task_WinAtCheckers( frame: Frame, closeTaskThread: Function, status: Ta
    let _kingPiece: ImageButton | undefined
    let _clickChecker: ImageButton | undefined
 
-   let children = u.GetChildren_NoFutureOffspring( frame )
+   let children = GetChildren_NoFutureOffspring( frame )
    for ( let child of children )
    {
       switch ( child.Name )
@@ -347,65 +337,13 @@ function Task_WinAtCheckers( frame: Frame, closeTaskThread: Function, status: Ta
    } )
 }
 
-function MoveOverTime( element: GuiObject, endPos: UDim2, blendTime: number, runFunc: Function )
-{
-   let startTime = Workspace.DistributedGameTime
-   let endTime = Workspace.DistributedGameTime + blendTime
-   let start = element.Position
-
-   class Render
-   {
-      rbx: RBXScriptConnection
-      constructor( rbx: RBXScriptConnection )
-      {
-         this.rbx = rbx
-      }
-   }
-
-   let rbx = new Render( RunService.RenderStepped.Connect( function ()
-   {
-      if ( Workspace.DistributedGameTime >= endTime )
-      {
-         element.Position = endPos
-         rbx.rbx.Disconnect()
-         runFunc()
-         return
-      }
-
-      let x = u.Graph( Workspace.DistributedGameTime, startTime, endTime, start.X.Scale, endPos.X.Scale )
-      let y = u.Graph( Workspace.DistributedGameTime, startTime, endTime, start.Y.Scale, endPos.Y.Scale )
-      element.Position = new UDim2( x, 0, y, 0 )
-   } ) )
-
-   /*
-   
-      local render = RunService.RenderStepped:connect(function()
-         local pos = {}
-         local scale = {}
-         for _, axis in pairs( axises ) do
-            pos[axis] = _G.u.Graph( workspace.DistributedGameTime, startTime, endTime, start[axis], trash.Position[axis].Scale )
-            scale[axis] = _G.u.Graph( workspace.DistributedGameTime, startTime, endTime, startScale[axis], 0 )
-         end
-   
-         draggedButton.Position = UDim2.new( pos["X"], 0, pos["Y"], 0 )
-         draggedButton.Size = UDim2.new( scale["X"], 0, scale["Y"], 0 )
-      end)
-   
-      wait( blendTime )
-   
-      render:Disconnect()
-   */
-}
-
-
-
 function Task_CleanOutFridge( frame: Frame, closeTaskThread: Function, status: TaskStatus )
 {
    let items: Array<ImageButton> = []
    let itemPositions: Array<UDim2> = []
    let trash: ImageLabel | undefined = undefined
 
-   let children = u.GetChildren_NoFutureOffspring( frame )
+   let children = GetChildren_NoFutureOffspring( frame )
    for ( let child of children )
    {
       switch ( child.Name )
@@ -422,7 +360,7 @@ function Task_CleanOutFridge( frame: Frame, closeTaskThread: Function, status: T
       }
    }
 
-   u.ArrayRandomize( items )
+   ArrayRandomize( items )
 
    let remove = 3
    for ( let i = 0; i < remove; i++ )
@@ -431,15 +369,13 @@ function Task_CleanOutFridge( frame: Frame, closeTaskThread: Function, status: T
    }
    items = items.slice( remove, items.size() )
 
-   const startPositions = new Map<ImageButton, UDim2>()
    const buttonConnections = new Map<ImageButton, RBXScriptConnection>()
 
    for ( let i = 0; i < items.size(); i++ )
    {
       let item = items[i]
       item.Position = itemPositions[i]
-      startPositions.set( item, item.Position )
-      buttonConnections.set( item, AddStickyButton( item ) )
+      buttonConnections.set( item, AddDraggedButton( item ) )
    }
 
    class Counter
@@ -461,37 +397,6 @@ function Task_CleanOutFridge( frame: Frame, closeTaskThread: Function, status: T
          ReleaseDraggedButton()
 
 
-         /*
-            local blendTime = 0.35
-            local startTime = workspace.DistributedGameTime
-            local endTime = workspace.DistributedGameTime + blendTime
-            local axises = { "X", "Y" }
-            local start = {}
-            local startScale = {}
-            for _, axis in pairs( axises ) do
-               start[axis] = draggedButton.Position[axis].Scale
-               startScale[axis] = draggedButton.Size[axis].Scale
-            end
-         
-         
-            local render = RunService.RenderStepped:connect(function()
-               local pos = {}
-               local scale = {}
-               for _, axis in pairs( axises ) do
-                  pos[axis] = _G.u.Graph( workspace.DistributedGameTime, startTime, endTime, start[axis], trash.Position[axis].Scale )
-                  scale[axis] = _G.u.Graph( workspace.DistributedGameTime, startTime, endTime, startScale[axis], 0 )
-               end
-         
-               draggedButton.Position = UDim2.new( pos["X"], 0, pos["Y"], 0 )
-               draggedButton.Size = UDim2.new( scale["X"], 0, scale["Y"], 0 )
-            end)
-         
-            wait( blendTime )
-         
-            render:Disconnect()
-         */
-
-
          button.Destroy()
          counter.count++
          if ( counter.count >= items.size() )
@@ -501,12 +406,6 @@ function Task_CleanOutFridge( frame: Frame, closeTaskThread: Function, status: T
             return
          }
          return
-      }
-
-      if ( CheckOutOfBoundsOfParent( button ) )
-      {
-         ReleaseDraggedButton()
-         button.Position = startPositions.get( button as ImageButton ) as UDim2
       }
 
    } )

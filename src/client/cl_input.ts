@@ -1,52 +1,99 @@
-import { ContextActionService, GamePassService, UserInputService } from "@rbxts/services";
-import { GetCurrentRoom } from "client/cl_rooms"
-import * as cl from "client/cl_utils"
+import { ContextActionService, UserInputService } from "@rbxts/services";
+import { GetPosition } from "shared/sh_utils";
 
-function PlayerTriesToUseCurrenRoom()
+class File
 {
-   cl.SendRPC( "RPC_FromClient_OnPlayerUseFromRoom", GetCurrentRoom().name )
+   //input: InputObject | undefined
+   captureInputChangeCallbacks: Array<Function> = []
+   onUseCallbacks: Array<Function> = []
+   onTouchEndedCallbacks: Array<Function> = []
 }
+
+let file = new File()
+
+
+export function AddOnUseCallback( func: Function )
+{
+   file.onUseCallbacks.push( func )
+}
+
+export function AddOnTouchEndedCallback( func: Function )
+{
+   file.onTouchEndedCallbacks.push( func )
+}
+
 
 export function CL_InputSetup()
 {
+   UserInputService.InputChanged.Connect( InputChanged )
+
    let onPressUse = function ( actionName: string, state: Enum.UserInputState, inputObject: InputObject )
    {
       if ( inputObject.KeyCode === Enum.KeyCode.Unknown )
          return
 
+      OnUse()
+      /*
       print( "** * * * onPressUse " + inputObject.KeyCode )
       if ( state === Enum.UserInputState.Begin )
          print( "Begin input" )
 
       if ( state === Enum.UserInputState.End )
          print( "End input" )
+      */
 
-      PlayerTriesToUseCurrenRoom()
    }
    ContextActionService.BindAction( "PlayerInput", onPressUse, false, Enum.KeyCode.ButtonR2, Enum.KeyCode.E )
 
-   let focusControl = function ( actionName: string, state: Enum.UserInputState, inputObject: InputObject )
+   function FocusControl( actionName: string, state: Enum.UserInputState, inputObject: InputObject )
    {
       if ( state === Enum.UserInputState.Begin )
       {
          ContextActionService.UnbindAction( "FocusControl" )
       }
    }
-   ContextActionService.BindAction( "FocusControl", focusControl, false, Enum.UserInputType.MouseButton1, Enum.UserInputType.Touch, Enum.UserInputType.Focus )
+   ContextActionService.BindAction( "FocusControl", FocusControl, false, Enum.UserInputType.MouseButton1, Enum.UserInputType.Touch, Enum.UserInputType.Focus )
 
    if ( UserInputService.TouchEnabled )
    {
-      UserInputService.TouchTap.Connect( OnTouch )
+      UserInputService.TouchTap.Connect(
+         function ( touchPositions: Array<InputObject>, gameProcessedEvent: boolean )
+         {
+            OnUse()
+         } )
+
+      /*
+UserInputService.TouchStarted.Connect(
+   function ( touch: InputObject, gameProcessedEvent: boolean )
+   {
+      file.lastTouchPosition = touch.Position
+      print( "\n\tSet file.lastTouchPosition " + file.lastTouchPosition )
+   } )
+      */
+
+      UserInputService.TouchEnded.Connect(
+         function ( touch: InputObject, gameProcessedEvent: boolean )
+         {
+            for ( let callback of file.onTouchEndedCallbacks )
+            {
+               callback()
+            }
+         } )
       //UserInputService.TouchLongPress.Connect( TouchLong )
       //UserInputService.TouchMoved.Connect( TouchMove )
       //UserInputService.TouchEnded.Connect( TouchEnd )
    }
 }
 
-function OnTouch( touchPositions: Array<InputObject>, gameProcessedEvent: boolean )
+
+function OnUse()
 {
-   PlayerTriesToUseCurrenRoom()
+   for ( let callback of file.onUseCallbacks )
+   {
+      callback()
+   }
 }
+
 
 /*
 local UserInputService = game:GetService("UserInputService")
@@ -92,3 +139,101 @@ if UserInputService.TouchEnabled then
    UserInputService.TouchMoved:Connect(TouchMove)
    UserInputService.TouchEnded:Connect(TouchEnd)
 end*/
+
+function CaptureInputChange( input: InputObject )
+{
+   //print( " " )
+   //print( input.UserInputType )
+   //print( input.UserInputState )
+   // /file.input = input
+   input.UserInputState.Name
+   for ( let callback of file.captureInputChangeCallbacks )
+   {
+      callback( input )
+   }
+}
+
+export function AddCaptureInputChangeCallback( func: Function )
+{
+   file.captureInputChangeCallbacks.push( func )
+}
+
+
+
+function InputChanged( input: InputObject, gameProcessedEvent: boolean )
+{
+   if ( input.UserInputType === Enum.UserInputType.MouseButton1 )
+   {
+      CaptureInputChange( input )
+   }
+   else if ( input.UserInputType === Enum.UserInputType.MouseMovement )
+   {
+      //print( "The mouse has been moved!" )
+      CaptureInputChange( input )
+   }
+   else if ( input.UserInputType === Enum.UserInputType.MouseWheel )
+   {
+      //print( "The mouse wheel has been scrolled!" )
+      //print( "\tWheel Movement:", input.Position.Z )
+   }
+   else if ( input.UserInputType === Enum.UserInputType.Gamepad1 )
+   {
+      if ( input.KeyCode === Enum.KeyCode.Thumbstick1 )
+      {
+         //print( "The left thumbstick has been moved!" )
+         CaptureInputChange( input )
+      }
+      else if ( input.KeyCode === Enum.KeyCode.Thumbstick2 )
+      {
+         //print( "The right thumbstick has been moved!" )
+         CaptureInputChange( input )
+      }
+      else if ( input.KeyCode === Enum.KeyCode.ButtonL2 )
+      {
+         //print( "The pressure being applied to the left trigger has changed!" )
+         //print( "\tPressure:", input.Position.Z )
+      }
+      else if ( input.KeyCode === Enum.KeyCode.ButtonR2 )
+      {
+         //print( "The pressure being applied to the right trigger has changed!" )
+         //print( "\tPressure:", input.Position.Z )
+      }
+   }
+   else if ( input.UserInputType === Enum.UserInputType.Touch )
+   {
+      //print( "The user's finger is moving on the screen!" )
+      CaptureInputChange( input )
+   }
+   else if ( input.UserInputType === Enum.UserInputType.Gyro )
+   {
+      //local rotInput, rotCFrame = UserInputService: GetDeviceRotation()
+      //local rotX, rotY, rotZ = rotCFrame: toEulerAnglesXYZ()
+      //local rot = Vector3.new( math.deg( rotX ), math.deg( rotY ), math.deg( rotZ ) )
+      //print( "The rotation of the user's mobile device has been changed!" )
+      //print( "\tPosition", rotCFrame.p )
+      //print( "\tRotation:", rot )
+   }
+   else if ( input.UserInputType === Enum.UserInputType.Accelerometer )
+   {
+      //print( "The acceleration of the user's mobile device has been changed!" )
+      CaptureInputChange( input )
+   }
+}
+
+
+
+/*
+print( "UserInputService.TouchEnabled " + UserInputService.TouchEnabled )
+   if ( UserInputService.TouchEnabled )
+   {
+      button.MouseButton1Up.Connect( function ()
+      {
+         print( "MouseButton1Up!" )
+         if ( file.draggedButton !== button )
+            return
+         ReleaseDraggedButton()
+      } )
+   }
+
+ */
+

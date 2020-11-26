@@ -1,5 +1,5 @@
-import * as u from "shared/sh_utils"
 import { Workspace } from "@rbxts/services"
+import { Assert, GetChildren_NoFutureOffspring, GetInstanceChildWithName, GetWorkspaceChildByName, IsClient } from "./sh_utils"
 
 const DEFAULT_FIELDOFVIEW = 20
 
@@ -57,7 +57,7 @@ export class Room
    name: string = ""
    doors: Array<Instance> = []
    center: BasePart | undefined
-   tasks: Array<Task> = []
+   tasks = new Map<string, Task>()
    cameraStart = new Vector3( 0, 0, 0 )
    cameraEnd = new Vector3( 0, 0, 0 )
    fieldOfView: number = DEFAULT_FIELDOFVIEW
@@ -89,7 +89,7 @@ export class Task
 
 function CreateRoomFromFolder( folder: Folder ): Room
 {
-   let children = u.GetChildren_NoFutureOffspring( folder )
+   let children = GetChildren_NoFutureOffspring( folder )
    let room = new Room()
    room.name = folder.Name
 
@@ -100,21 +100,23 @@ function CreateRoomFromFolder( folder: Folder ): Room
          case "usable_task":
             {
                let childPart = child as BasePart
-               u.Assert( childPart.ClassName === "Part", "trigger_door should be a Part" )
+               Assert( childPart.ClassName === "Part", "trigger_door should be a Part" )
 
                childPart.CanCollide = false
                childPart.Transparency = 1.0
 
                let taskRef = childPart as EDITOR_UsableTask
                let task = new Task( taskRef.taskName.Value, taskRef )
-               room.tasks.push( task )
+
+               Assert( !room.tasks.has( task.name ), "Room already has task " + task.name )
+               room.tasks.set( task.name, task )
             }
             break
 
          case "part_roomcenter_delete":
             {
                let childPart = child as BasePart
-               u.Assert( childPart.ClassName === "Part", "trigger_door should be a Part" )
+               Assert( childPart.ClassName === "Part", "trigger_door should be a Part" )
 
                room.center = childPart
                room.cameraEnd = childPart.Position
@@ -122,37 +124,37 @@ function CreateRoomFromFolder( folder: Folder ): Room
                childPart.CanCollide = false
                childPart.Transparency = 1.0
 
-               let childCameraFov = u.GetInstanceChildWithName( childPart, "camera_fov" )
+               let childCameraFov = GetInstanceChildWithName( childPart, "camera_fov" )
                if ( childCameraFov !== undefined )
                {
-                  u.Assert( ( childCameraFov as Instance ).ClassName === "NumberValue", "Wrong type" )
+                  Assert( ( childCameraFov as Instance ).ClassName === "NumberValue", "Wrong type" )
                   room.fieldOfView = ( childCameraFov as EDITOR_NumberValue ).Value
                }
 
                let cameraPosOffset = new Vector3( 0, 0, 0 )
-               let childCameraPosOffset = u.GetInstanceChildWithName( childPart, "camera_pos_offset" )
+               let childCameraPosOffset = GetInstanceChildWithName( childPart, "camera_pos_offset" )
                if ( childCameraPosOffset !== undefined )
                {
-                  u.Assert( ( childCameraPosOffset as Instance ).ClassName === "Vector3Value", "Wrong type" )
+                  Assert( ( childCameraPosOffset as Instance ).ClassName === "Vector3Value", "Wrong type" )
                   cameraPosOffset = ( childCameraPosOffset as EDITOR_Vector3Value ).Value
                }
 
                let cameraDist: number | undefined
 
-               let childCameraDist = u.GetInstanceChildWithName( childPart, "camera_dist" )
+               let childCameraDist = GetInstanceChildWithName( childPart, "camera_dist" )
                if ( childCameraDist !== undefined )
                {
                   cameraDist = ( childCameraDist as EDITOR_NumberValue ).Value
                }
-               u.Assert( cameraDist !== undefined, "part_roomcenter_delete does not have camera_dist field" )
+               Assert( cameraDist !== undefined, "part_roomcenter_delete does not have camera_dist field" )
                if ( cameraDist === undefined )
                   return
 
                let editorCameraOffset: EDITOR_Vector3Value | undefined
-               let childCameraOffset = u.GetInstanceChildWithName( childPart, "camera_offset" )
+               let childCameraOffset = GetInstanceChildWithName( childPart, "camera_offset" )
                if ( childCameraOffset !== undefined )
                {
-                  u.Assert( ( childCameraOffset as Instance ).ClassName === "Vector3Value", "Wrong type" )
+                  Assert( ( childCameraOffset as Instance ).ClassName === "Vector3Value", "Wrong type" )
                   editorCameraOffset = childCameraOffset as EDITOR_Vector3Value
                }
 
@@ -175,7 +177,7 @@ function CreateRoomFromFolder( folder: Folder ): Room
          case "trigger_door":
             {
                let childPart = child as BasePart
-               u.Assert( childPart.ClassName === "Part", "trigger_door should be a Part" )
+               Assert( childPart.ClassName === "Part", "trigger_door should be a Part" )
 
                childPart.Transparency = 1.0
                room.doors.push( childPart )
@@ -186,7 +188,7 @@ function CreateRoomFromFolder( folder: Folder ): Room
 
          case "client_blockers":
             {
-               let blockers = u.GetChildren_NoFutureOffspring( child )
+               let blockers = GetChildren_NoFutureOffspring( child )
                for ( let instance of blockers )
                {
                   let blocker = instance as BasePart
@@ -203,7 +205,7 @@ function CreateRoomFromFolder( folder: Folder ): Room
 
                   room.clientBlockerInfo.push( blockerInfo )
 
-                  if ( u.IsClient() )
+                  if ( IsClient() )
                      blocker.Destroy()
                }
             }
@@ -226,7 +228,7 @@ function CreateRoomFromFolder( folder: Folder ): Room
       addRoomChild( child )
    }
 
-   u.Assert( room.center !== undefined, "Could not find part_roomcenter_delete for room " + folder.Name )
+   Assert( room.center !== undefined, "Could not find part_roomcenter_delete for room " + folder.Name )
 
    return room
 }
@@ -290,7 +292,7 @@ export function CreateClientBlockers( room: Room ): Array<BasePart>
 
 
          default:
-            u.Assert( false, "Part type " + blockerInfo.className + " isn't handled yet, add here" )
+            Assert( false, "Part type " + blockerInfo.className + " isn't handled yet, add here" )
       }
       let part = createPart as BasePart
 
@@ -311,8 +313,8 @@ export function CreateClientBlockers( room: Room ): Array<BasePart>
 
 export function AddRoomsFromWorkspace(): Map<string, Room>
 {
-   const roomFolder = u.GetWorkspaceChildByName( "Rooms" ) as RoomBaseFolder
-   let roomFolders = u.GetChildren_NoFutureOffspring( roomFolder )
+   const roomFolder = GetWorkspaceChildByName( "Rooms" ) as RoomBaseFolder
+   let roomFolders = GetChildren_NoFutureOffspring( roomFolder )
    let rooms = new Map<string, Room>()
 
    for ( let _roomFolder of roomFolders )
@@ -329,7 +331,7 @@ export function AddRoomsFromWorkspace(): Map<string, Room>
             break
 
          default:
-            u.Assert( false, "unexpected ClassName in Workspace.Rooms" )
+            Assert( false, "unexpected ClassName in Workspace.Rooms" )
             break
       }
    }

@@ -1,10 +1,15 @@
-import * as u from "shared/sh_utils"
-import { HttpService, Players, SocialService } from "@rbxts/services"
+import { HttpService, Players } from "@rbxts/services"
 import { AddTaskUI, GetTaskSpec, GetTaskUI, TASK_UI } from "client/cl_tasks"
 import { Assignment, JSON_TASKLIST } from "shared/sh_gamestate"
 import { AddNetVarChangedCallback, GetNetVar_String } from "shared/sh_player_netvars"
 import { AddCallback_OnPlayerConnected } from "shared/sh_onPlayerConnect"
+import { AddRoomChangedCallback, CurrentRoomExists, GetCurrentRoom, GetRooms } from "./cl_rooms"
+import { Assert, ExecOnChildWhenItExists } from "shared/sh_utils"
+import { AddCallout, ClearCallouts, InitCallouts } from "./cl_callouts2d"
+import { Room, Task } from "shared/sh_rooms"
+import { AddMapIcon, ClearMinimapIcons } from "./cl_minimap"
 
+const CALLOUTS_NAME = "TASKLIST_CALLOUTS"
 
 type EDITOR_ScreenUIWithFrame = ScreenGui &
 {
@@ -26,7 +31,6 @@ let file = new File()
 function TaskListChanged()
 {
    let json = GetNetVar_String( Players.LocalPlayer, JSON_TASKLIST )
-   print( "DECODE " + json )
    let assignments = HttpService.JSONDecode( json ) as Array<Assignment>
    file.assignments = assignments
    //print( "Total assignments: " + file.assignments.size() )
@@ -36,13 +40,17 @@ function TaskListChanged()
 
 export function CL_TaskListSetup()
 {
+   InitCallouts( CALLOUTS_NAME )
+
+   AddRoomChangedCallback( RecreateTaskListCallouts2d )
+
    AddNetVarChangedCallback( JSON_TASKLIST, TaskListChanged )
 
    AddCallback_OnPlayerConnected( function ()
    {
-      u.ExecOnChildWhenItExists( Players.LocalPlayer, 'PlayerGui', function ( child: Instance )
+      ExecOnChildWhenItExists( Players.LocalPlayer, 'PlayerGui', function ( child: Instance )
       {
-         u.ExecOnChildWhenItExists( child, 'TaskList', function ( taskList: EDITOR_ScreenUIWithFrame )
+         ExecOnChildWhenItExists( child, 'TaskList', function ( taskList: EDITOR_ScreenUIWithFrame )
          {
             taskList.Enabled = false
 
@@ -73,7 +81,7 @@ function RecreateTaskListUI()
    let baseLabel = copy.Frame.TextLabel
    let count = 0
 
-   function assignmentLabel( assignment: Assignment )
+   function AssignmentLabel( assignment: Assignment )
    {
       let label = baseLabel.Clone()
       label.Parent = baseLabel.Parent
@@ -91,10 +99,62 @@ function RecreateTaskListUI()
 
    for ( let assignment of file.assignments )
    {
-      assignmentLabel( assignment )
+      AssignmentLabel( assignment )
    }
 
    //copy.Frame.Size = new UDim2( 
 
    baseLabel.Destroy()
+
+   RecreateTaskListCallouts2d()
+
+   ClearMinimapIcons()
+   let rooms = GetRooms()
+
+   function AddAssignmentMinimapIcon( assignment: Assignment )
+   {
+      if ( assignment.status !== 0 )
+         return
+
+      Assert( rooms.has( assignment.roomName ), "No known room " + assignment.roomName )
+
+      let room = rooms.get( assignment.roomName ) as Room
+
+      Assert( room.tasks.has( assignment.taskName ), "Room " + room.name + " has no task " + assignment.taskName )
+      let task = room.tasks.get( assignment.taskName ) as Task
+
+      AddMapIcon( task.volume.Position )
+   }
+
+   for ( let assignment of file.assignments )
+   {
+      AddAssignmentMinimapIcon( assignment )
+   }
+}
+
+export function RecreateTaskListCallouts2d()
+{
+   if ( !CurrentRoomExists() )
+      return
+
+   ClearCallouts( CALLOUTS_NAME )
+
+   let room = GetCurrentRoom()
+
+   function AddCalloutForAssignment( assignment: Assignment )
+   {
+      if ( assignment.roomName !== room.name )
+         return
+      if ( assignment.status !== 0 )
+         return
+
+      Assert( room.tasks.has( assignment.taskName ), "Room " + room.name + " has no task " + assignment.taskName )
+      let task = room.tasks.get( assignment.taskName ) as Task
+      AddCallout( CALLOUTS_NAME, task.volume.Position )
+   }
+
+   for ( let assignment of file.assignments )
+   {
+      AddCalloutForAssignment( assignment )
+   }
 }

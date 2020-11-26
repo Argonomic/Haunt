@@ -60,7 +60,7 @@ export function SetPlayerCameraToRoom( room: Room )
    let centerOffset = GetOffSet()
    camera.CFrame = cframe.mul( centerOffset )
 
-   print( "Set room to " + room.name + " with camera start " + room.cameraStart + " and fov " + room.fieldOfView )
+   //print( "Set room to " + room.name + " with camera start " + room.cameraStart + " and fov " + room.fieldOfView )
 
 }
 

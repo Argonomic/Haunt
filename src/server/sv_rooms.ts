@@ -8,7 +8,7 @@ import { Room, AddRoomsFromWorkspace, RoomAndTask } from "shared/sh_rooms"
 
 class File
 {
-   dev_startRoom: string = "downstairs hallway"
+   dev_startRoom: string = "Great Room"
    rooms = new Map<string, Room>()
 }
 
@@ -20,9 +20,9 @@ export function GetAllRoomsAndTasks(): Array<RoomAndTask>
    let roomsAndTasks: Array<RoomAndTask> = []
    for ( let room of rooms )
    {
-      for ( let task of room.tasks )
+      for ( let taskArr of room.tasks )
       {
-         roomsAndTasks.push( new RoomAndTask( room, task ) )
+         roomsAndTasks.push( new RoomAndTask( room, taskArr[1] ) )
       }
    }
 

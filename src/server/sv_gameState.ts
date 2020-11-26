@@ -7,7 +7,6 @@ import { HttpService } from "@rbxts/services"
 import { AddRPC } from "shared/sh_rpc"
 import { Task } from "shared/sh_rooms"
 import { SendRPC } from "./sv_utils"
-import { CheckOutOfBoundsOfParent } from "client/cl_ui"
 
 class File
 {
@@ -142,9 +141,9 @@ function RPC_FromClient_OnPlayerUseFromRoom( player: Player, roomName: string )
       return false
    }
 
-   for ( let task of room.tasks )
+   for ( let taskArr of room.tasks )
    {
-      if ( usedTask( task ) )
+      if ( usedTask( taskArr[1] ) )
          return
    }
 }
