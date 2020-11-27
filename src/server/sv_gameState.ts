@@ -1,5 +1,4 @@
-import * as u from "shared/sh_utils"
-import { AddCallback_OnPlayerConnected } from "shared/sh_onPlayerConnect"
+import { AddCallback_OnPlayerConnected, SetPlayerWalkSpeed } from "shared/sh_onPlayerConnect"
 import { Assignment, AddGameStateNetVars, JSON_TASKLIST, MAX_TASKLIST_SIZE } from "shared/sh_gamestate"
 import { SetNetVar } from "shared/sh_player_netvars"
 import { GetAllRoomsAndTasks, GetRoom } from "./sv_rooms"
@@ -7,6 +6,7 @@ import { HttpService } from "@rbxts/services"
 import { AddRPC } from "shared/sh_rpc"
 import { Task } from "shared/sh_rooms"
 import { SendRPC } from "./sv_utils"
+import { ArrayRandomize, Assert, GetPlayerFromDescendant, GetPosition, GetTouchingParts, PlayerTouchesPart } from "shared/sh_utils"
 
 class File
 {
@@ -29,7 +29,7 @@ export function PlayerHasUnfinishedAssignment( player: Player, roomName: string,
    let assignments = file.assignments.get( player )
    if ( assignments === undefined )
    {
-      u.Assert( false, "Player has no assignments" )
+      Assert( false, "Player has no assignments" )
       throw undefined
    }
 
@@ -44,10 +44,12 @@ export function PlayerHasUnfinishedAssignment( player: Player, roomName: string,
 
 function RPC_FromClient_OnPlayerFinishTask( player: Player, roomName: string, taskName: string )
 {
+   SetPlayerWalkSpeed( player, 16 )
+
    let assignments = file.assignments.get( player )
    if ( assignments === undefined )
    {
-      u.Assert( false, "Player has no assignments" )
+      Assert( false, "Player has no assignments" )
       return
    }
 
@@ -66,7 +68,7 @@ function AssignTasks( player: Player )
    let assignments: Array<Assignment> = []
    // create a list of random tasks for player to do
    let roomsAndTasks = GetAllRoomsAndTasks()
-   u.ArrayRandomize( roomsAndTasks )
+   ArrayRandomize( roomsAndTasks )
    roomsAndTasks = roomsAndTasks.slice( 0, MAX_TASKLIST_SIZE )
    for ( let roomAndTask of roomsAndTasks )
    {
@@ -81,7 +83,7 @@ function AssignTasks( player: Player )
 function UpdateTasklistNetvar( player: Player )
 {
    let assignments = file.assignments.get( player )
-   u.Assert( assignments !== undefined, "Player does not have tasklist" )
+   Assert( assignments !== undefined, "Player does not have tasklist" )
    if ( assignments === undefined )
       return
 
@@ -99,9 +101,9 @@ function RPC_FromClient_OnPlayerUseFromRoom( player: Player, roomName: string )
 {
    print( "RPC_FromClient_OnPlayerUseFromRoom " + roomName )
    let room = GetRoom( roomName )
-   u.Assert( room !== undefined, "Unknown room " + roomName )
+   Assert( room !== undefined, "Unknown room " + roomName )
 
-   let playerOrg = u.GetPosition( player )
+   let playerOrg = GetPosition( player )
 
    let usedTask = function ( task: Task ): boolean
    {
@@ -110,15 +112,18 @@ function RPC_FromClient_OnPlayerUseFromRoom( player: Player, roomName: string )
       if ( dist > 6 )
          return false
 
-      let parts = u.GetTouchingParts( task.volume as BasePart )
+      let parts = GetTouchingParts( task.volume as BasePart )
 
       for ( let part of parts )
       {
-         let partPlayer = u.GetPlayerFromDescendant( part )
+         let partPlayer = GetPlayerFromDescendant( part )
          if ( partPlayer === player )
          {
             if ( PlayerHasUnfinishedAssignment( player, roomName, task.name ) )
+            {
+               SetPlayerWalkSpeed( player, 0 )
                SendRPC( "RPC_FromServer_OnPlayerUseTask", player, roomName, task.name )
+            }
 
             // cancel if you walk away
             let co = coroutine.create( function ()
@@ -126,12 +131,14 @@ function RPC_FromClient_OnPlayerUseFromRoom( player: Player, roomName: string )
                for ( ; ; )
                {
                   wait( 1 )
-                  if ( !u.PlayerTouchesPart( player, task.volume, 8 ) )
+                  if ( !PlayerTouchesPart( player, task.volume, 8 ) )
                      break
                }
 
                if ( PlayerHasUnfinishedAssignment( player, roomName, task.name ) )
+               {
                   SendRPC( "RPC_FromServer_CancelTask", player )
+               }
             } )
             coroutine.resume( co )
 

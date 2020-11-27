@@ -1,13 +1,15 @@
-import { HttpService, Players } from "@rbxts/services"
+import { HttpService, Players, UserInputService, Workspace } from "@rbxts/services"
 import { AddTaskUI, GetTaskSpec, GetTaskUI, TASK_UI } from "client/cl_tasks"
 import { Assignment, JSON_TASKLIST } from "shared/sh_gamestate"
 import { AddNetVarChangedCallback, GetNetVar_String } from "shared/sh_player_netvars"
 import { AddCallback_OnPlayerConnected } from "shared/sh_onPlayerConnect"
 import { AddRoomChangedCallback, CurrentRoomExists, GetCurrentRoom, GetRooms } from "./cl_rooms"
-import { Assert, ExecOnChildWhenItExists } from "shared/sh_utils"
+import { Assert, ExecOnChildWhenItExists, Graph } from "shared/sh_utils"
 import { AddCallout, ClearCallouts, InitCallouts } from "./cl_callouts2d"
 import { Room, Task } from "shared/sh_rooms"
 import { AddMapIcon, ClearMinimapIcons } from "./cl_minimap"
+import { UIORDER } from "./cl_ui"
+import { Tween } from "shared/sh_tween"
 
 const CALLOUTS_NAME = "TASKLIST_CALLOUTS"
 
@@ -24,6 +26,7 @@ class File
    recreateTaskListUI: Function | undefined
    assignments: Array<Assignment> = []
    existingUI: ScreenGui | undefined
+   taskListOpen = true
 }
 
 let file = new File()
@@ -53,6 +56,7 @@ export function CL_TaskListSetup()
          ExecOnChildWhenItExists( child, 'TaskList', function ( taskList: EDITOR_ScreenUIWithFrame )
          {
             taskList.Enabled = false
+            taskList.DisplayOrder = UIORDER.UIORDER_TASKLIST
 
             AddTaskUI( TASK_UI.TASK_LIST, taskList )
             file.recreateTaskListUI = RecreateTaskListUI
@@ -78,14 +82,57 @@ function RecreateTaskListUI()
    copy.Enabled = true
    copy.Parent = taskList.Parent
    copy.Name = copy.Name + " COPY"
+
+   ExecOnChildWhenItExists( copy, 'Frame', function ( frame: Frame )
+   {
+      if ( file.taskListOpen )
+         frame.AnchorPoint = new Vector2( 0.0, 0 )
+      else
+         frame.AnchorPoint = new Vector2( 1.0, 0 )
+
+      ExecOnChildWhenItExists( frame, 'CloseButton', function ( closeButton: ImageButton )
+      {
+         function CloseClick()
+         {
+            let time = 0.5
+            if ( file.taskListOpen )
+            {
+               Tween( frame, { AnchorPoint: new Vector2( 1.0, 0 ) }, time, Enum.EasingStyle.Exponential )
+               Tween( closeButton, { Rotation: 180 }, time, Enum.EasingStyle.Exponential )
+            }
+            else
+            {
+               Tween( frame, { AnchorPoint: new Vector2( 0, 0 ) }, time, Enum.EasingStyle.Exponential )
+               Tween( closeButton, { Rotation: 0 }, time, Enum.EasingStyle.Exponential )
+            }
+
+            file.taskListOpen = !file.taskListOpen
+         }
+
+         if ( UserInputService.TouchEnabled )
+         {
+            closeButton.TouchTap.Connect( CloseClick )
+         }
+         else
+         {
+            closeButton.MouseButton1Up.Connect( CloseClick )
+         }
+      } )
+   } )
+
    let baseLabel = copy.Frame.TextLabel
    let count = 0
+
+   let viewSize = ( Workspace.CurrentCamera as Camera ).ViewportSize
+   baseLabel.TextSize = Graph( viewSize.Y, 374, 971, 11, 28 )
+   baseLabel.TextWrapped = false
+   baseLabel.TextScaled = false
 
    function AssignmentLabel( assignment: Assignment )
    {
       let label = baseLabel.Clone()
       label.Parent = baseLabel.Parent
-      label.Position = new UDim2( baseLabel.Position.X.Scale, 0, baseLabel.Position.Y.Scale + ( count * 0.1 ), 0 )
+      label.Position = new UDim2( baseLabel.Position.X.Scale, 0, baseLabel.Position.Y.Scale + ( count * 0.075 ), 0 )
       let taskSpec = GetTaskSpec( assignment.taskName )
 
       let text = assignment.roomName + ": " + taskSpec.title

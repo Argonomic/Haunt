@@ -1,5 +1,4 @@
 import { ContextActionService, UserInputService } from "@rbxts/services";
-import { GetPosition } from "shared/sh_utils";
 
 class File
 {

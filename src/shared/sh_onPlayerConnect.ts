@@ -1,6 +1,6 @@
 import { Players } from "@rbxts/services";
 import { AssignDefaultNVs } from "shared/sh_player_netvars"
-import * as u from "shared/sh_utils"
+import { Assert, ExecOnChildWhenItExists, GetPlayerFromCharacter, IsServer } from "./sh_utils";
 
 class File
 {
@@ -27,25 +27,25 @@ export function SH_OnPlayerConnectSetup()
 
 export function AddCallback_OnPlayerConnected( func: Function )
 {
-   u.Assert( !file.playerConnected, "Tried to add a player connection callback after a player connected" )
+   Assert( !file.playerConnected, "Tried to add a player connection callback after a player connected" )
    file.onPlayerConnected.push( func )
 }
 
 export function AddCallback_OnPlayerCharacterAdded( func: Function )
 {
-   u.Assert( !file.playerConnected, "Tried to add a player character added callback after a player connected" )
+   Assert( !file.playerConnected, "Tried to add a player character added callback after a player connected" )
    file.onPlayerCharacterAdded.push( func )
 }
 
 function OnPlayerCharacterAdded( character: Model )
 {
-   u.ExecOnChildWhenItExists( character, "Humanoid", function ( instance: Instance )
+   ExecOnChildWhenItExists( character, "Humanoid", function ( instance: Instance )
    {
       let human = instance as Humanoid
       human.SetStateEnabled( Enum.HumanoidStateType.Jumping, false )
       human.SetStateEnabled( Enum.HumanoidStateType.Climbing, false )
 
-      let player = u.GetPlayerFromCharacter( character ) as Player
+      let player = GetPlayerFromCharacter( character ) as Player
       for ( let func of file.onPlayerCharacterAdded )
       {
          func( player )
@@ -57,7 +57,7 @@ function OnPlayerConnected( player: Player )
 {
    file.playerConnected = true
 
-   if ( u.IsServer() )
+   if ( IsServer() )
       AssignDefaultNVs( player )
 
    for ( let func of file.onPlayerConnected )
@@ -71,4 +71,16 @@ function OnPlayerConnected( player: Player )
    }
 
    player.CharacterAdded.Connect( OnPlayerCharacterAdded )
+}
+
+export function SetPlayerWalkSpeed( player: Player, walkSpeed: number )
+{
+   Assert( player.Character !== undefined, "Player does not have character yet" )
+   let character = player.Character as Model
+
+   ExecOnChildWhenItExists( character, "Humanoid", function ( instance: Instance )
+   {
+      let human = instance as Humanoid
+      human.WalkSpeed = walkSpeed
+   } )
 }

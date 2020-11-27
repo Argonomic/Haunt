@@ -3,6 +3,8 @@ import { ReleaseDraggedButton, AddCallback_MouseUp } from "client/cl_ui"
 import { GetLocalPlayerReady } from "./cl_player"
 import { SendRPC } from "./cl_utils"
 import { Assert, LoadSound } from "shared/sh_utils"
+import { Players } from "@rbxts/services"
+import { SetPlayerWalkSpeed } from "shared/sh_onPlayerConnect"
 
 export enum TASK_UI
 {
@@ -102,6 +104,8 @@ export function RPC_FromServer_CancelTask()
 
 export function RPC_FromServer_OnPlayerUseTask( roomName: string, taskName: string )
 {
+   SetPlayerWalkSpeed( Players.LocalPlayer, 0 )
+
    let taskUIController = GetTaskUI( TASK_UI.TASK_CONTROLLER ) as EDITOR_TaskUI
 
    // already active task?
@@ -130,6 +134,8 @@ export function RPC_FromServer_OnPlayerUseTask( roomName: string, taskName: stri
          file.successSound.Play()
          SendRPC( "RPC_FromClient_OnPlayerFinishTask", roomName, taskName )
       }
+
+      SetPlayerWalkSpeed( Players.LocalPlayer, 16 )
 
       //SetPlayerState( Players.LocalPlayer, Enum.HumanoidStateType.Running, true )
       newFrame.Destroy()

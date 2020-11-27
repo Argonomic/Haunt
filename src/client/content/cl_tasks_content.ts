@@ -1,9 +1,12 @@
-import { RunService, Workspace } from "@rbxts/services"
+import { RunService, UserInputService, Workspace } from "@rbxts/services"
+import { AddCaptureInputChangeCallback } from "client/cl_input"
 import { AddTaskSpec, AddTaskUI, TaskStatus, TASK_UI } from "client/cl_tasks"
-import { AddDraggedButton, GetDraggedButton, ReleaseDraggedButton, ElementWithinElement, AddCallback_MouseUp, MoveOverTime, ElementDist } from "client/cl_ui"
+import { AddDraggedButton, GetDraggedButton, ReleaseDraggedButton, ElementWithinElement, AddCallback_MouseUp, MoveOverTime, ElementDist_TopLeft, UIORDER, ElementDist, ElementDistFromXY } from "client/cl_ui"
 import { AddCallback_OnPlayerConnected } from "shared/sh_onPlayerConnect"
-import { ArrayRandomize, Assert, ExecOnChildWhenItExists, GetChildren_NoFutureOffspring, LoadSound } from "shared/sh_utils"
+import { TweenThenDestroy } from "shared/sh_tween"
+import { ArrayRandomize, Assert, ExecOnChildWhenItExists, GetChildren_NoFutureOffspring, LoadSound, RandomFloatRange } from "shared/sh_utils"
 
+const IMAGE_WEB = 'rbxassetid://170195297'
 
 class File
 {
@@ -25,6 +28,7 @@ export function CL_TasksContentSetup()
          ExecOnChildWhenItExists( gui, 'TaskUI', function ( taskUI: ScreenGui )
          {
             taskUI.Enabled = false
+            taskUI.DisplayOrder = UIORDER.UIORDER_TASKS
             AddTaskUI( TASK_UI.TASK_CONTROLLER, taskUI )
 
             ExecOnChildWhenItExists( taskUI, 'Frame', function ( frame: Frame )
@@ -59,6 +63,9 @@ function GetStartFunc( name: string ): Function
 
       case "win_at_checkers":
          return Task_WinAtCheckers
+
+      case "sweep_the_floor":
+         return Task_SweepTheFloor
    }
 
    Assert( false, "No func for " + name )
@@ -78,6 +85,9 @@ function GetTitle( name: string ): string
 
       case "win_at_checkers":
          return "Win at Checkers"
+
+      case "sweep_the_floor":
+         return "Sweep the Floor"
    }
 
    Assert( false, "No title found for " + name )
@@ -141,12 +151,7 @@ function Task_PutBooksAway( frame: Frame, closeTaskThread: Function, status: Tas
    }
 
 
-   class Counter
-   {
-      count: number = 0
-   }
-
-   let counter = new Counter()
+   let count = 0
 
    return RunService.RenderStepped.Connect( function ()
    {
@@ -155,14 +160,14 @@ function Task_PutBooksAway( frame: Frame, closeTaskThread: Function, status: Tas
          return
 
       let dest = bookSpotDestinations.get( button ) as ImageLabel
-      if ( ElementDist( button, dest ) < 8 )
+      if ( ElementDist_TopLeft( button, dest ) < 8 )
       {
          file.bookSound.Play()
          ReleaseDraggedButton()
          button.Position = dest.Position;
          ( buttonConnections.get( button ) as RBXScriptConnection ).Disconnect()
-         counter.count++
-         if ( counter.count >= books.size() )
+         count++
+         if ( count >= books.size() )
          {
             status.success = true
             closeTaskThread()
@@ -181,6 +186,159 @@ type ImageButtonWithNumber = ImageButton &
 function SortByButtonNumber( a: ImageButtonWithNumber, b: ImageButtonWithNumber ): boolean
 {
    return a.Number.Value < b.Number.Value
+}
+
+function Task_SweepTheFloor( frame: Frame, closeTaskThread: Function, status: TaskStatus )
+{
+   const TOUCH_ENABLED = UserInputService.TouchEnabled // simpler version for touch
+
+   let background: ImageLabel | undefined
+   let broom: ImageButton | undefined
+   let children = GetChildren_NoFutureOffspring( frame )
+   for ( let child of children )
+   {
+      switch ( child.Name )
+      {
+         case "Background":
+            background = child as ImageLabel
+            break
+
+         case "Broom":
+            broom = child as ImageButton
+            break
+      }
+   }
+   Assert( background !== undefined, "Could not find background" )
+   if ( background === undefined )
+      return
+
+   Assert( broom !== undefined, "Could not find broom" )
+   if ( broom === undefined )
+      return
+
+   background.ZIndex = 1
+   background.ClipsDescendants = true
+   broom.ZIndex = 3
+
+   if ( !TOUCH_ENABLED )
+      AddDraggedButton( broom )
+
+   let count = 0
+
+   let webs: Array<ImageLabel> = []
+
+   let minSize = 0.15
+   let maxSize = 1.00
+   let borderMin = 0.05
+   let borderMax = 1.0 - borderMin
+
+   for ( let i = 0; i < 10; i++ )
+   {
+      count++
+
+      let imageLabel = new Instance( "ImageLabel" )
+      imageLabel.Parent = background
+      imageLabel.AnchorPoint = new Vector2( 0.5, 0.5 )
+      imageLabel.Size = new UDim2( RandomFloatRange( minSize, maxSize ), 0, RandomFloatRange( minSize, maxSize ), 0 )
+      imageLabel.BorderSizePixel = 0
+      imageLabel.BackgroundTransparency = 1.0
+      imageLabel.ImageColor3 = new Color3( 1, 1, 1 )
+      imageLabel.Image = IMAGE_WEB
+      imageLabel.Position = new UDim2( RandomFloatRange( borderMin, borderMax ), 0, RandomFloatRange( borderMin, borderMax ), 0 )
+      imageLabel.ImageTransparency = 0
+      imageLabel.ZIndex = 2
+      webs.push( imageLabel )
+   }
+
+   let webMove = 0.5
+   function WebGoesAway( imageLabel: ImageLabel )
+   {
+      file.trashSound.Play()
+      let time = 2.5
+      let propertyTable1 =
+      {
+         "ImageTransparency": 1.0,
+         "Position": new UDim2( RandomFloatRange( -webMove, webMove ), 0, RandomFloatRange( -webMove, webMove ), 0 )
+      }
+
+      TweenThenDestroy( imageLabel, propertyTable1, time, Enum.EasingStyle.Exponential )
+   }
+
+   let checkTime = 0
+   let taskCompleted = false
+   let taskCompletionTime = 0
+
+
+   let inputX = 0
+   let inputY = 0
+   if ( TOUCH_ENABLED )
+   {
+      AddCaptureInputChangeCallback( function ( input: InputObject )
+      {
+         inputX = input.Position.X
+         inputY = input.Position.Y
+      } )
+   }
+
+   return RunService.RenderStepped.Connect( function ()
+   {
+      if ( taskCompleted )
+      {
+         if ( Workspace.DistributedGameTime < taskCompletionTime )
+            return
+
+         status.success = true
+         closeTaskThread()
+         return
+      }
+
+      if ( background === undefined )
+         return
+      if ( Workspace.DistributedGameTime < checkTime )
+         return
+      checkTime = Workspace.DistributedGameTime + 0.075
+      let size = background.AbsoluteSize.X * 0.05
+
+      let button: ImageButton | undefined
+      if ( TOUCH_ENABLED )
+      {
+         for ( let i = 0; i < webs.size(); i++ )
+         {
+            let imageLabel = webs[i]
+            if ( ElementDistFromXY( imageLabel, inputX, inputY ) < size )
+            {
+               WebGoesAway( imageLabel )
+               webs.remove( i )
+               i--
+               count--
+            }
+         }
+      }
+      else
+      {
+         button = GetDraggedButton()
+         if ( button === undefined )
+            return
+
+         for ( let i = 0; i < webs.size(); i++ )
+         {
+            let imageLabel = webs[i]
+            if ( ElementDist( button, imageLabel ) < size )
+            {
+               WebGoesAway( imageLabel )
+               webs.remove( i )
+               i--
+               count--
+            }
+         }
+      }
+
+      if ( count <= 0 )
+      {
+         taskCompleted = true
+         taskCompletionTime = Workspace.DistributedGameTime + 0.5
+      }
+   } )
 }
 
 function Task_WinAtCheckers( frame: Frame, closeTaskThread: Function, status: TaskStatus )
@@ -251,59 +409,55 @@ function Task_WinAtCheckers( frame: Frame, closeTaskThread: Function, status: Ta
    let kingPiece = _kingPiece as ImageButton
    let clickChecker = _clickChecker as ImageButton
 
-   class Counter
-   {
-      count: number = 0
-      mouseUp: RBXScriptConnection | undefined
-      moveTime = 0
-      kinged = false
-   }
-   let counter = new Counter()
+   let mouseUp: RBXScriptConnection | undefined
+   let moveTime = 0
+   let count = 0
+   let kinged = false
    const MOVE_TIME = 0.25
 
    function onCheckerClick()
    {
       print( "Click checker" )
-      if ( Workspace.DistributedGameTime <= counter.moveTime )
+      if ( Workspace.DistributedGameTime <= moveTime )
          return
 
-      if ( kingMe.Visible && !counter.kinged )
+      if ( kingMe.Visible && !kinged )
          return
 
-      counter.moveTime = MOVE_TIME
+      moveTime = MOVE_TIME
 
-      if ( counter.kinged )
+      if ( kinged )
       {
          MoveOverTime(
             kingPiece,
-            checkerSpots[counter.count].Position.add( new UDim2( 0, 0, -0.02, 0 ) )
+            checkerSpots[count].Position.add( new UDim2( 0, 0, -0.02, 0 ) )
             , MOVE_TIME, function () { } )
       }
 
       file.checkerSound.Play()
-      MoveOverTime( clickChecker, checkerSpots[counter.count].Position, MOVE_TIME,
+      MoveOverTime( clickChecker, checkerSpots[count].Position, MOVE_TIME,
          function ()
          {
-            MoveOverTime( checkerBlackLive[counter.count], checkerBlackSpots[counter.count].Position, MOVE_TIME,
+            MoveOverTime( checkerBlackLive[count], checkerBlackSpots[count].Position, MOVE_TIME,
                function ()
                {
                }
             )
 
-            counter.count++
-            if ( counter.count === 3 )
+            count++
+            if ( count === 3 )
             {
                kingMe.Visible = true
                return
             }
 
-            if ( counter.count >= checkerSpots.size() )
+            if ( count >= checkerSpots.size() )
             {
                MoveOverTime( clickChecker, clickChecker.Position, MOVE_TIME,
                   function ()
                   {
-                     if ( counter.mouseUp !== undefined )
-                        counter.mouseUp.Disconnect()
+                     if ( mouseUp !== undefined )
+                        mouseUp.Disconnect()
                      status.success = true
                      closeTaskThread()
                   }
@@ -313,18 +467,18 @@ function Task_WinAtCheckers( frame: Frame, closeTaskThread: Function, status: Ta
       )
    }
 
-   counter.mouseUp = AddCallback_MouseUp( clickChecker, onCheckerClick )
+   mouseUp = AddCallback_MouseUp( clickChecker, onCheckerClick )
 
    AddCallback_MouseUp( kingMe, function ()
    {
       print( "Click king" )
-      if ( counter.kinged )
+      if ( kinged )
          return
 
       MoveOverTime( kingPiece, clickChecker.Position.add( new UDim2( 0, 0, -0.02, 0 ) ), MOVE_TIME * 2,
          function ()
          {
-            counter.kinged = true
+            kinged = true
             kingMe.Visible = false
             file.kingSound.Play()
             AddCallback_MouseUp( kingPiece, onCheckerClick )
@@ -378,12 +532,7 @@ function Task_CleanOutFridge( frame: Frame, closeTaskThread: Function, status: T
       buttonConnections.set( item, AddDraggedButton( item ) )
    }
 
-   class Counter
-   {
-      count: number = 0
-   }
-
-   let counter = new Counter()
+   let count = 0
 
    return RunService.RenderStepped.Connect( function ()
    {
@@ -398,8 +547,8 @@ function Task_CleanOutFridge( frame: Frame, closeTaskThread: Function, status: T
 
 
          button.Destroy()
-         counter.count++
-         if ( counter.count >= items.size() )
+         count++
+         if ( count >= items.size() )
          {
             status.success = true
             closeTaskThread()

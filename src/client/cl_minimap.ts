@@ -1,25 +1,11 @@
 import { Players, RunService, Workspace } from "@rbxts/services"
-import { Assert, ExecOnChildWhenItExists, GetChildrenWithName, GetChildren_NoFutureOffspring, GetInstanceChildWithName, GetPosition, GetWorkspaceChildByName, Graph, TextLabels } from "shared/sh_utils"
+import { BoundsXZ, GetBoundsXZ } from "shared/sh_bounds"
+import { Assert, ExecOnChildWhenItExists, GetChildrenWithName, GetChildren_NoFutureOffspring, GetInstanceChildWithName, GetPosition, GetWorkspaceChildByName, Graph } from "shared/sh_utils"
 import { CreateCalloutTextLabel } from "./cl_callouts2d"
+import { UIORDER } from "./cl_ui"
 
 const SCR_FLOOR = "scr_floor"
 const SCR_FLOOR_NONAME = "scr_floor_noname"
-
-class BoundsXZ
-{
-   minX: number
-   maxX: number
-   minZ: number
-   maxZ: number
-
-   constructor( minX: number, maxX: number, minZ: number, maxZ: number )
-   {
-      this.minX = minX
-      this.maxX = maxX
-      this.minZ = minZ
-      this.maxZ = maxZ
-   }
-}
 
 class MapIcon
 {
@@ -78,14 +64,16 @@ export function CL_MinimapSetup()
    let viewSize = camera.ViewportSize
    print( "viewsize " + viewSize.X + " " + viewSize.Y )
    //let aspectRatio = viewSize.X / viewSize.Y
-   let fontSize = Graph( viewSize.Y, 374, 971, 9, 18 )
+   let fontSize = Graph( viewSize.Y, 374, 971, 6, 18 )
 
    ExecOnChildWhenItExists( Players.LocalPlayer, 'PlayerGui', function ( gui: Instance )
    {
       ExecOnChildWhenItExists( gui, 'Minimap', function ( minimapUI: ScreenGui )
       {
          let frameName = "MiniFrame"
-         let scale = 3.0
+         let scale = 2.0
+         minimapUI.DisplayOrder = UIORDER.UIORDER_MINIMAP
+
          ExecOnChildWhenItExists( minimapUI, frameName, function ( baseFrame: ScreenGui )
          {
             Assert( file.minimapGui === EMPTY_MINIMAPFRAME, "file.minimapGui === EMPTY_MINIMAPFRAME" )
@@ -110,7 +98,7 @@ export function CL_MinimapSetup()
 
             for ( let frame of background )
             {
-               frame.BackgroundColor3 = new Color3( 0, 0, 0 )
+               frame.BackgroundColor3 = new Color3( 1, 1, 1 )
             }
 
             SizeFramesForMinimap( floors, frames, boundsXZ, scale, shadowBorder )
@@ -187,31 +175,6 @@ export function CL_MinimapSetup()
    } )
 }
 
-
-function GetBoundsXZ( parts: Array<BasePart> ): BoundsXZ
-{
-   let minX = 0
-   let maxX = 0
-   let minZ = 0
-   let maxZ = 0
-
-   for ( let part of parts )
-   {
-      if ( part.Position.X - ( part.Size.X * 0.5 ) < minX )
-         minX = part.Position.X - ( part.Size.X * 0.5 )
-
-      if ( part.Position.X + ( part.Size.X * 0.5 ) > maxX )
-         maxX = part.Position.X + ( part.Size.X * 0.5 )
-
-      if ( part.Position.Z - ( part.Size.Z * 0.5 ) < minZ )
-         minZ = part.Position.Z - ( part.Size.Z * 0.5 )
-
-      if ( part.Position.Z + ( part.Size.Z * 0.5 ) > maxZ )
-         maxZ = part.Position.Z + ( part.Size.Z * 0.5 )
-   }
-
-   return new BoundsXZ( minX, maxX, minZ, maxZ )
-}
 
 function CreateTextLabelsForMinimap( roomName: string, baseFrame: ScreenGui, floors: Array<BasePart>, fontSize: number, zIndex: number ): Array<TextLabel>
 {

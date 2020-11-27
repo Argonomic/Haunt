@@ -1,5 +1,4 @@
 import { AddNetVar } from "shared/sh_player_netvars"
-import * as u from "shared/sh_utils"
 
 export const MAX_TASKLIST_SIZE = 10
 export const JSON_TASKLIST = "JSN_TASKLIST"

@@ -1,14 +1,13 @@
-import { AddRPC } from "shared/sh_rpc"
-import * as sv from "server/sv_utils"
-import * as u from "shared/sh_utils"
 import { AddCallback_OnPlayerCharacterAdded } from "shared/sh_onPlayerConnect"
 import { Room, AddRoomsFromWorkspace, RoomAndTask } from "shared/sh_rooms"
+import { Assert } from "shared/sh_utils"
+import { SendRPC } from "./sv_utils"
 
 //import { ReplicatedStorage } from "@rbxts/services";
 
 class File
 {
-   dev_startRoom: string = "Great Room"
+   dev_startRoom: string = "Great Room" // "Library" // 
    rooms = new Map<string, Room>()
 }
 
@@ -55,7 +54,7 @@ export function SV_RoomsSetup()
 
 function PutPlayerInRoom( player: Player, room: Room )
 {
-   u.Assert( player.Character !== undefined, "Player has no character" )
+   Assert( player.Character !== undefined, "Player has no character" )
 
    wait() // because hey, otherwise the game tries to set the player position somewhere
    let character = player.Character as Model
@@ -64,17 +63,22 @@ function PutPlayerInRoom( player: Player, room: Room )
    let org = center.Position.add( new Vector3( 0, 5, 0 ) )
    part.CFrame = new CFrame( org )
 
-   sv.SendRPC( "RPC_FromServer_SetPlayerRoom", player, room.name )
+   SendRPC( "RPC_FromServer_SetPlayerRoom", player, room.name )
 }
 
 export function PutPlayerInStartRoom( player: Player )
 {
    let room = GetRoom( file.dev_startRoom )
    PutPlayerInRoom( player, room )
+
+   //let part = new Instance( "Part", Workspace )
+   //part.Position = GetPosition( player )
+   //part.Size = new Vector3( 5, 5, 5 )
+   //part.Name = "testpart"
 }
 
 export function GetRoom( name: string ): Room
 {
-   u.Assert( file.rooms.has( name ), "Unknown room " + name )
+   Assert( file.rooms.has( name ), "Unknown room " + name )
    return file.rooms.get( name ) as Room
 }

@@ -9,6 +9,16 @@ export type ImageButtonWithParent = ImageButton &
    Parent: GuiObject
 }
 
+export enum UIORDER
+{
+   UIORDER_FADEOVERLAY = 1,
+   UIORDER_MINIMAP,
+   UIORDER_CALLOUTS,
+   UIORDER_TASKLIST,
+   UIORDER_TASKS,
+}
+
+
 class File
 {
    pickupSound = LoadSound( 4831091467 )
@@ -36,13 +46,43 @@ export function ElementWithinElement( element1: GuiObject, element2: GuiObject )
    return true
 }
 
-export function ElementDist( element1: GuiObject, element2: GuiObject ): number
+export function ElementDist_TopLeft( element1: GuiObject, element2: GuiObject ): number
 {
    return math.sqrt(
       ( ( element2.AbsolutePosition.X - element1.AbsolutePosition.X ) * ( element2.AbsolutePosition.X - element1.AbsolutePosition.X ) )
       +
       ( ( element2.AbsolutePosition.Y - element1.AbsolutePosition.Y ) * ( element2.AbsolutePosition.Y - element1.AbsolutePosition.Y ) ) )
 }
+
+export function ElementDist( element1: GuiObject, element2: GuiObject ): number
+{
+   let pos1 = GetElementAnchor( element1 )
+   let pos2 = GetElementAnchor( element2 )
+
+   return math.sqrt(
+      ( ( pos2.X - pos1.X ) * ( pos2.X - pos1.X ) )
+      +
+      ( ( pos2.Y - pos1.Y ) * ( pos2.Y - pos1.Y ) ) )
+}
+
+export function ElementDistFromXY( element: GuiObject, X: number, Y: number ): number
+{
+   let pos = GetElementAnchor( element )
+
+   return math.sqrt(
+      ( ( X - pos.X ) * ( X - pos.X ) )
+      +
+      ( ( Y - pos.Y ) * ( Y - pos.Y ) ) )
+}
+
+function GetElementAnchor( element: GuiObject ): Vector2
+{
+   return new Vector2(
+      element.AbsolutePosition.X + ( element.AbsoluteSize.X * element.AnchorPoint.X ),
+      element.AbsolutePosition.Y + ( element.AbsoluteSize.Y * element.AnchorPoint.Y )
+   )
+}
+
 
 
 export function AddDraggedButton( button: ImageButton ): RBXScriptConnection
@@ -52,22 +92,6 @@ export function AddDraggedButton( button: ImageButton ): RBXScriptConnection
       //print( "Button down " + x + " " + y )
       if ( file.draggedButton !== undefined )
          return
-
-      /*
-      let input = GetInput()
-      if ( input === undefined )
-         return
-
-      let inputPosition = input.Position
-      if ( UserInputService.TouchEnabled )
-      {
-         inputPosition = GetLastTouchPosition()
-         print( "GetLastTouchPosition: " + inputPosition )
-      }
-
-      file.dragOffsetX = inputPosition.X - button.AbsolutePosition.X
-      file.dragOffsetY = inputPosition.Y - button.AbsolutePosition.Y
-      */
 
       file.dragOffsetX = x - ( button.AbsolutePosition.X )
       file.dragOffsetY = y - ( button.AbsolutePosition.Y )

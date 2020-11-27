@@ -1,7 +1,6 @@
 import { Players } from "@rbxts/services";
 import { Workspace } from "@rbxts/services";
 import { ReplicatedStorage } from "@rbxts/services"
-import { CL_TasksSetup } from "client/cl_tasks";
 
 class File
 {
@@ -9,6 +8,7 @@ class File
 }
 
 let file = new File()
+
 
 export type TextLabels = Array<TextLabel>
 
@@ -156,6 +156,7 @@ export function GetTouchingParts( part: BasePart ): Array<BasePart>
 
 export function GetPosition( thing: Instance ): Vector3
 {
+   Assert( thing !== undefined, "Can't get position of undefined" )
    switch ( thing.ClassName )
    {
       case "Player":
@@ -220,6 +221,11 @@ export function ArrayRandomize( tbl: Array<unknown> )
    }
 }
 
+export function RandomFloatRange( min: number, max: number ): number
+{
+   return Graph( math.random(), 0, 1, min, max )
+}
+
 export function CreateRemoteEvent( name: string ): RemoteEvent
 {
    Assert( IsServer(), "Can't do this on the client" )
@@ -267,4 +273,10 @@ export function PlayerTouchesPart( player: Player, basePart: BasePart, maxDist: 
    }
 
    return false
+}
+
+export function VectorNormalize( vec: Vector3 ): Vector3 
+{
+   let len = vec.Magnitude
+   return new Vector3( vec.X / len, vec.Y / len, vec.Z / len )
 }

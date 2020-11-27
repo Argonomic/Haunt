@@ -1,5 +1,6 @@
 import { Players, Workspace } from "@rbxts/services"
 import { Assert, ExecOnChildWhenItExists, Graph, TextLabels } from "shared/sh_utils"
+import { UIORDER } from "./cl_ui"
 
 class File
 {
@@ -15,9 +16,8 @@ export function CL_CalloutsSetup()
       let screenUI = file.screenUI
       screenUI.Name = "Callouts2d"
       screenUI.Parent = gui
-      screenUI.DisplayOrder = 0
+      screenUI.DisplayOrder = UIORDER.UIORDER_CALLOUTS
    } )
-
 }
 
 export function InitCallouts( name: string )

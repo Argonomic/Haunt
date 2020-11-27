@@ -1,4 +1,5 @@
 import { Workspace } from "@rbxts/services"
+import { BoundsXZ } from "./sh_bounds"
 import { Assert, GetChildren_NoFutureOffspring, GetInstanceChildWithName, GetWorkspaceChildByName, IsClient } from "./sh_utils"
 
 const DEFAULT_FIELDOFVIEW = 20
@@ -62,6 +63,8 @@ export class Room
    cameraEnd = new Vector3( 0, 0, 0 )
    fieldOfView: number = DEFAULT_FIELDOFVIEW
    clientBlockerInfo: Array<BlockerInfo> = []
+   bounds: BoundsXZ | undefined
+   cameraAspectRatioMultiplier = 1.0
 }
 
 export class RoomAndTask
@@ -97,6 +100,17 @@ function CreateRoomFromFolder( folder: Folder ): Room
    {
       switch ( child.Name )
       {
+         /*
+         case "scr_room_bounds":
+            {
+               let childPart = child as BasePart
+               room.bounds = GetBoundsXZ( [childPart] )
+               childPart.CanCollide = false
+               childPart.Transparency = 1.0
+            }
+            break
+         */
+
          case "usable_task":
             {
                let childPart = child as BasePart
@@ -150,6 +164,13 @@ function CreateRoomFromFolder( folder: Folder ): Room
                if ( cameraDist === undefined )
                   return
 
+               let aspectMultiplier = GetInstanceChildWithName( childPart, "camera_aspect_multiplier" )
+               if ( aspectMultiplier !== undefined )
+               {
+                  Assert( ( aspectMultiplier as Instance ).ClassName === "NumberValue", "Wrong type" )
+                  room.cameraAspectRatioMultiplier = ( aspectMultiplier as EDITOR_NumberValue ).Value
+               }
+
                let editorCameraOffset: EDITOR_Vector3Value | undefined
                let childCameraOffset = GetInstanceChildWithName( childPart, "camera_offset" )
                if ( childCameraOffset !== undefined )
@@ -168,9 +189,10 @@ function CreateRoomFromFolder( folder: Folder ): Room
                   camOffset = editorCameraOffset.Value
                }
 
+               cameraDist *= 0.9
                room.cameraStart = room.cameraEnd.add( camOffset.mul( cameraDist ) )
-               room.cameraStart = room.cameraStart.add( cameraPosOffset )
-               room.cameraEnd = room.cameraEnd.add( cameraPosOffset )
+               //room.cameraStart = room.cameraStart.add( cameraPosOffset )
+               //room.cameraEnd = room.cameraEnd.add( cameraPosOffset )
             }
             break
 

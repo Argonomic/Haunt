@@ -1,4 +1,3 @@
-import * as u from "shared/sh_utils"
 import { CL_CameraSetup } from "client/cl_camera"
 import { CL_InputSetup } from "client/cl_input"
 import { CL_RoomSetup } from "client/cl_rooms"
@@ -13,6 +12,8 @@ import { AddGameStateNetVars } from "shared/sh_gamestate"
 import { CL_TaskListSetup } from "./cl_taskList"
 import { CL_MinimapSetup } from "./cl_minimap"
 import { CL_CalloutsSetup } from "./cl_callouts2d"
+import { CL_FadeOverlaySetup } from "./cl_fadeoverlay"
+import { Assert, Thread } from "shared/sh_utils"
 
 class File
 {
@@ -23,9 +24,9 @@ let file = new File()
 function FinishCheck()
 {
    wait()
-   u.Assert( file.finishedInit, "Never finished init" )
+   Assert( file.finishedInit, "Never finished init" )
 }
-u.Thread( FinishCheck )
+Thread( FinishCheck )
 
 
 SH_RPCSetup()
@@ -41,6 +42,7 @@ CL_UISetup()
 CL_MinimapSetup()
 CL_TaskListSetup()
 CL_CalloutsSetup()
+CL_FadeOverlaySetup()
 
 DoneCreatingNVs()
 SH_OnPlayerConnectSetup()

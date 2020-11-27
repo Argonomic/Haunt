@@ -1,5 +1,5 @@
 import { ReplicatedStorage } from "@rbxts/services"
-import * as u from "shared/sh_utils"
+import { Assert, CreateRemoteEvent, ExecOnChildWhenItExists, IsServer } from "./sh_utils"
 
 class File
 {
@@ -11,7 +11,7 @@ let file = new File()
 
 function AddRemoteEvent( name: string )
 {
-   u.ExecOnChildWhenItExists( ReplicatedStorage, name, function ( remoteEvent: RemoteEvent )
+   ExecOnChildWhenItExists( ReplicatedStorage, name, function ( remoteEvent: RemoteEvent )
    {
       file.remoteEvents[name] = remoteEvent
    } )
@@ -19,12 +19,12 @@ function AddRemoteEvent( name: string )
 
 export function AddRPC( name: string, func: Callback )
 {
-   u.Assert( file.remoteEvents[name] !== undefined, "RPC " + name + " has not been added to remote events yet" );
-   u.Assert( file.remoteFunctions[name] === undefined, "Already added rpc for " + name );
+   Assert( file.remoteEvents[name] !== undefined, "RPC " + name + " has not been added to remote events yet" );
+   Assert( file.remoteFunctions[name] === undefined, "Already added rpc for " + name );
 
-   u.ExecOnChildWhenItExists( ReplicatedStorage, name, function ( remoteEvent: RemoteEvent )
+   ExecOnChildWhenItExists( ReplicatedStorage, name, function ( remoteEvent: RemoteEvent )
    {
-      if ( u.IsServer() )
+      if ( IsServer() )
          remoteEvent.OnServerEvent.Connect( func )
       else
          remoteEvent.OnClientEvent.Connect( func )
@@ -46,15 +46,15 @@ export function SH_RPCSetup()
 
    for ( let rpc of rpcs )
    {
-      if ( u.IsServer() )
-         u.CreateRemoteEvent( rpc )
+      if ( IsServer() )
+         CreateRemoteEvent( rpc )
       AddRemoteEvent( rpc )
    }
 }
 
 export function GetRPCRemoteEvent( name: string ): RemoteEvent
 {
-   u.Assert( file.remoteEvents[name] !== undefined, "Missing remote event " + name )
+   Assert( file.remoteEvents[name] !== undefined, "Missing remote event " + name )
    return file.remoteEvents[name]
 }
 
