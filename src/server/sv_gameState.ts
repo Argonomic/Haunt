@@ -6,7 +6,7 @@ import { HttpService } from "@rbxts/services"
 import { AddRPC } from "shared/sh_rpc"
 import { Task } from "shared/sh_rooms"
 import { SendRPC } from "./sv_utils"
-import { ArrayRandomize, Assert, GetPlayerFromDescendant, GetPosition, GetTouchingParts, PlayerTouchesPart } from "shared/sh_utils"
+import { ArrayRandomize, Assert, GetPosition, PlayerTouchesPart } from "shared/sh_utils"
 
 class File
 {
@@ -107,45 +107,15 @@ function RPC_FromClient_OnPlayerUseFromRoom( player: Player, roomName: string )
 
    let usedTask = function ( task: Task ): boolean
    {
-      let dist = math.abs( ( playerOrg.sub( task.volume.Position ) ).Magnitude )
-
-      if ( dist > 6 )
+      if ( !PlayerHasUnfinishedAssignment( player, roomName, task.name ) )
          return false
 
-      let parts = GetTouchingParts( task.volume as BasePart )
+      if ( !PlayerTouchesPart( player, task.volume ) )
+         return false
 
-      for ( let part of parts )
-      {
-         let partPlayer = GetPlayerFromDescendant( part )
-         if ( partPlayer === player )
-         {
-            if ( PlayerHasUnfinishedAssignment( player, roomName, task.name ) )
-            {
-               SetPlayerWalkSpeed( player, 0 )
-               SendRPC( "RPC_FromServer_OnPlayerUseTask", player, roomName, task.name )
-            }
-
-            // cancel if you walk away
-            let co = coroutine.create( function ()
-            {
-               for ( ; ; )
-               {
-                  wait( 1 )
-                  if ( !PlayerTouchesPart( player, task.volume, 8 ) )
-                     break
-               }
-
-               if ( PlayerHasUnfinishedAssignment( player, roomName, task.name ) )
-               {
-                  SendRPC( "RPC_FromServer_CancelTask", player )
-               }
-            } )
-            coroutine.resume( co )
-
-            return true
-         }
-      }
-      return false
+      SetPlayerWalkSpeed( player, 0 )
+      SendRPC( "RPC_FromServer_OnPlayerUseTask", player, roomName, task.name )
+      return true
    }
 
    for ( let taskArr of room.tasks )

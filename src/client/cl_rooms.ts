@@ -2,9 +2,9 @@ import { AddRPC } from "shared/sh_rpc"
 import { AddCallback_OnRoomSetup, CreateClientBlockers, Room, AddRoomsFromWorkspace } from "shared/sh_rooms"
 import { UserInputService } from "@rbxts/services"
 import { SendRPC } from "./cl_utils"
-import { AddOnUseCallback } from "./cl_input"
 import { Assert, GetPlayerFromDescendant, GetPosition } from "shared/sh_utils"
 import { SetPlayerCameraToRoom } from "./cl_camera"
+import { AddOnUseCallback } from "./cl_use"
 
 class File
 {
@@ -33,21 +33,28 @@ export function CL_RoomSetup()
    AddCallback_OnRoomSetup( "trigger_door", OnTriggerDoorSetup )
    file.rooms = AddRoomsFromWorkspace()
 
-   let delay = coroutine.create( Delay )
-   coroutine.resume( delay )
+   //let delay = coroutine.create( Delay )
+   //coroutine.resume( delay )
 }
 
 
 function Delay()
 {
-   wait( 0.75 )
-   SetCurrentRoom( file.currentRoom )
+   /*
+   for ( ; ; )
+   {
+      if ( CurrentRoomExists
+      SetCurrentRoom( file.currentRoom )
+   }
+   */
 
+   /*
    for ( ; ; )
    {
       wait( 0.5 )
       UserInputService.MouseIconEnabled = true
    }
+   */
 }
 
 export function RPC_FromServer_SetPlayerRoom( name: string )
@@ -85,6 +92,7 @@ export function CurrentRoomExists(): boolean
 
 function PlayerTriesToUseCurrenRoom()
 {
+   print( "PlayerTriesToUseCurrenRoom" )
    SendRPC( "RPC_FromClient_OnPlayerUseFromRoom", GetCurrentRoom().name )
 }
 

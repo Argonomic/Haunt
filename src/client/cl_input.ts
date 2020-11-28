@@ -4,17 +4,11 @@ class File
 {
    //input: InputObject | undefined
    captureInputChangeCallbacks: Array<Function> = []
-   onUseCallbacks: Array<Function> = []
    onTouchEndedCallbacks: Array<Function> = []
 }
 
 let file = new File()
 
-
-export function AddOnUseCallback( func: Function )
-{
-   file.onUseCallbacks.push( func )
-}
 
 export function AddOnTouchEndedCallback( func: Function )
 {
@@ -26,23 +20,17 @@ export function CL_InputSetup()
 {
    UserInputService.InputChanged.Connect( InputChanged )
 
+   /*
    let onPressUse = function ( actionName: string, state: Enum.UserInputState, inputObject: InputObject )
    {
       if ( inputObject.KeyCode === Enum.KeyCode.Unknown )
          return
 
-      OnUse()
-      /*
-      print( "** * * * onPressUse " + inputObject.KeyCode )
-      if ( state === Enum.UserInputState.Begin )
-         print( "Begin input" )
-
       if ( state === Enum.UserInputState.End )
-         print( "End input" )
-      */
-
+         OnUse()
    }
    ContextActionService.BindAction( "PlayerInput", onPressUse, false, Enum.KeyCode.ButtonR2, Enum.KeyCode.E )
+   */
 
    function FocusControl( actionName: string, state: Enum.UserInputState, inputObject: InputObject )
    {
@@ -55,11 +43,13 @@ export function CL_InputSetup()
 
    if ( UserInputService.TouchEnabled )
    {
+      /*
       UserInputService.TouchTap.Connect(
          function ( touchPositions: Array<InputObject>, gameProcessedEvent: boolean )
          {
             OnUse()
          } )
+      */
 
       /*
 UserInputService.TouchStarted.Connect(
@@ -84,14 +74,6 @@ UserInputService.TouchStarted.Connect(
    }
 }
 
-
-function OnUse()
-{
-   for ( let callback of file.onUseCallbacks )
-   {
-      callback()
-   }
-}
 
 
 /*

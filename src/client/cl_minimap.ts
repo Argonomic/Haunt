@@ -2,7 +2,7 @@ import { Players, RunService, Workspace } from "@rbxts/services"
 import { BoundsXZ, GetBoundsXZ } from "shared/sh_bounds"
 import { Assert, ExecOnChildWhenItExists, GetChildrenWithName, GetChildren_NoFutureOffspring, GetInstanceChildWithName, GetPosition, GetWorkspaceChildByName, Graph } from "shared/sh_utils"
 import { CreateCalloutTextLabel } from "./cl_callouts2d"
-import { UIORDER } from "./cl_ui"
+import { AddPlayerGuiExistsCallback, UIORDER } from "./cl_ui"
 
 const SCR_FLOOR = "scr_floor"
 const SCR_FLOOR_NONAME = "scr_floor_noname"
@@ -66,7 +66,7 @@ export function CL_MinimapSetup()
    //let aspectRatio = viewSize.X / viewSize.Y
    let fontSize = Graph( viewSize.Y, 374, 971, 6, 18 )
 
-   ExecOnChildWhenItExists( Players.LocalPlayer, 'PlayerGui', function ( gui: Instance )
+   AddPlayerGuiExistsCallback( function ( gui: Instance )
    {
       ExecOnChildWhenItExists( gui, 'Minimap', function ( minimapUI: ScreenGui )
       {

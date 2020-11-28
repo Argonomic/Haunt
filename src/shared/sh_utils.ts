@@ -255,12 +255,12 @@ export function SetPlayerState( player: Player, setting: Enum.HumanoidStateType,
    ( human as Humanoid ).SetStateEnabled( setting, value )
 }
 
-export function PlayerTouchesPart( player: Player, basePart: BasePart, maxDist: number ): boolean
+export function PlayerTouchesPart( player: Player, basePart: BasePart ): boolean
 {
    let playerOrg = GetPosition( player )
    let dist = math.abs( ( playerOrg.sub( basePart.Position ) ).Magnitude )
 
-   if ( dist > maxDist )
+   if ( dist > basePart.Size.Magnitude )
       return false
 
    let parts = GetTouchingParts( basePart )
@@ -280,3 +280,4 @@ export function VectorNormalize( vec: Vector3 ): Vector3
    let len = vec.Magnitude
    return new Vector3( vec.X / len, vec.Y / len, vec.Z / len )
 }
+

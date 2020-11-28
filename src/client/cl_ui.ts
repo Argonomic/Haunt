@@ -1,5 +1,6 @@
-import { RunService, Workspace } from "@rbxts/services";
-import { Assert, Graph, LoadSound } from "shared/sh_utils";
+import { Players, RunService, Workspace } from "@rbxts/services";
+import { AddCallback_OnPlayerConnected } from "shared/sh_onPlayerConnect";
+import { Assert, ExecOnChildWhenItExists, Graph, LoadSound } from "shared/sh_utils";
 import { AddCaptureInputChangeCallback, AddOnTouchEndedCallback } from "./cl_input";
 
 const DRAGGED_ZINDEX_OFFSET = 20
@@ -14,6 +15,7 @@ export enum UIORDER
    UIORDER_FADEOVERLAY = 1,
    UIORDER_MINIMAP,
    UIORDER_CALLOUTS,
+   UIORDER_USEBUTTON,
    UIORDER_TASKLIST,
    UIORDER_TASKS,
 }
@@ -27,6 +29,7 @@ class File
    draggedButton: ImageButtonWithParent | undefined
    draggedButtonRenderStepped: RBXScriptConnection | undefined
    draggedButtonStartPosition: UDim2 | undefined
+   playerGuiExistsCallbacks: Array<Function> = []
 }
 
 let file = new File()
@@ -194,6 +197,25 @@ export function CL_UISetup()
       button.Position = new UDim2( x, 0, y, 0 )
    } )
 
+   AddCallback_OnPlayerConnected( function ( player: Player )
+   {
+      ExecOnChildWhenItExists( player, 'PlayerGui', function ( gui: Instance )
+      {
+         ExecOnChildWhenItExists( gui, 'Package', function ( packageFolder: Instance )
+         {
+            for ( let func of file.playerGuiExistsCallbacks )
+            {
+               func( packageFolder )
+            }
+         } )
+      } )
+   } )
+
+}
+
+export function AddPlayerGuiExistsCallback( func: Function )
+{
+   file.playerGuiExistsCallbacks.push( func )
 }
 
 /*

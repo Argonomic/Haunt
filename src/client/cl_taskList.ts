@@ -8,8 +8,9 @@ import { Assert, ExecOnChildWhenItExists, Graph } from "shared/sh_utils"
 import { AddCallout, ClearCallouts, InitCallouts } from "./cl_callouts2d"
 import { Room, Task } from "shared/sh_rooms"
 import { AddMapIcon, ClearMinimapIcons } from "./cl_minimap"
-import { UIORDER } from "./cl_ui"
+import { AddPlayerGuiExistsCallback, UIORDER } from "./cl_ui"
 import { Tween } from "shared/sh_tween"
+import { AddUseTarget, ResetUseTargets } from "./cl_use"
 
 const CALLOUTS_NAME = "TASKLIST_CALLOUTS"
 
@@ -39,6 +40,9 @@ function TaskListChanged()
    //print( "Total assignments: " + file.assignments.size() )
    if ( file.recreateTaskListUI !== undefined )
       file.recreateTaskListUI()
+
+   if ( CurrentRoomExists() )
+      ResetUsableTasks()
 }
 
 export function CL_TaskListSetup()
@@ -46,24 +50,46 @@ export function CL_TaskListSetup()
    InitCallouts( CALLOUTS_NAME )
 
    AddRoomChangedCallback( RecreateTaskListCallouts2d )
+   AddRoomChangedCallback( ResetUsableTasks )
 
    AddNetVarChangedCallback( JSON_TASKLIST, TaskListChanged )
 
-   AddCallback_OnPlayerConnected( function ()
+   AddPlayerGuiExistsCallback( function ( child: Instance )
    {
-      ExecOnChildWhenItExists( Players.LocalPlayer, 'PlayerGui', function ( child: Instance )
+      ExecOnChildWhenItExists( child, 'TaskList', function ( taskList: EDITOR_ScreenUIWithFrame )
       {
-         ExecOnChildWhenItExists( child, 'TaskList', function ( taskList: EDITOR_ScreenUIWithFrame )
-         {
-            taskList.Enabled = false
-            taskList.DisplayOrder = UIORDER.UIORDER_TASKLIST
+         taskList.Enabled = false
+         taskList.DisplayOrder = UIORDER.UIORDER_TASKLIST
 
-            AddTaskUI( TASK_UI.TASK_LIST, taskList )
-            file.recreateTaskListUI = RecreateTaskListUI
-            RecreateTaskListUI()
-         } )
+         AddTaskUI( TASK_UI.TASK_LIST, taskList )
+         file.recreateTaskListUI = RecreateTaskListUI
+         RecreateTaskListUI()
       } )
    } )
+}
+
+function ResetUsableTasks()
+{
+   ResetUseTargets()
+
+   let room = GetCurrentRoom()
+
+   function AddUsable( assignment: Assignment )
+   {
+      if ( assignment.roomName !== room.name )
+         return
+      if ( assignment.status !== 0 )
+         return
+
+      Assert( room.tasks.has( assignment.taskName ), "Room " + room.name + " has no task " + assignment.taskName )
+      let task = room.tasks.get( assignment.taskName ) as Task
+      AddUseTarget( task.volume )
+   }
+
+   for ( let assignment of file.assignments )
+   {
+      AddUsable( assignment )
+   }
 }
 
 function RecreateTaskListUI()
@@ -123,16 +149,19 @@ function RecreateTaskListUI()
    let baseLabel = copy.Frame.TextLabel
    let count = 0
 
-   let viewSize = ( Workspace.CurrentCamera as Camera ).ViewportSize
-   baseLabel.TextSize = Graph( viewSize.Y, 374, 971, 11, 28 )
+   //let viewSize = ( Workspace.CurrentCamera as Camera ).ViewportSize
+   baseLabel.TextSize = Graph( copy.Frame.AbsoluteSize.X, 200, 400, 14, 28 )
+   //baseLabel.TextSize = Graph( viewSize.Y, 374, 971, 11, 28 )
    baseLabel.TextWrapped = false
    baseLabel.TextScaled = false
+   //   let topOffset = baseLabel.AbsolutePosition.Y - copy.Frame.AbsolutePosition.Y
 
    function AssignmentLabel( assignment: Assignment )
    {
       let label = baseLabel.Clone()
       label.Parent = baseLabel.Parent
-      label.Position = new UDim2( baseLabel.Position.X.Scale, 0, baseLabel.Position.Y.Scale + ( count * 0.075 ), 0 )
+      //      label.Position = new UDim2( baseLabel.Position.X.Scale, 0, baseLabel.Position.Y.Scale + ( count * 0.075 ), 0 )
+      label.Position = new UDim2( baseLabel.Position.X.Scale, 0, 0, 0.05 + ( count * baseLabel.TextSize * 1.25 ) )
       let taskSpec = GetTaskSpec( assignment.taskName )
 
       let text = assignment.roomName + ": " + taskSpec.title

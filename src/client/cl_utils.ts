@@ -3,6 +3,7 @@ import { Assert } from "shared/sh_utils"
 
 export function SendRPC( name: string, ...args: Array<unknown> ): void
 {
+   print( "Client SendPRC " + name + " " + args )
    let remoteEvent = GetRPCRemoteEvent( name )
    if ( args.size() === 0 )
       remoteEvent.FireServer( args )

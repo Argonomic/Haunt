@@ -14,6 +14,7 @@ import { CL_MinimapSetup } from "./cl_minimap"
 import { CL_CalloutsSetup } from "./cl_callouts2d"
 import { CL_FadeOverlaySetup } from "./cl_fadeoverlay"
 import { Assert, Thread } from "shared/sh_utils"
+import { CL_UseSetup } from "./cl_use"
 
 class File
 {
@@ -43,6 +44,7 @@ CL_MinimapSetup()
 CL_TaskListSetup()
 CL_CalloutsSetup()
 CL_FadeOverlaySetup()
+CL_UseSetup()
 
 DoneCreatingNVs()
 SH_OnPlayerConnectSetup()

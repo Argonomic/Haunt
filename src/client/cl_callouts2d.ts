@@ -1,6 +1,6 @@
 import { Players, Workspace } from "@rbxts/services"
 import { Assert, ExecOnChildWhenItExists, Graph, TextLabels } from "shared/sh_utils"
-import { UIORDER } from "./cl_ui"
+import { AddPlayerGuiExistsCallback, UIORDER } from "./cl_ui"
 
 class File
 {
@@ -11,7 +11,7 @@ let file = new File()
 
 export function CL_CalloutsSetup()
 {
-   ExecOnChildWhenItExists( Players.LocalPlayer, 'PlayerGui', function ( gui: Instance )
+   AddPlayerGuiExistsCallback( function ( gui: Instance )
    {
       let screenUI = file.screenUI
       screenUI.Name = "Callouts2d"

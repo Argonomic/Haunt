@@ -1,7 +1,7 @@
 import { RunService, UserInputService, Workspace } from "@rbxts/services"
 import { AddCaptureInputChangeCallback } from "client/cl_input"
 import { AddTaskSpec, AddTaskUI, TaskStatus, TASK_UI } from "client/cl_tasks"
-import { AddDraggedButton, GetDraggedButton, ReleaseDraggedButton, ElementWithinElement, AddCallback_MouseUp, MoveOverTime, ElementDist_TopLeft, UIORDER, ElementDist, ElementDistFromXY } from "client/cl_ui"
+import { AddDraggedButton, GetDraggedButton, ReleaseDraggedButton, ElementWithinElement, AddCallback_MouseUp, MoveOverTime, ElementDist_TopLeft, UIORDER, ElementDist, ElementDistFromXY, AddPlayerGuiExistsCallback } from "client/cl_ui"
 import { AddCallback_OnPlayerConnected } from "shared/sh_onPlayerConnect"
 import { TweenThenDestroy } from "shared/sh_tween"
 import { ArrayRandomize, Assert, ExecOnChildWhenItExists, GetChildren_NoFutureOffspring, LoadSound, RandomFloatRange } from "shared/sh_utils"
@@ -21,30 +21,27 @@ let file = new File()
 
 export function CL_TasksContentSetup()
 {
-   AddCallback_OnPlayerConnected( function ( player: Player )
+   AddPlayerGuiExistsCallback( function ( gui: Instance )
    {
-      ExecOnChildWhenItExists( player, 'PlayerGui', function ( gui: Instance )
+      ExecOnChildWhenItExists( gui, 'TaskUI', function ( taskUI: ScreenGui )
       {
-         ExecOnChildWhenItExists( gui, 'TaskUI', function ( taskUI: ScreenGui )
+         taskUI.Enabled = false
+         taskUI.DisplayOrder = UIORDER.UIORDER_TASKS
+         AddTaskUI( TASK_UI.TASK_CONTROLLER, taskUI )
+
+         ExecOnChildWhenItExists( taskUI, 'Frame', function ( frame: Frame )
          {
-            taskUI.Enabled = false
-            taskUI.DisplayOrder = UIORDER.UIORDER_TASKS
-            AddTaskUI( TASK_UI.TASK_CONTROLLER, taskUI )
-
-            ExecOnChildWhenItExists( taskUI, 'Frame', function ( frame: Frame )
+            ExecOnChildWhenItExists( frame, 'tasks', function ( tasksFolder: Folder )
             {
-               ExecOnChildWhenItExists( frame, 'tasks', function ( tasksFolder: Folder )
-               {
-                  let taskFrames = tasksFolder.GetChildren() as Array<Frame>
+               let taskFrames = tasksFolder.GetChildren() as Array<Frame>
 
-                  for ( let taskFrame of taskFrames )
-                  {
-                     let startFunc = GetStartFunc( taskFrame.Name )
-                     let title = GetTitle( taskFrame.Name )
-                     taskFrame.Visible = false
-                     AddTaskSpec( taskFrame.Name, startFunc, title, taskFrame )
-                  }
-               } )
+               for ( let taskFrame of taskFrames )
+               {
+                  let startFunc = GetStartFunc( taskFrame.Name )
+                  let title = GetTitle( taskFrame.Name )
+                  taskFrame.Visible = false
+                  AddTaskSpec( taskFrame.Name, startFunc, title, taskFrame )
+               }
             } )
          } )
       } )
@@ -297,7 +294,7 @@ function Task_SweepTheFloor( frame: Frame, closeTaskThread: Function, status: Ta
       if ( Workspace.DistributedGameTime < checkTime )
          return
       checkTime = Workspace.DistributedGameTime + 0.075
-      let size = background.AbsoluteSize.X * 0.05
+      let size = background.AbsoluteSize.X * 0.09
 
       let button: ImageButton | undefined
       if ( TOUCH_ENABLED )
