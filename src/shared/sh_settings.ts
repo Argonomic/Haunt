@@ -9,3 +9,4 @@ export const KILL_DIST = 10
 
 export const USETYPE_TASK = 0
 export const USETYPE_KILL = 1
+export const USETYPE_REPORT = 2

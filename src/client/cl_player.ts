@@ -1,7 +1,7 @@
 import { Players } from "@rbxts/services"
 import { AddCallback_OnPlayerCharacterAdded } from "shared/sh_onPlayerConnect"
 import { IsAlive, SetPlayerTransparencyAndColor, Thread } from "shared/sh_utils"
-import { GetLivingPlayersInMyGame } from "./cl_gamestate"
+import { GetLocalGame } from "./cl_gamestate"
 
 class File
 {
@@ -26,7 +26,7 @@ export function CL_PlayerSetup()
             return
 
          //print( "AddCallback_OnPlayerCharacterAdded " + player.Name )
-         let livingPlayers = GetLivingPlayersInMyGame()
+         let livingPlayers = GetLocalGame().GetLivingPlayers()
          for ( let living of livingPlayers )
          {
             if ( player === living )

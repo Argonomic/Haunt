@@ -1,5 +1,5 @@
 import { Players, Workspace, ReplicatedStorage, RunService } from "@rbxts/services"
-import { Assert, CreateRemoteEvent, ExecOnChildWhenItExists, IsServer } from "./sh_utils"
+import { Assert, CreateRemoteEvent, ExecOnChildWhenItExists, IsClient, IsServer } from "./sh_utils"
 
 const RESEND_HEARTBEAT_TIME = 2.0
 const RPC_NETVAR = "RPC_NetVar"
@@ -114,6 +114,8 @@ export function SetNetVar( player: Player, name: string, value: ( number | strin
 
 export function GetNetVarValue( player: Player, name: string ): ( number | string | Vector3 )
 {
+   Assert( !IsClient() || player === Players.LocalPlayer, "Can't get netvar on client on not-localplayer" )
+
    Assert( file.netvars.has( player ), "tried to get netvar of player that doesn't have netvars" )
    let netvars = file.netvars.get( player )
    if ( netvars === undefined )

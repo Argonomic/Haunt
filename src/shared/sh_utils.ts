@@ -387,3 +387,26 @@ export function RemoveQuitPlayers( arr: Array<Player> )
    }
 }
 
+export function UserIDToPlayer(): Map<number, Player>
+{
+   let players = Players.GetPlayers()
+   let results = new Map<number, Player>()
+   for ( let player of players )
+   {
+      results.set( player.UserId, player )
+   }
+   return results
+}
+
+export function RecursiveOnChildren( instance: Instance, func: Function )
+{
+   let children = instance.GetChildren()
+   for ( let child of children )
+   {
+      if ( func( child ) )
+         continue
+
+      RecursiveOnChildren( child, func )
+   }
+}
+

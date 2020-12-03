@@ -1,8 +1,7 @@
 import { Players, RunService, Workspace } from "@rbxts/services"
-import { IsPracticing, NETVAR_MATCHMAKING_STATUS, ROLE } from "shared/sh_gamestate"
-import { GetNetVar_Number } from "shared/sh_player_netvars"
-import { Assert, GetPosition, SetPlayerTransparencyAndColor, TweenPlayerParts } from "shared/sh_utils"
-import { GetLivingPlayersInMyGame, GetLocalRole } from "./cl_gamestate"
+import { IsPracticing, ROLE } from "shared/sh_gamestate"
+import { Assert, GetPosition, TweenPlayerParts } from "shared/sh_utils"
+import { GetLocalGame, GetLocalRole } from "./cl_gamestate"
 import { AddPlayerGuiExistsCallback, UIORDER } from "./cl_ui"
 
 const FADE_CIRCLE = 'rbxassetid://6006022378'
@@ -27,6 +26,9 @@ export function CL_FadeOverlaySetup()
 {
    AddPlayerGuiExistsCallback( function ( gui: Instance )
    {
+      let localPlayer = Players.LocalPlayer
+      if ( IsPracticing( localPlayer ) )
+         return
       if ( GetLocalRole() === ROLE.ROLE_POSSESSED )
          return
 
@@ -87,10 +89,7 @@ export function CL_FadeOverlaySetup()
 
       let camera = file.camera
 
-      let localPlayer = Players.LocalPlayer
-      let LIGHTDIST = 25
-      if ( IsPracticing( localPlayer ) )
-         LIGHTDIST *= 2
+      const LIGHTDIST = 25
 
       let visiblePlayers = new Map<Player, boolean>()
 
@@ -112,10 +111,13 @@ export function CL_FadeOverlaySetup()
          fadeCircle.Size = new UDim2( 0, dist, 0, dist )
          const VISUAL_DIST = fadeCircle.AbsoluteSize.X * 0.5
 
-         let players = GetLivingPlayersInMyGame()
-         //print( "living players: " + players.size() )
+         let players = GetLocalGame().GetLivingPlayers()
+
          for ( let player of players )
          {
+            if ( player === localPlayer )
+               continue
+
             let character = player.Character
             if ( character === undefined )
                continue

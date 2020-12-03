@@ -1,5 +1,5 @@
-import { HttpService, Players } from "@rbxts/services"
-import { ClientVisibleGamePlayerInfo, NETVAR_MATCHMAKING_STATUS, NETVAR_JSON_PLAYERINFO, MATCHMAKING_STATUS, NETVAR_MATCHMAKING_NUMWITHYOU, IsPracticing } from "shared/sh_gamestate"
+import { Players } from "@rbxts/services"
+import { NETVAR_MATCHMAKING_STATUS, MATCHMAKING_STATUS, NETVAR_MATCHMAKING_NUMWITHYOU, IsPracticing, ROLE, Game } from "shared/sh_gamestate"
 import { AddCallback_OnPlayerCharacterAdded, AddCallback_OnPlayerConnected } from "shared/sh_onPlayerConnect"
 import { GetNetVar_Number, SetNetVar } from "shared/sh_player_netvars"
 import { AddRPC } from "shared/sh_rpc"
@@ -9,6 +9,7 @@ import { PutPlayerInStartRoom } from "./sv_rooms"
 
 class File
 {
+   practiceGame = new Game()
 }
 
 let file = new File()
@@ -24,7 +25,8 @@ export function SV_MatchmakingSetup()
    AddCallback_OnPlayerConnected( function ( player: Player )
    {
       SetNetVar( player, NETVAR_MATCHMAKING_STATUS, MATCHMAKING_STATUS.MATCHMAKING_PRACTICE )
-      UpdateOutOfGamePlayers()
+      file.practiceGame.AddPlayer( player, ROLE.ROLE_CAMPER )
+      file.practiceGame.BroadcastGamestate()
    } )
 
    Players.PlayerRemoving.Connect(
@@ -32,7 +34,8 @@ export function SV_MatchmakingSetup()
       {
          if ( IsPracticing( player ) )
          {
-            UpdateOutOfGamePlayers()
+            file.practiceGame.RemovePlayer( player )
+            file.practiceGame.BroadcastGamestate()
          }
       } )
 
@@ -69,34 +72,6 @@ function GetPlayersWithMatchmakingStatus( status: MATCHMAKING_STATUS ): Array<Pl
 }
 
 
-function UpdateOutOfGamePlayers()
-{
-   let players = Players.GetPlayers()
-   let outOfGamePlayers: Array<Player> = []
-   for ( let player of players )
-   {
-      switch ( GetNetVar_Number( player, NETVAR_MATCHMAKING_STATUS ) )
-      {
-         case MATCHMAKING_STATUS.MATCHMAKING_PRACTICE:
-         case MATCHMAKING_STATUS.MATCHMAKING_LFG:
-            outOfGamePlayers.push( player )
-            break
-      }
-   }
-
-   let gamePlayerInfos: Array<ClientVisibleGamePlayerInfo> = []
-   for ( let player of outOfGamePlayers )
-   {
-      gamePlayerInfos.push( new ClientVisibleGamePlayerInfo( player ) )
-   }
-
-   let encode = HttpService.JSONEncode( gamePlayerInfos )
-   for ( let player of outOfGamePlayers )
-   {
-      SetNetVar( player, NETVAR_JSON_PLAYERINFO, encode )
-   }
-}
-
 function TryToMatchmake()
 {
    let players = GetPlayersWithMatchmakingStatus( MATCHMAKING_STATUS.MATCHMAKING_LFG )
@@ -109,10 +84,12 @@ function TryToMatchmake()
    for ( let player of players )
    {
       SetNetVar( player, NETVAR_MATCHMAKING_STATUS, MATCHMAKING_STATUS.MATCHMAKING_PLAYING )
+      file.practiceGame.RemovePlayer( player )
    }
 
    CreateGame( players )
-   UpdateOutOfGamePlayers()
+
+   file.practiceGame.BroadcastGamestate()
    TryToMatchmake() // maybe there are left over players to start a game with?
 }
 

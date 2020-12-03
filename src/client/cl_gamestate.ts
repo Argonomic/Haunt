@@ -1,98 +1,227 @@
-import { HttpService, Players } from "@rbxts/services"
-import { ClientVisibleGamePlayerInfo, NETVAR_JSON_PLAYERINFO, ROLE } from "shared/sh_gamestate"
-import { AddNetVarChangedCallback, GetNetVar_String } from "shared/sh_player_netvars"
-import { GetFirstChildWithName, IsAlive, SetPlayerTransparencyAndColor } from "shared/sh_utils"
-import { AddUseTargetGetter, PLAYER_OR_PART, ResetUseTargets } from "./cl_use"
+import { Players, Workspace } from "@rbxts/services"
+import { ROLE, Game, NETVAR_JSON_GAMESTATE } from "shared/sh_gamestate"
+import { AddNetVarChangedCallback } from "shared/sh_player_netvars"
+import { KILL_DIST, USETYPE_REPORT } from "shared/sh_settings"
+import { UsePosition } from "shared/sh_use"
+import { Assert, GetFirstChildWithName, RandomFloatRange, RecursiveOnChildren, SetPlayerTransparencyAndColor, UserIDToPlayer } from "shared/sh_utils"
+import { AddUsePositionsGetter, AddUseTargetGetter, PLAYER_OR_PART, ResetUseTargets } from "./cl_use"
+
 
 class File
 {
-   playerInfos: Array<ClientVisibleGamePlayerInfo> = []
-   playersInMyGame: Array<Player> = []
-   role: ROLE = ROLE.ROLE_CAMPER
+   clientGame = new Game()
 }
 
 let file = new File()
 
+export function GetLocalGame(): Game
+{
+   return file.clientGame
+}
+
 export function GetLocalRole(): ROLE
 {
-   return file.role
+   if ( file.clientGame.HasPlayer( Players.LocalPlayer ) )
+      return file.clientGame.GetPlayerRole( Players.LocalPlayer )
+   return ROLE.ROLE_CAMPER
+}
+
+function GetAllPlayersInMyGame(): Array<Player>
+{
+   return file.clientGame.GetAllPlayers()
+}
+
+function GetOtherPlayersInMyGame(): Array<Player>
+{
+   let localPlayer = Players.LocalPlayer
+   return file.clientGame.GetAllPlayers().filter( function ( player: Player )
+   {
+      return player !== localPlayer
+   } )
 }
 
 export function CL_GameStateSetup()
 {
    AddUseTargetGetter( function (): Array<PLAYER_OR_PART>
    {
+      let parts: Array<PLAYER_OR_PART> = []
       if ( GetLocalRole() === ROLE.ROLE_POSSESSED )
-      {
-         return file.playersInMyGame
-      }
+         parts = parts.concat( GetOtherPlayersInMyGame() )
 
-      return []
+      return parts
    } )
 
-   AddNetVarChangedCallback( NETVAR_JSON_PLAYERINFO, function ()
+   AddUsePositionsGetter( function (): Array<UsePosition>
    {
-      //print( "Updated NETVAR_JSON_PLAYERINFO" )
+      let usePositions: Array<UsePosition> = []
 
-      let json = GetNetVar_String( Players.LocalPlayer, NETVAR_JSON_PLAYERINFO )
-      let playerInfos = HttpService.JSONDecode( json ) as Array<ClientVisibleGamePlayerInfo>
-      file.playerInfos = playerInfos
-      file.playersInMyGame = []
-
-      let visiblePlayerIds: Record<number, ClientVisibleGamePlayerInfo> = {}
-
-      for ( let playerInfo of playerInfos )
+      for ( let corpse of file.clientGame.corpses )
       {
-         visiblePlayerIds[playerInfo.id] = playerInfo
+         usePositions.push( new UsePosition( USETYPE_REPORT, corpse.pos, KILL_DIST ) )
       }
 
-      let localPlayer = Players.LocalPlayer
-      let players = Players.GetPlayers()
-      for ( let player of players )
-      {
-         let info = visiblePlayerIds[player.UserId]
-         if ( info === undefined )
-         {
-            // not in our game
-            SetPlayerTransparencyAndColor( player, 1, new Color3( 0, 0, 0 ) )
-            continue
-         }
+      return usePositions
+   } )
 
-         if ( player === localPlayer )
+   AddNetVarChangedCallback( NETVAR_JSON_GAMESTATE, function ()
+   {
+      file.clientGame.NetvarToGamestate()
+
+      for ( let corpse of file.clientGame.corpses )
+      {
+         if ( corpse.clientModel === undefined )
+            corpse.clientModel = CreateCorpse( corpse.player, corpse.pos )
+      }
+
+
+      let userIDToPlayer = UserIDToPlayer()
+
+      let gamePlayers = file.clientGame.GetAllPlayers()
+      for ( let player of gamePlayers )
+      {
+         Assert( userIDToPlayer.has( player.UserId ), "Should have player.." )
+         userIDToPlayer.delete( player.UserId )
+      }
+
+      for ( let pair of userIDToPlayer )
+      {
+         SetPlayerTransparencyAndColor( pair[1], 1, new Color3( 1, 1, 1 ) )
+      }
+
+
+      /*
+      AddNetVarChangedCallback( NETVAR_ROLE, function ()
+      {
+         let player = Players.LocalPlayer
+         let role = GetNetVar_Number( player, NETVAR_ROLE )
+         if ( role === ROLE.ROLE_SPECTATOR )
          {
-            if ( info.evil )
-               file.role = ROLE.ROLE_POSSESSED
-            else
-               file.role = ROLE.ROLE_CAMPER
+            SetPlayerTransparencyAndColor( player, 0.4, new Color3( 1, 1, 1 ) )
          }
          else
          {
-            file.playersInMyGame.push( player )
-            //print( "Added " + player + " to my game" )
+            SetPlayerTransparencyAndColor( player, 1.0, new Color3( 1, 1, 1 ) )
          }
-      }
+      } )
+      */
+
 
       ResetUseTargets()
    } )
 }
 
-let num = -1
-
-export function GetLivingPlayersInMyGame(): Array<Player>
+function CreateCorpse( player: Player, pos: Vector3 ): Model | undefined
 {
-   let living: Array<Player> = []
+   const PUSH = 15
+   const ROTVEL = 360
 
-   for ( let player of file.playersInMyGame )
+   if ( player.Character === undefined )
+      return undefined
+
+   let character = player.Character as Model
+   character.Archivable = true
+   let corpseCharacter = character.Clone()
+
+   corpseCharacter.Name = "corspseClone"
+   corpseCharacter.Parent = Workspace
+
+      ; ( GetFirstChildWithName( corpseCharacter, "Humanoid" ) as Humanoid ).Destroy()
+
+   RecursiveOnChildren( corpseCharacter, function ( child: Instance )
    {
-      if ( IsAlive( player ) )
-         living.push( player )
-   }
+      if ( child.ClassName === 'Motor6D' )
+      {
+         child.Destroy()
+         return true // stop recursion
+      }
 
-   if ( num !== file.playersInMyGame.size() )
-   {
-      //print( "** file.playersInMyGame:" + file.playersInMyGame.size() + ", living:" + living.size() )
-      num = file.playersInMyGame.size()
-   }
+      if ( child.IsA( 'BasePart' ) )
+      {
+         child.CanCollide = true
+         child.Position = pos
 
-   return living
+         if ( child.Name === 'UpperTorso' )
+         {
+            child.Velocity = new Vector3( 0, 0, 0 )
+         }
+         else
+         {
+            child.Velocity = new Vector3( RandomFloatRange( -PUSH, PUSH ), RandomFloatRange( PUSH, PUSH * 2 ), RandomFloatRange( -PUSH, PUSH ) )
+            child.RotVelocity = new Vector3( RandomFloatRange( 0, ROTVEL ), RandomFloatRange( 0, ROTVEL ), RandomFloatRange( 0, ROTVEL ) )
+         }
+
+      }
+
+      return false // continue recursion
+   } )
+
+   return corpseCharacter
 }
+
+/*
+let corpseModel = new Instance( "Model" )
+corpseModel.Name = "Corpse"
+corpseModel.Parent = Workspace
+corpseModel.ChildAdded.Connect( function ( child: Instance )
+{
+   print( "Child added: " + child.Name + " classname " + child.ClassName )
+   switch ( child.ClassName )
+   {
+      case 'Motor6D':
+      case 'Humanoid':
+         child.Destroy()
+         break
+   }
+
+} )
+
+Thread( function ()
+{
+   for ( ; ; )
+   {
+      print( "corpsemodel children: " + corpseModel.GetChildren().size() )
+      wait( 1 )
+   }
+} )
+*/
+
+//corpse.model = corpseModel
+
+
+//RecursiveOnChildren( corpseModel, 'Motor6D' )
+
+/*
+for ( let child of model.GetChildren() )
+{
+   Assert( pos !== undefined, "2 Pos is undefined?" )
+   let handle = child.FindFirstChild( "Handle" )
+   if ( handle !== undefined )
+      child = handle
+
+   if ( child.IsA( 'BasePart' ) )
+   {
+      let clone = child.Clone()
+      if ( child === model.PrimaryPart )
+      {
+         corpseModel.PrimaryPart = clone
+         clone.Position = pos
+      }
+      else
+      {
+         clone.Position = child.Position
+         clone.Parent = corpseModel
+      }
+
+      clone.CanCollide = true
+      clone.Rotation = child.Rotation
+      clone.Velocity = child.Velocity
+      clone.Anchored = false
+      clone.Transparency = child.Transparency
+      clone.Material = child.Material
+      clone.Color = child.Color
+      clone.CFrame = child.CFrame
+   }
+}
+*/
+
+

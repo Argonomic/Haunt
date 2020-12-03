@@ -5,10 +5,22 @@ export type USETYPES = number
 
 class File
 {
-   useTestFunc = new Map<USETYPES, Function>()
    getUseTypeFunction: Function | undefined
    usablesByType = new Map<USETYPES, Usable>()
    serverOnUseForType = new Map<USETYPES, Array<Function>>()
+}
+
+export class UsePosition
+{
+   pos: Vector3
+   userType: USETYPES
+   dist: number
+   constructor( userType: USETYPES, pos: Vector3, dist: number )
+   {
+      this.pos = pos
+      this.userType = userType
+      this.dist = dist
+   }
 }
 
 export class Usable
@@ -61,11 +73,9 @@ export function AddOnUse( usetype: USETYPES, func: Function )
    file.serverOnUseForType.set( usetype, funcs )
 }
 
-export function AddUseType( useType: USETYPES, image: string, text: string, useFunc: Function )
+export function AddUseType( useType: USETYPES, image: string, text: string, testFunc: Function )
 {
-   Assert( !file.useTestFunc.has( useType ), "Usetype already defined" )
-   file.useTestFunc.set( useType, useFunc )
-   file.usablesByType.set( useType, new Usable( useType, image, text, useFunc ) )
+   file.usablesByType.set( useType, new Usable( useType, image, text, testFunc ) )
 }
 
 export function SetGetUseTypeFunction( func: Function )
@@ -73,12 +83,12 @@ export function SetGetUseTypeFunction( func: Function )
    file.getUseTypeFunction = func
 }
 
-export function GetUsable( player: Player, useTargets: Array<Instance> ): Usable | undefined
+export function GetUsableForUseAttempt( player: Player, useTargets: Array<Instance>, usePositions: Array<UsePosition> ): Usable | undefined
 {
    let getter = file.getUseTypeFunction
    if ( getter === undefined )
       return undefined
-   let useType = getter( player, useTargets ) as ( USETYPES | undefined )
+   let useType = getter( player, useTargets, usePositions ) as ( USETYPES | undefined )
    if ( useType === undefined )
       return undefined
 
