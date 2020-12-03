@@ -1,10 +1,10 @@
 import { AddRPC } from "shared/sh_rpc"
 import { ReleaseDraggedButton, AddCallback_MouseUp } from "client/cl_ui"
-import { GetLocalPlayerReady } from "./cl_player"
 import { SendRPC } from "./cl_utils"
 import { Assert, LoadSound } from "shared/sh_utils"
 import { Players } from "@rbxts/services"
 import { SetPlayerWalkSpeed } from "shared/sh_onPlayerConnect"
+import { AddPlayerCannotUseCallback, SetUseDebounceTime } from "./cl_use"
 
 export enum TASK_UI
 {
@@ -21,7 +21,7 @@ class File
 
    successSound = LoadSound( 4612375233 )
 
-   activeTaskStatus = new TaskStatus()
+   activeTaskStatus: TaskStatus | undefined
 }
 
 class TaskSpec
@@ -36,6 +36,11 @@ class TaskSpec
       this.frame = frame
       this.startFunc = startFunc
    }
+}
+
+export function HasActiveTask(): boolean
+{
+   return file.activeTaskStatus !== undefined
 }
 
 export class TaskStatus
@@ -61,16 +66,15 @@ export function CL_TasksSetup()
 {
    AddRPC( "RPC_FromServer_OnPlayerUseTask", RPC_FromServer_OnPlayerUseTask )
    AddRPC( "RPC_FromServer_CancelTask", RPC_FromServer_CancelTask )
+
+   AddPlayerCannotUseCallback( function ()
+   {
+      return HasActiveTask()
+   } )
 }
 
 export function AddTaskUI( name: TASK_UI, ui: ScreenGui )
 {
-   if ( ui.Name === "TaskList" )
-   {
-      print( "****** * * ADD TASK UI " + name + " " + ui.Name )
-   }
-
-   Assert( GetLocalPlayerReady(), "Tried to add UI before local player connecs" )
    file.taskUI[name] = ui
 }
 
@@ -97,7 +101,11 @@ export function GetTaskUI( name: TASK_UI ): ScreenGui
 
 export function RPC_FromServer_CancelTask()
 {
-   let closeFunction = file.activeTaskStatus.closeFunction
+   let activeTaskStatus = file.activeTaskStatus
+   if ( activeTaskStatus === undefined )
+      return
+
+   let closeFunction = activeTaskStatus.closeFunction
    if ( closeFunction )
       closeFunction()
 }
@@ -125,14 +133,16 @@ export function RPC_FromServer_OnPlayerUseTask( roomName: string, taskName: stri
    taskUIController.Enabled = true
    let closeButton = taskUIController.Frame.CloseButton
 
-   file.activeTaskStatus = new TaskStatus()
+   let activeTaskStatus = new TaskStatus()
+   file.activeTaskStatus = activeTaskStatus
 
    let closeFunction = function ()
    {
-      if ( file.activeTaskStatus.success )
+      if ( activeTaskStatus.success )
       {
          file.successSound.Play()
          SendRPC( "RPC_FromClient_OnPlayerFinishTask", roomName, taskName )
+         SetUseDebounceTime( 1 ) // hide use for a second
       }
 
       SetPlayerWalkSpeed( Players.LocalPlayer, 16 )
@@ -140,25 +150,25 @@ export function RPC_FromServer_OnPlayerUseTask( roomName: string, taskName: stri
       //SetPlayerState( Players.LocalPlayer, Enum.HumanoidStateType.Running, true )
       newFrame.Destroy()
       taskUIController.Enabled = false;
-      let think = file.activeTaskStatus.think
+      let think = activeTaskStatus.think
       if ( think !== undefined )
          think.Disconnect()
 
-      let closeButtonCallback = file.activeTaskStatus.closeButtonCallback
+      let closeButtonCallback = activeTaskStatus.closeButtonCallback
       if ( closeButtonCallback !== undefined )
          closeButtonCallback.Disconnect()
 
       ReleaseDraggedButton()
+      file.activeTaskStatus = undefined
    }
 
-   file.activeTaskStatus.closeFunction = closeFunction
+   activeTaskStatus.closeFunction = closeFunction
 
-   file.activeTaskStatus.closeButtonCallback = AddCallback_MouseUp( closeButton, function ()
+   activeTaskStatus.closeButtonCallback = AddCallback_MouseUp( closeButton, function ()
    {
       closeFunction()
    } )
 
-   file.activeTaskStatus.think = taskSpec.startFunc( newFrame, closeFunction, file.activeTaskStatus )
-
+   activeTaskStatus.think = taskSpec.startFunc( newFrame, closeFunction, file.activeTaskStatus )
 }
 

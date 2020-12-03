@@ -1,6 +1,7 @@
-import { Players } from "@rbxts/services";
+import { MessagingService, Players, RunService, ServerScriptService } from "@rbxts/services";
 import { Workspace } from "@rbxts/services";
 import { ReplicatedStorage } from "@rbxts/services"
+import { Tween } from "./sh_tween";
 
 class File
 {
@@ -48,6 +49,8 @@ export function Assert( bool: boolean, msg: string )
       return
 
    print( "ASSERT FAILED: " + msg )
+   assert( false, msg )
+
 }
 
 export function GetInstanceChildWithName( parent: Instance, name: string ): Instance | undefined
@@ -73,6 +76,19 @@ export function GetChildrenWithName( parent: Instance, name: string ): Array<Ins
    }
 
    return found
+}
+
+export function GetFirstChildWithName( parent: Instance, name: string ): Instance | undefined
+{
+   let kids = parent.GetChildren()
+
+   for ( let kid of kids )
+   {
+      if ( kid.Name === name )
+         return kid
+   }
+
+   return undefined
 }
 
 export function GetChildren_NoFutureOffspring( parent: Instance ): Array<Instance>
@@ -279,5 +295,95 @@ export function VectorNormalize( vec: Vector3 ): Vector3
 {
    let len = vec.Magnitude
    return new Vector3( vec.X / len, vec.Y / len, vec.Z / len )
+}
+
+export function SetPlayerTransparencyAndColor( player: Player, value: number, color: Color3 )
+{
+   //print( "set player transparency to " + value )
+   let char = player.Character
+   if ( char === undefined )
+      return
+
+   let head = char.FindFirstChild( "Head" )
+   if ( head )
+   {
+      let face = head.FindFirstChild( "face" )
+      if ( face )
+         ( face as BasePart ).Transparency = value
+   }
+
+   for ( let child of char.GetChildren() )
+   {
+      let handle = child.FindFirstChild( "Handle" )
+      if ( handle !== undefined )
+         child = handle
+
+      if ( child.IsA( 'BasePart' ) )
+      {
+         child.Transparency = value
+         child.Color = color
+      }
+   }
+}
+
+
+export function TweenPlayerParts( player: Player, goal: any, time: number )
+{
+   //   let head = char.FindFirstChild( "Head" )
+   //   if ( head )
+   //   {
+   //      let face = head.FindFirstChild( "face" )
+   //      if ( face )
+   //         ( face as BasePart ).Transparency = value
+   //   }
+   function Recursive( instance: Instance )
+   {
+      for ( let child of instance.GetChildren() )
+      {
+         let handle = child.FindFirstChild( "Handle" )
+         if ( handle !== undefined )
+            child = handle
+
+         if ( child.IsA( 'BasePart' ) )
+            Tween( child, goal, time, Enum.EasingStyle.Linear )
+
+         Recursive( child )
+      }
+   }
+
+   Recursive( player.Character as Model )
+}
+
+export function IsAlive( player: Player ): boolean
+{
+   if ( player.Character === undefined )
+      return false
+
+   let humanoid = GetFirstChildWithName( player.Character as Model, "Humanoid" ) as ( Humanoid | undefined )
+   if ( humanoid === undefined )
+      return false
+
+   return humanoid.Health > 0
+}
+
+export function GetHumanoid( player: Player ): Humanoid | undefined
+{
+   let character = player.Character
+   if ( character === undefined )
+      return undefined
+
+   return GetFirstChildWithName( character, "Humanoid" ) as ( Humanoid | undefined )
+}
+
+export function RemoveQuitPlayers( arr: Array<Player> )
+{
+   for ( let i = 0; i < arr.size(); i++ )
+   {
+      if ( arr[i].Character === undefined )
+      {
+         arr.remove( i )
+         i--
+      }
+   }
 }
 

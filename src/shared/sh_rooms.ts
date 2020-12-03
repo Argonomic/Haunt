@@ -1,7 +1,8 @@
 import { Workspace } from "@rbxts/services"
 import { BoundsXZ } from "./sh_bounds"
-import { Assert, GetChildren_NoFutureOffspring, GetInstanceChildWithName, GetWorkspaceChildByName, IsClient } from "./sh_utils"
+import { Assert, GetChildren_NoFutureOffspring, GetInstanceChildWithName, GetWorkspaceChildByName, IsClient, IsServer } from "./sh_utils"
 
+export const FAST_ROOM_ITERATION = false
 const DEFAULT_FIELDOFVIEW = 20
 
 type BLOCKER_STYLES = "CornerWedgePart" | "FlagStand" | "MeshPart" | "NegateOperation" | "Part" | "PartOperation" | "Platform" | "Seat" | "SkateboardPlatform" | "SpawnLocation" | "Terrain" | "TrussPart" | "UnionOperation" | "VehicleSeat" | "WedgePart"
@@ -65,6 +66,7 @@ export class Room
    clientBlockerInfo: Array<BlockerInfo> = []
    bounds: BoundsXZ | undefined
    cameraAspectRatioMultiplier = 1.0
+   startPoints: Array<Vector3> = []
 }
 
 export class RoomAndTask
@@ -100,16 +102,20 @@ function CreateRoomFromFolder( folder: Folder ): Room
    {
       switch ( child.Name )
       {
-         /*
-         case "scr_room_bounds":
+         case "scr_startpoint":
             {
                let childPart = child as BasePart
-               room.bounds = GetBoundsXZ( [childPart] )
-               childPart.CanCollide = false
+               Assert( childPart.ClassName === "Part", "trigger_door should be a Part" )
+
+               let position = new Vector3( childPart.Position.X, childPart.Position.Y, childPart.Position.Z )
+
                childPart.Transparency = 1.0
+               childPart.CanCollide = false
+
+               room.startPoints.push( position )
             }
+
             break
-         */
 
          case "usable_task":
             {
@@ -130,7 +136,7 @@ function CreateRoomFromFolder( folder: Folder ): Room
          case "part_roomcenter_delete":
             {
                let childPart = child as BasePart
-               Assert( childPart.ClassName === "Part", "trigger_door should be a Part" )
+               Assert( childPart.ClassName === "Part", "part_roomcenter_delete should be a Part" )
 
                room.center = childPart
                room.cameraEnd = childPart.Position
@@ -208,7 +214,7 @@ function CreateRoomFromFolder( folder: Folder ): Room
 
             break
 
-         case "client_blockers":
+         case "scr_client_blockers":
             {
                let blockers = GetChildren_NoFutureOffspring( child )
                for ( let instance of blockers )
@@ -227,7 +233,7 @@ function CreateRoomFromFolder( folder: Folder ): Room
 
                   room.clientBlockerInfo.push( blockerInfo )
 
-                  if ( IsClient() )
+                  if ( IsClient() && !FAST_ROOM_ITERATION )
                      blocker.Destroy()
                }
             }

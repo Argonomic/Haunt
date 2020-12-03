@@ -15,6 +15,10 @@ import { CL_CalloutsSetup } from "./cl_callouts2d"
 import { CL_FadeOverlaySetup } from "./cl_fadeoverlay"
 import { Assert, Thread } from "shared/sh_utils"
 import { CL_UseSetup } from "./cl_use"
+import { CL_ReadyUpSetup } from "./cl_readyup"
+import { CL_GameStateSetup } from "./cl_gamestate"
+import { SH_UseContentSetup } from "shared/content/sh_use_content"
+import { SH_UseSetup } from "shared/sh_use"
 
 class File
 {
@@ -29,7 +33,6 @@ function FinishCheck()
 }
 Thread( FinishCheck )
 
-
 SH_RPCSetup()
 SH_PlayerNetVarsSetup()
 CL_RoomSetup()
@@ -39,13 +42,21 @@ CL_CameraSetup()
 CL_InputSetup()
 CL_PlayerSetup()
 AddGameStateNetVars()
+DoneCreatingNVs()
+
 CL_UISetup()
 CL_MinimapSetup()
 CL_TaskListSetup()
 CL_CalloutsSetup()
 CL_FadeOverlaySetup()
 CL_UseSetup()
+CL_ReadyUpSetup()
+CL_GameStateSetup()
 
-DoneCreatingNVs()
 SH_OnPlayerConnectSetup()
+
+SH_UseSetup()
+SH_UseContentSetup()
+
 file.finishedInit = true
+

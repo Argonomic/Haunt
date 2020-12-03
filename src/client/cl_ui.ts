@@ -1,6 +1,8 @@
 import { Players, RunService, Workspace } from "@rbxts/services";
-import { AddCallback_OnPlayerConnected } from "shared/sh_onPlayerConnect";
-import { Assert, ExecOnChildWhenItExists, Graph, LoadSound } from "shared/sh_utils";
+import { AddCallback_OnPlayerCharacterAdded, AddCallback_OnPlayerConnected } from "shared/sh_onPlayerConnect";
+import { AddCallback_OnRoomSetup } from "shared/sh_rooms";
+import { Tween } from "shared/sh_tween";
+import { Assert, ExecOnChildWhenItExists, GetFirstChildWithName, Graph, LoadSound } from "shared/sh_utils";
 import { AddCaptureInputChangeCallback, AddOnTouchEndedCallback } from "./cl_input";
 
 const DRAGGED_ZINDEX_OFFSET = 20
@@ -197,17 +199,15 @@ export function CL_UISetup()
       button.Position = new UDim2( x, 0, y, 0 )
    } )
 
-   AddCallback_OnPlayerConnected( function ( player: Player )
+   AddCallback_OnPlayerCharacterAdded( function ( player: Player )
    {
       ExecOnChildWhenItExists( player, 'PlayerGui', function ( gui: Instance )
       {
-         ExecOnChildWhenItExists( gui, 'Package', function ( packageFolder: Instance )
+         let packageFolder = GetFirstChildWithName( gui, 'Package' ) as Folder
+         for ( let func of file.playerGuiExistsCallbacks )
          {
-            for ( let func of file.playerGuiExistsCallbacks )
-            {
-               func( packageFolder )
-            }
-         } )
+            func( packageFolder )
+         }
       } )
    } )
 
@@ -265,4 +265,64 @@ export function MoveOverTime( element: GuiObject, endPos: UDim2, blendTime: numb
       let y = Graph( Workspace.DistributedGameTime, startTime, endTime, start.Y.Scale, endPos.Y.Scale )
       element.Position = new UDim2( x, 0, y, 0 )
    } ) )
+}
+
+export class ToggleButton
+{
+   button: ImageButton
+
+   private frame: GuiObject
+   private time: number
+   private openFrameTween: any
+   private closeFrameTween: any
+   private taskListOpen = true
+
+   public IsOpen(): boolean
+   {
+      return this.taskListOpen
+   }
+
+   private Update()
+   {
+      if ( this.taskListOpen )
+      {
+         Tween( this.frame, this.closeFrameTween, this.time, Enum.EasingStyle.Exponential )
+         Tween( this.button, { Rotation: 0 }, this.time, Enum.EasingStyle.Exponential )
+      }
+      else
+      {
+         Tween( this.frame, this.openFrameTween, this.time, Enum.EasingStyle.Exponential )
+         Tween( this.button, { Rotation: 180 }, this.time, Enum.EasingStyle.Exponential )
+      }
+   }
+
+   constructor( frame: GuiObject, openFrameTween: any, closeFrameTween: any )
+   {
+      let border = 5
+      let button = new Instance( 'ImageButton' )
+      this.frame = frame
+      this.openFrameTween = openFrameTween
+      this.closeFrameTween = closeFrameTween
+      this.button = button
+      button.Parent = frame
+      button.AnchorPoint = new Vector2( 0, 0 )
+      button.BackgroundColor3 = new Color3( 140 / 256, 142 / 256, 182 / 256 )
+      button.BorderColor3 = new Color3( 27 / 256, 42 / 256, 53 / 256 )
+      button.BorderSizePixel = border
+      button.Position = new UDim2( 1, border, 0, 0 )
+      button.Size = new UDim2( 0.2, 0, 0.2, 0 )
+      button.SizeConstraint = Enum.SizeConstraint.RelativeYY
+      button.Image = 'rbxassetid://89290230'
+
+      this.time = 0.5
+      this.Update()
+
+      let toggleButton = this
+
+      button.MouseButton1Up.Connect( function ()
+      {
+         toggleButton.taskListOpen = !toggleButton.taskListOpen
+         toggleButton.Update()
+      } )
+   }
 }

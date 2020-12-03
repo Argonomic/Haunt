@@ -1,10 +1,8 @@
 import { AddRPC } from "shared/sh_rpc"
-import { AddCallback_OnRoomSetup, CreateClientBlockers, Room, AddRoomsFromWorkspace } from "shared/sh_rooms"
-import { UserInputService } from "@rbxts/services"
-import { SendRPC } from "./cl_utils"
+import { AddCallback_OnRoomSetup, CreateClientBlockers, Room, AddRoomsFromWorkspace, FAST_ROOM_ITERATION } from "shared/sh_rooms"
 import { Assert, GetPlayerFromDescendant, GetPosition } from "shared/sh_utils"
 import { SetPlayerCameraToRoom } from "./cl_camera"
-import { AddOnUseCallback } from "./cl_use"
+import { Players } from "@rbxts/services"
 
 class File
 {
@@ -26,20 +24,33 @@ let file = new File( EMPTY_ROOM )
 
 export function CL_RoomSetup()
 {
-   AddOnUseCallback( PlayerTriesToUseCurrenRoom )
+   //AddOnUseCallback( PlayerTriesToUseCurrentRoom )
 
    AddRPC( "RPC_FromServer_SetPlayerRoom", RPC_FromServer_SetPlayerRoom )
 
    AddCallback_OnRoomSetup( "trigger_door", OnTriggerDoorSetup )
    file.rooms = AddRoomsFromWorkspace()
 
-   //let delay = coroutine.create( Delay )
-   //coroutine.resume( delay )
+   if ( FAST_ROOM_ITERATION )
+   {
+      let delay = coroutine.create( FastRoomIteration )
+      coroutine.resume( delay )
+   }
 }
 
 
-function Delay()
+function FastRoomIteration()
 {
+   for ( ; ; )
+   {
+      wait( 0.5 )
+      file.rooms = AddRoomsFromWorkspace()
+      if ( CurrentRoomExists() )
+      {
+         let room = file.rooms.get( GetCurrentRoom().name )
+         SetCurrentRoom( room as Room )
+      }
+   }
    /*
    for ( ; ; )
    {
@@ -47,18 +58,11 @@ function Delay()
       SetCurrentRoom( file.currentRoom )
    }
    */
-
-   /*
-   for ( ; ; )
-   {
-      wait( 0.5 )
-      UserInputService.MouseIconEnabled = true
-   }
-   */
 }
 
 export function RPC_FromServer_SetPlayerRoom( name: string )
 {
+   print( "RPC_FromServer_SetPlayerRoom put me in " + name )
    let room = GetRoom( name )
    SetCurrentRoom( room )
 }
@@ -90,11 +94,13 @@ export function CurrentRoomExists(): boolean
    return file.currentRoom !== EMPTY_ROOM
 }
 
-function PlayerTriesToUseCurrenRoom()
+/*
+function PlayerTriesToUseCurrentRoom( useType: USETYPES )
 {
-   print( "PlayerTriesToUseCurrenRoom" )
-   SendRPC( "RPC_FromClient_OnPlayerUseFromRoom", GetCurrentRoom().name )
+   print( "PlayerTriesToUseCurrentRoom" )
+   SendRPC( "RPC_FromClient_OnPlayerUseFromRoom", GetCurrentRoom().name, useType )
 }
+*/
 
 export function AddRoomChangedCallback( func: Function )
 {
@@ -114,27 +120,32 @@ function SetCurrentRoom( room: Room )
    }
 }
 
-function OnTriggerDoorSetup( childPart: BasePart, room: Room )
+function OnTriggerDoorSetup( door: BasePart, room: Room )
 {
-   childPart.Touched.Connect( function ( toucher )
+   let localPlayer = Players.LocalPlayer
+
+   door.Touched.Connect( function ( toucher )
    {
       let player = GetPlayerFromDescendant( toucher )
       if ( player === undefined )
          return
 
-      if ( file.clientCurrentDoorTrigger === childPart )
+      if ( player !== localPlayer )
+         return
+
+      if ( file.clientCurrentDoorTrigger === door )
          return
 
       if ( file.clientCurrentDoorTrigger !== undefined )
       {
          let playerOrg = GetPosition( player )
-         let dist1 = math.abs( ( playerOrg.sub( childPart.Position ).Magnitude ) )
+         let dist1 = math.abs( ( playerOrg.sub( door.Position ).Magnitude ) )
          let dist2 = math.abs( ( playerOrg.sub( file.clientCurrentDoorTrigger.Position ).Magnitude ) )
          if ( dist2 <= dist1 )
             return
       }
 
-      file.clientCurrentDoorTrigger = childPart
+      file.clientCurrentDoorTrigger = door
       SetCurrentRoom( room )
    } )
 

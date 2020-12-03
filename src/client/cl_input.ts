@@ -20,6 +20,15 @@ export function CL_InputSetup()
 {
    UserInputService.InputChanged.Connect( InputChanged )
 
+
+   /*
+   for ( ; ; )
+   {
+      wait( 0.5 )
+      UserInputService.MouseIconEnabled = true
+   }
+   */
+
    /*
    let onPressUse = function ( actionName: string, state: Enum.UserInputState, inputObject: InputObject )
    {

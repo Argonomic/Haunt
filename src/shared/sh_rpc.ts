@@ -40,8 +40,11 @@ export function SH_RPCSetup()
          "RPC_FromServer_SetPlayerRoom",
          "RPC_FromServer_OnPlayerUseTask",
          "RPC_FromServer_CancelTask",
+         "RPC_FromServer_ConfirmReadyUp",
          "RPC_FromClient_OnPlayerUseFromRoom",
          "RPC_FromClient_OnPlayerFinishTask",
+         "RPC_FromClient_RequestChange_MatchmakingStatus",
+         "RPC_FromClient_OnUse",
       ]
 
    for ( let rpc of rpcs )

@@ -1,6 +1,6 @@
 import { Players, RunService, Workspace } from "@rbxts/services"
 import { BoundsXZ, GetBoundsXZ } from "shared/sh_bounds"
-import { Assert, ExecOnChildWhenItExists, GetChildrenWithName, GetChildren_NoFutureOffspring, GetInstanceChildWithName, GetPosition, GetWorkspaceChildByName, Graph } from "shared/sh_utils"
+import { Assert, ExecOnChildWhenItExists, GetChildrenWithName, GetChildren_NoFutureOffspring, GetFirstChildWithName, GetInstanceChildWithName, GetPosition, GetWorkspaceChildByName, Graph } from "shared/sh_utils"
 import { CreateCalloutTextLabel } from "./cl_callouts2d"
 import { AddPlayerGuiExistsCallback, UIORDER } from "./cl_ui"
 
@@ -18,15 +18,14 @@ class MapIcon
    }
 }
 
-const EMPTY_MINIMAPFRAME = new Instance( "ScreenGui" ) // deleted on start 
-
 class File
 {
    mapIcons: Array<MapIcon> = []
-   minimapGui: ScreenGui = EMPTY_MINIMAPFRAME
+   minimapGui: ScreenGui = new Instance( "ScreenGui" )
 }
 
 let file = new File()
+file.minimapGui.Destroy()
 
 export function CL_MinimapSetup()
 {
@@ -62,115 +61,114 @@ export function CL_MinimapSetup()
 
    let camera = Workspace.CurrentCamera as Camera
    let viewSize = camera.ViewportSize
-   print( "viewsize " + viewSize.X + " " + viewSize.Y )
    //let aspectRatio = viewSize.X / viewSize.Y
    let fontSize = Graph( viewSize.Y, 374, 971, 6, 18 )
 
    AddPlayerGuiExistsCallback( function ( gui: Instance )
    {
-      ExecOnChildWhenItExists( gui, 'Minimap', function ( minimapUI: ScreenGui )
+      file.mapIcons = []
+      let minimapUI = GetFirstChildWithName( gui, 'Minimap' ) as ScreenGui
+      let frameName = "MiniFrame"
+      let scale = 2.0
+      minimapUI.DisplayOrder = UIORDER.UIORDER_MINIMAP
+
+      let baseFrame = GetFirstChildWithName( minimapUI, frameName ) as ScreenGui
+      file.minimapGui = baseFrame
+
+      for ( let mapIcon of file.mapIcons )
       {
-         let frameName = "MiniFrame"
-         let scale = 2.0
-         minimapUI.DisplayOrder = UIORDER.UIORDER_MINIMAP
+         mapIcon.textLabel.Parent = file.minimapGui
+      }
 
-         ExecOnChildWhenItExists( minimapUI, frameName, function ( baseFrame: ScreenGui )
+      minimapUI.Enabled = true
+      let frames: Array<TextLabel> = []
+      let background: Array<TextLabel> = []
+      for ( let roomFolder of roomFolders )
+      {
+         let floors = floorsByRoom.get( roomFolder.Name ) as Array<BasePart>
+         frames = frames.concat( CreateTextLabelsForMinimap( roomFolder.Name, baseFrame, floors, fontSize, 20 ) )
+         background = background.concat( CreateTextLabelsForMinimap( roomFolder.Name, baseFrame, floors, fontSize, 10 ) )
+      }
+
+      for ( let frame of background )
+      {
+         frame.BackgroundColor3 = new Color3( 1, 1, 1 )
+      }
+
+      SizeFramesForMinimap( floors, frames, boundsXZ, scale, shadowBorder )
+      SizeFramesForMinimap( floors, background, boundsXZ, scale, 0 )
+
+      let xCenter = boundsXZ.minX + ( boundsXZ.maxX - boundsXZ.minX ) * 0.5
+      let zCenter = boundsXZ.minZ + ( boundsXZ.maxZ - boundsXZ.minZ ) * 0.5
+
+      const halfScale = scale * 0.50
+      const totalX = boundsXZ.maxX - boundsXZ.minX
+      const totalZ = boundsXZ.maxZ - boundsXZ.minZ
+      const total = math.max( totalX, totalZ )
+
+      const xBuffer = ( 1.0 - ( total - totalX ) / total ) * halfScale
+      const zBuffer = ( 1.0 - ( total - totalZ ) / total ) * halfScale
+
+      function SetFramePositions( floors: Array<BasePart>, frames: Array<TextLabel>, offsetX: number, offsetZ: number )
+      {
+         for ( let i = 0; i < floors.size(); i++ )
          {
-            Assert( file.minimapGui === EMPTY_MINIMAPFRAME, "file.minimapGui === EMPTY_MINIMAPFRAME" )
-            file.minimapGui.Destroy()
-            file.minimapGui = baseFrame
+            const floor = floors[i]
+            const frame = frames[i]
+            const posX = Graph( floor.Position.Z + offsetZ, boundsXZ.maxZ, boundsXZ.minZ, -zBuffer, zBuffer ) + 0.5
+            const posY = Graph( floor.Position.X + offsetX, boundsXZ.minX, boundsXZ.maxX, -xBuffer, xBuffer ) + 0.5
+            frame.Position = new UDim2( posX, 0, posY, 0 )
+         }
+      }
 
-            for ( let mapIcon of file.mapIcons )
+      const CLAMP = 1.05
+      const CLAMP2 = CLAMP * 2.0
+      function SetIconPositions( offsetX: number, offsetZ: number )
+      {
+         for ( let mapIcon of file.mapIcons )
+         {
+            let position = mapIcon.position
+            let posX = Graph( position.Z + offsetZ, boundsXZ.maxZ, boundsXZ.minZ, -zBuffer, zBuffer ) + 0.5
+            let posY = Graph( position.X + offsetX, boundsXZ.minX, boundsXZ.maxX, -xBuffer, xBuffer ) + 0.5
+
+            posX *= CLAMP2
+            posX -= CLAMP
+            posY *= CLAMP2
+            posY -= CLAMP
+
+            let greatest = math.max( math.abs( posX ), math.abs( posY ) )
+            if ( greatest > 1.0 )
             {
-               mapIcon.textLabel.Parent = file.minimapGui
+               // clamp icon
+               posX /= greatest
+               posY /= greatest
             }
 
+            posX += CLAMP
+            posX /= CLAMP2
+            posY += CLAMP
+            posY /= CLAMP2
 
-            minimapUI.Enabled = true
-            let frames: Array<TextLabel> = []
-            let background: Array<TextLabel> = []
-            for ( let roomFolder of roomFolders )
-            {
-               let floors = floorsByRoom.get( roomFolder.Name ) as Array<BasePart>
-               frames = frames.concat( CreateTextLabelsForMinimap( roomFolder.Name, baseFrame, floors, fontSize, 20 ) )
-               background = background.concat( CreateTextLabelsForMinimap( roomFolder.Name, baseFrame, floors, fontSize, 10 ) )
-            }
+            mapIcon.textLabel.Position = new UDim2( posX, 0, posY, 0 )
+            //print( "pos " + posX + "," + posY )
+         }
+      }
 
-            for ( let frame of background )
-            {
-               frame.BackgroundColor3 = new Color3( 1, 1, 1 )
-            }
+      let connect = RunService.RenderStepped.Connect( function ()
+      {
+         let position = GetPosition( Players.LocalPlayer )
+         let posX = xCenter - position.X
+         let posZ = zCenter - position.Z
 
-            SizeFramesForMinimap( floors, frames, boundsXZ, scale, shadowBorder )
-            SizeFramesForMinimap( floors, background, boundsXZ, scale, 0 )
+         SetFramePositions( floors, frames, posX, posZ )
+         SetFramePositions( floors, background, posX, posZ )
+         SetIconPositions( posX, posZ )
+      } );
 
-            let xCenter = boundsXZ.minX + ( boundsXZ.maxX - boundsXZ.minX ) * 0.5
-            let zCenter = boundsXZ.minZ + ( boundsXZ.maxZ - boundsXZ.minZ ) * 0.5
-
-            const halfScale = scale * 0.50
-            const totalX = boundsXZ.maxX - boundsXZ.minX
-            const totalZ = boundsXZ.maxZ - boundsXZ.minZ
-            const total = math.max( totalX, totalZ )
-
-            const xBuffer = ( 1.0 - ( total - totalX ) / total ) * halfScale
-            const zBuffer = ( 1.0 - ( total - totalZ ) / total ) * halfScale
-
-            function SetFramePositions( floors: Array<BasePart>, frames: Array<TextLabel>, offsetX: number, offsetZ: number )
-            {
-               for ( let i = 0; i < floors.size(); i++ )
-               {
-                  const floor = floors[i]
-                  const frame = frames[i]
-                  const posX = Graph( floor.Position.Z + offsetZ, boundsXZ.maxZ, boundsXZ.minZ, -zBuffer, zBuffer ) + 0.5
-                  const posY = Graph( floor.Position.X + offsetX, boundsXZ.minX, boundsXZ.maxX, -xBuffer, xBuffer ) + 0.5
-                  frame.Position = new UDim2( posX, 0, posY, 0 )
-               }
-            }
-
-            const CLAMP = 1.05
-            const CLAMP2 = CLAMP * 2.0
-            function SetIconPositions( offsetX: number, offsetZ: number )
-            {
-               for ( let mapIcon of file.mapIcons )
-               {
-                  let position = mapIcon.position
-                  let posX = Graph( position.Z + offsetZ, boundsXZ.maxZ, boundsXZ.minZ, -zBuffer, zBuffer ) + 0.5
-                  let posY = Graph( position.X + offsetX, boundsXZ.minX, boundsXZ.maxX, -xBuffer, xBuffer ) + 0.5
-
-                  posX *= CLAMP2
-                  posX -= CLAMP
-                  posY *= CLAMP2
-                  posY -= CLAMP
-
-                  let greatest = math.max( math.abs( posX ), math.abs( posY ) )
-                  if ( greatest > 1.0 )
-                  {
-                     // clamp icon
-                     posX /= greatest
-                     posY /= greatest
-                  }
-
-                  posX += CLAMP
-                  posX /= CLAMP2
-                  posY += CLAMP
-                  posY /= CLAMP2
-
-                  mapIcon.textLabel.Position = new UDim2( posX, 0, posY, 0 )
-                  //print( "pos " + posX + "," + posY )
-               }
-            }
-
-            RunService.RenderStepped.Connect( function ()
-            {
-               let position = GetPosition( Players.LocalPlayer )
-               let posX = xCenter - position.X
-               let posZ = zCenter - position.Z
-
-               SetFramePositions( floors, frames, posX, posZ )
-               SetFramePositions( floors, background, posX, posZ )
-               SetIconPositions( posX, posZ )
-            } );
-         } )
+      minimapUI.AncestryChanged.Connect( function ()
+      {
+         connect.Disconnect()
+         minimapUI.Destroy()
       } )
    } )
 }
@@ -251,12 +249,13 @@ export function ClearMinimapIcons()
 
 export function AddMapIcon( position: Vector3 )
 {
+   if ( file.minimapGui === undefined )
+      return
+
    let textLabel = CreateCalloutTextLabel()
    textLabel.Name = "MapIcon"
    textLabel.ZIndex = 100
    let mapIcon = new MapIcon( textLabel, position )
    file.mapIcons.push( mapIcon )
-
-   if ( file.minimapGui !== EMPTY_MINIMAPFRAME )
-      textLabel.Parent = file.minimapGui
+   textLabel.Parent = file.minimapGui
 }
