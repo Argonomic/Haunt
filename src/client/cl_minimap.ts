@@ -1,6 +1,6 @@
 import { Players, RunService, Workspace } from "@rbxts/services"
 import { BoundsXZ, GetBoundsXZ } from "shared/sh_bounds"
-import { Assert, ExecOnChildWhenItExists, GetChildrenWithName, GetChildren_NoFutureOffspring, GetFirstChildWithName, GetInstanceChildWithName, GetPosition, GetWorkspaceChildByName, Graph } from "shared/sh_utils"
+import { Assert, GetChildrenWithName, GetChildren_NoFutureOffspring, GetFirstChildWithName, GetInstanceChildWithName, GetPosition, GetWorkspaceChildByName, Graph } from "shared/sh_utils"
 import { CreateCalloutTextLabel } from "./cl_callouts2d"
 import { AddPlayerGuiExistsCallback, UIORDER } from "./cl_ui"
 

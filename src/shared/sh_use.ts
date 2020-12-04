@@ -1,7 +1,7 @@
 import { AddRPC } from "./sh_rpc"
-import { Assert, IsServer } from "./sh_utils"
+import { Assert, GetPosition, IsServer } from "./sh_utils"
 
-export type USETYPES = number
+type USETYPES = number
 
 export enum USETARGETS
 {
@@ -11,12 +11,21 @@ export enum USETARGETS
    USETARGET_USEPOSITION,
 }
 
-
 class File
 {
    usablesByType = new Map<USETYPES, Usable>()
-   serverOnUseTest = new Map<USETYPES, Function>()
-   serverOnUseFunc = new Map<USETYPES, Function>()
+}
+
+export class UseResults
+{
+   usable: Usable
+   usedThing: USABLETYPES
+
+   constructor( usable: Usable, usedThing: USABLETYPES )
+   {
+      this.usable = usable
+      this.usedThing = usedThing
+   }
 }
 
 export class UsePosition
@@ -33,9 +42,11 @@ export class UsePosition
    }
 }
 
+export type USABLETYPES = Vector3 | Player | Instance | BasePart | Model
 export type PlayerBasePart_Boolean = ( player: Player, basePart: BasePart ) => boolean
 export type Vector3Instance_Boolean = ( pos: Vector3, target: Instance ) => boolean
 export type Vector3Vector3_Boolean = ( pos: Vector3, target: Vector3 ) => boolean
+export type USE_GETTER = ( player: Player ) => Array<USABLETYPES>
 
 export class Usable
 {
@@ -46,16 +57,21 @@ export class Usable
    testPlayerToBasePart: PlayerBasePart_Boolean | undefined
    testPlayerPosToInstance: Vector3Instance_Boolean | undefined
    testPlayerPosToPos: Vector3Vector3_Boolean | undefined
+   successFunc: ( ( player: Player, usedThing: USABLETYPES ) => void ) | undefined
 
-   //getter_Vec3: ( () => Array<Vector3> ) | undefined
-   //getter_Player: ( () => Array<Player> ) | undefined
-   //getter_BasePart: ( () => Array<BasePart> ) | undefined
-   //getter_Instance: ( () => Array<Instance> ) | undefined
-   //getter_Model: ( () => Array<Model> ) | undefined
-   //getter: ( () => Array<Vector3 | Player | Instance | BasePart | Model> ) | undefined
-   getter = function (): Array<Vector3 | Player | Instance | BasePart | Model>
+   private getter: USE_GETTER = function ( player: Player ): Array<USABLETYPES>
    {
       return []
+   }
+
+   public ExecuteGetter( player: Player ): Array<USABLETYPES>
+   {
+      return this.getter( player )
+   }
+
+   public DefineGetter( getter: USE_GETTER )
+   {
+      this.getter = getter
    }
 
    constructor( useType: USETYPES, image: string, text: string )
@@ -76,28 +92,16 @@ export function SH_UseSetup()
    }
 }
 
-function RPC_FromClient_OnUse( player: Player, useType: USETYPES )
+function RPC_FromClient_OnUse( player: Player )
 {
-   print( "player " + player.Name + " used usetype " + useType )
-   if ( !file.serverOnUseTest.has( useType ) )
-      return
-   if ( !file.serverOnUseFunc.has( useType ) )
+   let useResults = GetUseResultsForAttempt( player )
+   if ( useResults === undefined )
       return
 
-   let usable = GetUsableByType( useType )
-   let func = file.serverOnUseTest.get( useType ) as Function
-   let useResult = func( player, usable ) as unknown
-   if ( useResult !== undefined )
-   {
-      let successFunc = file.serverOnUseFunc.get( useType ) as Function
-      successFunc( player, useResult )
-   }
-}
-
-export function AddOnUse( usetype: USETYPES, testFunc: Function, successFunc: Function )
-{
-   file.serverOnUseTest.set( usetype, testFunc )
-   file.serverOnUseFunc.set( usetype, successFunc )
+   let successFunc = useResults.usable.successFunc
+   if ( successFunc === undefined )
+      return
+   successFunc( player, useResults.usedThing )
 }
 
 export function AddUseType( useType: USETYPES, image: string, text: string )
@@ -122,4 +126,64 @@ export function GetUsables(): Array<Usable>
       usables.push( pair[1] )
    }
    return usables
+}
+
+
+export function GetUseResultsForAttempt( player: Player ): UseResults | undefined
+{
+   let pos = GetPosition( player )
+
+   let usables = GetUsables()
+   for ( let usable of usables )
+   {
+      if ( usable.testPlayerPosToInstance !== undefined )
+      {
+         let targets = usable.ExecuteGetter( player ) as Array<Instance>
+
+         for ( let target of targets )
+         {
+            Assert( target !== undefined, "Use Target is not defined!" )
+         }
+
+         for ( let target of targets )
+         {
+            if ( usable.testPlayerPosToInstance( pos, target ) )
+               return new UseResults( usable, target )
+         }
+      }
+      else if ( usable.testPlayerToBasePart !== undefined )
+      {
+         let targets = usable.ExecuteGetter( player ) as Array<BasePart>
+         for ( let target of targets )
+         {
+            Assert( target !== undefined, "Use Target is not defined!" )
+         }
+
+         for ( let target of targets )
+         {
+            if ( usable.testPlayerToBasePart( player, target ) )
+               return new UseResults( usable, target )
+         }
+      }
+      else if ( usable.testPlayerPosToPos !== undefined )
+      {
+         let targets = usable.ExecuteGetter( player ) as Array<Vector3>
+         for ( let target of targets )
+         {
+            Assert( target !== undefined, "Use Target is not defined!" )
+         }
+
+         for ( let target of targets )
+         {
+            if ( usable.testPlayerPosToPos( pos, target ) )
+               return new UseResults( usable, target )
+         }
+      }
+      else
+      {
+         Assert( false, "No usable test defined" )
+      }
+   }
+
+   return undefined
 }

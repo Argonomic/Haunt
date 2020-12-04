@@ -1,14 +1,13 @@
 import { AddRPC } from "shared/sh_rpc"
 import { ArrayRandomize, Assert, GetHumanoid, GetPosition, IsAlive, Thread } from "shared/sh_utils"
-import { Assignment, GAME_STATE, AddGameStateNetVars, NETVAR_JSON_TASKLIST, ROLE, IsPracticing, Game, Corpse } from "shared/sh_gamestate"
+import { Assignment, GAME_STATE, AddGameStateNetVars, NETVAR_JSON_TASKLIST, ROLE, IsPracticing, Game, Corpse, USETYPES } from "shared/sh_gamestate"
 import { GetAllRoomsAndTasks, GetCurrentRoom, GetRoomByName, GetRoomSpawnLocations, PutPlayerCameraInRoom, SetPlayerCurrentRoom } from "./sv_rooms"
 import { HttpService, Players } from "@rbxts/services"
-import { MAX_TASKLIST_SIZE, MAX_PLAYERS, MIN_PLAYERS, SPAWN_ROOM, USETYPE_KILL, USETYPE_TASK, USETYPE_REPORT } from "shared/sh_settings"
+import { MAX_TASKLIST_SIZE, MAX_PLAYERS, MIN_PLAYERS, SPAWN_ROOM } from "shared/sh_settings"
 import { SendRPC } from "./sv_utils"
 import { SetNetVar } from "shared/sh_player_netvars"
 import { AddCallback_OnPlayerCharacterAdded, SetPlayerWalkSpeed } from "shared/sh_onPlayerConnect"
-import { RoomAndTask, Task } from "shared/sh_rooms"
-import { AddOnUse, Usable, Vector3Instance_Boolean, PlayerBasePart_Boolean } from "shared/sh_use"
+import { GetUsableByType, USABLETYPES } from "shared/sh_use"
 
 class File
 {
@@ -56,49 +55,49 @@ export function SV_GameStateSetup()
 
 
 
-
-   AddOnUse( USETYPE_REPORT,
-      function ( player: Player, usable: Usable ): boolean | undefined
+   let usableReport = GetUsableByType( USETYPES.USETYPE_REPORT )
+   usableReport.DefineGetter(
+      function ( player: Player ): Array<USABLETYPES>
       {
          // are we near a corpse?
-         return undefined
-      },
+         return []
+      } )
 
-      function ( player: Player, boolean: Boolean )
+   usableReport.successFunc =
+      function ( player: Player, usedThing: USABLETYPES )
       {
-         Assert( !IsPracticing( player ), "Praticing player tried to kill?" )
-         let game = PlayerToGame( player )
+         //Assert( !IsPracticing( player ), "Praticing player tried to kill?" )
+         //let game = PlayerToGame( player )
       }
-   )
 
-   AddOnUse( USETYPE_KILL,
-      function ( player: Player, usable: Usable ): Player | undefined
+
+   let usableKill = GetUsableByType( USETYPES.USETYPE_KILL )
+   usableKill.DefineGetter(
+      function ( player: Player ): Array<Player>
       {
-         let testPlayerPosToInstance = usable.testPlayerPosToInstance as Vector3Instance_Boolean
-
          Assert( !IsPracticing( player ), "Praticing player tried to kill?" )
          let game = PlayerToGame( player )
          Assert( game.GetPlayerRole( player ) === ROLE.ROLE_POSSESSED, "Camper tried to kill?" )
 
-         let pos = GetPosition( player )
          let campers = game.GetCampers()
+         let results: Array<Player> = []
          for ( let camper of campers )
          {
             if ( !IsAlive( camper ) )
                continue
 
-            if ( !( testPlayerPosToInstance( pos, camper ) as boolean ) )
-               continue
-
             let human = GetHumanoid( camper )
             if ( human !== undefined )
-               return camper
+               results.push( camper )
          }
-         return undefined
-      },
+         return results
+      } )
 
-      function ( player: Player, camper: Player )
+   usableKill.successFunc =
+      function ( player: Player, usedThing: USABLETYPES )
       {
+         let camper = usedThing as Player
+
          let human = GetHumanoid( camper )
          if ( human === undefined )
             return
@@ -111,59 +110,52 @@ export function SV_GameStateSetup()
          SendRPC( "RPC_FromServer_CancelTask", camper )
          game.BroadcastGamestate()
       }
-   )
 
-   AddOnUse( USETYPE_TASK,
-      function ( player: Player, usable: Usable ): RoomAndTask | undefined
+
+   let usableTask = GetUsableByType( USETYPES.USETYPE_TASK )
+   usableTask.DefineGetter(
+      function ( player: Player ): Array<BasePart>
       {
-         let testPlayerToBasePart = usable.testPlayerToBasePart as PlayerBasePart_Boolean
-
          let room = GetCurrentRoom( player )
-         let usedTask: Function | undefined
+         let results: Array<BasePart> = []
 
          if ( IsPracticing( player ) )
          {
-            usedTask = function ( task: Task ): boolean
+            for ( let taskPair of room.tasks )
             {
-               return testPlayerToBasePart( player, task.volume )
+               let task = taskPair[1]
+               results.push( task.volume )
             }
          }
          else
          {
             let game = PlayerToGame( player )
-            usedTask = function ( task: Task ): boolean
+            for ( let taskPair of room.tasks )
             {
-               if ( !PlayerHasUnfinishedAssignment( player, game, room.name, task.name ) )
-                  return false
-
-               return testPlayerToBasePart( player, task.volume )
+               let task = taskPair[1]
+               if ( PlayerHasUnfinishedAssignment( player, game, room.name, task.name ) )
+                  results.push( task.volume )
             }
          }
 
-         Assert( usedTask !== undefined, "No usedtask func" )
-         if ( usedTask === undefined )
-            return undefined
+         return results
+      } )
 
-         for ( let taskPair of room.tasks )
+   usableTask.successFunc =
+      function ( player: Player, usedThing: USABLETYPES )
+      {
+         let volume = usedThing as BasePart
+         let room = GetCurrentRoom( player )
+         for ( let pair of room.tasks )
          {
-            let task = taskPair[1]
-            if ( !( usedTask( task ) as boolean ) )
+            if ( pair[1].volume !== volume )
                continue
 
-            return new RoomAndTask( room, task )
+            SetPlayerWalkSpeed( player, 0 )
+            SendRPC( "RPC_FromServer_OnPlayerUseTask", player, room.name, pair[0] )
+            break
          }
-
-         return undefined
-      },
-
-      function ( player: Player, roomAndTask: RoomAndTask )
-      {
-         SetPlayerWalkSpeed( player, 0 )
-         SendRPC( "RPC_FromServer_OnPlayerUseTask", player, roomAndTask.room.name, roomAndTask.task.name )
       }
-   )
-
-
 
 }
 

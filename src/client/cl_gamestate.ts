@@ -1,7 +1,6 @@
 import { Players, Workspace } from "@rbxts/services"
-import { ROLE, Game, NETVAR_JSON_GAMESTATE } from "shared/sh_gamestate"
+import { ROLE, Game, NETVAR_JSON_GAMESTATE, USETYPES } from "shared/sh_gamestate"
 import { AddNetVarChangedCallback } from "shared/sh_player_netvars"
-import { USETYPE_KILL, USETYPE_REPORT, USETYPE_TASK } from "shared/sh_settings"
 import { GetUsableByType } from "shared/sh_use"
 import { Assert, GetFirstChildWithName, RandomFloatRange, RecursiveOnChildren, SetPlayerTransparencyAndColor, UserIDToPlayer } from "shared/sh_utils"
 
@@ -41,18 +40,19 @@ function GetOtherPlayersInMyGame(): Array<Player>
 
 export function CL_GameStateSetup()
 {
-   GetUsableByType( USETYPE_KILL ).getter =
-      function (): Array<Player>
+   GetUsableByType( USETYPES.USETYPE_KILL ).DefineGetter(
+      function ( player: Player ): Array<Player>
       {
          if ( GetLocalRole() === ROLE.ROLE_POSSESSED )
             return GetOtherPlayersInMyGame()
 
          return []
-      }
+      } )
 
 
-   GetUsableByType( USETYPE_REPORT ).getter =
-      function (): Array<Vector3>
+
+   GetUsableByType( USETYPES.USETYPE_REPORT ).DefineGetter(
+      function ( player: Player ): Array<Vector3>
       {
          let positions: Array<Vector3> = []
          for ( let corpse of file.clientGame.corpses )
@@ -60,7 +60,7 @@ export function CL_GameStateSetup()
             positions.push( corpse.pos )
          }
          return positions
-      }
+      } )
 
    AddNetVarChangedCallback( NETVAR_JSON_GAMESTATE, function ()
    {

@@ -1,6 +1,6 @@
 import { HttpService, Players } from "@rbxts/services"
 import { AddTaskUI, GetTaskSpec, GetTaskUI, TASK_UI } from "client/cl_tasks"
-import { Assignment, IsPracticing, NETVAR_JSON_TASKLIST } from "shared/sh_gamestate"
+import { Assignment, IsPracticing, NETVAR_JSON_TASKLIST, USETYPES } from "shared/sh_gamestate"
 import { AddNetVarChangedCallback, GetNetVar_String } from "shared/sh_player_netvars"
 import { AddRoomChangedCallback, CurrentRoomExists, GetCurrentRoom, GetRooms } from "./cl_rooms"
 import { Assert, ExecOnChildWhenItExists, GetFirstChildWithName, Graph } from "shared/sh_utils"
@@ -8,7 +8,6 @@ import { AddCallout, ClearCallouts, InitCallouts } from "./cl_callouts2d"
 import { Room, Task } from "shared/sh_rooms"
 import { AddMapIcon, ClearMinimapIcons } from "./cl_minimap"
 import { AddPlayerGuiExistsCallback, ToggleButton, UIORDER } from "./cl_ui"
-import { USETYPE_TASK } from "shared/sh_settings"
 import { GetUsableByType } from "shared/sh_use"
 
 const CALLOUTS_NAME = "TASKLIST_CALLOUTS"
@@ -51,8 +50,8 @@ export function CL_TaskListSetup()
    InitCallouts( CALLOUTS_NAME )
 
    AddRoomChangedCallback( RecreateTaskListCallouts2d )
-   GetUsableByType( USETYPE_TASK ).getter =
-      function (): Array<BasePart>
+   GetUsableByType( USETYPES.USETYPE_TASK ).DefineGetter(
+      function ( player: Player ): Array<BasePart>
       {
          let parts: Array<BasePart> = []
          if ( !CurrentRoomExists() )
@@ -84,7 +83,7 @@ export function CL_TaskListSetup()
          }
 
          return parts
-      }
+      } )
 
    AddNetVarChangedCallback( NETVAR_JSON_TASKLIST, RefreshTaskList )
 

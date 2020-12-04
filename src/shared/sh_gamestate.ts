@@ -7,6 +7,13 @@ export const NETVAR_MATCHMAKING_STATUS = "MMS"
 export const NETVAR_MATCHMAKING_NUMWITHYOU = "N_WY"
 export const NETVAR_JSON_GAMESTATE = "E_GS"
 
+export enum USETYPES 
+{
+   USETYPE_TASK = 0,
+   USETYPE_KILL,
+   USETYPE_REPORT,
+}
+
 export type COSTUME_INDEX = number
 
 export enum MATCHMAKING_STATUS

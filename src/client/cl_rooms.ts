@@ -93,14 +93,6 @@ export function CurrentRoomExists(): boolean
    return file.currentRoom !== EMPTY_ROOM
 }
 
-/*
-function PlayerTriesToUseCurrentRoom( useType: USETYPES )
-{
-   print( "PlayerTriesToUseCurrentRoom" )
-   SendRPC( "RPC_FromClient_OnPlayerUseFromRoom", GetCurrentRoom().name, useType )
-}
-*/
-
 export function AddRoomChangedCallback( func: Function )
 {
    file.roomChangedCallbacks.push( func )
