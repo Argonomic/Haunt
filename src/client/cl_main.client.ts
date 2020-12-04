@@ -35,6 +35,10 @@ Thread( FinishCheck )
 
 SH_RPCSetup()
 SH_PlayerNetVarsSetup()
+
+SH_UseSetup()
+SH_UseContentSetup()
+
 CL_RoomSetup()
 CL_TasksSetup()
 CL_TasksContentSetup()
@@ -55,8 +59,6 @@ CL_GameStateSetup()
 
 SH_OnPlayerConnectSetup()
 
-SH_UseSetup()
-SH_UseContentSetup()
 
 file.finishedInit = true
 

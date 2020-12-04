@@ -1,34 +1,22 @@
 import { Players, RunService, Workspace } from "@rbxts/services"
-import { GetUsableForUseAttempt, Usable, UsePosition } from "shared/sh_use"
-import { Assert, GetFirstChildWithName, IsAlive } from "shared/sh_utils"
+import { GetUsableByType, GetUsables, Usable, USETYPES } from "shared/sh_use"
+import { Assert, GetFirstChildWithName, GetPosition, IsAlive, UserIDToPlayer } from "shared/sh_utils"
 import { AddPlayerGuiExistsCallback, UIORDER } from "./cl_ui"
 import { SendRPC } from "./cl_utils"
 
-export type PLAYER_OR_PART = Player | BasePart
 
 class File
 {
-   useTargets: Array<PLAYER_OR_PART> = []
-   usePositions: Array<UsePosition> = []
-   useTargetGetter: Array<Function> = []
-   usePositionsGetter: Array<Function> = []
-   //onUseCallbacks: Array<Function> = []
+   //useGetters = new Map<USETYPES, Function>()
    debounceTime = 0
-   playerCannotUseCallback: Array<Function> = []
+   playerUseDisabledCallback: Array<Function> = []
 }
 
 let file = new File()
 
-/*
-export function AddOnUseCallback( func: Function )
+export function AddPlayerUseDisabledCallback( func: Function )
 {
-   file.onUseCallbacks.push( func )
-}
-*/
-
-export function AddPlayerCannotUseCallback( func: Function )
-{
-   file.playerCannotUseCallback.push( func )
+   file.playerUseDisabledCallback.push( func )
 }
 
 export function SetUseDebounceTime( time: number )
@@ -48,7 +36,7 @@ function UseButtonVisible( useUI: ScreenGui, imageButton: ImageButton, textLabel
       if ( Workspace.DistributedGameTime < file.debounceTime )
          return false
 
-      for ( let callback of file.playerCannotUseCallback )
+      for ( let callback of file.playerUseDisabledCallback )
       {
          if ( callback() )
             return false
@@ -70,7 +58,7 @@ function UseButtonVisible( useUI: ScreenGui, imageButton: ImageButton, textLabel
          return
       }
 
-      let newUsable = GetUsableForUseAttempt( player, file.useTargets, file.usePositions )
+      let newUsable = GetUsableForUseAttempt()
       if ( newUsable !== lastUsable )
       {
          lastUsable = newUsable
@@ -85,6 +73,66 @@ function UseButtonVisible( useUI: ScreenGui, imageButton: ImageButton, textLabel
          useUI.Enabled = true
       }
    } )
+}
+
+function GetUsableForUseAttempt(): Usable | undefined
+{
+   let player = Players.LocalPlayer
+   let pos = GetPosition( player )
+
+   let usables = GetUsables()
+   for ( let usable of usables )
+   {
+      if ( usable.testPlayerPosToInstance !== undefined )
+      {
+         let targets = usable.getter() as Array<Instance>
+
+         for ( let target of targets )
+         {
+            Assert( target !== undefined, "Use Target is not defined!" )
+         }
+
+         for ( let target of targets )
+         {
+            if ( usable.testPlayerPosToInstance( pos, target ) )
+               return usable
+         }
+      }
+      else if ( usable.testPlayerToBasePart !== undefined )
+      {
+         let targets = usable.getter() as Array<BasePart>
+         for ( let target of targets )
+         {
+            Assert( target !== undefined, "Use Target is not defined!" )
+         }
+
+         for ( let target of targets )
+         {
+            if ( usable.testPlayerToBasePart( player, target ) )
+               return usable
+         }
+      }
+      else if ( usable.testPlayerPosToPos !== undefined )
+      {
+         let targets = usable.getter() as Array<Vector3>
+         for ( let target of targets )
+         {
+            Assert( target !== undefined, "Use Target is not defined!" )
+         }
+
+         for ( let target of targets )
+         {
+            if ( usable.testPlayerPosToPos( pos, target ) )
+               return usable
+         }
+      }
+      else
+      {
+         Assert( false, "No usable test defined" )
+      }
+   }
+
+   return undefined
 }
 
 export function CL_UseSetup()
@@ -105,7 +153,7 @@ export function CL_UseSetup()
 
       imageButton.MouseButton1Up.Connect( function ()
       {
-         let usable = GetUsableForUseAttempt( Players.LocalPlayer, file.useTargets, file.usePositions )
+         let usable = GetUsableForUseAttempt()
          if ( usable === undefined )
             return
 
@@ -116,26 +164,10 @@ export function CL_UseSetup()
    } )
 }
 
-export function ResetUseTargets()
+/*
+export function AddOnUseGetter( useType: USETYPES, getter: Function )
 {
-   file.useTargets = []
-
-   for ( let func of file.useTargetGetter )
-   {
-      file.useTargets = file.useTargets.concat( func() )
-   }
-   for ( let func of file.usePositionsGetter )
-   {
-      file.usePositions = file.usePositions.concat( func() )
-   }
+   Assert( !file.useGetters.has( useType ), "Already added getter for use type " + useType )
+   file.useGetters.set( useType, getter )
 }
-
-export function AddUseTargetGetter( func: Function )
-{
-   file.useTargetGetter.push( func )
-}
-
-export function AddUsePositionsGetter( func: Function )
-{
-   file.usePositionsGetter.push( func )
-}
+*/

@@ -62,7 +62,6 @@ function FastRoomIteration()
 
 export function RPC_FromServer_SetPlayerRoom( name: string )
 {
-   print( "RPC_FromServer_SetPlayerRoom put me in " + name )
    let room = GetRoom( name )
    SetCurrentRoom( room )
 }

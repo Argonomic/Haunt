@@ -1,10 +1,9 @@
 import { Players, Workspace } from "@rbxts/services"
 import { ROLE, Game, NETVAR_JSON_GAMESTATE } from "shared/sh_gamestate"
 import { AddNetVarChangedCallback } from "shared/sh_player_netvars"
-import { KILL_DIST, USETYPE_REPORT } from "shared/sh_settings"
-import { UsePosition } from "shared/sh_use"
+import { USETYPE_KILL, USETYPE_REPORT, USETYPE_TASK } from "shared/sh_settings"
+import { GetUsableByType } from "shared/sh_use"
 import { Assert, GetFirstChildWithName, RandomFloatRange, RecursiveOnChildren, SetPlayerTransparencyAndColor, UserIDToPlayer } from "shared/sh_utils"
-import { AddUsePositionsGetter, AddUseTargetGetter, PLAYER_OR_PART, ResetUseTargets } from "./cl_use"
 
 
 class File
@@ -42,26 +41,26 @@ function GetOtherPlayersInMyGame(): Array<Player>
 
 export function CL_GameStateSetup()
 {
-   AddUseTargetGetter( function (): Array<PLAYER_OR_PART>
-   {
-      let parts: Array<PLAYER_OR_PART> = []
-      if ( GetLocalRole() === ROLE.ROLE_POSSESSED )
-         parts = parts.concat( GetOtherPlayersInMyGame() )
-
-      return parts
-   } )
-
-   AddUsePositionsGetter( function (): Array<UsePosition>
-   {
-      let usePositions: Array<UsePosition> = []
-
-      for ( let corpse of file.clientGame.corpses )
+   GetUsableByType( USETYPE_KILL ).getter =
+      function (): Array<Player>
       {
-         usePositions.push( new UsePosition( USETYPE_REPORT, corpse.pos, KILL_DIST ) )
+         if ( GetLocalRole() === ROLE.ROLE_POSSESSED )
+            return GetOtherPlayersInMyGame()
+
+         return []
       }
 
-      return usePositions
-   } )
+
+   GetUsableByType( USETYPE_REPORT ).getter =
+      function (): Array<Vector3>
+      {
+         let positions: Array<Vector3> = []
+         for ( let corpse of file.clientGame.corpses )
+         {
+            positions.push( corpse.pos )
+         }
+         return positions
+      }
 
    AddNetVarChangedCallback( NETVAR_JSON_GAMESTATE, function ()
    {
@@ -104,9 +103,6 @@ export function CL_GameStateSetup()
          }
       } )
       */
-
-
-      ResetUseTargets()
    } )
 }
 

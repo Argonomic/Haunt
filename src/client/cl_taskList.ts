@@ -8,7 +8,8 @@ import { AddCallout, ClearCallouts, InitCallouts } from "./cl_callouts2d"
 import { Room, Task } from "shared/sh_rooms"
 import { AddMapIcon, ClearMinimapIcons } from "./cl_minimap"
 import { AddPlayerGuiExistsCallback, ToggleButton, UIORDER } from "./cl_ui"
-import { AddUseTargetGetter, PLAYER_OR_PART, ResetUseTargets } from "./cl_use"
+import { USETYPE_TASK } from "shared/sh_settings"
+import { GetUsableByType } from "shared/sh_use"
 
 const CALLOUTS_NAME = "TASKLIST_CALLOUTS"
 
@@ -43,9 +44,6 @@ function RefreshTaskList()
 
    if ( file.assignments.size() && file.recreateTaskListUI !== undefined )
       file.recreateTaskListUI()
-
-   if ( CurrentRoomExists() )
-      ResetUseTargets()
 }
 
 export function CL_TaskListSetup()
@@ -53,8 +51,40 @@ export function CL_TaskListSetup()
    InitCallouts( CALLOUTS_NAME )
 
    AddRoomChangedCallback( RecreateTaskListCallouts2d )
-   AddUseTargetGetter( GetTasksAsUseTargets )
-   AddRoomChangedCallback( ResetUseTargets )
+   GetUsableByType( USETYPE_TASK ).getter =
+      function (): Array<BasePart>
+      {
+         let parts: Array<BasePart> = []
+         if ( !CurrentRoomExists() )
+            return parts
+
+         let room = GetCurrentRoom()
+
+         if ( IsPracticing( Players.LocalPlayer ) )
+         {
+            for ( let taskPark of room.tasks )
+            {
+               let task = taskPark[1]
+               parts.push( task.volume )
+            }
+         }
+         else
+         {
+            for ( let assignment of file.assignments )
+            {
+               if ( assignment.roomName !== room.name )
+                  continue
+               if ( assignment.status !== 0 )
+                  continue
+
+               Assert( room.tasks.has( assignment.taskName ), "Room " + room.name + " has no task " + assignment.taskName )
+               let task = room.tasks.get( assignment.taskName ) as Task
+               parts.push( task.volume )
+            }
+         }
+
+         return parts
+      }
 
    AddNetVarChangedCallback( NETVAR_JSON_TASKLIST, RefreshTaskList )
 
@@ -73,39 +103,8 @@ export function CL_TaskListSetup()
    } )
 }
 
-function GetTasksAsUseTargets(): Array<PLAYER_OR_PART>
-{
-   if ( !CurrentRoomExists() )
-      return []
 
-   let room = GetCurrentRoom()
-   let useTargets: Array<PLAYER_OR_PART> = []
 
-   if ( IsPracticing( Players.LocalPlayer ) )
-   {
-      for ( let taskPark of room.tasks )
-      {
-         let task = taskPark[1]
-         useTargets.push( task.volume )
-      }
-   }
-   else
-   {
-
-      for ( let assignment of file.assignments )
-      {
-         if ( assignment.roomName !== room.name )
-            continue
-         if ( assignment.status !== 0 )
-            continue
-
-         Assert( room.tasks.has( assignment.taskName ), "Room " + room.name + " has no task " + assignment.taskName )
-         let task = room.tasks.get( assignment.taskName ) as Task
-         useTargets.push( task.volume )
-      }
-   }
-   return useTargets
-}
 
 
 function RecreateTaskListUI()

@@ -4,7 +4,7 @@ import { SendRPC } from "./cl_utils"
 import { Assert, LoadSound } from "shared/sh_utils"
 import { Players } from "@rbxts/services"
 import { SetPlayerWalkSpeed } from "shared/sh_onPlayerConnect"
-import { AddPlayerCannotUseCallback, SetUseDebounceTime } from "./cl_use"
+import { AddPlayerUseDisabledCallback, SetUseDebounceTime } from "./cl_use"
 
 export enum TASK_UI
 {
@@ -67,7 +67,7 @@ export function CL_TasksSetup()
    AddRPC( "RPC_FromServer_OnPlayerUseTask", RPC_FromServer_OnPlayerUseTask )
    AddRPC( "RPC_FromServer_CancelTask", RPC_FromServer_CancelTask )
 
-   AddPlayerCannotUseCallback( function ()
+   AddPlayerUseDisabledCallback( function ()
    {
       return HasActiveTask()
    } )

@@ -27,6 +27,10 @@ SetServer()
 SH_RPCSetup()
 SH_PlayerNetVarsSetup()
 SH_OnPlayerConnectSetup()
+
+SH_UseSetup()
+SH_UseContentSetup()
+
 SV_CollisionGroupsSetup()
 SV_RoomsSetup()
 SV_GameStateSetup()
@@ -34,8 +38,6 @@ DoneCreatingNVs()
 
 SV_MatchmakingSetup()
 
-SH_UseSetup()
-SH_UseContentSetup()
 
 
 file.finishedInit = true

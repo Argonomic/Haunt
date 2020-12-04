@@ -7,8 +7,8 @@ import { MAX_TASKLIST_SIZE, MAX_PLAYERS, MIN_PLAYERS, SPAWN_ROOM, USETYPE_KILL, 
 import { SendRPC } from "./sv_utils"
 import { SetNetVar } from "shared/sh_player_netvars"
 import { AddCallback_OnPlayerCharacterAdded, SetPlayerWalkSpeed } from "shared/sh_onPlayerConnect"
-import { Task } from "shared/sh_rooms"
-import { AddOnUse, Usable } from "shared/sh_use"
+import { RoomAndTask, Task } from "shared/sh_rooms"
+import { AddOnUse, Usable, Vector3Instance_Boolean, PlayerBasePart_Boolean } from "shared/sh_use"
 
 class File
 {
@@ -54,18 +54,28 @@ export function SV_GameStateSetup()
          UpdateGame( game )
       } )
 
+
+
+
    AddOnUse( USETYPE_REPORT,
-      function ( player: Player, usable: Usable )
+      function ( player: Player, usable: Usable ): boolean | undefined
+      {
+         // are we near a corpse?
+         return undefined
+      },
+
+      function ( player: Player, boolean: Boolean )
       {
          Assert( !IsPracticing( player ), "Praticing player tried to kill?" )
          let game = PlayerToGame( player )
-
-      } )
-
+      }
+   )
 
    AddOnUse( USETYPE_KILL,
-      function ( player: Player, usable: Usable )
+      function ( player: Player, usable: Usable ): Player | undefined
       {
+         let testPlayerPosToInstance = usable.testPlayerPosToInstance as Vector3Instance_Boolean
+
          Assert( !IsPracticing( player ), "Praticing player tried to kill?" )
          let game = PlayerToGame( player )
          Assert( game.GetPlayerRole( player ) === ROLE.ROLE_POSSESSED, "Camper tried to kill?" )
@@ -77,44 +87,45 @@ export function SV_GameStateSetup()
             if ( !IsAlive( camper ) )
                continue
 
-            if ( !( usable.useTest( player, camper, pos ) as boolean ) )
+            if ( !( testPlayerPosToInstance( pos, camper ) as boolean ) )
                continue
 
             let human = GetHumanoid( camper )
             if ( human !== undefined )
-            {
-               game.corpses.push( new Corpse( camper, GetPosition( camper ) ) )
-
-               file.playerToSpawnLocation.set( camper, GetPosition( camper ) )
-               human.TakeDamage( human.Health )
-               game.SetPlayerRole( camper, ROLE.ROLE_CAMPER )
-               SendRPC( "RPC_FromServer_CancelTask", camper )
-            }
-
-            game.BroadcastGamestate()
-            return
+               return camper
          }
+         return undefined
+      },
+
+      function ( player: Player, camper: Player )
+      {
+         let human = GetHumanoid( camper )
+         if ( human === undefined )
+            return
+
+         let game = PlayerToGame( player )
+         game.corpses.push( new Corpse( camper, GetPosition( camper ) ) )
+         file.playerToSpawnLocation.set( camper, GetPosition( camper ) )
+         human.TakeDamage( human.Health )
+         game.SetPlayerRole( camper, ROLE.ROLE_CAMPER )
+         SendRPC( "RPC_FromServer_CancelTask", camper )
+         game.BroadcastGamestate()
       }
    )
 
    AddOnUse( USETYPE_TASK,
-
-      function ( player: Player, usable: Usable )
+      function ( player: Player, usable: Usable ): RoomAndTask | undefined
       {
+         let testPlayerToBasePart = usable.testPlayerToBasePart as PlayerBasePart_Boolean
+
          let room = GetCurrentRoom( player )
          let usedTask: Function | undefined
-
-         function UsedTaskSucceeded( task: Task )
-         {
-            SetPlayerWalkSpeed( player, 0 )
-            SendRPC( "RPC_FromServer_OnPlayerUseTask", player, room.name, task.name )
-         }
 
          if ( IsPracticing( player ) )
          {
             usedTask = function ( task: Task ): boolean
             {
-               return usable.useTest( player, task.volume, undefined )
+               return testPlayerToBasePart( player, task.volume )
             }
          }
          else
@@ -125,13 +136,13 @@ export function SV_GameStateSetup()
                if ( !PlayerHasUnfinishedAssignment( player, game, room.name, task.name ) )
                   return false
 
-               return usable.useTest( player, task.volume, undefined )
+               return testPlayerToBasePart( player, task.volume )
             }
          }
 
          Assert( usedTask !== undefined, "No usedtask func" )
          if ( usedTask === undefined )
-            return
+            return undefined
 
          for ( let taskPair of room.tasks )
          {
@@ -139,10 +150,21 @@ export function SV_GameStateSetup()
             if ( !( usedTask( task ) as boolean ) )
                continue
 
-            UsedTaskSucceeded( task )
-            return
+            return new RoomAndTask( room, task )
          }
-      } )
+
+         return undefined
+      },
+
+      function ( player: Player, roomAndTask: RoomAndTask )
+      {
+         SetPlayerWalkSpeed( player, 0 )
+         SendRPC( "RPC_FromServer_OnPlayerUseTask", player, roomAndTask.room.name, roomAndTask.task.name )
+      }
+   )
+
+
+
 }
 
 

@@ -277,7 +277,6 @@ export class Game
       {
          players.push( pair[0] )
       }
-      print( "GetAllPlayers found " + players.size() )
       return players
    }
 
@@ -421,5 +420,13 @@ export function AddGameStateNetVars()
 
 export function IsPracticing( player: Player ): boolean
 {
-   return GetNetVar_Number( player, NETVAR_MATCHMAKING_STATUS ) === MATCHMAKING_STATUS.MATCHMAKING_PRACTICE
+   switch ( GetNetVar_Number( player, NETVAR_MATCHMAKING_STATUS ) )
+   {
+      case MATCHMAKING_STATUS.MATCHMAKING_PRACTICE:
+      case MATCHMAKING_STATUS.MATCHMAKING_LFG:
+         return true
+
+   }
+
+   return false
 }
