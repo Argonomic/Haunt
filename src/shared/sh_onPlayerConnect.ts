@@ -28,6 +28,11 @@ export function AddCallback_OnPlayerConnected( func: Function )
    file.onPlayerConnected.push( func )
 }
 
+export function APlayerHasConnected(): boolean
+{
+   return file.aPlayerConnected
+}
+
 export function AddCallback_OnPlayerCharacterAdded( func: Function )
 {
    Assert( !file.aPlayerConnected, "Tried to add a player character added callback after a player connected" )

@@ -2,7 +2,7 @@ import { Players } from "@rbxts/services";
 import { NETVAR_MATCHMAKING_STATUS, MATCHMAKING_STATUS, NETVAR_MATCHMAKING_NUMWITHYOU } from "shared/sh_gamestate";
 import { AddNetVarChangedCallback, GetNetVar_Number } from "shared/sh_player_netvars";
 import { Assert, ExecOnChildWhenItExists, GetFirstChildWithName } from "shared/sh_utils";
-import { AddPlayerGuiExistsCallback, ToggleButton } from "./cl_ui";
+import { AddPlayerGuiFolderExistsCallback, ToggleButton, UIORDER } from "./cl_ui";
 import { SendRPC } from "./cl_utils";
 
 class ReadyUI
@@ -67,11 +67,13 @@ export function SetReadyUp( status: MATCHMAKING_STATUS, readyMessage: string )
 
 export function CL_ReadyUpSetup()
 {
-   AddPlayerGuiExistsCallback( function ( gui: Instance )
+   AddPlayerGuiFolderExistsCallback( function ( gui: Instance )
    {
       ExecOnChildWhenItExists( gui, "ReadyUI", function ( readyUI: ScreenGui )
       {
          readyUI.Enabled = false
+         readyUI.DisplayOrder = UIORDER.UIORDER_READY
+
          file.baseReadyUI = readyUI
          CreateReadyUI()
          UpdateReadyUp()

@@ -2,7 +2,7 @@ import { Players, Workspace } from "@rbxts/services"
 import { ROLE, Game, NETVAR_JSON_GAMESTATE, USETYPES } from "shared/sh_gamestate"
 import { AddNetVarChangedCallback } from "shared/sh_player_netvars"
 import { GetUsableByType } from "shared/sh_use"
-import { Assert, GetFirstChildWithName, RandomFloatRange, RecursiveOnChildren, SetPlayerTransparencyAndColor, UserIDToPlayer } from "shared/sh_utils"
+import { Assert, GetFirstChildWithName, RandomFloatRange, RecursiveOnChildren, SetCharacterTransparencyAndColor, SetPlayerTransparencyAndColor, UserIDToPlayer } from "shared/sh_utils"
 
 
 class File
@@ -29,31 +29,29 @@ function GetAllPlayersInMyGame(): Array<Player>
    return file.clientGame.GetAllPlayers()
 }
 
-function GetOtherPlayersInMyGame(): Array<Player>
-{
-   let localPlayer = Players.LocalPlayer
-   return file.clientGame.GetAllPlayers().filter( function ( player: Player )
-   {
-      return player !== localPlayer
-   } )
-}
-
 export function CL_GameStateSetup()
 {
    GetUsableByType( USETYPES.USETYPE_KILL ).DefineGetter(
       function ( player: Player ): Array<Player>
       {
-         if ( GetLocalRole() === ROLE.ROLE_POSSESSED )
-            return GetOtherPlayersInMyGame()
+         switch ( file.clientGame.GetPlayerRole( player ) )
+         {
+            case ROLE.ROLE_POSSESSED:
+               return file.clientGame.GetCampers()
+         }
 
          return []
       } )
 
-
-
    GetUsableByType( USETYPES.USETYPE_REPORT ).DefineGetter(
       function ( player: Player ): Array<Vector3>
       {
+         switch ( file.clientGame.GetPlayerRole( player ) )
+         {
+            case ROLE.ROLE_SPECTATOR:
+               return []
+         }
+
          let positions: Array<Vector3> = []
          for ( let corpse of file.clientGame.corpses )
          {
@@ -61,6 +59,7 @@ export function CL_GameStateSetup()
          }
          return positions
       } )
+
 
    AddNetVarChangedCallback( NETVAR_JSON_GAMESTATE, function ()
    {
@@ -86,30 +85,13 @@ export function CL_GameStateSetup()
       {
          SetPlayerTransparencyAndColor( pair[1], 1, new Color3( 1, 1, 1 ) )
       }
-
-
-      /*
-      AddNetVarChangedCallback( NETVAR_ROLE, function ()
-      {
-         let player = Players.LocalPlayer
-         let role = GetNetVar_Number( player, NETVAR_ROLE )
-         if ( role === ROLE.ROLE_SPECTATOR )
-         {
-            SetPlayerTransparencyAndColor( player, 0.4, new Color3( 1, 1, 1 ) )
-         }
-         else
-         {
-            SetPlayerTransparencyAndColor( player, 1.0, new Color3( 1, 1, 1 ) )
-         }
-      } )
-      */
    } )
 }
 
 function CreateCorpse( player: Player, pos: Vector3 ): Model | undefined
 {
-   const PUSH = 15
-   const ROTVEL = 360
+   const PUSH = 10
+   const ROTVEL = 36
 
    if ( player.Character === undefined )
       return undefined
@@ -117,6 +99,7 @@ function CreateCorpse( player: Player, pos: Vector3 ): Model | undefined
    let character = player.Character as Model
    character.Archivable = true
    let corpseCharacter = character.Clone()
+   SetCharacterTransparencyAndColor( corpseCharacter, 0, new Color3( 1, 1, 1 ) )
 
    corpseCharacter.Name = "corspseClone"
    corpseCharacter.Parent = Workspace

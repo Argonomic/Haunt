@@ -94,6 +94,7 @@ export function SH_UseSetup()
 
 function RPC_FromClient_OnUse( player: Player )
 {
+   print( "RPC_FromClient_OnUse " + player.Name )
    let useResults = GetUseResultsForAttempt( player )
    if ( useResults === undefined )
       return
@@ -106,7 +107,6 @@ function RPC_FromClient_OnUse( player: Player )
 
 export function AddUseType( useType: USETYPES, image: string, text: string )
 {
-   print( "Adding Use Type: " + useType )
    let usable = new Usable( useType, image, text )
    file.usablesByType.set( useType, usable )
    return usable

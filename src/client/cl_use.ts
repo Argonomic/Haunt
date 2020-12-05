@@ -1,7 +1,7 @@
 import { Players, RunService, Workspace } from "@rbxts/services"
 import { GetUseResultsForAttempt, UseResults } from "shared/sh_use"
 import { Assert, GetFirstChildWithName, IsAlive } from "shared/sh_utils"
-import { AddPlayerGuiExistsCallback, UIORDER } from "./cl_ui"
+import { AddPlayerGuiFolderExistsCallback, UIORDER } from "./cl_ui"
 import { SendRPC } from "./cl_utils"
 
 
@@ -25,7 +25,7 @@ export function SetUseDebounceTime( time: number )
 
 export function CL_UseSetup()
 {
-   AddPlayerGuiExistsCallback( function ( gui: Instance )
+   AddPlayerGuiFolderExistsCallback( function ( gui: Instance )
    {
       let useUI = GetFirstChildWithName( gui, 'UseUI' ) as ScreenGui
       useUI.DisplayOrder = UIORDER.UIORDER_USEBUTTON

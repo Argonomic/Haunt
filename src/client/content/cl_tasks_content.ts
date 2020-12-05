@@ -1,7 +1,7 @@
 import { RunService, UserInputService, Workspace } from "@rbxts/services"
 import { AddCaptureInputChangeCallback } from "client/cl_input"
 import { AddTaskSpec, AddTaskUI, TaskStatus, TASK_UI } from "client/cl_tasks"
-import { AddDraggedButton, GetDraggedButton, ReleaseDraggedButton, ElementWithinElement, AddCallback_MouseUp, MoveOverTime, ElementDist_TopLeft, UIORDER, ElementDist, ElementDistFromXY, AddPlayerGuiExistsCallback } from "client/cl_ui"
+import { AddDraggedButton, GetDraggedButton, ReleaseDraggedButton, ElementWithinElement, AddCallback_MouseUp, MoveOverTime, ElementDist_TopLeft, UIORDER, ElementDist, ElementDistFromXY, AddPlayerGuiFolderExistsCallback } from "client/cl_ui"
 import { AddCallback_OnPlayerConnected } from "shared/sh_onPlayerConnect"
 import { TweenThenDestroy } from "shared/sh_tween"
 import { ArrayRandomize, Assert, ExecOnChildWhenItExists, GetChildren_NoFutureOffspring, LoadSound, RandomFloatRange } from "shared/sh_utils"
@@ -21,7 +21,7 @@ let file = new File()
 
 export function CL_TasksContentSetup()
 {
-   AddPlayerGuiExistsCallback( function ( gui: Instance )
+   AddPlayerGuiFolderExistsCallback( function ( gui: Instance )
    {
       ExecOnChildWhenItExists( gui, 'TaskUI', function ( taskUI: ScreenGui )
       {

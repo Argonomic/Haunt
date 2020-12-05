@@ -7,7 +7,7 @@ import { Assert, ExecOnChildWhenItExists, GetFirstChildWithName, Graph } from "s
 import { AddCallout, ClearCallouts, InitCallouts } from "./cl_callouts2d"
 import { Room, Task } from "shared/sh_rooms"
 import { AddMapIcon, ClearMinimapIcons } from "./cl_minimap"
-import { AddPlayerGuiExistsCallback, ToggleButton, UIORDER } from "./cl_ui"
+import { AddPlayerGuiFolderExistsCallback, ToggleButton, UIORDER } from "./cl_ui"
 import { GetUsableByType } from "shared/sh_use"
 
 const CALLOUTS_NAME = "TASKLIST_CALLOUTS"
@@ -87,7 +87,7 @@ export function CL_TaskListSetup()
 
    AddNetVarChangedCallback( NETVAR_JSON_TASKLIST, RefreshTaskList )
 
-   AddPlayerGuiExistsCallback( function ( gui: Instance )
+   AddPlayerGuiFolderExistsCallback( function ( gui: Instance )
    {
       let taskList = GetFirstChildWithName( gui, 'TaskList' ) as EDITOR_ScreenUIWithFrame
       taskList.Enabled = false

@@ -1,6 +1,6 @@
 import { Workspace } from "@rbxts/services"
 import { Assert, Graph, TextLabels } from "shared/sh_utils"
-import { AddPlayerGuiExistsCallback, UIORDER } from "./cl_ui"
+import { AddPlayerGuiFolderExistsCallback, UIORDER } from "./cl_ui"
 
 class File
 {
@@ -12,7 +12,7 @@ file.screenUI.Destroy()
 
 export function CL_CalloutsSetup()
 {
-   AddPlayerGuiExistsCallback( function ( gui: Instance )
+   AddPlayerGuiFolderExistsCallback( function ( gui: Instance )
    {
       let screenUI = new Instance( "ScreenGui" )
       file.screenUI = screenUI

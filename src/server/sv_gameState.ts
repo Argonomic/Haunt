@@ -75,9 +75,16 @@ export function SV_GameStateSetup()
    usableKill.DefineGetter(
       function ( player: Player ): Array<Player>
       {
-         Assert( !IsPracticing( player ), "Praticing player tried to kill?" )
+         if ( IsPracticing( player ) )
+            return []
+
          let game = PlayerToGame( player )
-         Assert( game.GetPlayerRole( player ) === ROLE.ROLE_POSSESSED, "Camper tried to kill?" )
+         switch ( game.GetPlayerRole( player ) )
+         {
+            case ROLE.ROLE_CAMPER:
+            case ROLE.ROLE_SPECTATOR:
+               return []
+         }
 
          let campers = game.GetCampers()
          let results: Array<Player> = []
@@ -106,7 +113,7 @@ export function SV_GameStateSetup()
          game.corpses.push( new Corpse( camper, GetPosition( camper ) ) )
          file.playerToSpawnLocation.set( camper, GetPosition( camper ) )
          human.TakeDamage( human.Health )
-         game.SetPlayerRole( camper, ROLE.ROLE_CAMPER )
+         game.SetPlayerRole( camper, ROLE.ROLE_SPECTATOR )
          SendRPC( "RPC_FromServer_CancelTask", camper )
          game.BroadcastGamestate()
       }

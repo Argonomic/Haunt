@@ -1,5 +1,5 @@
 import { Players, RunService, Workspace } from "@rbxts/services";
-import { AddCallback_OnPlayerCharacterAdded, AddCallback_OnPlayerConnected } from "shared/sh_onPlayerConnect";
+import { AddCallback_OnPlayerCharacterAdded, AddCallback_OnPlayerConnected, APlayerHasConnected } from "shared/sh_onPlayerConnect";
 import { AddCallback_OnRoomSetup } from "shared/sh_rooms";
 import { Tween } from "shared/sh_tween";
 import { Assert, ExecOnChildWhenItExists, GetFirstChildWithName, Graph, LoadSound } from "shared/sh_utils";
@@ -18,8 +18,10 @@ export enum UIORDER
    UIORDER_MINIMAP,
    UIORDER_CALLOUTS,
    UIORDER_USEBUTTON,
+   UIORDER_READY,
    UIORDER_TASKLIST,
    UIORDER_TASKS,
+   UIORDER_CHAT,
 }
 
 
@@ -213,8 +215,9 @@ export function CL_UISetup()
 
 }
 
-export function AddPlayerGuiExistsCallback( func: Function )
+export function AddPlayerGuiFolderExistsCallback( func: Function )
 {
+   Assert( !APlayerHasConnected(), "Too late for AddPlayerGuiFolderExistsCallback" )
    file.playerGuiExistsCallbacks.push( func )
 }
 

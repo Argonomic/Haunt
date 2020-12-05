@@ -2,7 +2,7 @@ import { Players, RunService, Workspace } from "@rbxts/services"
 import { IsPracticing, ROLE } from "shared/sh_gamestate"
 import { Assert, GetPosition, TweenPlayerParts } from "shared/sh_utils"
 import { GetLocalGame, GetLocalRole } from "./cl_gamestate"
-import { AddPlayerGuiExistsCallback, UIORDER } from "./cl_ui"
+import { AddPlayerGuiFolderExistsCallback, UIORDER } from "./cl_ui"
 
 const FADE_CIRCLE = 'rbxassetid://6006022378'
 const TRANSPARENCY = 0.5
@@ -24,13 +24,18 @@ file.screenUI.Destroy()
 
 export function CL_FadeOverlaySetup()
 {
-   AddPlayerGuiExistsCallback( function ( gui: Instance )
+   AddPlayerGuiFolderExistsCallback( function ( gui: Instance )
    {
       let localPlayer = Players.LocalPlayer
       if ( IsPracticing( localPlayer ) )
          return
-      if ( GetLocalRole() === ROLE.ROLE_POSSESSED )
-         return
+
+      switch ( GetLocalRole() )
+      {
+         case ROLE.ROLE_POSSESSED:
+         case ROLE.ROLE_SPECTATOR:
+            return
+      }
 
       let screenUI = new Instance( "ScreenGui" )
       file.screenUI = screenUI

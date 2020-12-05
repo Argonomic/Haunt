@@ -91,6 +91,22 @@ export function GetFirstChildWithName( parent: Instance, name: string ): Instanc
    return undefined
 }
 
+export function GetFirstChildWithNameAndClassName( parent: Instance, name: string, className: string ): Instance | undefined
+{
+   let kids = parent.GetChildren()
+
+   for ( let kid of kids )
+   {
+      if ( kid.Name === name )
+      {
+         Assert( kid.ClassName === className, "Child " + name + " has wrong classname, expected " + className + " but found " + kid.ClassName )
+         return kid
+      }
+   }
+
+   return undefined
+}
+
 export function GetChildren_NoFutureOffspring( parent: Instance ): Array<Instance>
 {
    Assert( parent !== undefined, "No parent defined" )
@@ -297,6 +313,7 @@ export function VectorNormalize( vec: Vector3 ): Vector3
    return new Vector3( vec.X / len, vec.Y / len, vec.Z / len )
 }
 
+
 export function SetPlayerTransparencyAndColor( player: Player, value: number, color: Color3 )
 {
    //print( "set player transparency to " + value )
@@ -304,6 +321,11 @@ export function SetPlayerTransparencyAndColor( player: Player, value: number, co
    if ( char === undefined )
       return
 
+   SetCharacterTransparencyAndColor( char, value, color )
+}
+
+export function SetCharacterTransparencyAndColor( char: Model, value: number, color: Color3 )
+{
    let head = char.FindFirstChild( "Head" )
    if ( head )
    {
