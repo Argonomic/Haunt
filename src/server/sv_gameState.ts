@@ -1,20 +1,16 @@
+import { GamePassService, HttpService, Players } from "@rbxts/services"
 import { AddRPC } from "shared/sh_rpc"
-import { ArrayRandomize, Assert, GetHumanoid, GetPosition, IsAlive, Thread } from "shared/sh_utils"
-import { Assignment, GAME_STATE, AddGameStateNetVars, NETVAR_JSON_TASKLIST, ROLE, IsPracticing, Game, Corpse, USETYPES } from "shared/sh_gamestate"
-import { GetAllRoomsAndTasks, GetCurrentRoom, GetRoomByName, GetRoomSpawnLocations, PutPlayerCameraInRoom, SetPlayerCurrentRoom } from "./sv_rooms"
-import { HttpService, Players } from "@rbxts/services"
-import { MAX_TASKLIST_SIZE, MAX_PLAYERS, MIN_PLAYERS, SPAWN_ROOM } from "shared/sh_settings"
-import { SendRPC } from "./sv_utils"
+import { ArrayRandomize, Assert, GetHumanoid, IsAlive, Thread } from "shared/sh_utils"
+import { Assignment, GAME_STATE, AddGameStateNetVars, NETVAR_JSON_TASKLIST, ROLE, IsPracticing, Game, GAMERESULTS } from "shared/sh_gamestate"
+import { MAX_TASKLIST_SIZE, MAX_PLAYERS, MIN_PLAYERS, SPAWN_ROOM, MEETING_DISCUSS_TIME, MEETING_VOTE_TIME, MEETING_RESULTS_TIME } from "shared/sh_settings"
 import { SetNetVar } from "shared/sh_player_netvars"
 import { AddCallback_OnPlayerCharacterAdded, SetPlayerWalkSpeed } from "shared/sh_onPlayerConnect"
-import { GetUsableByType, USABLETYPES } from "shared/sh_use"
+import { SendRPC } from "./sv_utils"
+import { GetAllRoomsAndTasks, GetCurrentRoom, GetRoomByName, GetRoomSpawnLocations, PutPlayerCameraInRoom, PutPlayersInRoom, SetPlayerCurrentRoom } from "./sv_rooms"
 
 class File
 {
-   games: Array<Game> = []
    playerToGame = new Map<Player, Game>()
-
-   playerToSpawnLocation = new Map<Player, Vector3>()
 }
 let file = new File()
 
@@ -25,22 +21,26 @@ export function SV_GameStateSetup()
 
    AddCallback_OnPlayerCharacterAdded( function ( player: Player )
    {
-      if ( file.playerToGame.has( player ) && file.playerToSpawnLocation.has( player ) )
+      if ( !file.playerToGame.has( player ) )
+         return
+
+      let game = PlayerToGame( player )
+      if ( !game.playerToSpawnLocation.has( player ) )
+         return
+
+      let spawnPos = game.playerToSpawnLocation.get( player ) as Vector3
+      let character = player.Character as Model
+      let part = character.PrimaryPart as BasePart
+      Thread( function ()
       {
-         let spawnPos = file.playerToSpawnLocation.get( player ) as Vector3
-         let character = player.Character as Model
-         let part = character.PrimaryPart as BasePart
-         Thread( function ()
+         for ( let i = 0; i < 5; i++ ) 
          {
-            for ( let i = 0; i < 5; i++ ) 
-            {
-               part.CFrame = new CFrame( spawnPos )
-               let room = GetCurrentRoom( player )
-               PutPlayerCameraInRoom( player, room )
-               wait()
-            }
-         } )
-      }
+            part.CFrame = new CFrame( spawnPos )
+            let room = GetCurrentRoom( player )
+            PutPlayerCameraInRoom( player, room )
+            wait()
+         }
+      } )
    } )
 
    Players.PlayerRemoving.Connect(
@@ -50,122 +50,29 @@ export function SV_GameStateSetup()
             return
 
          let game = PlayerToGame( player )
-         UpdateGame( game )
+         game.UpdateGame()
       } )
 
 
+   AddRPC( "RPC_FromClient_Skipvote", function ( player: Player )
+   {
+      let game = PlayerToGame( player )
+      if ( game.GetGameState() !== GAME_STATE.GAME_STATE_MEETING_VOTE )
+         return
 
-   let usableReport = GetUsableByType( USETYPES.USETYPE_REPORT )
-   usableReport.DefineGetter(
-      function ( player: Player ): Array<USABLETYPES>
-      {
-         // are we near a corpse?
-         return []
-      } )
+      game.SetVote( player, undefined )
+   } )
 
-   usableReport.successFunc =
-      function ( player: Player, usedThing: USABLETYPES )
-      {
-         //Assert( !IsPracticing( player ), "Praticing player tried to kill?" )
-         //let game = PlayerToGame( player )
-      }
+   AddRPC( "RPC_FromClient_Vote", function ( player: Player, voteUserID: number )
+   {
+      let game = PlayerToGame( player )
+      if ( game.GetGameState() !== GAME_STATE.GAME_STATE_MEETING_VOTE )
+         return
 
-
-   let usableKill = GetUsableByType( USETYPES.USETYPE_KILL )
-   usableKill.DefineGetter(
-      function ( player: Player ): Array<Player>
-      {
-         if ( IsPracticing( player ) )
-            return []
-
-         let game = PlayerToGame( player )
-         switch ( game.GetPlayerRole( player ) )
-         {
-            case ROLE.ROLE_CAMPER:
-            case ROLE.ROLE_SPECTATOR:
-               return []
-         }
-
-         let campers = game.GetCampers()
-         let results: Array<Player> = []
-         for ( let camper of campers )
-         {
-            if ( !IsAlive( camper ) )
-               continue
-
-            let human = GetHumanoid( camper )
-            if ( human !== undefined )
-               results.push( camper )
-         }
-         return results
-      } )
-
-   usableKill.successFunc =
-      function ( player: Player, usedThing: USABLETYPES )
-      {
-         let camper = usedThing as Player
-
-         let human = GetHumanoid( camper )
-         if ( human === undefined )
-            return
-
-         let game = PlayerToGame( player )
-         game.corpses.push( new Corpse( camper, GetPosition( camper ) ) )
-         file.playerToSpawnLocation.set( camper, GetPosition( camper ) )
-         human.TakeDamage( human.Health )
-         game.SetPlayerRole( camper, ROLE.ROLE_SPECTATOR )
-         SendRPC( "RPC_FromServer_CancelTask", camper )
-         game.BroadcastGamestate()
-      }
-
-
-   let usableTask = GetUsableByType( USETYPES.USETYPE_TASK )
-   usableTask.DefineGetter(
-      function ( player: Player ): Array<BasePart>
-      {
-         let room = GetCurrentRoom( player )
-         let results: Array<BasePart> = []
-
-         if ( IsPracticing( player ) )
-         {
-            for ( let taskPair of room.tasks )
-            {
-               let task = taskPair[1]
-               results.push( task.volume )
-            }
-         }
-         else
-         {
-            let game = PlayerToGame( player )
-            for ( let taskPair of room.tasks )
-            {
-               let task = taskPair[1]
-               if ( PlayerHasUnfinishedAssignment( player, game, room.name, task.name ) )
-                  results.push( task.volume )
-            }
-         }
-
-         return results
-      } )
-
-   usableTask.successFunc =
-      function ( player: Player, usedThing: USABLETYPES )
-      {
-         let volume = usedThing as BasePart
-         let room = GetCurrentRoom( player )
-         for ( let pair of room.tasks )
-         {
-            if ( pair[1].volume !== volume )
-               continue
-
-            SetPlayerWalkSpeed( player, 0 )
-            SendRPC( "RPC_FromServer_OnPlayerUseTask", player, room.name, pair[0] )
-            break
-         }
-      }
+      game.SetVote( player, voteUserID )
+   } )
 
 }
-
 
 export function PlayerToGame( player: Player ): Game
 {
@@ -173,37 +80,243 @@ export function PlayerToGame( player: Player ): Game
    return file.playerToGame.get( player ) as Game
 }
 
-export function CreateGame( players: Array<Player> ): Game
+function GameThread( game: Game, gameEndFunc: Function )
+{
+   for ( ; ; )
+   {
+      let gameState = game.GetGameState()
+      print( "\nGAME STATE UPDATE, current state: " + gameState )
+      if ( gameState === GAME_STATE.GAME_STATE_DEAD )
+         return
+
+      // quick check on whether or not game is even still going
+      switch ( gameState )
+      {
+         case GAME_STATE.GAME_STATE_PLAYING:
+         case GAME_STATE.GAME_STATE_MEETING_DISCUSS:
+         case GAME_STATE.GAME_STATE_MEETING_VOTE:
+         case GAME_STATE.GAME_STATE_MEETING_RESULTS:
+            if ( game.GetGameResults() !== GAMERESULTS.RESULTS_IN_PROGRESS )
+               game.SetGameState( GAME_STATE.GAME_STATE_COMPLETE )
+            break
+      }
+
+      switch ( gameState )
+      {
+         case GAME_STATE.GAME_STATE_PREMATCH:
+
+            print( "Prematch, creating game" )
+            let players = game.GetAllPlayers().concat( [] ) // "clone"
+            let possessedCount = 1
+            let size = players.size()
+            if ( size > 11 )
+               possessedCount = 3
+            else if ( size > 6 )
+               possessedCount = 2
+
+            ArrayRandomize( players )
+            let possessedPlayers = players.slice( 0, possessedCount )
+            let setCampers = players.slice( possessedCount, size )
+
+            print( "\nSetting game roles" )
+            for ( let player of possessedPlayers )
+            {
+               game.SetPlayerRole( player, ROLE.ROLE_POSSESSED )
+            }
+
+            for ( let player of setCampers )
+            {
+               game.SetPlayerRole( player, ROLE.ROLE_CAMPER )
+               AssignTasks( player, game )
+            }
+
+            let room = GetRoomByName( SPAWN_ROOM )
+            let spawnLocations = GetRoomSpawnLocations( room, players.size() )
+
+            for ( let i = 0; i < players.size(); i++ )
+            {
+               let player = players[i]
+               SetPlayerCurrentRoom( player, room )
+
+               let human = GetHumanoid( player )
+               if ( human )
+               {
+                  game.playerToSpawnLocation.set( player, spawnLocations[i] )
+                  human.TakeDamage( human.Health )
+                  SendRPC( "RPC_FromServer_CancelTask", player )
+               }
+            }
+
+            game.IncrementGameState()
+            break
+
+         case GAME_STATE.GAME_STATE_MEETING_DISCUSS:
+            {
+               let remaining = game.GetTimeRemainingForState()
+               if ( remaining > 0 )
+               {
+                  Thread( function ()
+                  {
+                     wait( remaining )
+                     game.UpdateGame()
+                  } )
+               }
+
+               if ( remaining <= 0 )
+               {
+                  game.SetGameState( GAME_STATE.GAME_STATE_MEETING_VOTE )
+                  break
+               }
+            }
+            break
+
+         case GAME_STATE.GAME_STATE_MEETING_VOTE:
+            {
+               let remaining = game.GetTimeRemainingForState()
+               if ( remaining > 0 )
+               {
+                  Thread( function ()
+                  {
+                     wait( remaining )
+                     game.UpdateGame()
+                  } )
+               }
+
+               let count = game.GetPossessed().size() + game.GetCampers().size()
+
+               let votes = game.GetVotes()
+               if ( remaining <= 0 || votes.size() >= count )
+               {
+                  game.SetGameState( GAME_STATE.GAME_STATE_MEETING_RESULTS )
+                  break
+               }
+            }
+            break
+
+         case GAME_STATE.GAME_STATE_MEETING_RESULTS:
+            {
+               let remaining = game.GetTimeRemainingForState()
+               if ( remaining > 0 )
+               {
+                  Thread( function ()
+                  {
+                     wait( remaining )
+                     game.UpdateGame()
+                  } )
+               }
+
+               if ( remaining <= 0 )
+               {
+                  let votes = game.GetVotes()
+                  print( "The results are in!" )
+                  let skipCount = 0
+                  let voteCount = new Map<Player, number>()
+                  for ( let player of game.GetAllPlayers() )
+                  {
+                     voteCount.set( player, 0 )
+                  }
+
+                  for ( let vote of votes )
+                  {
+                     if ( vote.target === undefined )
+                     {
+                        skipCount++
+                        continue
+                     }
+
+                     Assert( voteCount.has( vote.target ), "Not a voter! " + vote.target )
+                     let count = voteCount.get( vote.target ) as number
+                     count++
+                     voteCount.set( vote.target, count )
+                  }
+
+                  let highestCount = skipCount
+                  print( "Vote to skip: " + skipCount )
+                  let highestTarget: Player | undefined
+                  for ( let pair of voteCount )
+                  {
+                     print( "Vote for " + pair[0].Name + ": " + pair[1] )
+
+                     if ( pair[1] > highestCount )
+                     {
+                        highestCount = pair[1]
+                        highestTarget = pair[0]
+                     }
+                  }
+
+                  if ( highestTarget !== undefined )
+                  {
+                     game.SetPlayerRole( highestTarget, ROLE.ROLE_SPECTATOR )
+                     print( "Player " + highestTarget.Name + " was voted off" )
+                  }
+
+                  game.corpses = [] // clear the corpses
+                  game.ClearVotes()
+
+                  let room = GetRoomByName( 'Great Room' )
+                  PutPlayersInRoom( game.GetAllPlayers(), room )
+
+                  game.SetGameState( GAME_STATE.GAME_STATE_PLAYING )
+                  break
+               }
+            }
+            break
+
+         case GAME_STATE.GAME_STATE_COMPLETE:
+            print( "Game is over" )
+            print( "Ending state: " + game.GetGameResults() )
+            print( "Possessed: " + game.GetPossessed().size() )
+            print( "Campers: " + game.GetCampers().size() )
+            for ( let player of game.GetAllPlayers() )
+            {
+               ClearAssignments( game, player )
+               if ( !IsAlive( player ) )
+                  continue
+
+               let human = GetHumanoid( player )
+               if ( human )
+               {
+                  human.TakeDamage( human.Health )
+                  SendRPC( "RPC_FromServer_CancelTask", player )
+               }
+            }
+
+            game.BroadcastGamestate()
+            game.SetGameState( GAME_STATE.GAME_STATE_DEAD )
+            // draw end
+            gameEndFunc()
+            return
+      }
+
+      if ( gameState === game.GetGameState() )
+      {
+         game.BroadcastGamestate()
+         print( "YIELD" )
+         coroutine.yield() // wait until something says update again
+      }
+   }
+}
+
+export function CreateGame( players: Array<Player>, gameEndFunc: Function ): Game
 {
    Assert( players.size() >= MIN_PLAYERS, "Not enough players" )
    Assert( players.size() <= MAX_PLAYERS, "Too many players" )
    let game = new Game()
-   /*
-   Thread( function ()
-   {
-      for ( ; ; )
-      {
-         let msg = ""
-         let players = game.GetAllPlayers()
-         for ( let player of players )
-         {
-            msg += "\t" + player.Name + ":" + game.GetPlayerRole( player )
-         }
-         
-         print( msg )
-         wait()
-      }
-   } )
-   */
 
-   file.games.push( game )
+   //   file.games.push( game )
    for ( let player of players )
    {
       game.AddPlayer( player, ROLE.ROLE_CAMPER )
       file.playerToGame.set( player, game )
    }
 
-   UpdateGame( game )
+   game.gameThread = coroutine.create(
+      function ()
+      {
+         GameThread( game, gameEndFunc )
+      } )
+   coroutine.resume( game.gameThread )
+
    return game
 }
 
@@ -234,65 +347,6 @@ function RPC_FromClient_OnPlayerFinishTask( player: Player, roomName: string, ta
 
 
 
-export function UpdateGame( game: Game )
-{
-   // runs whenever there is an event that might change the game state
-
-   //game.RemoveQuitPlayers()
-
-   switch ( game.GetGameState() )
-   {
-      case GAME_STATE.GAME_STATE_PREMATCH:
-
-         let players = game.GetAllPlayers().concat( [] ) // "clone"
-         let possessedCount = 1
-         let size = players.size()
-         if ( size > 11 )
-            possessedCount = 3
-         else if ( size > 6 )
-            possessedCount = 2
-
-         ArrayRandomize( players )
-         let possessedPlayers = players.slice( 0, possessedCount )
-         let setCampers = players.slice( possessedCount, size )
-
-         for ( let player of possessedPlayers )
-         {
-            print( "Setting possessed player" )
-            game.SetPlayerRole( player, ROLE.ROLE_POSSESSED )
-            Assert( game.GetPlayerRole( player ) === ROLE.ROLE_POSSESSED, "Role didnt change" )
-         }
-
-         for ( let player of setCampers )
-         {
-            game.SetPlayerRole( player, ROLE.ROLE_CAMPER )
-            AssignTasks( player, game )
-         }
-
-         let room = GetRoomByName( SPAWN_ROOM )
-         let spawnLocations = GetRoomSpawnLocations( room, players.size() )
-
-         for ( let i = 0; i < players.size(); i++ )
-         {
-            let player = players[i]
-            SetPlayerCurrentRoom( player, room )
-
-            let human = GetHumanoid( player )
-            if ( human )
-            {
-               file.playerToSpawnLocation.set( player, spawnLocations[i] )
-               human.TakeDamage( human.Health )
-               SendRPC( "RPC_FromServer_CancelTask", player )
-            }
-         }
-
-         game.IncrementGameState()
-
-         break
-   }
-
-   game.BroadcastGamestate()
-}
 
 export function PlayerHasUnfinishedAssignment( player: Player, game: Game, roomName: string, taskName: string ): boolean
 {
@@ -338,5 +392,11 @@ function UpdateTasklistNetvar( player: Player, assignments: Array<Assignment> )
 
    let encode = HttpService.JSONEncode( assignments )
    SetNetVar( player, NETVAR_JSON_TASKLIST, encode )
+}
+
+export function ClearAssignments( game: Game, player: Player )
+{
+   game.assignments.set( player, [] )
+   UpdateTasklistNetvar( player, [] )
 }
 

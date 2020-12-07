@@ -1,6 +1,6 @@
 import { Players, RunService, Workspace } from "@rbxts/services"
-import { IsPracticing, ROLE } from "shared/sh_gamestate"
-import { Assert, GetPosition, TweenPlayerParts } from "shared/sh_utils"
+import { Corpse, IsPracticing, ROLE } from "shared/sh_gamestate"
+import { Assert, GetPosition, SetCharacterTransparencyAndColor, TweenPlayerParts } from "shared/sh_utils"
 import { GetLocalGame, GetLocalRole } from "./cl_gamestate"
 import { AddPlayerGuiFolderExistsCallback, UIORDER } from "./cl_ui"
 
@@ -97,6 +97,7 @@ export function CL_FadeOverlaySetup()
       const LIGHTDIST = 25
 
       let visiblePlayers = new Map<Player, boolean>()
+      let visibleCorpses = new Map<Corpse, boolean>()
 
       let FADE_OUT = { Transparency: 1, Color: new Color3( 0, 0, 0 ) }
       let FADE_IN = { Transparency: 0, Color: new Color3( 1, 1, 1 ) }
@@ -116,7 +117,14 @@ export function CL_FadeOverlaySetup()
          fadeCircle.Size = new UDim2( 0, dist, 0, dist )
          const VISUAL_DIST = fadeCircle.AbsoluteSize.X * 0.5
 
-         let players = GetLocalGame().GetLivingPlayers()
+         let game = GetLocalGame()
+         if ( game.GetPlayerRole( localPlayer ) === ROLE.ROLE_SPECTATOR )
+         {
+            screenUI.Parent = undefined
+            return
+         }
+
+         let players = game.GetLivingPlayers()
 
          for ( let player of players )
          {
@@ -148,6 +156,33 @@ export function CL_FadeOverlaySetup()
             {
                TweenPlayerParts( player, FADE_OUT, FADE_TIME )
                visiblePlayers.delete( player )
+            }
+         }
+
+         for ( let corpse of game.corpses )
+         {
+            if ( corpse.clientModel === undefined )
+               continue
+
+            let [partScreenCenter, _2] = camera.WorldToScreenPoint( corpse.pos )
+            let dist = partScreenCenter.sub( screenCenter ).Magnitude
+
+            let withinVisibleDist = dist < VISUAL_DIST
+            let wasVisible = visibleCorpses.has( corpse )
+            if ( withinVisibleDist === wasVisible )
+               continue
+
+            if ( withinVisibleDist )
+            {
+               //TweenPlayerParts( corpse, FADE_IN, FADE_TIME )
+               SetCharacterTransparencyAndColor( corpse.clientModel, 0, new Color3( 1, 1, 1 ) )
+               visibleCorpses.set( corpse, true )
+            }
+            else
+            {
+               //TweenPlayerParts( corpse, FADE_OUT, FADE_TIME )
+               SetCharacterTransparencyAndColor( corpse.clientModel, 1, new Color3( 1, 1, 1 ) )
+               visibleCorpses.delete( corpse )
             }
          }
       } )

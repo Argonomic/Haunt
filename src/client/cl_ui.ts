@@ -206,6 +206,8 @@ export function CL_UISetup()
       ExecOnChildWhenItExists( player, 'PlayerGui', function ( gui: Instance )
       {
          let packageFolder = GetFirstChildWithName( gui, 'Package' ) as Folder
+         Assert( packageFolder !== undefined, "Can't find PACKAGE folder for UI!" )
+
          for ( let func of file.playerGuiExistsCallbacks )
          {
             func( packageFolder )

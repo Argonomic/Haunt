@@ -1,7 +1,12 @@
-export const MIN_PLAYERS = 2
-export const MAX_PLAYERS = 15
+export const DEV_READYUP = false
+export const MIN_PLAYERS = 5
+export const MAX_PLAYERS = 10
 export const MAX_TASKLIST_SIZE = 5
 export const QUICK_START_ROOM = "Foyer"
 export const SPAWN_ROOM = "Foyer"
 export const KILL_DIST = 6.5
 export const REPORT_DIST = 5
+export const MEETING_DISCUSS_TIME = 5
+export const MEETING_VOTE_TIME = 60
+export const MEETING_RESULTS_TIME = 10
+export const SPECTATOR_TRANS = 0.75

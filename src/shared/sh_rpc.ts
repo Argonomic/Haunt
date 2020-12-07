@@ -44,6 +44,8 @@ export function SH_RPCSetup()
          "RPC_FromClient_OnPlayerUseFromRoom",
          "RPC_FromClient_OnPlayerFinishTask",
          "RPC_FromClient_RequestChange_MatchmakingStatus",
+         "RPC_FromClient_Vote",
+         "RPC_FromClient_Skipvote",
          "RPC_FromClient_OnUse",
       ]
 

@@ -87,7 +87,21 @@ function TryToMatchmake()
       file.practiceGame.RemovePlayer( player )
    }
 
-   CreateGame( players )
+   CreateGame( players,
+      function ()
+      {
+         print( "GAME IS OVER, readd players to practice" )
+         for ( let player of players )
+         {
+            if ( player !== undefined )
+            {
+               print( "Player " + player.UserId + " joins practice" )
+               SetNetVar( player, NETVAR_MATCHMAKING_STATUS, MATCHMAKING_STATUS.MATCHMAKING_PRACTICE )
+               file.practiceGame.AddPlayer( player, ROLE.ROLE_CAMPER )
+            }
+         }
+         file.practiceGame.BroadcastGamestate()
+      } )
 
    file.practiceGame.BroadcastGamestate()
    TryToMatchmake() // maybe there are left over players to start a game with?

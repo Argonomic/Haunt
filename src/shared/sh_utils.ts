@@ -186,24 +186,36 @@ export function GetTouchingParts( part: BasePart ): Array<BasePart>
    return results
 }
 
+export function GetColor( thing: Instance ): Color3
+{
+   if ( thing.IsA( 'Player' ) )
+   {
+      let character = thing.Character
+      if ( character !== undefined )
+      {
+         let primaryPart = character.PrimaryPart
+         if ( primaryPart !== undefined )
+         {
+            return primaryPart.Color
+         }
+      }
+   }
+   else if ( thing.IsA( 'BasePart' ) )
+   {
+      return thing.Color
+   }
+
+   return new Color3( 0, 0, 0 )
+}
+
 export function GetPosition( thing: Instance ): Vector3
 {
    Assert( thing !== undefined, "Can't get position of undefined" )
-   switch ( thing.ClassName )
-   {
-      case "Player":
-         {
-            let player = thing as Player
-            let part = player.Character?.PrimaryPart as BasePart
-            return part.Position
-         }
+   if ( thing.IsA( 'Player' ) )
+      return ( thing.Character?.PrimaryPart as BasePart ).Position
 
-      case "Part":
-         {
-            let part = thing as BasePart
-            return part.Position
-         }
-   }
+   if ( thing.IsA( 'BasePart' ) )
+      return thing.Position
 
    Assert( false, "Unknown type of thing " + thing.ClassName )
    throw undefined
@@ -326,6 +338,12 @@ export function SetPlayerTransparencyAndColor( player: Player, value: number, co
 
 export function SetCharacterTransparencyAndColor( char: Model, value: number, color: Color3 )
 {
+   let player = GetPlayerFromCharacter( char )
+   if ( player !== undefined )
+      print( "SetCharacterTransparencyAndColor " + value + " " + player.UserId + " local:" + ( player === Players.LocalPlayer ) )
+   else
+      print( "SetCharacterTransparencyAndColor " + value + " _ local:" + ( player === Players.LocalPlayer ) )
+
    let head = char.FindFirstChild( "Head" )
    if ( head )
    {
@@ -351,6 +369,8 @@ export function SetCharacterTransparencyAndColor( char: Model, value: number, co
 
 export function TweenPlayerParts( player: Player, goal: any, time: number )
 {
+
+   print( "TweenPlayerParts " + ( goal as unknown ) + " " + player.UserId + " local:" + ( player === Players.LocalPlayer ) )
    //   let head = char.FindFirstChild( "Head" )
    //   if ( head )
    //   {

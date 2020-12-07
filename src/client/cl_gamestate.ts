@@ -2,7 +2,8 @@ import { Players, Workspace } from "@rbxts/services"
 import { ROLE, Game, NETVAR_JSON_GAMESTATE, USETYPES } from "shared/sh_gamestate"
 import { AddNetVarChangedCallback } from "shared/sh_player_netvars"
 import { GetUsableByType } from "shared/sh_use"
-import { Assert, GetFirstChildWithName, RandomFloatRange, RecursiveOnChildren, SetCharacterTransparencyAndColor, SetPlayerTransparencyAndColor, UserIDToPlayer } from "shared/sh_utils"
+import { Assert, GetFirstChildWithName, RandomFloatRange, RecursiveOnChildren, SetCharacterTransparencyAndColor, SetPlayerTransparencyAndColor, Thread, UserIDToPlayer } from "shared/sh_utils"
+import { UpdateMeeting } from "./cl_meeting"
 
 
 class File
@@ -71,7 +72,6 @@ export function CL_GameStateSetup()
             corpse.clientModel = CreateCorpse( corpse.player, corpse.pos )
       }
 
-
       let userIDToPlayer = UserIDToPlayer()
 
       let gamePlayers = file.clientGame.GetAllPlayers()
@@ -85,6 +85,9 @@ export function CL_GameStateSetup()
       {
          SetPlayerTransparencyAndColor( pair[1], 1, new Color3( 1, 1, 1 ) )
       }
+
+      // update meeting
+      UpdateMeeting( file.clientGame )
    } )
 }
 

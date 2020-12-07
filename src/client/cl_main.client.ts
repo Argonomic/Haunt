@@ -19,6 +19,8 @@ import { CL_ReadyUpSetup } from "./cl_readyup"
 import { CL_GameStateSetup } from "./cl_gamestate"
 import { SH_UseContentSetup } from "shared/content/sh_use_content"
 import { SH_UseSetup } from "shared/sh_use"
+import { CL_ChatSetup } from "./cl_chat"
+import { CL_MeetingSetup } from "./cl_meeting"
 
 class File
 {
@@ -56,6 +58,9 @@ CL_FadeOverlaySetup()
 CL_UseSetup()
 CL_ReadyUpSetup()
 CL_GameStateSetup()
+CL_ChatSetup()
+CL_MeetingSetup()
+
 
 SH_OnPlayerConnectSetup()
 

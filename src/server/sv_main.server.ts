@@ -8,6 +8,7 @@ import { SV_MatchmakingSetup } from "./sv_matchmaking";
 import { SV_CollisionGroupsSetup } from "server/sv_collisionGroups";
 import { SH_UseContentSetup } from "shared/content/sh_use_content";
 import { SH_UseSetup } from "shared/sh_use";
+import { SV_UseContentSetup } from "./content/sv_use_content";
 
 class File
 {
@@ -34,6 +35,8 @@ SH_UseContentSetup()
 SV_CollisionGroupsSetup()
 SV_RoomsSetup()
 SV_GameStateSetup()
+
+SV_UseContentSetup()
 DoneCreatingNVs()
 
 SV_MatchmakingSetup()

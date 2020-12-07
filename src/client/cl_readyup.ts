@@ -1,7 +1,8 @@
 import { Players } from "@rbxts/services";
 import { NETVAR_MATCHMAKING_STATUS, MATCHMAKING_STATUS, NETVAR_MATCHMAKING_NUMWITHYOU } from "shared/sh_gamestate";
 import { AddNetVarChangedCallback, GetNetVar_Number } from "shared/sh_player_netvars";
-import { Assert, ExecOnChildWhenItExists, GetFirstChildWithName } from "shared/sh_utils";
+import { DEV_READYUP } from "shared/sh_settings";
+import { Assert, ExecOnChildWhenItExists, GetFirstChildWithName, GetFirstChildWithNameAndClassName, Thread } from "shared/sh_utils";
 import { AddPlayerGuiFolderExistsCallback, ToggleButton, UIORDER } from "./cl_ui";
 import { SendRPC } from "./cl_utils";
 
@@ -69,15 +70,13 @@ export function CL_ReadyUpSetup()
 {
    AddPlayerGuiFolderExistsCallback( function ( gui: Instance )
    {
-      ExecOnChildWhenItExists( gui, "ReadyUI", function ( readyUI: ScreenGui )
-      {
-         readyUI.Enabled = false
-         readyUI.DisplayOrder = UIORDER.UIORDER_READY
+      let readyUI = GetFirstChildWithNameAndClassName( gui, 'ReadyUI', 'ScreenGui' ) as ScreenGui
+      readyUI.Enabled = false
+      readyUI.DisplayOrder = UIORDER.UIORDER_READY
 
-         file.baseReadyUI = readyUI
-         CreateReadyUI()
-         UpdateReadyUp()
-      } )
+      file.baseReadyUI = readyUI
+      CreateReadyUI()
+      UpdateReadyUp()
    } )
 
    AddNetVarChangedCallback( NETVAR_MATCHMAKING_STATUS, function ()
@@ -96,6 +95,7 @@ function UpdateReadyUp()
    let player = Players.LocalPlayer
    let status = GetNetVar_Number( player, NETVAR_MATCHMAKING_STATUS )
    let numWithYou = GetNetVar_Number( player, NETVAR_MATCHMAKING_NUMWITHYOU )
+   print( "UpdateReadyUp: " + status )
 
    switch ( status )
    {
@@ -180,6 +180,17 @@ function CreateReadyUI()
       //check.Position = checkboxPractice.Position
       SendRPC( "RPC_FromClient_RequestChange_MatchmakingStatus", MATCHMAKING_STATUS.MATCHMAKING_PRACTICE )
    } )
+
+   if ( DEV_READYUP )
+   {
+      Thread(
+         function ()
+         {
+            wait( 2 )
+            SendRPC( "RPC_FromClient_RequestChange_MatchmakingStatus", MATCHMAKING_STATUS.MATCHMAKING_LFG )
+         }
+      )
+   }
 
    file.readyUI = new ReadyUI( readyUI, checkboxReal, checkboxPractice, check, status )
 }
