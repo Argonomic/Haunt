@@ -370,7 +370,7 @@ export function SetCharacterTransparencyAndColor( char: Model, value: number, co
 export function TweenPlayerParts( player: Player, goal: any, time: number )
 {
 
-   print( "TweenPlayerParts " + ( goal as unknown ) + " " + player.UserId + " local:" + ( player === Players.LocalPlayer ) )
+   //print( "TweenPlayerParts " + ( goal as unknown ) + " " + player.UserId + " local:" + ( player === Players.LocalPlayer ) )
    //   let head = char.FindFirstChild( "Head" )
    //   if ( head )
    //   {

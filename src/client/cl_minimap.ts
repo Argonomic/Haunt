@@ -1,6 +1,6 @@
 import { Players, RunService, Workspace } from "@rbxts/services"
 import { BoundsXZ, GetBoundsXZ } from "shared/sh_bounds"
-import { Assert, GetChildrenWithName, GetChildren_NoFutureOffspring, GetFirstChildWithName, GetInstanceChildWithName, GetPosition, GetWorkspaceChildByName, Graph } from "shared/sh_utils"
+import { Assert, GetChildrenWithName, GetChildren_NoFutureOffspring, GetFirstChildWithName, GetFirstChildWithNameAndClassName, GetInstanceChildWithName, GetPosition, GetWorkspaceChildByName, Graph } from "shared/sh_utils"
 import { CreateCalloutTextLabel } from "./cl_callouts2d"
 import { AddPlayerGuiFolderExistsCallback, UIORDER } from "./cl_ui"
 
@@ -21,7 +21,7 @@ class MapIcon
 class File
 {
    mapIcons: Array<MapIcon> = []
-   minimapGui: ScreenGui = new Instance( "ScreenGui" )
+   minimapGui: Frame = new Instance( "Frame" )
 }
 
 let file = new File()
@@ -67,13 +67,15 @@ export function CL_MinimapSetup()
    AddPlayerGuiFolderExistsCallback( function ( gui: Instance )
    {
       file.mapIcons = []
-      let minimapUI = GetFirstChildWithName( gui, 'Minimap' ) as ScreenGui
+      let minimapUI = GetFirstChildWithNameAndClassName( gui, 'Minimap', 'ScreenGui' ) as ScreenGui
       let frameName = "MiniFrame"
       let scale = 2.0
       minimapUI.DisplayOrder = UIORDER.UIORDER_MINIMAP
 
-      let baseFrame = GetFirstChildWithName( minimapUI, frameName ) as ScreenGui
+      let baseFrame = GetFirstChildWithNameAndClassName( minimapUI, frameName, 'Frame' ) as Frame
       file.minimapGui = baseFrame
+      baseFrame.BackgroundTransparency = 1
+      baseFrame.BorderSizePixel = 0
 
       for ( let mapIcon of file.mapIcons )
       {
@@ -174,7 +176,7 @@ export function CL_MinimapSetup()
 }
 
 
-function CreateTextLabelsForMinimap( roomName: string, baseFrame: ScreenGui, floors: Array<BasePart>, fontSize: number, zIndex: number ): Array<TextLabel>
+function CreateTextLabelsForMinimap( roomName: string, baseFrame: Frame, floors: Array<BasePart>, fontSize: number, zIndex: number ): Array<TextLabel>
 {
    let results = []
    for ( let floor of floors )

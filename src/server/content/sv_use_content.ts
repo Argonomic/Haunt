@@ -1,10 +1,11 @@
 import { SetPlayerWalkSpeed } from "shared/sh_onPlayerConnect"
 import { GetHumanoid, GetPosition, IsAlive } from "shared/sh_utils"
-import { GAME_STATE, ROLE, IsPracticing, Corpse, USETYPES, MEETING_TYPE_REPORT } from "shared/sh_gamestate"
+import { GAME_STATE, ROLE, IsPracticing, Corpse, USETYPES, MEETING_TYPE_REPORT, COOLDOWN_NAME_KILL } from "shared/sh_gamestate"
 import { GetUsableByType, USABLETYPES } from "shared/sh_use"
 import { PlayerHasUnfinishedAssignment, PlayerToGame, ClearAssignments } from "server/sv_gameState"
 import { SendRPC } from "server/sv_utils"
 import { GetCurrentRoom } from "server/sv_rooms"
+import { ResetPlayerCooldownTime } from "shared/sh_cooldown"
 
 export function SV_UseContentSetup()
 {
@@ -93,6 +94,7 @@ export function SV_UseContentSetup()
          SendRPC( "RPC_FromServer_CancelTask", camper )
          ClearAssignments( game, player )
          game.UpdateGame()
+         ResetPlayerCooldownTime( player, COOLDOWN_NAME_KILL )
       }
 
    let usableTask = GetUsableByType( USETYPES.USETYPE_TASK )

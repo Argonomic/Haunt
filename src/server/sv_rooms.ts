@@ -1,5 +1,5 @@
 import { Room, AddRoomsFromWorkspace, RoomAndTask, AddCallback_OnRoomSetup } from "shared/sh_rooms"
-import { ArrayRandomize, Assert, GetPlayerFromDescendant, GetPosition, Thread } from "shared/sh_utils"
+import { ArrayRandomize, Assert, GetPlayerFromDescendant, GetPosition, RandomFloatRange, Thread } from "shared/sh_utils"
 import { QUICK_START_ROOM } from "shared/sh_settings"
 import { SendRPC } from "./sv_utils"
 
@@ -122,8 +122,10 @@ export function PutPlayersInRoom( players: Array<Player>, room: Room )
          let org = center.Position.add( new Vector3( 0, 5, 0 ) )
          part.CFrame = new CFrame( org )
       }
-      print( "Put player " + player.Name + " in room " + room.name )
 
+      part.CFrame = part.CFrame.mul( CFrame.Angles( math.rad( 0 ), math.rad( RandomFloatRange( 70, 110 ) ), math.rad( 0 ) ) )
+
+      print( "Put player " + player.Name + " in room " + room.name )
       file.currentRoom.set( player, room )
       PutPlayerCameraInRoom( player, room )
    }

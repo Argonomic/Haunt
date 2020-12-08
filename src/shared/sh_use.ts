@@ -1,3 +1,5 @@
+import { GetPlayerCooldownTimeRemaining } from "./sh_cooldown"
+import { USE_COOLDOWNS } from "./sh_gamestate"
 import { AddRPC } from "./sh_rpc"
 import { Assert, GetPosition, IsServer } from "./sh_utils"
 
@@ -25,20 +27,6 @@ export class UseResults
    {
       this.usable = usable
       this.usedThing = usedThing
-   }
-}
-
-export class UsePosition
-{
-   pos: Vector3
-   userType: USETYPES
-   dist: number
-
-   constructor( userType: USETYPES, pos: Vector3, dist: number )
-   {
-      this.pos = pos
-      this.userType = userType
-      this.dist = dist
    }
 }
 
@@ -97,6 +85,9 @@ function RPC_FromClient_OnUse( player: Player )
    print( "RPC_FromClient_OnUse " + player.Name )
    let useResults = GetUseResultsForAttempt( player )
    if ( useResults === undefined )
+      return
+
+   if ( GetPlayerCooldownTimeRemaining( player, USE_COOLDOWNS + useResults.usable.useType ) > 0 )
       return
 
    let successFunc = useResults.usable.successFunc

@@ -1,4 +1,6 @@
 import { Players, RunService, Workspace } from "@rbxts/services"
+import { GetPlayerCooldownTimeRemaining } from "shared/sh_cooldown"
+import { USE_COOLDOWNS } from "shared/sh_gamestate"
 import { GetUseResultsForAttempt, UseResults } from "shared/sh_use"
 import { Assert, GetFirstChildWithName, IsAlive } from "shared/sh_utils"
 import { AddPlayerGuiFolderExistsCallback, UIORDER } from "./cl_ui"
@@ -33,6 +35,9 @@ export function CL_UseSetup()
       let imageButton = GetFirstChildWithName( useUI, 'ImageButton' ) as ImageButton
       let textLabel = GetFirstChildWithName( imageButton, "TextLabel" ) as TextLabel
       Assert( textLabel !== undefined, "Couldn't find TextLabel" )
+      let countdown = GetFirstChildWithName( imageButton, "Countdown" ) as TextLabel
+
+      let player = Players.LocalPlayer
 
       imageButton.MouseButton1Up.Connect( function ()
       {
@@ -40,10 +45,12 @@ export function CL_UseSetup()
          if ( useResults === undefined )
             return
 
+         if ( GetPlayerCooldownTimeRemaining( player, USE_COOLDOWNS + useResults.usable.useType ) > 0 )
+            return
+
          SendRPC( "RPC_FromClient_OnUse" )
       } )
 
-      let player = Players.LocalPlayer
 
       function CanUse(): boolean
       {
@@ -64,6 +71,9 @@ export function CL_UseSetup()
 
       useUI.Enabled = false
       let lastUseResults: UseResults | undefined
+
+      const COLOR_GRAY = new Color3( 0.5, 0.5, 0.5 )
+      const COLOR_WHITE = new Color3( 1.0, 1.0, 1.0 )
 
       let connect = RunService.RenderStepped.Connect( function ()
       {
@@ -88,6 +98,27 @@ export function CL_UseSetup()
             imageButton.Image = newUseResults.usable.image
             textLabel.Text = newUseResults.usable.text
             useUI.Enabled = true
+
+            let cooldownRemaining = GetPlayerCooldownTimeRemaining( player, USE_COOLDOWNS + newUseResults.usable.useType )
+            if ( cooldownRemaining > 0 )
+               cooldownRemaining++ // add one because otherwise 0.5 is not drawn, but can't use.
+
+            cooldownRemaining = math.floor( cooldownRemaining );
+            if ( cooldownRemaining > 0 )
+            {
+               countdown.Text = cooldownRemaining + ""
+               countdown.Visible = true
+               imageButton.ImageTransparency = 0.5
+               textLabel.TextTransparency = 0.5
+               textLabel.TextColor3 = COLOR_GRAY
+            }
+            else
+            {
+               countdown.Visible = false
+               imageButton.ImageTransparency = 0
+               textLabel.TextTransparency = 0
+               textLabel.TextColor3 = COLOR_WHITE
+            }
          }
       } )
 

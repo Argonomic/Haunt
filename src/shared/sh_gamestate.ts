@@ -1,6 +1,7 @@
 import { HttpService, Players, Workspace } from "@rbxts/services"
 import { AddNetVar, GetNetVar_Number, GetNetVar_String, SetNetVar } from "shared/sh_player_netvars"
-import { MEETING_DISCUSS_TIME, MEETING_RESULTS_TIME, MEETING_VOTE_TIME, SPECTATOR_TRANS } from "./sh_settings"
+import { AddCooldown, ResetAllCooldownTimes } from "./sh_cooldown"
+import { COOLDOWN_KILL, MEETING_DISCUSS_TIME, MEETING_RESULTS_TIME, MEETING_VOTE_TIME, SPECTATOR_TRANS } from "./sh_settings"
 import { Assert, IsServer, IsClient, UserIDToPlayer, IsAlive, SetPlayerTransparencyAndColor } from "./sh_utils"
 
 export const NETVAR_JSON_TASKLIST = "JS_TL"
@@ -15,6 +16,9 @@ export enum USETYPES
    USETYPE_REPORT,
 }
 
+export const USE_COOLDOWNS = "USE_COOLDOWNS"
+export const COOLDOWN_NAME_KILL = USE_COOLDOWNS + USETYPES.USETYPE_KILL
+
 export enum GAMERESULTS
 {
    RESULTS_IN_PROGRESS = 0,
@@ -22,8 +26,6 @@ export enum GAMERESULTS
    RESULTS_POSSESSED_WIN,
    RESULTS_CAMPERS_WIN,
 }
-
-export type COSTUME_INDEX = number
 
 export enum MATCHMAKING_STATUS
 {
@@ -119,21 +121,20 @@ class NETVAR_GameState
    }
 }
 
-
 // sent to the client and updated on change, even if a player is no longer on the server
 class NETVAR_GamePlayerInfo
 {
-   id: number
-   costume: COSTUME_INDEX
+   userId: number
    name: string
    role: ROLE
+   playernum: number
 
-   constructor( player: Player, costume: COSTUME_INDEX, role: ROLE )
+   constructor( player: Player, role: ROLE, playernum: number )
    {
-      this.id = player.UserId
+      this.userId = player.UserId
       this.name = player.Name
-      this.costume = costume
       this.role = role
+      this.playernum = playernum
    }
 }
 
@@ -152,15 +153,16 @@ export class Corpse
 
 export class PlayerInfo
 {
-   costume: COSTUME_INDEX
    player: Player
    role: ROLE
+   playernum = -1
+   _userid: number
 
-   constructor( player: Player, costume: COSTUME_INDEX, role: ROLE )
+   constructor( player: Player, role: ROLE )
    {
       this.player = player
-      this.costume = costume
       this.role = role
+      this._userid = player.UserId
    }
 }
 
@@ -265,6 +267,11 @@ export class Game
 
       let gameStateToRole = new Map<ROLE, NETVAR_GameState>()
 
+      for ( let pair of this.playerToInfo )
+      {
+         Assert( pair[0] === pair[1].player, "Not the same player!" )
+      }
+
       {
          // tell the campers about everyone, but mask the possessed
          let infos: Array<NETVAR_GamePlayerInfo> = []
@@ -274,7 +281,7 @@ export class Game
             if ( role === ROLE.ROLE_POSSESSED )
                role = ROLE.ROLE_CAMPER
 
-            infos.push( new NETVAR_GamePlayerInfo( pair[0], -1, role ) )
+            infos.push( new NETVAR_GamePlayerInfo( pair[0], role, pair[1].playernum ) )
          }
 
          let gs = new NETVAR_GameState( this, infos, corpses, votes )
@@ -285,7 +292,7 @@ export class Game
          let infos: Array<NETVAR_GamePlayerInfo> = []
          for ( let pair of this.playerToInfo )
          {
-            infos.push( new NETVAR_GamePlayerInfo( pair[0], -1, pair[1].role ) )
+            infos.push( new NETVAR_GamePlayerInfo( pair[0], pair[1].role, pair[1].playernum ) )
          }
 
          let gs = new NETVAR_GameState( this, infos, corpses, votes )
@@ -359,6 +366,17 @@ export class Game
    {
       Assert( IsServer(), "Server only" )
       this.gameState++
+
+      switch ( this.gameState )
+      {
+         case GAME_STATE.GAME_STATE_PLAYING:
+            for ( let player of this.GetAllPlayers() )
+            {
+               ResetAllCooldownTimes( player )
+            }
+            break
+      }
+
       this.GameStateChanged()
    }
 
@@ -381,6 +399,16 @@ export class Game
          }
       }
       return players
+   }
+
+   public GetPlayerInfo( player: Player ): PlayerInfo
+   {
+      Assert( this.playerToInfo.has( player ), "Unknown player " + player.Name )
+      let playerInfo = this.playerToInfo.get( player ) as PlayerInfo
+      Assert( playerInfo.player === player, "WRONG PLAYER" )
+      Assert( playerInfo._userid === player.UserId, "WRONG PLAYER ID" )
+
+      return this.playerToInfo.get( player ) as PlayerInfo
    }
 
    public RemovePlayer( player: Player )
@@ -467,13 +495,14 @@ export class Game
       this.UpdateGame()
    }
 
-   public SetPlayerRole( player: Player, role: ROLE )
+   public SetPlayerRole( player: Player, role: ROLE ): PlayerInfo
    {
       //print( "Set player " + player.UserId + " role to " + role )
       Assert( this.playerToInfo.has( player ), "Game does not have " + player.Name )
       let playerInfo = this.playerToInfo.get( player ) as PlayerInfo
       playerInfo.role = role
       this.playerToInfo.set( player, playerInfo )
+      return playerInfo
    }
 
    public GetAllPlayers(): Array<Player>
@@ -512,12 +541,13 @@ export class Game
       return players
    }
 
-   public AddPlayer( player: Player, role: ROLE )
+   public AddPlayer( player: Player, role: ROLE ): PlayerInfo
    {
       Assert( !this.playerToInfo.has( player ), "Game already has " + player.Name )
-      let playerInfo = new PlayerInfo( player, -1, role )
-      print( "AddPlayer with role " + role )
+      let playerInfo = new PlayerInfo( player, role )
+      print( "AddPlayer " + player.UserId + " with role " + role )
       this.playerToInfo.set( player, playerInfo )
+      return playerInfo
    }
 
    public GetPlayerRole( player: Player ): ROLE
@@ -553,9 +583,9 @@ export class Game
    //    CLIENT   ONLY
    // 
    //////////////////////////////////////////////////////
-   public NetvarToGamestate()
+   public NetvarToGamestate_ReturnServerTimeDelta(): number
    {
-      print( "\nNetvarToGamestate()" )
+      print( "\nNetvarToGamestate_ReturnServerTimeDelta()" )
       Assert( IsClient(), "Client only" )
       let localPlayer = Players.LocalPlayer
       let json = GetNetVar_String( localPlayer, NETVAR_JSON_GAMESTATE )
@@ -563,24 +593,31 @@ export class Game
       print( "Game state is " + gs.gameState )
       let userIdToPlayer = UserIDToPlayer()
       this.gameState = gs.gameState
-      this.gameStateChangedTime = gs.gsChangedTime + ( Workspace.DistributedGameTime - gs.serverTime ) // DistributedGameTime varies from player to player
+      let deltaTime = Workspace.DistributedGameTime - gs.serverTime
+      this.gameStateChangedTime = gs.gsChangedTime + deltaTime // DistributedGameTime varies from player to player
 
       // update PLAYERS
       {
          let sentPlayers = new Map<Player, boolean>()
 
-         for ( let playerInfo of gs.playerInfos )
+         for ( let gsPlayerInfo of gs.playerInfos )
          {
-            let player = userIdToPlayer.get( playerInfo.id )
+            let player = userIdToPlayer.get( gsPlayerInfo.userId )
             if ( player === undefined )
                continue
             sentPlayers.set( player, true )
 
-            let role = playerInfo.role
+            let role = gsPlayerInfo.role
+            let playerInfo: PlayerInfo | undefined
             if ( this.HasPlayer( player ) )
-               this.SetPlayerRole( player, role )
+               playerInfo = this.SetPlayerRole( player, role )
             else
-               this.AddPlayer( player, role )
+               playerInfo = this.AddPlayer( player, role )
+
+            if ( playerInfo !== undefined )
+            {
+               playerInfo.playernum = gsPlayerInfo.playernum
+            }
          }
 
          let localSpectator = this.GetPlayerRole( localPlayer ) === ROLE.ROLE_SPECTATOR
@@ -683,15 +720,19 @@ export class Game
          let meetingCaller = userIdToPlayer.get( gs.meetingCallerUserId )
          this.meetingCaller = meetingCaller
       }
+
+      return deltaTime
    }
 }
 
-export function AddGameStateNetVars()
+export function SharedGameStateInit()
 {
    AddNetVar( "string", NETVAR_JSON_TASKLIST, "{}" )
    AddNetVar( "number", NETVAR_MATCHMAKING_STATUS, MATCHMAKING_STATUS.MATCHMAKING_PRACTICE )
    AddNetVar( "number", NETVAR_MATCHMAKING_NUMWITHYOU, 0 )
    AddNetVar( "string", NETVAR_JSON_GAMESTATE, "{}" )
+
+   AddCooldown( COOLDOWN_NAME_KILL, COOLDOWN_KILL )
 }
 
 export function IsPracticing( player: Player ): boolean

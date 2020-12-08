@@ -1,8 +1,8 @@
-import { GamePassService, HttpService, Players } from "@rbxts/services"
+import { HttpService, Players } from "@rbxts/services"
 import { AddRPC } from "shared/sh_rpc"
 import { ArrayRandomize, Assert, GetHumanoid, IsAlive, Thread } from "shared/sh_utils"
-import { Assignment, GAME_STATE, AddGameStateNetVars, NETVAR_JSON_TASKLIST, ROLE, IsPracticing, Game, GAMERESULTS } from "shared/sh_gamestate"
-import { MAX_TASKLIST_SIZE, MAX_PLAYERS, MIN_PLAYERS, SPAWN_ROOM, MEETING_DISCUSS_TIME, MEETING_VOTE_TIME, MEETING_RESULTS_TIME } from "shared/sh_settings"
+import { Assignment, GAME_STATE, SharedGameStateInit, NETVAR_JSON_TASKLIST, ROLE, IsPracticing, Game, GAMERESULTS } from "shared/sh_gamestate"
+import { MAX_TASKLIST_SIZE, MAX_PLAYERS, MIN_PLAYERS, SPAWN_ROOM } from "shared/sh_settings"
 import { SetNetVar } from "shared/sh_player_netvars"
 import { AddCallback_OnPlayerCharacterAdded, SetPlayerWalkSpeed } from "shared/sh_onPlayerConnect"
 import { SendRPC } from "./sv_utils"
@@ -16,7 +16,7 @@ let file = new File()
 
 export function SV_GameStateSetup()
 {
-   AddGameStateNetVars()
+   SharedGameStateInit()
    AddRPC( "RPC_FromClient_OnPlayerFinishTask", RPC_FromClient_OnPlayerFinishTask )
 
    AddCallback_OnPlayerCharacterAdded( function ( player: Player )
@@ -71,7 +71,6 @@ export function SV_GameStateSetup()
 
       game.SetVote( player, voteUserID )
    } )
-
 }
 
 export function PlayerToGame( player: Player ): Game
@@ -303,10 +302,13 @@ export function CreateGame( players: Array<Player>, gameEndFunc: Function ): Gam
    Assert( players.size() <= MAX_PLAYERS, "Too many players" )
    let game = new Game()
 
+   let playerNums = 0
    //   file.games.push( game )
    for ( let player of players )
    {
-      game.AddPlayer( player, ROLE.ROLE_CAMPER )
+      let playerInfo = game.AddPlayer( player, ROLE.ROLE_CAMPER )
+      playerInfo.playernum = playerNums
+      playerNums++
       file.playerToGame.set( player, game )
    }
 
@@ -344,8 +346,6 @@ function RPC_FromClient_OnPlayerFinishTask( player: Player, roomName: string, ta
    }
    UpdateTasklistNetvar( player, assignments )
 }
-
-
 
 
 export function PlayerHasUnfinishedAssignment( player: Player, game: Game, roomName: string, taskName: string ): boolean

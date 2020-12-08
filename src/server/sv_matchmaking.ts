@@ -1,4 +1,5 @@
 import { Players } from "@rbxts/services"
+import { ResetAllCooldownTimes } from "shared/sh_cooldown"
 import { NETVAR_MATCHMAKING_STATUS, MATCHMAKING_STATUS, NETVAR_MATCHMAKING_NUMWITHYOU, IsPracticing, ROLE, Game } from "shared/sh_gamestate"
 import { AddCallback_OnPlayerCharacterAdded, AddCallback_OnPlayerConnected } from "shared/sh_onPlayerConnect"
 import { GetNetVar_Number, SetNetVar } from "shared/sh_player_netvars"
@@ -75,7 +76,6 @@ function GetPlayersWithMatchmakingStatus( status: MATCHMAKING_STATUS ): Array<Pl
 function TryToMatchmake()
 {
    let players = GetPlayersWithMatchmakingStatus( MATCHMAKING_STATUS.MATCHMAKING_LFG )
-
    if ( players.size() < MIN_PLAYERS )
       return
 

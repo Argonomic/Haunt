@@ -107,6 +107,7 @@ export function SetNetVar( player: Player, name: string, value: ( number | strin
       return
 
    let netvar = netvars[name]
+   Assert( netvar !== undefined, "No netvar " + name )
    netvar.changeTime = Workspace.DistributedGameTime
    netvar.value = value
    SendVarChange( player, name )

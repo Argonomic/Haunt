@@ -2,7 +2,7 @@ import { Players } from "@rbxts/services";
 import { NETVAR_MATCHMAKING_STATUS, MATCHMAKING_STATUS, NETVAR_MATCHMAKING_NUMWITHYOU } from "shared/sh_gamestate";
 import { AddNetVarChangedCallback, GetNetVar_Number } from "shared/sh_player_netvars";
 import { DEV_READYUP } from "shared/sh_settings";
-import { Assert, ExecOnChildWhenItExists, GetFirstChildWithName, GetFirstChildWithNameAndClassName, Thread } from "shared/sh_utils";
+import { Assert, GetFirstChildWithName, GetFirstChildWithNameAndClassName, Thread } from "shared/sh_utils";
 import { AddPlayerGuiFolderExistsCallback, ToggleButton, UIORDER } from "./cl_ui";
 import { SendRPC } from "./cl_utils";
 
@@ -100,7 +100,7 @@ function UpdateReadyUp()
    switch ( status )
    {
       case MATCHMAKING_STATUS.MATCHMAKING_PRACTICE:
-         SetReadyUp( status, "Practicing.." )
+         SetReadyUp( status, "Practicing.. go explore!" )
          break
 
       case MATCHMAKING_STATUS.MATCHMAKING_LFG:
@@ -131,7 +131,7 @@ function CreateReadyUI()
       return
 
    let toggleButton = new ToggleButton( frame,
-      { 'Position': new UDim2( 0, 25, 1, -25 ), 'AnchorPoint': new Vector2( 1, 1 ) },
+      { 'Position': new UDim2( -0.04, 25, 1, -25 ), 'AnchorPoint': new Vector2( 1, 1 ) },
       { 'Position': new UDim2( 0, 25, 1, -25 ), 'AnchorPoint': new Vector2( 0, 1 ) }
    )
    toggleButton.button.BackgroundColor3 = new Color3( 125 / 256, 170 / 256, 133 / 256 )

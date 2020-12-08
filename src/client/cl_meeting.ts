@@ -402,20 +402,13 @@ export function UpdateMeeting( game: Game )
    print( "UpdateMeeting" )
    let meetingUITemplate = file.meetingUI
    if ( meetingUITemplate === undefined )
-   {
-      print( "No template!" )
       return
-   }
 
    let meetingCaller = game.meetingCaller
    if ( meetingCaller === undefined )
-   {
-      print( "No meeting caller!" )
       return
-   }
 
    let activeMeeting = file.activeMeeting
-   print( "In meeting, game state: " + game.GetGameState() )
 
    switch ( game.GetGameState() )
    {
@@ -424,7 +417,6 @@ export function UpdateMeeting( game: Game )
       case GAME_STATE.GAME_STATE_MEETING_RESULTS:
          if ( activeMeeting === undefined )
          {
-            print( "Create new meeting" )
             activeMeeting = new ActiveMeeting( game, meetingUITemplate )
             file.activeMeeting = activeMeeting
          }
@@ -433,7 +425,6 @@ export function UpdateMeeting( game: Game )
          break
 
       default:
-         print( "Done with meeting!\n" )
          if ( activeMeeting !== undefined )
          {
             activeMeeting.render.Disconnect()

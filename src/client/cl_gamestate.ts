@@ -1,8 +1,9 @@
 import { Players, Workspace } from "@rbxts/services"
 import { ROLE, Game, NETVAR_JSON_GAMESTATE, USETYPES } from "shared/sh_gamestate"
 import { AddNetVarChangedCallback } from "shared/sh_player_netvars"
+import { SetTimeDelta } from "shared/sh_time"
 import { GetUsableByType } from "shared/sh_use"
-import { Assert, GetFirstChildWithName, RandomFloatRange, RecursiveOnChildren, SetCharacterTransparencyAndColor, SetPlayerTransparencyAndColor, Thread, UserIDToPlayer } from "shared/sh_utils"
+import { Assert, GetFirstChildWithName, RandomFloatRange, RecursiveOnChildren, SetCharacterTransparencyAndColor, SetPlayerTransparencyAndColor, UserIDToPlayer } from "shared/sh_utils"
 import { UpdateMeeting } from "./cl_meeting"
 
 
@@ -23,11 +24,6 @@ export function GetLocalRole(): ROLE
    if ( file.clientGame.HasPlayer( Players.LocalPlayer ) )
       return file.clientGame.GetPlayerRole( Players.LocalPlayer )
    return ROLE.ROLE_CAMPER
-}
-
-function GetAllPlayersInMyGame(): Array<Player>
-{
-   return file.clientGame.GetAllPlayers()
 }
 
 export function CL_GameStateSetup()
@@ -64,7 +60,8 @@ export function CL_GameStateSetup()
 
    AddNetVarChangedCallback( NETVAR_JSON_GAMESTATE, function ()
    {
-      file.clientGame.NetvarToGamestate()
+      let deltaTime = file.clientGame.NetvarToGamestate_ReturnServerTimeDelta()
+      SetTimeDelta( deltaTime )
 
       for ( let corpse of file.clientGame.corpses )
       {
