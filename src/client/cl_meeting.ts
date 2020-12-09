@@ -1,7 +1,7 @@
-import { Players, RunService } from "@rbxts/services";
-import { Game, GAME_STATE, ROLE } from "shared/sh_gamestate";
-import { MAX_PLAYERS } from "shared/sh_settings";
-import { Assert, GetColor, GetFirstChildWithName, GetFirstChildWithNameAndClassName } from "shared/sh_utils";
+import { RunService } from "@rbxts/services";
+import { Game, GAME_STATE, PlayerNumToGameViewable, ROLE } from "shared/sh_gamestate";
+import { DEV_STARTMEETING, MAX_PLAYERS, PLAYER_COLORS } from "shared/sh_settings";
+import { Assert, ClonePlayerModel, GetColor, GetFirstChildWithName, GetFirstChildWithNameAndClassName, GetLocalPlayer, LightenColor, SetPlayerYaw } from "shared/sh_utils";
 import { AddPlayerGuiFolderExistsCallback } from "./cl_ui";
 import { SendRPC } from "./cl_utils";
 
@@ -18,21 +18,91 @@ class PlayerButtonGroup
    frameButton: TextButton
    player: Player
    alive = true
+   playerNum = -1
 
    constructor( game: Game, player: Player, playerButtonTemplate: TextButton, playerCount: number, displayChecks: ( buttonGroup: ButtonGroup ) => void, checkYes: () => void )
    {
+      this.player = player
       this.frameButton = playerButtonTemplate.Clone()
       this.frameButton.Parent = playerButtonTemplate.Parent
       this.frameButton.Name = playerButtonTemplate.Name + " Clone"
       this.frameButton.Visible = true
       this.buttonGroup = new ButtonGroup( this.frameButton, playerCount, displayChecks, checkYes )
-      this.player = player
+      let playerNumber = GetFirstChildWithNameAndClassName( this.frameButton, 'PlayerNumber', 'TextLabel' ) as TextLabel
+
+      let playerImageLabel = GetFirstChildWithNameAndClassName( this.frameButton, 'PlayerImage', 'ImageLabel' ) as ImageLabel
+
+      let playerName = GetFirstChildWithNameAndClassName( playerImageLabel, 'PlayerName', 'TextLabel' ) as TextLabel
+
+      playerImageLabel.ImageTransparency = 1.0
+      playerImageLabel.BackgroundTransparency = 1.0
+      playerName.Text = player.Name
+      let playerInfo = game.GetPlayerInfo( player )
+      if ( playerInfo.playernum >= 0 )
+      {
+         let color = PLAYER_COLORS[playerInfo.playernum]
+         this.frameButton.BackgroundColor3 = LightenColor( color, 0.75 )
+         playerNumber.Text = PlayerNumToGameViewable( playerInfo.playernum )
+         playerNumber.TextColor3 = color
+         this.playerNum = playerInfo.playernum
+      }
+      else
+      {
+         playerNumber.Visible = false
+      }
 
       if ( game.GetPlayerRole( player ) === ROLE.ROLE_SPECTATOR )
       {
          this.frameButton.Transparency = 0.75
          this.alive = false
       }
+
+      if ( player.Character === undefined )
+         return
+      let viewportFrame = new Instance( "ViewportFrame" ) as ViewportFrame
+      viewportFrame.Size = new UDim2( 1.0, 0, 1.0, 0 )
+      viewportFrame.Position = new UDim2( 0, 0, 0, 0 )
+      viewportFrame.BackgroundColor3 = new Color3( 0, 0, 0 )
+      viewportFrame.BorderSizePixel = 0
+      viewportFrame.BackgroundTransparency = 1.0
+      viewportFrame.Parent = playerImageLabel
+
+      let viewportCamera = new Instance( "Camera" ) as Camera
+      viewportFrame.CurrentCamera = viewportCamera
+      viewportCamera.Parent = viewportFrame
+
+      // For rapid iteration
+      //      let numVal = new Instance( 'NumberValue' ) as NumberValue
+      //      numVal.Parent = viewportCamera
+      //      numVal.Value = 35
+      //
+      //      let lastModel: Model | undefined
+      //      RunService.RenderStepped.Connect(
+      //         function ()
+      //         {
+      //            if ( lastModel !== undefined )
+      //               lastModel.Destroy()
+      SetPlayerYaw( player, 0 )//numVal.Value )
+      let clonedModel = ClonePlayerModel( player ) as Model
+      //lastModel = clonedModel
+
+      clonedModel.Parent = viewportFrame
+      let humanoidRootPart = GetFirstChildWithNameAndClassName( clonedModel, 'Head', 'Part' ) as BasePart
+      let camPosVec = new Vector3( 0.45, -0.2, -1.4 )
+
+      let vecEnd = humanoidRootPart.Position
+      let vecStart = vecEnd.add( camPosVec )
+      viewportCamera.CFrame = new CFrame( vecStart, vecEnd )
+
+      //// For rapid iteration
+      //let camPos = new Instance( 'Vector3Value' ) as Vector3Value
+      //camPos.Parent = viewportCamera
+      //camPos.Value = camPosVec
+
+      //let vecEnd = humanoidRootPart.Position
+      //let vecStart = vecEnd.add( camPos.Value )
+      //viewportCamera.CFrame = new CFrame( vecStart, vecEnd )
+      //         } )
    }
 }
 
@@ -213,7 +283,7 @@ class ActiveMeeting
 
       let activeMeeting = this
 
-      let player = Players.LocalPlayer
+      let player = GetLocalPlayer()
 
       for ( let i = 0; i < players.size(); i++ )
       {
@@ -238,20 +308,45 @@ class ActiveMeeting
          playerButtonGroup.frameButton.Visible = true
       }
 
+      print( "\nMEETING DRAW" )
+      //      this.playerButtonGroups.sort( SortByPlayerNum )
+      //      for ( let i = 0; i < this.playerButtonGroups.size(); i++ )
+      //      {
+      //         let playerButtonGroup = this.playerButtonGroups[i]
+      //         print( "i: " + i + " playerNum: " + PlayerNumToGameViewable( playerButtonGroup.playerNum ) )
+      //      }
+
+      print( "\nLIVING SORT" )
       this.playerButtonGroups.sort( SortByLiving )
+      for ( let i = 0; i < this.playerButtonGroups.size(); i++ )
+      {
+         let playerButtonGroup = this.playerButtonGroups[i]
+         print( "i: " + i + " playerNum: " + PlayerNumToGameViewable( playerButtonGroup.playerNum ) )
+      }
 
-      let vacancies = MAX_PLAYERS - this.playerButtonGroups.size()
+      let last = MAX_PLAYERS - 1
+      let first = 0
 
+      print( "\nResult:" )
       for ( let i = 0; i < this.playerButtonGroups.size(); i++ )
       {
          let playerButtonGroup = this.playerButtonGroups[i]
 
-         let index = i
-         if ( !playerButtonGroup.alive )
-            index += vacancies
+         let index
+         if ( playerButtonGroup.alive )
+         {
+            index = first
+            first++
+         }
+         else
+         {
+            index = last
+            last--
+         }
 
          let odd = index % 2 > 0
          let row = math.floor( index / 2 )
+         print( "i: " + i + " alive:" + playerButtonGroup.alive + " index:" + index + " playerNum:" + PlayerNumToGameViewable( playerButtonGroup.playerNum ) + " row:" + row + " odd:" + odd )
 
          let y = this.playerButtonTemplate.Position.Y.Scale + row * 0.185
          let x = this.playerButtonTemplate.Position.X.Scale
@@ -338,7 +433,7 @@ class ActiveMeeting
 
       let playerToButtonGroup = new Map<Player, PlayerButtonGroup>()
 
-      let localPlayer = Players.LocalPlayer
+      let localPlayer = GetLocalPlayer()
 
       let didVote = false
       for ( let vote of game.GetVotes() )
@@ -353,6 +448,7 @@ class ActiveMeeting
       if ( didVote )
       {
          this.skipButtonGroup.HideChecks()
+         this.skipButtonGroup.button.Visible = false
          for ( let playerButtonGroup of this.playerButtonGroups )
          {
             playerButtonGroup.buttonGroup.HideChecks()
@@ -437,8 +533,8 @@ export function UpdateMeeting( game: Game )
 
 function SortByLiving( a: PlayerButtonGroup, b: PlayerButtonGroup ): boolean
 {
-   if ( a.alive && !b.alive )
-      return true
+   if ( a.alive !== b.alive )
+      return a.alive
 
-   return false
+   return a.playerNum < b.playerNum
 }

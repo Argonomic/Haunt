@@ -3,7 +3,7 @@ import { AddTaskUI, GetTaskSpec, GetTaskUI, TASK_UI } from "client/cl_tasks"
 import { Assignment, IsPracticing, NETVAR_JSON_TASKLIST, USETYPES } from "shared/sh_gamestate"
 import { AddNetVarChangedCallback, GetNetVar_String } from "shared/sh_player_netvars"
 import { AddRoomChangedCallback, CurrentRoomExists, GetCurrentRoom, GetRooms } from "./cl_rooms"
-import { Assert, ExecOnChildWhenItExists, GetFirstChildWithName, Graph } from "shared/sh_utils"
+import { Assert, ExecOnChildWhenItExists, GetFirstChildWithName, GetLocalPlayer, Graph } from "shared/sh_utils"
 import { AddCallout, ClearCallouts, InitCallouts } from "./cl_callouts2d"
 import { Room, Task } from "shared/sh_rooms"
 import { AddMapIcon, ClearMinimapIcons } from "./cl_minimap"
@@ -31,7 +31,7 @@ let file = new File()
 
 function RefreshTaskList()
 {
-   let json = GetNetVar_String( Players.LocalPlayer, NETVAR_JSON_TASKLIST )
+   let json = GetNetVar_String( GetLocalPlayer(), NETVAR_JSON_TASKLIST )
    let assignments = HttpService.JSONDecode( json ) as Array<Assignment>
    file.assignments = assignments
 
@@ -59,7 +59,7 @@ export function CL_TaskListSetup()
 
          let room = GetCurrentRoom()
 
-         if ( IsPracticing( Players.LocalPlayer ) )
+         if ( IsPracticing( GetLocalPlayer() ) )
          {
             for ( let taskPark of room.tasks )
             {
@@ -122,7 +122,7 @@ function RecreateTaskListUI()
    ExecOnChildWhenItExists( copy, 'Frame', function ( frame: Frame )
    {
       new ToggleButton( frame,
-         { 'AnchorPoint': new Vector2( 1.0, 0 ) },
+         { 'AnchorPoint': new Vector2( 1.1, 0 ) },
          { 'AnchorPoint': new Vector2( 0.0, 0 ) }
       )
    } )
@@ -173,7 +173,7 @@ function RecreateTaskListMapIcons()
    ClearMinimapIcons()
    let rooms = GetRooms()
 
-   if ( IsPracticing( Players.LocalPlayer ) )
+   if ( IsPracticing( GetLocalPlayer() ) )
    {
       for ( let roomPair of rooms )
       {
@@ -214,7 +214,7 @@ function RecreateTaskListCallouts2d()
 
    let room: Room = GetCurrentRoom()
 
-   if ( IsPracticing( Players.LocalPlayer ) )
+   if ( IsPracticing( GetLocalPlayer() ) )
    {
       for ( let taskPair of room.tasks )
       {

@@ -1,4 +1,4 @@
-import { MessagingService, Players, RunService, ServerScriptService } from "@rbxts/services";
+import { Players } from "@rbxts/services";
 import { Workspace } from "@rbxts/services";
 import { ReplicatedStorage } from "@rbxts/services"
 import { Tween } from "./sh_tween";
@@ -340,9 +340,9 @@ export function SetCharacterTransparencyAndColor( char: Model, value: number, co
 {
    let player = GetPlayerFromCharacter( char )
    if ( player !== undefined )
-      print( "SetCharacterTransparencyAndColor " + value + " " + player.UserId + " local:" + ( player === Players.LocalPlayer ) )
+      print( "SetCharacterTransparencyAndColor " + value + " " + player.UserId + " local:" + ( player === GetLocalPlayer() ) )
    else
-      print( "SetCharacterTransparencyAndColor " + value + " _ local:" + ( player === Players.LocalPlayer ) )
+      print( "SetCharacterTransparencyAndColor " + value + " _ local:" + ( player === GetLocalPlayer() ) )
 
    let head = char.FindFirstChild( "Head" )
    if ( head )
@@ -370,7 +370,7 @@ export function SetCharacterTransparencyAndColor( char: Model, value: number, co
 export function TweenPlayerParts( player: Player, goal: any, time: number )
 {
 
-   //print( "TweenPlayerParts " + ( goal as unknown ) + " " + player.UserId + " local:" + ( player === Players.LocalPlayer ) )
+   //print( "TweenPlayerParts " + ( goal as unknown ) + " " + player.UserId + " local:" + ( player === GetLocalPlayer() ) )
    //   let head = char.FindFirstChild( "Head" )
    //   if ( head )
    //   {
@@ -452,3 +452,79 @@ export function RecursiveOnChildren( instance: Instance, func: Function )
    }
 }
 
+export function LightenColor( color: Color3, scale: number ): Color3
+{
+   let colors = [color.r, color.g, color.b]
+   for ( let i = 0; i < colors.size(); i++ )
+   {
+      colors[i] += ( 1.0 - colors[i] ) * scale
+   }
+
+   return new Color3( colors[0], colors[1], colors[2] )
+}
+
+export function ScaleColor( color: Color3, scale: number ): Color3
+{
+   let colors = [color.r, color.g, color.b]
+   for ( let col of colors )
+   {
+      col *= scale
+   }
+
+   return new Color3( colors[0], colors[1], colors[2] )
+}
+
+export function GetLocalPlayer(): Player
+{
+   Assert( IsClient(), "Can't get local player on the server!" )
+   return Players.LocalPlayer
+}
+
+export function ClonePlayerModel( player: Player ): Model | undefined
+{
+   if ( player.Character === undefined )
+      return undefined
+
+   let character = player.Character as Model
+   character.Archivable = true
+   let bodyParts = character.GetChildren()
+   let clonedModel = new Instance( "Model" ) as Model
+
+   for ( let bodyPart of bodyParts )
+   {
+      if ( bodyPart.IsA( "Humanoid" ) || bodyPart.IsA( "Accessory" ) || bodyPart.IsA( "MeshPart" ) || bodyPart.IsA( "BasePart" ) || bodyPart.IsA( "Pants" ) || bodyPart.IsA( "Shirt" ) || bodyPart.IsA( "ShirtGraphic" ) || bodyPart.IsA( "BodyColors" ) )
+      {
+         if ( bodyPart.Archivable === false ) 
+         {
+            bodyPart.Archivable = true
+            let clone = bodyPart.Clone()
+            clone.Parent = clonedModel
+            bodyPart.Archivable = false
+         }
+         else
+         {
+            let clone = bodyPart.Clone()
+            clone.Parent = clonedModel
+         }
+
+         if ( bodyPart.IsA( "Humanoid" ) )
+         {
+            bodyPart.DisplayDistanceType = Enum.HumanoidDisplayDistanceType.None
+            bodyPart.HealthDisplayType = Enum.HumanoidHealthDisplayType.AlwaysOff
+         }
+      }
+   }
+
+   return clonedModel
+}
+
+export function SetPlayerYaw( player: Player, yaw: number )
+{
+   if ( player.Character === undefined )
+      return
+   let character = player.Character as Model
+   let part = character.PrimaryPart as BasePart
+   let position = part.Position
+   let cFrame = new CFrame( position )
+   part.CFrame = cFrame.mul( CFrame.Angles( math.rad( 0 ), math.rad( yaw ), math.rad( 0 ) ) )
+}

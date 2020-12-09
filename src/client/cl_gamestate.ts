@@ -1,9 +1,10 @@
-import { Players, Workspace } from "@rbxts/services"
+import { Workspace } from "@rbxts/services"
 import { ROLE, Game, NETVAR_JSON_GAMESTATE, USETYPES } from "shared/sh_gamestate"
+import { AddCallback_OnPlayerCharacterAdded } from "shared/sh_onPlayerConnect"
 import { AddNetVarChangedCallback } from "shared/sh_player_netvars"
 import { SetTimeDelta } from "shared/sh_time"
 import { GetUsableByType } from "shared/sh_use"
-import { Assert, GetFirstChildWithName, RandomFloatRange, RecursiveOnChildren, SetCharacterTransparencyAndColor, SetPlayerTransparencyAndColor, UserIDToPlayer } from "shared/sh_utils"
+import { Assert, GetFirstChildWithName, GetLocalPlayer, RandomFloatRange, RecursiveOnChildren, SetCharacterTransparencyAndColor, SetPlayerTransparencyAndColor, UserIDToPlayer } from "shared/sh_utils"
 import { UpdateMeeting } from "./cl_meeting"
 
 
@@ -21,13 +22,18 @@ export function GetLocalGame(): Game
 
 export function GetLocalRole(): ROLE
 {
-   if ( file.clientGame.HasPlayer( Players.LocalPlayer ) )
-      return file.clientGame.GetPlayerRole( Players.LocalPlayer )
+   if ( file.clientGame.HasPlayer( GetLocalPlayer() ) )
+      return file.clientGame.GetPlayerRole( GetLocalPlayer() )
    return ROLE.ROLE_CAMPER
 }
 
 export function CL_GameStateSetup()
 {
+   AddCallback_OnPlayerCharacterAdded( function ( player: Player )
+   {
+      file.clientGame.Shared_OnGameStateChanged_PerPlayer( player )
+   } )
+
    GetUsableByType( USETYPES.USETYPE_KILL ).DefineGetter(
       function ( player: Player ): Array<Player>
       {

@@ -1,8 +1,8 @@
 import { HttpService, Players } from "@rbxts/services"
 import { AddRPC } from "shared/sh_rpc"
 import { ArrayRandomize, Assert, GetHumanoid, IsAlive, Thread } from "shared/sh_utils"
-import { Assignment, GAME_STATE, SharedGameStateInit, NETVAR_JSON_TASKLIST, ROLE, IsPracticing, Game, GAMERESULTS } from "shared/sh_gamestate"
-import { MAX_TASKLIST_SIZE, MAX_PLAYERS, MIN_PLAYERS, SPAWN_ROOM } from "shared/sh_settings"
+import { Assignment, GAME_STATE, SharedGameStateInit, NETVAR_JSON_TASKLIST, ROLE, IsPracticing, Game, GAMERESULTS, MEETING_TYPE_REPORT } from "shared/sh_gamestate"
+import { MAX_TASKLIST_SIZE, MAX_PLAYERS, MIN_PLAYERS, SPAWN_ROOM, DEV_STARTMEETING } from "shared/sh_settings"
 import { SetNetVar } from "shared/sh_player_netvars"
 import { AddCallback_OnPlayerCharacterAdded, SetPlayerWalkSpeed } from "shared/sh_onPlayerConnect"
 import { SendRPC } from "./sv_utils"
@@ -18,6 +18,15 @@ export function SV_GameStateSetup()
 {
    SharedGameStateInit()
    AddRPC( "RPC_FromClient_OnPlayerFinishTask", RPC_FromClient_OnPlayerFinishTask )
+
+   AddCallback_OnPlayerCharacterAdded( function ( player: Player )
+   {
+      if ( file.playerToGame.has( player ) )
+      {
+         let game = PlayerToGame( player )
+         game.Shared_OnGameStateChanged_PerPlayer( player )
+      }
+   } )
 
    AddCallback_OnPlayerCharacterAdded( function ( player: Player )
    {
@@ -83,6 +92,13 @@ function GameThread( game: Game, gameEndFunc: Function )
 {
    for ( ; ; )
    {
+      let finishedInit = false
+      function FinishCheck()
+      {
+         wait()
+         Assert( finishedInit, "Never finished init" )
+      }
+
       let gameState = game.GetGameState()
       print( "\nGAME STATE UPDATE, current state: " + gameState )
       if ( gameState === GAME_STATE.GAME_STATE_DEAD )
@@ -117,7 +133,7 @@ function GameThread( game: Game, gameEndFunc: Function )
             let possessedPlayers = players.slice( 0, possessedCount )
             let setCampers = players.slice( possessedCount, size )
 
-            print( "\nSetting game roles" )
+            print( "\nSetting game roles, possessedCount " + possessedCount )
             for ( let player of possessedPlayers )
             {
                game.SetPlayerRole( player, ROLE.ROLE_POSSESSED )
@@ -147,6 +163,27 @@ function GameThread( game: Game, gameEndFunc: Function )
             }
 
             game.IncrementGameState()
+            break
+
+         case GAME_STATE.GAME_STATE_PLAYING:
+
+            if ( DEV_STARTMEETING )
+            {
+               Thread(
+                  function ()
+                  {
+                     wait( 2 )
+                     if ( game.GetGameState() !== GAME_STATE.GAME_STATE_PLAYING )
+                        return
+
+                     print( "START A MEETING!!" )
+                     let players = game.GetAllPlayers()
+                     game.meetingCaller = players[0]
+                     game.meetingType = MEETING_TYPE_REPORT
+                     game.SetGameState( GAME_STATE.GAME_STATE_MEETING_DISCUSS )
+                  } )
+            }
+
             break
 
          case GAME_STATE.GAME_STATE_MEETING_DISCUSS:
@@ -286,6 +323,8 @@ function GameThread( game: Game, gameEndFunc: Function )
             gameEndFunc()
             return
       }
+
+      finishedInit = true
 
       if ( gameState === game.GetGameState() )
       {

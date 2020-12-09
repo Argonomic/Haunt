@@ -1,8 +1,9 @@
-import { HttpService, Players, Workspace } from "@rbxts/services"
+import { HttpService, Workspace } from "@rbxts/services"
 import { AddNetVar, GetNetVar_Number, GetNetVar_String, SetNetVar } from "shared/sh_player_netvars"
 import { AddCooldown, ResetAllCooldownTimes } from "./sh_cooldown"
+import { SetPlayerWalkSpeed } from "./sh_onPlayerConnect"
 import { COOLDOWN_KILL, MEETING_DISCUSS_TIME, MEETING_RESULTS_TIME, MEETING_VOTE_TIME, SPECTATOR_TRANS } from "./sh_settings"
-import { Assert, IsServer, IsClient, UserIDToPlayer, IsAlive, SetPlayerTransparencyAndColor } from "./sh_utils"
+import { Assert, IsServer, IsClient, UserIDToPlayer, IsAlive, SetPlayerTransparencyAndColor, GetLocalPlayer, SetPlayerYaw } from "./sh_utils"
 
 export const NETVAR_JSON_TASKLIST = "JS_TL"
 export const NETVAR_MATCHMAKING_STATUS = "MMS"
@@ -320,6 +321,22 @@ export class Game
    private GameStateChanged()
    {
       Assert( IsServer(), "Server only" )
+      this.gameStateChangedTime = Workspace.DistributedGameTime
+
+      switch ( this.gameState )
+      {
+         case GAME_STATE.GAME_STATE_PLAYING:
+            for ( let player of this.GetAllPlayers() )
+            {
+               ResetAllCooldownTimes( player )
+            }
+            break
+
+         case GAME_STATE.GAME_STATE_MEETING_DISCUSS:
+            Assert( this.votes.size() === 0, "Expected zero votes" )
+            break
+      }
+
       let thread = this.gameThread
       Assert( thread !== undefined, "No game thread!" )
       let status = coroutine.status( thread as thread )
@@ -344,40 +361,20 @@ export class Game
    public SetGameState( state: GAME_STATE )
    {
       Assert( IsServer(), "Server only" )
-      this.gameStateChangedTime = Workspace.DistributedGameTime
       this.gameState = state
-
-      switch ( state )
-      {
-         case GAME_STATE.GAME_STATE_MEETING_DISCUSS:
-            Assert( this.votes.size() === 0, "Expected zero votes" )
-            break
-      }
-
       this.GameStateChanged()
-   }
-
-   public GetInGameState(): number
-   {
-      return Workspace.DistributedGameTime - this.gameStateChangedTime
    }
 
    public IncrementGameState()
    {
       Assert( IsServer(), "Server only" )
       this.gameState++
-
-      switch ( this.gameState )
-      {
-         case GAME_STATE.GAME_STATE_PLAYING:
-            for ( let player of this.GetAllPlayers() )
-            {
-               ResetAllCooldownTimes( player )
-            }
-            break
-      }
-
       this.GameStateChanged()
+   }
+
+   public GetInGameState(): number
+   {
+      return Workspace.DistributedGameTime - this.gameStateChangedTime
    }
 
    public GetLivingPlayers(): Array<Player>
@@ -577,6 +574,22 @@ export class Game
    }
 
 
+   public Shared_OnGameStateChanged_PerPlayer( player: Player )
+   {
+      switch ( this.gameState )
+      {
+         case GAME_STATE.GAME_STATE_MEETING_DISCUSS:
+         case GAME_STATE.GAME_STATE_MEETING_VOTE:
+         case GAME_STATE.GAME_STATE_MEETING_RESULTS:
+            SetPlayerYaw( player, 0 )
+            SetPlayerWalkSpeed( player, 0 )
+            break
+
+         default:
+            SetPlayerWalkSpeed( player, 16 )
+            break
+      }
+   }
 
    //////////////////////////////////////////////////////
    // 
@@ -587,7 +600,7 @@ export class Game
    {
       print( "\nNetvarToGamestate_ReturnServerTimeDelta()" )
       Assert( IsClient(), "Client only" )
-      let localPlayer = Players.LocalPlayer
+      let localPlayer = GetLocalPlayer()
       let json = GetNetVar_String( localPlayer, NETVAR_JSON_GAMESTATE )
       let gs = HttpService.JSONDecode( json ) as NETVAR_GameState
       print( "Game state is " + gs.gameState )
@@ -745,4 +758,12 @@ export function IsPracticing( player: Player ): boolean
    }
 
    return false
+}
+
+export function PlayerNumToGameViewable( playerNum: number ): string
+{
+   playerNum++
+   if ( playerNum === 10 )
+      playerNum = 0
+   return playerNum + ""
 }

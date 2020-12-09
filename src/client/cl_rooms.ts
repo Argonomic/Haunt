@@ -1,6 +1,6 @@
 import { AddRPC } from "shared/sh_rpc"
 import { AddCallback_OnRoomSetup, CreateClientBlockers, Room, AddRoomsFromWorkspace, FAST_ROOM_ITERATION } from "shared/sh_rooms"
-import { Assert, GetPlayerFromDescendant, GetPosition } from "shared/sh_utils"
+import { Assert, GetLocalPlayer, GetPlayerFromDescendant, GetPosition } from "shared/sh_utils"
 import { SetPlayerCameraToRoom } from "./cl_camera"
 import { Players } from "@rbxts/services"
 
@@ -113,7 +113,7 @@ function SetCurrentRoom( room: Room )
 
 function OnTriggerDoorSetup( door: BasePart, room: Room )
 {
-   let localPlayer = Players.LocalPlayer
+   let localPlayer = GetLocalPlayer()
 
    door.Touched.Connect( function ( toucher )
    {

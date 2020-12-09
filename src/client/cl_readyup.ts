@@ -2,7 +2,7 @@ import { Players } from "@rbxts/services";
 import { NETVAR_MATCHMAKING_STATUS, MATCHMAKING_STATUS, NETVAR_MATCHMAKING_NUMWITHYOU } from "shared/sh_gamestate";
 import { AddNetVarChangedCallback, GetNetVar_Number } from "shared/sh_player_netvars";
 import { DEV_READYUP } from "shared/sh_settings";
-import { Assert, GetFirstChildWithName, GetFirstChildWithNameAndClassName, Thread } from "shared/sh_utils";
+import { Assert, GetFirstChildWithName, GetFirstChildWithNameAndClassName, GetLocalPlayer, Thread } from "shared/sh_utils";
 import { AddPlayerGuiFolderExistsCallback, ToggleButton, UIORDER } from "./cl_ui";
 import { SendRPC } from "./cl_utils";
 
@@ -92,7 +92,7 @@ export function CL_ReadyUpSetup()
 
 function UpdateReadyUp()
 {
-   let player = Players.LocalPlayer
+   let player = GetLocalPlayer()
    let status = GetNetVar_Number( player, NETVAR_MATCHMAKING_STATUS )
    let numWithYou = GetNetVar_Number( player, NETVAR_MATCHMAKING_NUMWITHYOU )
    print( "UpdateReadyUp: " + status )

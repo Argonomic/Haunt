@@ -1,6 +1,6 @@
 import { Players, RunService, Workspace } from "@rbxts/services"
 import { BoundsXZ, GetBoundsXZ } from "shared/sh_bounds"
-import { Assert, GetChildrenWithName, GetChildren_NoFutureOffspring, GetFirstChildWithName, GetFirstChildWithNameAndClassName, GetInstanceChildWithName, GetPosition, GetWorkspaceChildByName, Graph } from "shared/sh_utils"
+import { Assert, GetChildrenWithName, GetChildren_NoFutureOffspring, GetFirstChildWithName, GetFirstChildWithNameAndClassName, GetInstanceChildWithName, GetLocalPlayer, GetPosition, GetWorkspaceChildByName, Graph } from "shared/sh_utils"
 import { CreateCalloutTextLabel } from "./cl_callouts2d"
 import { AddPlayerGuiFolderExistsCallback, UIORDER } from "./cl_ui"
 
@@ -158,7 +158,7 @@ export function CL_MinimapSetup()
 
       let connect = RunService.RenderStepped.Connect( function ()
       {
-         let position = GetPosition( Players.LocalPlayer )
+         let position = GetPosition( GetLocalPlayer() )
          let posX = xCenter - position.X
          let posZ = zCenter - position.Z
 

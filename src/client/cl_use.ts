@@ -2,7 +2,7 @@ import { Players, RunService, Workspace } from "@rbxts/services"
 import { GetPlayerCooldownTimeRemaining } from "shared/sh_cooldown"
 import { USE_COOLDOWNS } from "shared/sh_gamestate"
 import { GetUseResultsForAttempt, UseResults } from "shared/sh_use"
-import { Assert, GetFirstChildWithName, IsAlive } from "shared/sh_utils"
+import { Assert, GetFirstChildWithName, GetLocalPlayer, IsAlive } from "shared/sh_utils"
 import { AddPlayerGuiFolderExistsCallback, UIORDER } from "./cl_ui"
 import { SendRPC } from "./cl_utils"
 
@@ -37,11 +37,11 @@ export function CL_UseSetup()
       Assert( textLabel !== undefined, "Couldn't find TextLabel" )
       let countdown = GetFirstChildWithName( imageButton, "Countdown" ) as TextLabel
 
-      let player = Players.LocalPlayer
+      let player = GetLocalPlayer()
 
       imageButton.MouseButton1Up.Connect( function ()
       {
-         let useResults = GetUseResultsForAttempt( Players.LocalPlayer )
+         let useResults = GetUseResultsForAttempt( player )
          if ( useResults === undefined )
             return
 

@@ -1,3 +1,4 @@
+export const DEV_STARTMEETING = false
 export const DEV_READYUP = true
 export const MIN_PLAYERS = 5
 export const MAX_PLAYERS = 10
@@ -7,8 +8,15 @@ export const SPAWN_ROOM = "Foyer"
 export const KILL_DIST = 6.5
 export const REPORT_DIST = 5
 export const MEETING_DISCUSS_TIME = 5
-export const MEETING_VOTE_TIME = 60
-export const MEETING_RESULTS_TIME = 10
+
+export let MEETING_VOTE_TIME = 60
+if ( DEV_STARTMEETING )
+   MEETING_VOTE_TIME = 6000
+
+export let MEETING_RESULTS_TIME = 10
+if ( DEV_STARTMEETING )
+   MEETING_RESULTS_TIME = 3
+
 export const SPECTATOR_TRANS = 0.75
 
 export const PLAYER_COLORS =

@@ -1,7 +1,7 @@
-import { Players, RunService, Workspace } from "@rbxts/services"
-import { Corpse, IsPracticing, ROLE } from "shared/sh_gamestate"
+import { RunService, Workspace } from "@rbxts/services"
+import { Corpse, IsPracticing, PlayerNumToGameViewable, ROLE } from "shared/sh_gamestate"
 import { PLAYER_COLORS } from "shared/sh_settings"
-import { Assert, GetFirstChildWithName, GetFirstChildWithNameAndClassName, GetPosition, SetCharacterTransparencyAndColor, SetPlayerTransparencyAndColor, Thread, TweenPlayerParts } from "shared/sh_utils"
+import { Assert, GetFirstChildWithNameAndClassName, GetLocalPlayer, SetCharacterTransparencyAndColor, TweenPlayerParts } from "shared/sh_utils"
 import { GetLocalGame, GetLocalRole } from "./cl_gamestate"
 import { AddPlayerGuiFolderExistsCallback, UIORDER } from "./cl_ui"
 
@@ -27,7 +27,7 @@ export function CL_FadeOverlaySetup()
 {
    AddPlayerGuiFolderExistsCallback( function ( gui: Instance )
    {
-      let localPlayer = Players.LocalPlayer
+      let localPlayer = GetLocalPlayer()
       if ( IsPracticing( localPlayer ) )
          return
 
@@ -63,10 +63,7 @@ export function CL_FadeOverlaySetup()
          if ( playerInfo.playernum >= 0 )
             textLabel.TextColor3 = PLAYER_COLORS[playerInfo.playernum]
 
-         let playerNum = playerInfo.playernum + 1
-         if ( playerNum === 10 )
-            playerNum = 0
-         textLabel.Text = playerNum + ""
+         textLabel.Text = PlayerNumToGameViewable( playerInfo.playernum )
          //textLabel.Text = player.UserId + " " + playerNum
          textLabel.TextScaled = true
          //textLabel.Font = Enum.Font.LuckiestGuy

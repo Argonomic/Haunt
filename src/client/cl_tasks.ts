@@ -1,7 +1,7 @@
 import { AddRPC } from "shared/sh_rpc"
 import { ReleaseDraggedButton, AddCallback_MouseUp } from "client/cl_ui"
 import { SendRPC } from "./cl_utils"
-import { Assert, LoadSound } from "shared/sh_utils"
+import { Assert, GetLocalPlayer, LoadSound } from "shared/sh_utils"
 import { Players } from "@rbxts/services"
 import { SetPlayerWalkSpeed } from "shared/sh_onPlayerConnect"
 import { AddPlayerUseDisabledCallback, SetUseDebounceTime } from "./cl_use"
@@ -112,7 +112,7 @@ export function RPC_FromServer_CancelTask()
 
 export function RPC_FromServer_OnPlayerUseTask( roomName: string, taskName: string )
 {
-   SetPlayerWalkSpeed( Players.LocalPlayer, 0 )
+   SetPlayerWalkSpeed( GetLocalPlayer(), 0 )
 
    let taskUIController = GetTaskUI( TASK_UI.TASK_CONTROLLER ) as EDITOR_TaskUI
 
@@ -127,7 +127,7 @@ export function RPC_FromServer_OnPlayerUseTask( roomName: string, taskName: stri
    newFrame.Visible = true
    newFrame.Parent = taskSpec.frame.Parent
 
-   //SetPlayerState( Players.LocalPlayer, Enum.HumanoidStateType.Running, false )
+   //SetPlayerState( GetLocalPlayer(), Enum.HumanoidStateType.Running, false )
 
    taskUIController.Frame.Header.Text = taskSpec.title
    taskUIController.Enabled = true
@@ -145,9 +145,9 @@ export function RPC_FromServer_OnPlayerUseTask( roomName: string, taskName: stri
          SetUseDebounceTime( 1 ) // hide use for a second
       }
 
-      SetPlayerWalkSpeed( Players.LocalPlayer, 16 )
+      SetPlayerWalkSpeed( GetLocalPlayer(), 16 )
 
-      //SetPlayerState( Players.LocalPlayer, Enum.HumanoidStateType.Running, true )
+      //SetPlayerState( GetLocalPlayer(), Enum.HumanoidStateType.Running, true )
       newFrame.Destroy()
       taskUIController.Enabled = false;
       let think = activeTaskStatus.think
