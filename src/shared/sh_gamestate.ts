@@ -328,26 +328,6 @@ export class Game
       Assert( IsServer(), "Server only" )
       this.gameStateChangedTime = Workspace.DistributedGameTime
 
-      for ( let i = 0; i < this.resumeOnGameStateChange.size(); i++ )
-      {
-         let func = this.resumeOnGameStateChange[i]
-         switch ( coroutine.status( func ) )
-         {
-            case "dead":
-               this.resumeOnGameStateChange.remove( i )
-               i--
-               break
-
-            case "normal":
-            case "suspended":
-               coroutine.resume( func )
-               break
-
-            case "running":
-               break
-         }
-      }
-
       switch ( this.gameState )
       {
          case GAME_STATE.GAME_STATE_PLAYING:
@@ -451,13 +431,7 @@ export class Game
    private gameStateChangedTime = 0
    private playerToInfo = new Map<Player, PlayerInfo>()
    private votes: Array<PlayerVote> = []
-   private resumeOnGameStateChange: Array<thread> = []
    corpses: Array<Corpse> = []
-
-   public AddResumeThreadOnGameStateChanges( func: thread )
-   {
-      this.resumeOnGameStateChange.push( func )
-   }
 
    public GetTimeRemainingForState(): number
    {
