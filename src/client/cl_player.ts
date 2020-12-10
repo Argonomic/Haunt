@@ -1,8 +1,7 @@
-import { Players } from "@rbxts/services"
 import { IsPracticing } from "shared/sh_gamestate"
 import { AddCallback_OnPlayerCharacterAdded } from "shared/sh_onPlayerConnect"
 import { SPECTATOR_TRANS } from "shared/sh_settings"
-import { GetLocalPlayer, IsAlive, SetPlayerTransparencyAndColor, Thread } from "shared/sh_utils"
+import { GetLocalPlayer, IsAlive, SetPlayerTransparency, Thread } from "shared/sh_utils"
 import { GetLocalGame } from "./cl_gamestate"
 
 class File
@@ -34,12 +33,12 @@ export function CL_PlayerSetup()
          {
             if ( !IsPracticing( player ) )
             {
-               SetPlayerTransparencyAndColor( player, SPECTATOR_TRANS, new Color3( 1, 0, 0 ) )
+               SetPlayerTransparency( player, SPECTATOR_TRANS )
             }
          }
          else
          {
-            SetPlayerTransparencyAndColor( player, 1, new Color3( 0, 1, 0 ) )
+            SetPlayerTransparency( player, 1 )
          }
 
          wait() // otherwise fights with other color setters somewhere
@@ -47,12 +46,12 @@ export function CL_PlayerSetup()
          {
             if ( !IsPracticing( player ) )
             {
-               SetPlayerTransparencyAndColor( player, SPECTATOR_TRANS, new Color3( 1, 0, 0 ) )
+               SetPlayerTransparency( player, SPECTATOR_TRANS )
             }
          }
          else
          {
-            SetPlayerTransparencyAndColor( player, 1, new Color3( 0, 1, 0 ) )
+            SetPlayerTransparency( player, 1 )
          }
       } )
    } )

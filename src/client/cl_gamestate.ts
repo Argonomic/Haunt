@@ -1,11 +1,12 @@
 import { Workspace } from "@rbxts/services"
-import { ROLE, Game, NETVAR_JSON_GAMESTATE, USETYPES } from "shared/sh_gamestate"
+import { ROLE, Game, NETVAR_JSON_GAMESTATE, USETYPES, GAME_STATE } from "shared/sh_gamestate"
 import { AddCallback_OnPlayerCharacterAdded } from "shared/sh_onPlayerConnect"
 import { AddNetVarChangedCallback } from "shared/sh_player_netvars"
 import { SetTimeDelta } from "shared/sh_time"
 import { GetUsableByType } from "shared/sh_use"
-import { Assert, GetFirstChildWithName, GetLocalPlayer, RandomFloatRange, RecursiveOnChildren, SetCharacterTransparencyAndColor, SetPlayerTransparencyAndColor, UserIDToPlayer } from "shared/sh_utils"
+import { Assert, GetFirstChildWithName, GetLocalPlayer, RandomFloatRange, RecursiveOnChildren, SetCharacterTransparency, SetPlayerTransparency, UserIDToPlayer } from "shared/sh_utils"
 import { UpdateMeeting } from "./cl_meeting"
+import { MatchIntro } from "./content/cl_matchScreen_content"
 
 
 class File
@@ -66,6 +67,7 @@ export function CL_GameStateSetup()
 
    AddNetVarChangedCallback( NETVAR_JSON_GAMESTATE, function ()
    {
+      let oldGameState = file.clientGame.GetGameState()
       let deltaTime = file.clientGame.NetvarToGamestate_ReturnServerTimeDelta()
       SetTimeDelta( deltaTime )
 
@@ -86,11 +88,25 @@ export function CL_GameStateSetup()
 
       for ( let pair of userIDToPlayer )
       {
-         SetPlayerTransparencyAndColor( pair[1], 1, new Color3( 1, 1, 1 ) )
+         SetPlayerTransparency( pair[1], 1 )
       }
 
       // update meeting
       UpdateMeeting( file.clientGame )
+
+
+      if ( oldGameState !== file.clientGame.GetGameState() )
+      {
+         print( "GAME STATE CHANGED FROM " + oldGameState + " TO " + file.clientGame.GetGameState() )
+         // game state changed!
+         switch ( file.clientGame.GetGameState() )
+         {
+            case GAME_STATE.GAME_STATE_PLAYING:
+               MatchIntro( file.clientGame.GetPossessed(), file.clientGame.GetCampers(), file.clientGame.startingPossessedCount )
+               break
+         }
+      }
+
    } )
 }
 
@@ -105,7 +121,7 @@ function CreateCorpse( player: Player, pos: Vector3 ): Model | undefined
    let character = player.Character as Model
    character.Archivable = true
    let corpseCharacter = character.Clone()
-   SetCharacterTransparencyAndColor( corpseCharacter, 0, new Color3( 1, 1, 1 ) )
+   SetCharacterTransparency( corpseCharacter, 0 )
 
    corpseCharacter.Name = "corspseClone"
    corpseCharacter.Parent = Workspace
@@ -142,71 +158,3 @@ function CreateCorpse( player: Player, pos: Vector3 ): Model | undefined
 
    return corpseCharacter
 }
-
-/*
-let corpseModel = new Instance( "Model" )
-corpseModel.Name = "Corpse"
-corpseModel.Parent = Workspace
-corpseModel.ChildAdded.Connect( function ( child: Instance )
-{
-   print( "Child added: " + child.Name + " classname " + child.ClassName )
-   switch ( child.ClassName )
-   {
-      case 'Motor6D':
-      case 'Humanoid':
-         child.Destroy()
-         break
-   }
-
-} )
-
-Thread( function ()
-{
-   for ( ; ; )
-   {
-      print( "corpsemodel children: " + corpseModel.GetChildren().size() )
-      wait( 1 )
-   }
-} )
-*/
-
-//corpse.model = corpseModel
-
-
-//RecursiveOnChildren( corpseModel, 'Motor6D' )
-
-/*
-for ( let child of model.GetChildren() )
-{
-   Assert( pos !== undefined, "2 Pos is undefined?" )
-   let handle = child.FindFirstChild( "Handle" )
-   if ( handle !== undefined )
-      child = handle
-
-   if ( child.IsA( 'BasePart' ) )
-   {
-      let clone = child.Clone()
-      if ( child === model.PrimaryPart )
-      {
-         corpseModel.PrimaryPart = clone
-         clone.Position = pos
-      }
-      else
-      {
-         clone.Position = child.Position
-         clone.Parent = corpseModel
-      }
-
-      clone.CanCollide = true
-      clone.Rotation = child.Rotation
-      clone.Velocity = child.Velocity
-      clone.Anchored = false
-      clone.Transparency = child.Transparency
-      clone.Material = child.Material
-      clone.Color = child.Color
-      clone.CFrame = child.CFrame
-   }
-}
-*/
-
-

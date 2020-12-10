@@ -1,7 +1,6 @@
 import { Players } from "@rbxts/services";
 import { Workspace } from "@rbxts/services";
 import { ReplicatedStorage } from "@rbxts/services"
-import { Tween } from "./sh_tween";
 
 class File
 {
@@ -105,6 +104,23 @@ export function GetFirstChildWithNameAndClassName( parent: Instance, name: strin
    }
 
    return undefined
+}
+
+export function GetExistingFirstChildWithNameAndClassName( parent: Instance, name: string, className: string ): Instance | undefined
+{
+   let kids = parent.GetChildren()
+
+   for ( let kid of kids )
+   {
+      if ( kid.Name === name )
+      {
+         Assert( kid.ClassName === className, "Child " + name + " has wrong classname, expected " + className + " but found " + kid.ClassName )
+         return kid
+      }
+   }
+
+   Assert( false, "Could not find " + name )
+   throw undefined
 }
 
 export function GetChildren_NoFutureOffspring( parent: Instance ): Array<Instance>
@@ -326,23 +342,23 @@ export function VectorNormalize( vec: Vector3 ): Vector3
 }
 
 
-export function SetPlayerTransparencyAndColor( player: Player, value: number, color: Color3 )
+export function SetPlayerTransparency( player: Player, value: number )
 {
    //print( "set player transparency to " + value )
    let char = player.Character
    if ( char === undefined )
       return
 
-   SetCharacterTransparencyAndColor( char, value, color )
+   SetCharacterTransparency( char, value )
 }
 
-export function SetCharacterTransparencyAndColor( char: Model, value: number, color: Color3 )
+export function SetCharacterTransparency( char: Model, value: number )
 {
    let player = GetPlayerFromCharacter( char )
    if ( player !== undefined )
-      print( "SetCharacterTransparencyAndColor " + value + " " + player.UserId + " local:" + ( player === GetLocalPlayer() ) )
+      print( "SetCharacterTransparency " + value + " " + player.UserId + " local:" + ( player === GetLocalPlayer() ) )
    else
-      print( "SetCharacterTransparencyAndColor " + value + " _ local:" + ( player === GetLocalPlayer() ) )
+      print( "SetCharacterTransparency " + value + " _ local:" + ( player === GetLocalPlayer() ) )
 
    let head = char.FindFirstChild( "Head" )
    if ( head )
@@ -361,40 +377,17 @@ export function SetCharacterTransparencyAndColor( char: Model, value: number, co
       if ( child.IsA( 'BasePart' ) )
       {
          child.Transparency = value
-         child.Color = color
-      }
-   }
-}
-
-
-export function TweenPlayerParts( player: Player, goal: any, time: number )
-{
-
-   //print( "TweenPlayerParts " + ( goal as unknown ) + " " + player.UserId + " local:" + ( player === GetLocalPlayer() ) )
-   //   let head = char.FindFirstChild( "Head" )
-   //   if ( head )
-   //   {
-   //      let face = head.FindFirstChild( "face" )
-   //      if ( face )
-   //         ( face as BasePart ).Transparency = value
-   //   }
-   function Recursive( instance: Instance )
-   {
-      for ( let child of instance.GetChildren() )
-      {
-         let handle = child.FindFirstChild( "Handle" )
-         if ( handle !== undefined )
-            child = handle
-
-         if ( child.IsA( 'BasePart' ) )
-            Tween( child, goal, time, Enum.EasingStyle.Linear )
-
-         Recursive( child )
+         //   child.Color = color
       }
    }
 
-   Recursive( player.Character as Model )
+
+   //let rootPart = GetExistingFirstChildWithNameAndClassName( char, "HumanoidRootPart", 'Part' ) as Part
+   //rootPart.Transparency = 1
+   let primaryPart = char.PrimaryPart as Part
+   primaryPart.Transparency = 1
 }
+
 
 export function IsAlive( player: Player ): boolean
 {
@@ -515,6 +508,8 @@ export function ClonePlayerModel( player: Player ): Model | undefined
       }
    }
 
+   clonedModel.PrimaryPart = GetExistingFirstChildWithNameAndClassName( clonedModel, "HumanoidRootPart", 'Part' ) as Part
+
    return clonedModel
 }
 
@@ -522,9 +517,42 @@ export function SetPlayerYaw( player: Player, yaw: number )
 {
    if ( player.Character === undefined )
       return
-   let character = player.Character as Model
-   let part = character.PrimaryPart as BasePart
+   SetCharacterYaw( player.Character as Model, yaw )
+}
+
+export function SetCharacterYaw( model: Model, yaw: number )
+{
+   Assert( model.PrimaryPart !== undefined, "Model has no primarypart" )
+   let part = model.PrimaryPart as BasePart
    let position = part.Position
    let cFrame = new CFrame( position )
    part.CFrame = cFrame.mul( CFrame.Angles( math.rad( 0 ), math.rad( yaw ), math.rad( 0 ) ) )
 }
+
+export function SetPlayerPosition( player: Player, position: Vector3 )
+{
+   if ( player.Character === undefined )
+      return
+   let character = player.Character as Model
+   character.SetPrimaryPartCFrame( new CFrame( position ) )
+}
+
+/*
+export function EnablePlayerAnchored( player: Player )
+{
+   if ( player.Character === undefined )
+      return
+   let character = player.Character as Model
+   let part = character.PrimaryPart as BasePart
+   part.Anchored = true
+}
+
+export function DisablePlayerAnchored( player: Player )
+{
+   if ( player.Character === undefined )
+      return
+   let character = player.Character as Model
+   let part = character.PrimaryPart as BasePart
+   part.Anchored = false
+}
+*/

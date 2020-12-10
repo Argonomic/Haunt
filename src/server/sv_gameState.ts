@@ -128,6 +128,7 @@ function GameThread( game: Game, gameEndFunc: Function )
                possessedCount = 3
             else if ( size > 6 )
                possessedCount = 2
+            game.startingPossessedCount = possessedCount
 
             ArrayRandomize( players )
             let possessedPlayers = players.slice( 0, possessedCount )
@@ -283,6 +284,13 @@ function GameThread( game: Game, gameEndFunc: Function )
                   if ( highestTarget !== undefined )
                   {
                      game.SetPlayerRole( highestTarget, ROLE.ROLE_SPECTATOR )
+                     if ( IsAlive( highestTarget ) )
+                     {
+                        let human = GetHumanoid( highestTarget )
+                        if ( human )
+                           human.TakeDamage( human.Health )
+                     }
+
                      print( "Player " + highestTarget.Name + " was voted off" )
                   }
 

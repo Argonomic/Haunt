@@ -2,7 +2,8 @@ import { Players, RunService, Workspace } from "@rbxts/services";
 import { AddCallback_OnPlayerCharacterAdded, AddCallback_OnPlayerConnected, APlayerHasConnected } from "shared/sh_onPlayerConnect";
 import { AddCallback_OnRoomSetup } from "shared/sh_rooms";
 import { Tween } from "shared/sh_tween";
-import { Assert, ExecOnChildWhenItExists, GetFirstChildWithName, Graph, LoadSound } from "shared/sh_utils";
+import { Assert, ExecOnChildWhenItExists, GetFirstChildWithName, GetFirstChildWithNameAndClassName, GetLocalPlayer, Graph, LoadSound } from "shared/sh_utils";
+import { GetLocalGame } from "./cl_gamestate";
 import { AddCaptureInputChangeCallback, AddOnTouchEndedCallback } from "./cl_input";
 
 const DRAGGED_ZINDEX_OFFSET = 20
@@ -22,6 +23,7 @@ export enum UIORDER
    UIORDER_TASKLIST,
    UIORDER_TASKS,
    UIORDER_CHAT,
+   UIORDER_MATCHSCREEN,
 }
 
 
@@ -217,6 +219,26 @@ export function CL_UISetup()
 
 }
 
+export function GetUIPackageFolder(): Folder
+{
+   let player = GetLocalPlayer()
+   let gui = GetFirstChildWithName( player, 'PlayerGui' )
+   if ( gui === undefined )
+   {
+      Assert( false, "PlayerGui undefined" )
+      throw undefined
+   }
+
+   let packageFolder = GetFirstChildWithNameAndClassName( gui, 'Package', 'Folder' ) as Folder
+   if ( packageFolder === undefined )
+   {
+      Assert( false, "Package undefined" )
+      throw undefined
+   }
+
+   return packageFolder
+}
+
 export function AddPlayerGuiFolderExistsCallback( func: Function )
 {
    Assert( !APlayerHasConnected(), "Too late for AddPlayerGuiFolderExistsCallback" )
@@ -291,13 +313,13 @@ export class ToggleButton
    {
       if ( this.taskListOpen )
       {
-         Tween( this.frame, this.closeFrameTween, this.time, Enum.EasingStyle.Exponential )
-         Tween( this.button, { Rotation: 0 }, this.time, Enum.EasingStyle.Exponential )
+         Tween( this.frame, this.closeFrameTween, this.time, Enum.EasingStyle.Exponential, Enum.EasingDirection.InOut )
+         Tween( this.button, { Rotation: 0 }, this.time, Enum.EasingStyle.Exponential, Enum.EasingDirection.InOut )
       }
       else
       {
-         Tween( this.frame, this.openFrameTween, this.time, Enum.EasingStyle.Exponential )
-         Tween( this.button, { Rotation: 180 }, this.time, Enum.EasingStyle.Exponential )
+         Tween( this.frame, this.openFrameTween, this.time, Enum.EasingStyle.Exponential, Enum.EasingDirection.InOut )
+         Tween( this.button, { Rotation: 180 }, this.time, Enum.EasingStyle.Exponential, Enum.EasingDirection.InOut )
       }
    }
 

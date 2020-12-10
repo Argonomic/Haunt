@@ -1,7 +1,7 @@
 import { RunService } from "@rbxts/services";
 import { Game, GAME_STATE, PlayerNumToGameViewable, ROLE } from "shared/sh_gamestate";
-import { DEV_STARTMEETING, MAX_PLAYERS, PLAYER_COLORS } from "shared/sh_settings";
-import { Assert, ClonePlayerModel, GetColor, GetFirstChildWithName, GetFirstChildWithNameAndClassName, GetLocalPlayer, LightenColor, SetPlayerYaw } from "shared/sh_utils";
+import { MAX_PLAYERS, PLAYER_COLORS } from "shared/sh_settings";
+import { Assert, ClonePlayerModel, GetColor, GetFirstChildWithName, GetFirstChildWithNameAndClassName, GetLocalPlayer, LightenColor, SetCharacterTransparency, SetPlayerYaw } from "shared/sh_utils";
 import { AddPlayerGuiFolderExistsCallback } from "./cl_ui";
 import { SendRPC } from "./cl_utils";
 
@@ -84,13 +84,14 @@ class PlayerButtonGroup
       //               lastModel.Destroy()
       SetPlayerYaw( player, 0 )//numVal.Value )
       let clonedModel = ClonePlayerModel( player ) as Model
+      SetCharacterTransparency( clonedModel, 0 )
       //lastModel = clonedModel
 
       clonedModel.Parent = viewportFrame
-      let humanoidRootPart = GetFirstChildWithNameAndClassName( clonedModel, 'Head', 'Part' ) as BasePart
+      let head = GetFirstChildWithNameAndClassName( clonedModel, 'Head', 'Part' ) as BasePart
       let camPosVec = new Vector3( 0.45, -0.2, -1.4 )
 
-      let vecEnd = humanoidRootPart.Position
+      let vecEnd = head.Position
       let vecStart = vecEnd.add( camPosVec )
       viewportCamera.CFrame = new CFrame( vecStart, vecEnd )
 
@@ -99,7 +100,7 @@ class PlayerButtonGroup
       //camPos.Parent = viewportCamera
       //camPos.Value = camPosVec
 
-      //let vecEnd = humanoidRootPart.Position
+      //let vecEnd = head.Position
       //let vecStart = vecEnd.add( camPos.Value )
       //viewportCamera.CFrame = new CFrame( vecStart, vecEnd )
       //         } )
@@ -495,7 +496,7 @@ class ActiveMeeting
 
 export function UpdateMeeting( game: Game )
 {
-   print( "UpdateMeeting" )
+   //print( "UpdateMeeting" )
    let meetingUITemplate = file.meetingUI
    if ( meetingUITemplate === undefined )
       return

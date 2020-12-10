@@ -24,6 +24,8 @@ import { CL_ChatSetup } from "./cl_chat"
 import { CL_MeetingSetup } from "./cl_meeting"
 import { SH_CooldownSetup } from "shared/sh_cooldown"
 import { SH_TimeSetup } from "shared/sh_time"
+import { CL_MatchScreenSetup } from "./cl_matchScreen"
+import { CL_MatchScreenContentSetup } from "./content/cl_matchScreen_content"
 
 class File
 {
@@ -64,7 +66,8 @@ CL_ReadyUpSetup()
 CL_GameStateSetup()
 CL_ChatSetup()
 CL_MeetingSetup()
-
+CL_MatchScreenSetup()
+CL_MatchScreenContentSetup()
 
 SH_OnPlayerConnectSetup()
 

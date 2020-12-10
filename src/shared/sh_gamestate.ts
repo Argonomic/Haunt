@@ -3,7 +3,7 @@ import { AddNetVar, GetNetVar_Number, GetNetVar_String, SetNetVar } from "shared
 import { AddCooldown, ResetAllCooldownTimes } from "./sh_cooldown"
 import { SetPlayerWalkSpeed } from "./sh_onPlayerConnect"
 import { COOLDOWN_KILL, MEETING_DISCUSS_TIME, MEETING_RESULTS_TIME, MEETING_VOTE_TIME, SPECTATOR_TRANS } from "./sh_settings"
-import { Assert, IsServer, IsClient, UserIDToPlayer, IsAlive, SetPlayerTransparencyAndColor, GetLocalPlayer, SetPlayerYaw } from "./sh_utils"
+import { Assert, IsServer, IsClient, UserIDToPlayer, IsAlive, SetPlayerTransparency, GetLocalPlayer, SetPlayerYaw } from "./sh_utils"
 
 export const NETVAR_JSON_TASKLIST = "JS_TL"
 export const NETVAR_MATCHMAKING_STATUS = "MMS"
@@ -110,8 +110,9 @@ class NETVAR_GameState
    meetingCallerUserId: number | undefined
    meetingType: number | undefined
    serverTime: number
+   startingPossessedCount: number
 
-   constructor( game: Game, playerInfos: Array<NETVAR_GamePlayerInfo>, corpses: Array<NETVAR_Corpse>, votes: Array<NETVAR_Vote> )
+   constructor( game: Game, playerInfos: Array<NETVAR_GamePlayerInfo>, corpses: Array<NETVAR_Corpse>, votes: Array<NETVAR_Vote>, startingPossessedCount: number )
    {
       this.gameState = game.GetGameState()
       this.gsChangedTime = game.GetGameStateChangedTime()
@@ -119,6 +120,7 @@ class NETVAR_GameState
       this.corpses = corpses
       this.votes = votes
       this.serverTime = Workspace.DistributedGameTime
+      this.startingPossessedCount = startingPossessedCount
    }
 }
 
@@ -196,6 +198,7 @@ export class Game
 
    gameThread: thread | undefined
    playerToSpawnLocation = new Map<Player, Vector3>()
+   startingPossessedCount = 0
 
    public UpdateGame()
    {
@@ -273,6 +276,8 @@ export class Game
          Assert( pair[0] === pair[1].player, "Not the same player!" )
       }
 
+      let startingPossessedCount = this.startingPossessedCount
+
       {
          // tell the campers about everyone, but mask the possessed
          let infos: Array<NETVAR_GamePlayerInfo> = []
@@ -285,7 +290,7 @@ export class Game
             infos.push( new NETVAR_GamePlayerInfo( pair[0], role, pair[1].playernum ) )
          }
 
-         let gs = new NETVAR_GameState( this, infos, corpses, votes )
+         let gs = new NETVAR_GameState( this, infos, corpses, votes, startingPossessedCount )
          gameStateToRole.set( ROLE.ROLE_CAMPER, gs )
       }
 
@@ -296,7 +301,7 @@ export class Game
             infos.push( new NETVAR_GamePlayerInfo( pair[0], pair[1].role, pair[1].playernum ) )
          }
 
-         let gs = new NETVAR_GameState( this, infos, corpses, votes )
+         let gs = new NETVAR_GameState( this, infos, corpses, votes, startingPossessedCount )
          gameStateToRole.set( ROLE.ROLE_POSSESSED, gs )
          gameStateToRole.set( ROLE.ROLE_SPECTATOR, gs )
       }
@@ -322,6 +327,26 @@ export class Game
    {
       Assert( IsServer(), "Server only" )
       this.gameStateChangedTime = Workspace.DistributedGameTime
+
+      for ( let i = 0; i < this.resumeOnGameStateChange.size(); i++ )
+      {
+         let func = this.resumeOnGameStateChange[i]
+         switch ( coroutine.status( func ) )
+         {
+            case "dead":
+               this.resumeOnGameStateChange.remove( i )
+               i--
+               break
+
+            case "normal":
+            case "suspended":
+               coroutine.resume( func )
+               break
+
+            case "running":
+               break
+         }
+      }
 
       switch ( this.gameState )
       {
@@ -426,7 +451,13 @@ export class Game
    private gameStateChangedTime = 0
    private playerToInfo = new Map<Player, PlayerInfo>()
    private votes: Array<PlayerVote> = []
+   private resumeOnGameStateChange: Array<thread> = []
    corpses: Array<Corpse> = []
+
+   public AddResumeThreadOnGameStateChanges( func: thread )
+   {
+      this.resumeOnGameStateChange.push( func )
+   }
 
    public GetTimeRemainingForState(): number
    {
@@ -608,6 +639,9 @@ export class Game
       this.gameState = gs.gameState
       let deltaTime = Workspace.DistributedGameTime - gs.serverTime
       this.gameStateChangedTime = gs.gsChangedTime + deltaTime // DistributedGameTime varies from player to player
+      this.startingPossessedCount = gs.startingPossessedCount
+
+
 
       // update PLAYERS
       {
@@ -641,11 +675,11 @@ export class Game
             if ( role === ROLE.ROLE_SPECTATOR )
             {
                if ( player === localPlayer )
-                  SetPlayerTransparencyAndColor( player, SPECTATOR_TRANS, new Color3( 1, 0, 0 ) )
+                  SetPlayerTransparency( player, SPECTATOR_TRANS )
                else if ( localSpectator ) // spectators see spectators
-                  SetPlayerTransparencyAndColor( player, SPECTATOR_TRANS, new Color3( 0, 0, 1 ) )
+                  SetPlayerTransparency( player, SPECTATOR_TRANS )
                else
-                  SetPlayerTransparencyAndColor( player, 1, new Color3( 0, 0, 1 ) )
+                  SetPlayerTransparency( player, 1 )
             }
          }
 
@@ -657,7 +691,7 @@ export class Game
             if ( sentPlayers.has( pair[0] ) )
                continue
             this.playerToInfo.delete( pair[0] )
-            SetPlayerTransparencyAndColor( pair[0], 1, new Color3( 1, 0, 0 ) )
+            SetPlayerTransparency( pair[0], 1, new Color3( 1, 0, 0 ) )
          }
          */
       }

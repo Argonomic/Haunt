@@ -1,6 +1,6 @@
-import { Players } from "@rbxts/services";
+import { Players, StarterGui, Workspace } from "@rbxts/services";
 import { AssignDefaultNVs } from "shared/sh_player_netvars"
-import { Assert, ExecOnChildWhenItExists, GetPlayerFromCharacter, IsServer, Thread } from "./sh_utils";
+import { Assert, ExecOnChildWhenItExists, GetHumanoid, GetPlayerFromCharacter, IsServer, Thread } from "./sh_utils";
 
 class File
 {
@@ -64,6 +64,19 @@ function OnPlayerConnected( player: Player )
    {
       wait()
       Assert( finished, "Never finished init" )
+
+      /*
+      if ( IsServer() )
+      {
+         wait( 5 )
+         let human = GetHumanoid( player )
+         if ( human )
+         {
+            //game.playerToSpawnLocation.set( player, spawnLocations[i] )
+            human.TakeDamage( human.Health )
+         }
+      }
+      */
    } )
 
 

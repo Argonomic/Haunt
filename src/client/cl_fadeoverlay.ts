@@ -1,7 +1,8 @@
 import { RunService, Workspace } from "@rbxts/services"
 import { Corpse, IsPracticing, PlayerNumToGameViewable, ROLE } from "shared/sh_gamestate"
 import { PLAYER_COLORS } from "shared/sh_settings"
-import { Assert, GetFirstChildWithNameAndClassName, GetLocalPlayer, SetCharacterTransparencyAndColor, TweenPlayerParts } from "shared/sh_utils"
+import { TweenPlayerParts } from "shared/sh_tween"
+import { Assert, GetFirstChildWithNameAndClassName, GetLocalPlayer, SetCharacterTransparency } from "shared/sh_utils"
 import { GetLocalGame, GetLocalRole } from "./cl_gamestate"
 import { AddPlayerGuiFolderExistsCallback, UIORDER } from "./cl_ui"
 
@@ -124,8 +125,8 @@ export function CL_FadeOverlaySetup()
       let visiblePlayersToPlayernum = new Map<Player, TextLabel>()
       let visibleCorpsesToPlayernum = new Map<Corpse, TextLabel>()
 
-      let FADE_OUT = { Transparency: 1, Color: new Color3( 0, 0, 0 ) }
-      let FADE_IN = { Transparency: 0, Color: new Color3( 1, 1, 1 ) }
+      let FADE_OUT = { Transparency: 1 }
+      let FADE_IN = { Transparency: 0 }
       const FADE_TIME = 0.25
 
       //let seed = math.round( math.random() * 100 )
@@ -226,14 +227,14 @@ export function CL_FadeOverlaySetup()
             if ( withinVisibleDist )
             {
                //TweenPlayerParts( corpse, FADE_IN, FADE_TIME )
-               SetCharacterTransparencyAndColor( corpse.clientModel, 0, new Color3( 1, 1, 1 ) )
+               SetCharacterTransparency( corpse.clientModel, 0 )
                let textLabel = CreatePlayerNum( corpse.player )
                visibleCorpsesToPlayernum.set( corpse, textLabel )
             }
             else
             {
                //TweenPlayerParts( corpse, FADE_OUT, FADE_TIME )
-               SetCharacterTransparencyAndColor( corpse.clientModel, 1, new Color3( 1, 1, 1 ) )
+               SetCharacterTransparency( corpse.clientModel, 1 )
                let textLabel = visibleCorpsesToPlayernum.get( corpse ) as TextLabel
                textLabel.Destroy()
                visibleCorpsesToPlayernum.delete( corpse )
