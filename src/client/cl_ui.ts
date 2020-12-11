@@ -313,13 +313,13 @@ export class ToggleButton
    {
       if ( this.taskListOpen )
       {
-         Tween( this.frame, this.closeFrameTween, this.time, Enum.EasingStyle.Exponential, Enum.EasingDirection.InOut )
-         Tween( this.button, { Rotation: 0 }, this.time, Enum.EasingStyle.Exponential, Enum.EasingDirection.InOut )
+         Tween( this.frame, this.closeFrameTween, this.time, Enum.EasingStyle.Quad, Enum.EasingDirection.InOut )
+         Tween( this.button, { Rotation: 0 }, this.time, Enum.EasingStyle.Quad, Enum.EasingDirection.InOut )
       }
       else
       {
-         Tween( this.frame, this.openFrameTween, this.time, Enum.EasingStyle.Exponential, Enum.EasingDirection.InOut )
-         Tween( this.button, { Rotation: 180 }, this.time, Enum.EasingStyle.Exponential, Enum.EasingDirection.InOut )
+         Tween( this.frame, this.openFrameTween, this.time, Enum.EasingStyle.Quad, Enum.EasingDirection.InOut )
+         Tween( this.button, { Rotation: 180 }, this.time, Enum.EasingStyle.Quad, Enum.EasingDirection.InOut )
       }
    }
 

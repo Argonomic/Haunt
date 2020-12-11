@@ -58,6 +58,7 @@ export class Room
 {
    name: string = ""
    doors: Array<Instance> = []
+   exitTriggers: Array<BasePart> = []
    center: BasePart | undefined
    tasks = new Map<string, Task>()
    cameraStart = new Vector3( 0, 0, 0 )
@@ -115,6 +116,18 @@ function CreateRoomFromFolder( folder: Folder ): Room
                room.startPoints.push( position )
             }
 
+            break
+
+         case "scr_trigger_exit":
+            {
+               let childPart = child as BasePart
+               Assert( childPart.ClassName === "Part", "scr_trigger_exit should be a Part" )
+
+               childPart.CanCollide = false
+               childPart.Transparency = 1.0
+
+               room.exitTriggers.push( childPart )
+            }
             break
 
          case "usable_task":
