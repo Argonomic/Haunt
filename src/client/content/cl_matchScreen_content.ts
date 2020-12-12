@@ -1,8 +1,8 @@
-import { RunService } from "@rbxts/services";
+import { Workspace } from "@rbxts/services";
 import { WaitForMatchScreenFrame } from "client/cl_matchScreen";
-import { AddPlayerGuiFolderExistsCallback, GetUIPackageFolder } from "client/cl_ui";
-import { Tween, TweenCharacterParts } from "shared/sh_tween";
-import { Assert, ClonePlayerModel, GetExistingFirstChildWithNameAndClassName, GetLocalPlayer, SetCharacterTransparency, SetCharacterYaw, Thread } from "shared/sh_utils";
+import { AddPlayerGuiFolderExistsCallback } from "client/cl_ui";
+import { Tween, TweenCharacterParts, TweenModel } from "shared/sh_tween";
+import { Assert, ClonePlayerModel, GetLocalPlayer, Graph, SetCharacterTransparency, SetCharacterYaw, Thread } from "shared/sh_utils";
 
 class File
 {
@@ -12,31 +12,75 @@ let file = new File()
 
 export function CL_MatchScreenContentSetup()
 {
-   if ( false ) // for quick testing
+   print( "CL_MatchScreenContentSetup" )
+
+   /*
+   AddPlayerGuiFolderExistsCallback( function ()
    {
-      AddPlayerGuiFolderExistsCallback( function ()
-      {
-         Thread(
-            function ()
+      Thread(
+         function ()
+         {
+            //for ( ; ; )
             {
-               wait( 1 )
+               wait( 2 )
+               TestDraw( 0 )
+               TestDraw( 1 )
+               TestDraw( 2 )
+            }
+         } )
+   } )
+   */
+
+   function TestDraw( num: number )
+   {
+      switch ( num )
+      {
+         case 0:
+            {
                let players: Array<Player> = []
                for ( let i = 0; i < 10; i++ )
                {
                   players.push( GetLocalPlayer() )
                }
-               for ( ; ; )
-               {
-                  MatchIntro( [], players, 2 )
-                  wait( 8 )
-               }
-            } )
-      } )
+               DrawMatchScreen_Intro( [], players, 2 )
+            }
+            break
+
+         case 1:
+            DrawMatchScreen_EmergencyMeeting()
+            break
+
+         case 2:
+            {
+               let player = GetLocalPlayer()
+               let receivedVotes = [player, player, player]
+               let votedAndReceivedNoVotes = [player, player, player, player, player, player, player, player]
+               let possessedCount = 2
+               let skipTie = false
+               let receivedHighestVotes = [player, player]
+               DrawMatchScreen_VoteResults( skipTie, receivedHighestVotes, receivedVotes, votedAndReceivedNoVotes, possessedCount )
+            }
+            break
+
+         case 3:
+            {
+               let player = GetLocalPlayer()
+               let receivedVotes = [player, player, player, player, player]
+               let votedAndReceivedNoVotes: Array<Player> = [player, player]
+               let possessedCount = 2
+               let skipTie = false
+               let receivedHighestVotes = [player]
+               DrawMatchScreen_VoteResults( skipTie, receivedHighestVotes, receivedVotes, votedAndReceivedNoVotes, possessedCount )
+            }
+            break
+      }
    }
+
 }
 
-export function MatchIntro( possessed: Array<Player>, campers: Array<Player>, possessedCount: number )
+export function DrawMatchScreen_Intro( possessed: Array<Player>, campers: Array<Player>, possessedCount: number )
 {
+   print( "possessed size " + possessed.size() )
    let foundLocalPossessed = false
    if ( possessed.size() )
    {
@@ -48,30 +92,31 @@ export function MatchIntro( possessed: Array<Player>, campers: Array<Player>, po
             break
          }
       }
-      Assert( foundLocalPossessed, "MatchIntro had possessed players but local player is not possessed" )
+      Assert( foundLocalPossessed, "DrawMatchScreen_Intro had possessed players but local player is not possessed" )
    }
 
    let matchScreenFrame = WaitForMatchScreenFrame()
-   let baseFrame = matchScreenFrame.frame
+   let baseFrame = matchScreenFrame.baseFrame
    Tween( baseFrame, { Transparency: 0 }, 1.0 )
 
-   let template = GetTemplateUI()
-   let templateFrame = GetExistingFirstChildWithNameAndClassName( template, 'TitleFrame', 'Frame' ) as Frame
-
-   let frame = templateFrame.Clone()
-   frame.Parent = baseFrame
-   frame.Transparency = 1
-
-   let title = GetExistingFirstChildWithNameAndClassName( frame, 'Title', 'TextLabel' ) as TextLabel
-   let subTitle = GetExistingFirstChildWithNameAndClassName( frame, 'SubTitle', 'TextLabel' ) as TextLabel
-   let lowerTitle = GetExistingFirstChildWithNameAndClassName( frame, 'LowerTitle', 'TextLabel' ) as TextLabel
-   let viewportFrame = GetExistingFirstChildWithNameAndClassName( frame, 'ViewportFrame', 'ViewportFrame' ) as ViewportFrame
+   let title = matchScreenFrame.title
+   let subTitle = matchScreenFrame.subTitle
+   let lowerTitle = matchScreenFrame.lowerTitle
+   let viewportFrame = matchScreenFrame.viewportFrame
+   let viewportCamera = matchScreenFrame.viewportCamera
 
    title.Text = "Shhh..."
    if ( foundLocalPossessed )
-      subTitle.Text = "You are possessed!"
+   {
+      if ( possessedCount === 1 )
+         subTitle.Text = "You are the imposter!"
+      else
+         subTitle.Text = "You are an imposter!"
+   }
    else
-      subTitle.Text = "You are an innocent camper"
+   {
+      subTitle.Text = "You are innocent"
+   }
 
    if ( possessedCount === 1 )
       lowerTitle.Text = "There is 1 imposter"
@@ -113,14 +158,10 @@ export function MatchIntro( possessed: Array<Player>, campers: Array<Player>, po
    let basePos = new Vector3( 0, 0, 0 )// GetPosition( file.player )
    let camPosVec = new Vector3( 0, 1, -6 )
 
-   let viewportCamera = new Instance( "Camera" ) as Camera
 
    let numVal = new Instance( 'Vector3Value' ) as Vector3Value
    numVal.Parent = viewportCamera
    numVal.Value = camPosVec
-
-   viewportFrame.CurrentCamera = viewportCamera
-   viewportCamera.Parent = viewportFrame
 
    // For rapid iteration
    //RunService.RenderStepped.Connect(
@@ -162,10 +203,10 @@ export function MatchIntro( possessed: Array<Player>, campers: Array<Player>, po
       clonedModel.Parent = viewportFrame
       clonedModel.SetPrimaryPartCFrame( new CFrame( basePos.add( offset ) ) )
 
-      if ( i > possessed.size() )
+      if ( i >= possessed.size() )
          clonedCampers.push( clonedModel )
 
-      SetCharacterYaw( clonedModel, 90 + yaw )
+      SetCharacterYaw( clonedModel, yaw )
       SetCharacterTransparency( clonedModel, 0 )
    }
 
@@ -217,18 +258,363 @@ export function MatchIntro( possessed: Array<Player>, campers: Array<Player>, po
    wait( 0.75 )
    Tween( baseFrame, { Transparency: 1 }, 1.0 )
    wait( 1.0 )
-
-   baseFrame.Destroy()
-   coroutine.resume( matchScreenFrame.onCompletionResumeThisThread )
-}
-
-function GetTemplateUI(): ScreenGui
-{
-   let folder = GetUIPackageFolder()
-   return GetExistingFirstChildWithNameAndClassName( folder, 'TemplateUIs', 'ScreenGui' ) as ScreenGui
 }
 
 function SortLocalPlayer( a: Player, b: Player ): boolean
 {
    return a === file.player && b !== file.player
+}
+
+export function DrawMatchScreen_VoteResults( skipTie: boolean, receivedHighestVotes: Array<Player>, receivedVotes: Array<Player>, votedAndReceivedNoVotes: Array<Player>, possessedCount: number )
+{
+   print( "\nDrawMatchScreen_VoteResults: " )
+   print( "skipTie:" + skipTie )
+   print( "receivedHighestVotes:" + receivedHighestVotes.size() )
+   print( "receivedVotes:" + receivedVotes.size() )
+   print( "votedAndReceivedNoVotes:" + votedAndReceivedNoVotes.size() )
+   print( "possessedCount:" + possessedCount )
+   print( " " )
+
+
+   function GetResultsText(): Array<string>
+   {
+      if ( receivedVotes.size() === 0 || receivedHighestVotes.size() === 0 )
+         return ["No one was voted off"]
+
+      if ( skipTie || receivedHighestVotes.size() > 1 )
+         return ["It's a tie!", "No one was voted off"]
+
+      if ( receivedHighestVotes.size() === 1 )
+         return [receivedHighestVotes[0].Name + " was voted out!"]
+
+      throw undefined
+   }
+
+   const RESULTS_TEXT = GetResultsText()
+
+   let matchScreenFrame = WaitForMatchScreenFrame()
+   let baseFrame = matchScreenFrame.baseFrame
+   Tween( baseFrame, { Transparency: 0 }, 1.0 )
+
+   let title = matchScreenFrame.title
+   let subTitle = matchScreenFrame.subTitle
+   let lowerTitle = matchScreenFrame.lowerTitle
+   let viewportFrame = matchScreenFrame.viewportFrame
+   let viewportCamera = matchScreenFrame.viewportCamera
+
+   viewportFrame.Parent = baseFrame
+
+
+   viewportFrame.Size = new UDim2( 0.9, 0, viewportFrame.Size.Y.Scale, 0 )
+
+   title.Text = "The voters have spoken.."
+   title.TextTransparency = 1
+
+   wait( 1.0 )
+
+   Thread(
+      function ()
+      {
+         wait( 2.0 )
+         Tween( title, { TextTransparency: 0 }, 1 )
+      } )
+
+   let votedOffModel: Model | undefined
+
+   if ( votedAndReceivedNoVotes.size() > 0 || receivedVotes.size() > 0 )
+   {
+      let voterClones: Array<Model> = []
+      {
+         let count = 0
+         let odd = true
+         const dist = 2.5
+
+         let even = votedAndReceivedNoVotes.size() % 2 === 0
+
+         // draw these players with their backs turned
+         for ( let i = 0; i < votedAndReceivedNoVotes.size(); i++ )
+         {
+            let player = votedAndReceivedNoVotes[i]
+            let offsetCount = count
+            let depthOffset = 0
+            switch ( count )
+            {
+               case 0:
+                  depthOffset = 0
+                  break
+               case 1:
+                  depthOffset = 1.2
+                  break
+               case 2:
+                  depthOffset = 3
+                  break
+               case 3:
+                  depthOffset = 6
+                  break
+               default:
+                  depthOffset = 10
+                  break
+            }
+            let yaw = -24.5 * offsetCount
+            let offset = new Vector3( dist, 0, 0 ).mul( offsetCount * 1.25 )
+            let oddMultiplier = 1
+            if ( odd )
+            {
+               oddMultiplier = -1
+               count++
+            }
+            odd = !odd
+
+            offset = offset.mul( oddMultiplier )
+            offset = offset.add( new Vector3( 0, 0, depthOffset ) ) // depth
+            //offset = offset.add( new Vector3( dist * -0.5, 0, 0.0 ) ) // left
+            yaw *= oddMultiplier
+
+            let clonedModel = ClonePlayerModel( player ) as Model
+            voterClones.push( clonedModel )
+            clonedModel.Parent = viewportFrame
+            SetCharacterTransparency( clonedModel, 0 )
+
+            clonedModel.SetPrimaryPartCFrame( new CFrame( offset ) )
+            SetCharacterYaw( clonedModel, 180 + yaw )
+         }
+      }
+
+
+
+      {
+         let count = 0
+         let odd = true
+         const dist = 3.0
+
+         const ADD_DEPTH = Graph( receivedVotes.size(), 3, 10, 12, 19.5 )
+
+         let getVotedOffModel = receivedHighestVotes.size() === 1
+
+         for ( let i = 0; i < receivedVotes.size(); i++ )
+         {
+            let player = receivedVotes[i]
+            let offsetCount = count
+            let yaw = -15 * offsetCount
+            let offset = new Vector3( dist, 0, 0 ).mul( offsetCount )
+            let multiplier = 1
+            if ( odd )
+            {
+               multiplier = -1
+               count++
+            }
+            odd = !odd
+
+            offset = offset.mul( multiplier )
+            offset = offset.add( new Vector3( 0, 0, ADD_DEPTH + offsetCount * 0.5 ) ) // depth
+            yaw *= multiplier
+
+            let clonedModel = ClonePlayerModel( player ) as Model
+            clonedModel.Parent = viewportFrame
+            SetCharacterTransparency( clonedModel, 0 )
+
+            if ( getVotedOffModel && player === receivedHighestVotes[0] )
+               votedOffModel = clonedModel
+
+            clonedModel.SetPrimaryPartCFrame( new CFrame( offset ) )
+            SetCharacterYaw( clonedModel, 0 )
+         }
+      }
+
+      let viewportCamera = new Instance( "Camera" ) as Camera
+      viewportCamera.FieldOfView = 35
+
+      let vecVal = new Vector3( 0, 4, -6 )
+      let vecOffVal = new Vector3( 0, 7.5, -6.5 )
+
+      if ( votedAndReceivedNoVotes.size() === 0 )
+         vecOffVal = new Vector3( 0, 12, -5 )
+
+      viewportFrame.CurrentCamera = viewportCamera
+      viewportCamera.Parent = viewportFrame
+      viewportFrame.ImageTransparency = 1
+
+      // CAMERA START POSITION
+      {
+         let cameraPosition = vecOffVal
+         let vecEnd = cameraPosition
+         let vecStart = vecVal.add( cameraPosition )
+         let delta = vecStart.sub( vecEnd ).mul( 10 )
+
+         vecStart = vecStart.add( delta )
+         vecEnd = vecEnd.add( delta )
+         viewportCamera.CFrame = new CFrame( vecStart, vecEnd )
+      }
+
+      // CAMERA DOLLIES IN
+      {
+         let cameraPosition = vecOffVal
+         let vecEnd = cameraPosition
+         let vecStart = vecVal.add( cameraPosition )
+         Tween( viewportCamera, { CFrame: new CFrame( vecStart, vecEnd ) }, 1.5, Enum.EasingStyle.Quart, Enum.EasingDirection.Out )
+      }
+
+
+      /*
+      // FOR ITERATION
+      viewportFrame.ImageTransparency = 0
+      let edVec1 = new Instance( 'Vector3Value' ) as Vector3Value
+      edVec1.Parent = viewportCamera
+      edVec1.Value = vecOffVal
+      let edVec2 = new Instance( 'Vector3Value' ) as Vector3Value
+      edVec2.Parent = viewportCamera
+      edVec2.Value = vecVal
+      viewportFrame.ImageTransparency = 0
+      RunService.RenderStepped.Connect(
+         function ()
+         {
+            let cameraPosition = edVec1.Value
+            let vecEnd = cameraPosition
+            let vecStart = edVec2.Value.add( cameraPosition )
+            viewportCamera.CFrame = new CFrame( vecStart, vecEnd )
+         }
+      )
+ 
+      wait( 5555 )
+      */
+
+
+      let secondCamTime = Workspace.DistributedGameTime + 3.0
+
+      Thread(
+         function ()
+         {
+            wait( 0.5 )
+            Tween( viewportFrame, { ImageTransparency: 0 }, 1.2 )
+
+            wait( secondCamTime - Workspace.DistributedGameTime )
+
+            {
+
+               let cameraAngle = new Vector3( 0, 1, -4.5 )
+               let cameraPosition = new Vector3( 0, 1, 6.5 )
+               let vecEnd = cameraPosition
+               let vecStart = cameraAngle.add( cameraPosition )
+               Tween( viewportCamera, { CFrame: new CFrame( vecStart, vecEnd ) }, 1.5, Enum.EasingStyle.Quart, Enum.EasingDirection.InOut )
+            }
+         } )
+
+
+      //      wait( 3523 )
+
+
+      wait( secondCamTime - Workspace.DistributedGameTime )
+
+      let voteOffset = new Vector3( 0, -12, 0 )
+      for ( let clone of voterClones )
+      {
+         let cFrame = ( clone.PrimaryPart as Part ).CFrame
+         cFrame = cFrame.add( voteOffset )
+         TweenModel( clone, cFrame, 1.0, Enum.EasingStyle.Quart, Enum.EasingDirection.In )
+      }
+   }
+   else
+   {
+      wait( 2 ) // no one voted      
+   }
+   //subTitle.TextTransparency = 0
+   //subTitle.Text = ""
+   //Thread(
+   //   function ()
+   //   {
+   //      wait( 1.5 )
+   //      subTitle.Text = "."
+   //      wait( 0.6 )
+   //      subTitle.Text = ".."
+   //      wait( 0.6 )
+   //      subTitle.Text = "..."
+   //   } )
+
+   wait( 2.0 )
+
+   Tween( subTitle, { TextTransparency: 1 }, 0.5 )
+   wait( 0.5 )
+   subTitle.Text = RESULTS_TEXT[0]
+   Tween( subTitle, { TextTransparency: 0 }, 0.5 )
+   wait( 1.0 )
+
+   let done = false
+   let tween: Tween | undefined
+
+   if ( RESULTS_TEXT.size() > 1 )
+   {
+      wait( 1.0 )
+      Thread( function ()
+      {
+         lowerTitle.TextTransparency = 1
+         lowerTitle.Text = RESULTS_TEXT[1]
+         Tween( lowerTitle, { TextTransparency: 0 }, 0.5 )
+      } )
+   }
+   else if ( votedOffModel !== undefined )
+   {
+      Thread(
+         function ()
+         {
+            if ( votedOffModel === undefined )
+               return
+
+            const TOTAL_TIME = 5
+            const count = 70
+            const time = TOTAL_TIME / count
+
+            for ( let i = 0; ; i++ )
+            {
+               if ( done )
+                  return
+               let cFrame = ( votedOffModel.PrimaryPart as Part ).CFrame
+               let goal = new CFrame( cFrame.Position.add( new Vector3( 0, 0, 10 ) ) )
+               goal = goal.mul( CFrame.Angles( 0, 0, i * 90 ) )
+               tween = TweenModel( votedOffModel, goal, time )
+               wait( time )
+            }
+         }
+      )
+
+      wait( 1.0 )
+   }
+
+
+   const FADE_OUT = 2.0
+   Tween( title, { TextTransparency: 1 }, FADE_OUT * 0.75 )
+   Tween( subTitle, { TextTransparency: 1 }, FADE_OUT * 0.75 )
+
+   if ( RESULTS_TEXT.size() > 1 ) // tie
+      wait( 1.0 )
+
+   Tween( lowerTitle, { TextTransparency: 1 }, FADE_OUT * 0.75 )
+   wait( 1.0 )
+   Tween( viewportFrame, { ImageTransparency: 1 }, 1.5 )
+   wait( 1.5 )
+
+   Tween( baseFrame, { Transparency: 1 }, 1.0 )
+
+   done = true
+   if ( tween !== undefined )
+   {
+      tween.Cancel()
+   }
+}
+
+export function DrawMatchScreen_EmergencyMeeting()
+{
+   let matchScreenFrame = WaitForMatchScreenFrame()
+   let baseFrame = matchScreenFrame.baseFrame
+   Tween( baseFrame, { Transparency: 0 }, 0.5 )
+   wait( 0.5 )
+
+   let centerprint = matchScreenFrame.centerprint
+   centerprint.TextTransparency = 1
+   centerprint.Text = "Emergency Meeting!"
+
+   Tween( centerprint, { TextTransparency: 0 }, 0.5 )
+   wait( 2 )
+   Tween( centerprint, { TextTransparency: 1 }, 1.0 )
+   wait( 1 )
+   Tween( baseFrame, { Transparency: 1 }, 1.0 )
 }

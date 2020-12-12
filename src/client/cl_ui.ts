@@ -1,9 +1,7 @@
-import { Players, RunService, Workspace } from "@rbxts/services";
-import { AddCallback_OnPlayerCharacterAdded, AddCallback_OnPlayerConnected, APlayerHasConnected } from "shared/sh_onPlayerConnect";
-import { AddCallback_OnRoomSetup } from "shared/sh_rooms";
+import { RunService, Workspace } from "@rbxts/services";
+import { AddCallback_OnPlayerCharacterAdded, APlayerHasConnected } from "shared/sh_onPlayerConnect";
 import { Tween } from "shared/sh_tween";
 import { Assert, ExecOnChildWhenItExists, GetFirstChildWithName, GetFirstChildWithNameAndClassName, GetLocalPlayer, Graph, LoadSound } from "shared/sh_utils";
-import { GetLocalGame } from "./cl_gamestate";
 import { AddCaptureInputChangeCallback, AddOnTouchEndedCallback } from "./cl_input";
 
 const DRAGGED_ZINDEX_OFFSET = 20
@@ -22,6 +20,7 @@ export enum UIORDER
    UIORDER_READY,
    UIORDER_TASKLIST,
    UIORDER_TASKS,
+   UIORDER_MEETING,
    UIORDER_CHAT,
    UIORDER_MATCHSCREEN,
 }

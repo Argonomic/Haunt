@@ -123,7 +123,7 @@ export function PutPlayersInRoom( players: Array<Player>, room: Room )
          part.CFrame = new CFrame( org )
       }
 
-      part.CFrame = part.CFrame.mul( CFrame.Angles( math.rad( 0 ), math.rad( RandomFloatRange( 70, 110 ) ), math.rad( 0 ) ) )
+      part.CFrame = part.CFrame.mul( CFrame.Angles( math.rad( 0 ), math.rad( RandomFloatRange( -25, 25 ) ), math.rad( 0 ) ) )
 
       print( "Put player " + player.Name + " in room " + room.name )
       file.currentRoom.set( player, room )

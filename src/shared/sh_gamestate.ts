@@ -1,8 +1,8 @@
 import { HttpService, Workspace } from "@rbxts/services"
 import { AddNetVar, GetNetVar_Number, GetNetVar_String, SetNetVar } from "shared/sh_player_netvars"
-import { AddCooldown, ResetAllCooldownTimes } from "./sh_cooldown"
+import { AddCooldown } from "./sh_cooldown"
 import { SetPlayerWalkSpeed } from "./sh_onPlayerConnect"
-import { COOLDOWN_KILL, MEETING_DISCUSS_TIME, MEETING_RESULTS_TIME, MEETING_VOTE_TIME, SPECTATOR_TRANS } from "./sh_settings"
+import { COOLDOWN_KILL, MEETING_DISCUSS_TIME, MEETING_VOTE_TIME, SPECTATOR_TRANS } from "./sh_settings"
 import { Assert, IsServer, IsClient, UserIDToPlayer, IsAlive, SetPlayerTransparency, GetLocalPlayer, SetPlayerYaw } from "./sh_utils"
 
 export const NETVAR_JSON_TASKLIST = "JS_TL"
@@ -22,7 +22,7 @@ export const COOLDOWN_NAME_KILL = USE_COOLDOWNS + USETYPES.USETYPE_KILL
 
 export enum GAMERESULTS
 {
-   RESULTS_IN_PROGRESS = 0,
+   RESULTS_STILL_PLAYING = 0,
    RESULTS_NO_WINNER,
    RESULTS_POSSESSED_WIN,
    RESULTS_CAMPERS_WIN,
@@ -49,7 +49,6 @@ export enum GAME_STATE
    GAME_STATE_PLAYING,
    GAME_STATE_MEETING_DISCUSS,
    GAME_STATE_MEETING_VOTE,
-   GAME_STATE_MEETING_RESULTS,
    GAME_STATE_COMPLETE,
    GAME_STATE_DEAD,
 }
@@ -103,7 +102,7 @@ export class Assignment
 class NETVAR_GameState
 {
    playerInfos: Array<NETVAR_GamePlayerInfo>
-   gameState: GAME_STATE
+   currentGameState: GAME_STATE
    gsChangedTime: number
    corpses: Array<NETVAR_Corpse>
    votes: Array<NETVAR_Vote>
@@ -114,7 +113,7 @@ class NETVAR_GameState
 
    constructor( game: Game, playerInfos: Array<NETVAR_GamePlayerInfo>, corpses: Array<NETVAR_Corpse>, votes: Array<NETVAR_Vote>, startingPossessedCount: number )
    {
-      this.gameState = game.GetGameState()
+      this.currentGameState = game.GetGameState()
       this.gsChangedTime = game.GetGameStateChangedTime()
       this.playerInfos = playerInfos
       this.corpses = corpses
@@ -200,8 +199,9 @@ export class Game
    playerToSpawnLocation = new Map<Player, Vector3>()
    startingPossessedCount = 0
 
-   public UpdateGame()
+   public UpdateGame() 
    {
+      // if the server or client has a gamethread that yields until game update, this resumes it
       if ( this.gameThread === undefined )
          return
 
@@ -232,7 +232,7 @@ export class Game
       if ( possessed >= campers )
          return GAMERESULTS.RESULTS_POSSESSED_WIN
 
-      return GAMERESULTS.RESULTS_IN_PROGRESS
+      return GAMERESULTS.RESULTS_STILL_PLAYING
    }
 
    private SendGamestateToPlayers( players: Array<Player>, gs: NETVAR_GameState )
@@ -246,12 +246,6 @@ export class Game
 
    public BroadcastGamestate()
    {
-      /*print( "\nBroadcastGamestate " + this.creationTime )
-      for ( let pair of this.playerToInfo )
-      {
-         print( "Role check: player " + pair[0].Name + " has role: " + pair[1].role )
-      }*/
-
       Assert( IsServer(), "Server only" )
       let corpses: Array<NETVAR_Corpse> = []
       for ( let corpse of this.corpses )
@@ -323,63 +317,36 @@ export class Game
       }
    }
 
-   private GameStateChanged()
+   public SetGameState( state: GAME_STATE )
    {
       Assert( IsServer(), "Server only" )
-      this.gameStateChangedTime = Workspace.DistributedGameTime
 
-      switch ( this.gameState )
-      {
-         case GAME_STATE.GAME_STATE_PLAYING:
-            for ( let player of this.GetAllPlayers() )
-            {
-               ResetAllCooldownTimes( player )
-            }
-            break
-
-         case GAME_STATE.GAME_STATE_MEETING_DISCUSS:
-            Assert( this.votes.size() === 0, "Expected zero votes" )
-            break
-      }
+      this._gameStateChangedTime = Workspace.DistributedGameTime
+      this.currentGameState = state
 
       let thread = this.gameThread
       Assert( thread !== undefined, "No game thread!" )
+      if ( thread === coroutine.running() )
+         return
+
       let status = coroutine.status( thread as thread )
       switch ( status )
       {
          case "dead":
-            Assert( false, "game thread is dead!" )
-            break
-
          case "normal":
-            print( "Game thread was Normal?" )
+         case "running":
+            Assert( false, "Unexpected gameThread status " + status )
+            break
 
          case "suspended":
             coroutine.resume( thread as thread )
             break
-
-         case "running":
-            break
       }
    }
 
-   public SetGameState( state: GAME_STATE )
+   public GetTimeInGameState(): number
    {
-      Assert( IsServer(), "Server only" )
-      this.gameState = state
-      this.GameStateChanged()
-   }
-
-   public IncrementGameState()
-   {
-      Assert( IsServer(), "Server only" )
-      this.gameState++
-      this.GameStateChanged()
-   }
-
-   public GetInGameState(): number
-   {
-      return Workspace.DistributedGameTime - this.gameStateChangedTime
+      return Workspace.DistributedGameTime - this._gameStateChangedTime
    }
 
    public GetLivingPlayers(): Array<Player>
@@ -416,7 +383,6 @@ export class Game
    public RemovePlayer( player: Player )
    {
       Assert( this.playerToInfo.has( player ), "Player is not in game" )
-      print( "Removed player " + player.Name )
       this.playerToInfo.delete( player )
    }
 
@@ -427,8 +393,8 @@ export class Game
    //    SHARED
    // 
    //////////////////////////////////////////////////////
-   private gameState: GAME_STATE = GAME_STATE.GAME_STATE_PREMATCH
-   private gameStateChangedTime = 0
+   private currentGameState: GAME_STATE = GAME_STATE.GAME_STATE_PREMATCH
+   private _gameStateChangedTime = 0
    private playerToInfo = new Map<Player, PlayerInfo>()
    private votes: Array<PlayerVote> = []
    corpses: Array<Corpse> = []
@@ -436,7 +402,7 @@ export class Game
    public GetTimeRemainingForState(): number
    {
       let timeRemaining = 0
-      switch ( this.gameState )
+      switch ( this.currentGameState )
       {
          case GAME_STATE.GAME_STATE_MEETING_DISCUSS:
             timeRemaining = MEETING_DISCUSS_TIME
@@ -445,18 +411,14 @@ export class Game
          case GAME_STATE.GAME_STATE_MEETING_VOTE:
             timeRemaining = MEETING_VOTE_TIME
             break
-
-         case GAME_STATE.GAME_STATE_MEETING_RESULTS:
-            timeRemaining = MEETING_RESULTS_TIME
-            break
       }
 
-      return math.max( 0, timeRemaining - this.GetInGameState() )
+      return math.max( 0, timeRemaining - this.GetTimeInGameState() )
    }
 
    public GetGameStateChangedTime(): number
    {
-      return this.gameStateChangedTime
+      return this._gameStateChangedTime
    }
 
    public HasPlayer( player: Player ): boolean
@@ -471,7 +433,7 @@ export class Game
 
    public SetVote( player: Player, voteUserID: number | undefined )
    {
-      if ( this.gameState !== GAME_STATE.GAME_STATE_MEETING_VOTE )
+      if ( this.GetGameState() !== GAME_STATE.GAME_STATE_MEETING_VOTE )
          return
 
       Assert( voteUserID === undefined || typeOf( voteUserID ) === 'number', "Expected voteUserID to be number or undefined, but was " + typeOf( voteUserID ) + ", " + voteUserID )
@@ -499,7 +461,6 @@ export class Game
 
    public SetPlayerRole( player: Player, role: ROLE ): PlayerInfo
    {
-      //print( "Set player " + player.UserId + " role to " + role )
       Assert( this.playerToInfo.has( player ), "Game does not have " + player.Name )
       let playerInfo = this.playerToInfo.get( player ) as PlayerInfo
       playerInfo.role = role
@@ -547,8 +508,13 @@ export class Game
    {
       Assert( !this.playerToInfo.has( player ), "Game already has " + player.Name )
       let playerInfo = new PlayerInfo( player, role )
-      print( "AddPlayer " + player.UserId + " with role " + role )
+      //print( "AddPlayer " + player.UserId + " with role " + role )
       this.playerToInfo.set( player, playerInfo )
+
+      let character = player.Character
+      if ( character !== undefined )
+         this.Shared_OnGameStateChanged_PerPlayer( player, this.GetGameState() )
+
       return playerInfo
    }
 
@@ -560,7 +526,7 @@ export class Game
 
    public GetGameState()
    {
-      return this.gameState
+      return this.currentGameState
    }
 
    public GetVotes()
@@ -579,19 +545,21 @@ export class Game
    }
 
 
-   public Shared_OnGameStateChanged_PerPlayer( player: Player )
+   public Shared_OnGameStateChanged_PerPlayer( player: Player, state: GAME_STATE )
    {
-      switch ( this.gameState )
+      switch ( state )
       {
          case GAME_STATE.GAME_STATE_MEETING_DISCUSS:
          case GAME_STATE.GAME_STATE_MEETING_VOTE:
-         case GAME_STATE.GAME_STATE_MEETING_RESULTS:
             SetPlayerYaw( player, 0 )
             SetPlayerWalkSpeed( player, 0 )
             break
 
          default:
-            SetPlayerWalkSpeed( player, 16 )
+            if ( this.GetPlayerRole( player ) === ROLE.ROLE_SPECTATOR )
+               SetPlayerWalkSpeed( player, 24 )
+            else
+               SetPlayerWalkSpeed( player, 16 )
             break
       }
    }
@@ -608,11 +576,11 @@ export class Game
       let localPlayer = GetLocalPlayer()
       let json = GetNetVar_String( localPlayer, NETVAR_JSON_GAMESTATE )
       let gs = HttpService.JSONDecode( json ) as NETVAR_GameState
-      print( "Game state is " + gs.gameState )
       let userIdToPlayer = UserIDToPlayer()
-      this.gameState = gs.gameState
+      this.currentGameState = gs.currentGameState
       let deltaTime = Workspace.DistributedGameTime - gs.serverTime
-      this.gameStateChangedTime = gs.gsChangedTime + deltaTime // DistributedGameTime varies from player to player
+
+      //this.gameStateChangedTime = gs.gsChangedTime + deltaTime // DistributedGameTime varies from player to player
       this.startingPossessedCount = gs.startingPossessedCount
 
 
@@ -774,4 +742,72 @@ export function PlayerNumToGameViewable( playerNum: number ): string
    if ( playerNum === 10 )
       playerNum = 0
    return playerNum + ""
+}
+
+class VoteResults
+{
+   skipTie: boolean
+   highestRecipients: Array<Player>
+   receivedAnyVotes: Array<Player>
+   voted: Array<Player>
+
+   constructor( skipTie: boolean, highestRecipients: Array<Player>, receivedAnyVotes: Array<Player>, voted: Array<Player> )
+   {
+      this.skipTie = skipTie
+      this.highestRecipients = highestRecipients
+      this.receivedAnyVotes = receivedAnyVotes
+      this.voted = voted
+   }
+}
+
+export function GetVoteResults( votes: Array<PlayerVote> ): VoteResults
+{
+   //print( "The results are in!" )
+   let skipCount = 0
+   let voteCount = new Map<Player, number>()
+   let voted: Array<Player> = []
+
+   for ( let vote of votes )
+   {
+      voted.push( vote.voter )
+      voteCount.set( vote.voter, 0 )
+      if ( vote.target !== undefined )
+         voteCount.set( vote.target, 0 )
+   }
+
+   for ( let vote of votes )
+   {
+      if ( vote.target === undefined )
+      {
+         skipCount++
+         continue
+      }
+
+      Assert( voteCount.has( vote.target ), "Not a voter! " + vote.target )
+      let count = voteCount.get( vote.target ) as number
+      count++
+      voteCount.set( vote.target, count )
+   }
+
+   let highestCount = skipCount
+   for ( let pair of voteCount )
+   {
+      //print( "Vote for " + pair[0].Name + ": " + pair[1] )
+      if ( pair[1] > highestCount )
+         highestCount = pair[1]
+   }
+
+   let receivedAnyVotes: Array<Player> = []
+   let highestRecipients: Array<Player> = []
+   for ( let pair of voteCount )
+   {
+      if ( pair[1] > 0 )
+         receivedAnyVotes.push( pair[0] )
+
+      if ( pair[1] === highestCount )
+         highestRecipients.push( pair[0] )
+   }
+
+   let voteResults = new VoteResults( skipCount === highestCount, highestRecipients, receivedAnyVotes, voted )
+   return voteResults
 }

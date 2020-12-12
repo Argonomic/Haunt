@@ -355,10 +355,12 @@ export function SetPlayerTransparency( player: Player, value: number )
 export function SetCharacterTransparency( char: Model, value: number )
 {
    let player = GetPlayerFromCharacter( char )
+   /*
    if ( player !== undefined )
       print( "SetCharacterTransparency " + value + " " + player.UserId + " local:" + ( player === GetLocalPlayer() ) )
    else
       print( "SetCharacterTransparency " + value + " _ local:" + ( player === GetLocalPlayer() ) )
+   */
 
    let head = char.FindFirstChild( "Head" )
    if ( head )
@@ -526,7 +528,7 @@ export function SetCharacterYaw( model: Model, yaw: number )
    let part = model.PrimaryPart as BasePart
    let position = part.Position
    let cFrame = new CFrame( position )
-   part.CFrame = cFrame.mul( CFrame.Angles( math.rad( 0 ), math.rad( yaw ), math.rad( 0 ) ) )
+   model.SetPrimaryPartCFrame( cFrame.mul( CFrame.Angles( math.rad( 0 ), math.rad( yaw ), math.rad( 0 ) ) ) )
 }
 
 export function SetPlayerPosition( player: Player, position: Vector3 )

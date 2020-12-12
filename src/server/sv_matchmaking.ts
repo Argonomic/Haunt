@@ -1,11 +1,10 @@
 import { Players } from "@rbxts/services"
-import { ResetAllCooldownTimes } from "shared/sh_cooldown"
 import { NETVAR_MATCHMAKING_STATUS, MATCHMAKING_STATUS, NETVAR_MATCHMAKING_NUMWITHYOU, IsPracticing, ROLE, Game } from "shared/sh_gamestate"
 import { AddCallback_OnPlayerCharacterAdded, AddCallback_OnPlayerConnected } from "shared/sh_onPlayerConnect"
 import { GetNetVar_Number, SetNetVar } from "shared/sh_player_netvars"
 import { AddRPC } from "shared/sh_rpc"
 import { MAX_PLAYERS, MIN_PLAYERS } from "shared/sh_settings"
-import { CreateGame } from "./sv_gameState"
+import { AddPlayer, CreateGame } from "./sv_gameState"
 import { PutPlayerInStartRoom } from "./sv_rooms"
 
 class File
@@ -26,7 +25,7 @@ export function SV_MatchmakingSetup()
    AddCallback_OnPlayerConnected( function ( player: Player )
    {
       SetNetVar( player, NETVAR_MATCHMAKING_STATUS, MATCHMAKING_STATUS.MATCHMAKING_PRACTICE )
-      file.practiceGame.AddPlayer( player, ROLE.ROLE_CAMPER )
+      AddPlayer( file.practiceGame, player, ROLE.ROLE_CAMPER )
       file.practiceGame.BroadcastGamestate()
    } )
 
@@ -97,7 +96,7 @@ function TryToMatchmake()
             {
                print( "Player " + player.UserId + " joins practice" )
                SetNetVar( player, NETVAR_MATCHMAKING_STATUS, MATCHMAKING_STATUS.MATCHMAKING_PRACTICE )
-               file.practiceGame.AddPlayer( player, ROLE.ROLE_CAMPER )
+               AddPlayer( file.practiceGame, player, ROLE.ROLE_CAMPER )
             }
          }
          file.practiceGame.BroadcastGamestate()

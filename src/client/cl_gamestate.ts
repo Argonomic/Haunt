@@ -1,12 +1,12 @@
 import { Workspace } from "@rbxts/services"
-import { ROLE, Game, NETVAR_JSON_GAMESTATE, USETYPES, GAME_STATE } from "shared/sh_gamestate"
+import { ROLE, Game, NETVAR_JSON_GAMESTATE, USETYPES, GAME_STATE, GetVoteResults } from "shared/sh_gamestate"
 import { AddCallback_OnPlayerCharacterAdded } from "shared/sh_onPlayerConnect"
 import { AddNetVarChangedCallback } from "shared/sh_player_netvars"
 import { SetTimeDelta } from "shared/sh_time"
 import { GetUsableByType } from "shared/sh_use"
-import { Assert, GetFirstChildWithName, GetLocalPlayer, RandomFloatRange, RecursiveOnChildren, SetCharacterTransparency, SetPlayerTransparency, UserIDToPlayer } from "shared/sh_utils"
+import { Assert, GetFirstChildWithName, GetLocalPlayer, RandomFloatRange, RecursiveOnChildren, SetCharacterTransparency, SetPlayerTransparency, Thread, UserIDToPlayer } from "shared/sh_utils"
 import { UpdateMeeting } from "./cl_meeting"
-import { MatchIntro } from "./content/cl_matchScreen_content"
+import { DrawMatchScreen_EmergencyMeeting, DrawMatchScreen_Intro, DrawMatchScreen_VoteResults } from "./content/cl_matchScreen_content"
 
 
 class File
@@ -28,11 +28,38 @@ export function GetLocalRole(): ROLE
    return ROLE.ROLE_CAMPER
 }
 
+function GameThread( game: Game )
+{
+   let lastGameState = game.GetGameState()
+   for ( ; ; )
+   {
+      let gameState = game.GetGameState()
+      if ( gameState !== lastGameState )
+      {
+         CLGameStateChanged( lastGameState, gameState )
+         lastGameState = gameState
+      }
+
+      UpdateMeeting( file.clientGame )
+
+      coroutine.yield() // wait until something says update again
+   }
+}
+
 export function CL_GameStateSetup()
 {
+   file.clientGame.gameThread = coroutine.create(
+      function ()
+      {
+         GameThread( file.clientGame )
+      } )
+   coroutine.resume( file.clientGame.gameThread )
+
+
    AddCallback_OnPlayerCharacterAdded( function ( player: Player )
    {
-      file.clientGame.Shared_OnGameStateChanged_PerPlayer( player )
+      if ( file.clientGame.HasPlayer( player ) )
+         file.clientGame.Shared_OnGameStateChanged_PerPlayer( player, file.clientGame.GetGameState() )
    } )
 
    GetUsableByType( USETYPES.USETYPE_KILL ).DefineGetter(
@@ -67,7 +94,6 @@ export function CL_GameStateSetup()
 
    AddNetVarChangedCallback( NETVAR_JSON_GAMESTATE, function ()
    {
-      let oldGameState = file.clientGame.GetGameState()
       let deltaTime = file.clientGame.NetvarToGamestate_ReturnServerTimeDelta()
       SetTimeDelta( deltaTime )
 
@@ -91,23 +117,71 @@ export function CL_GameStateSetup()
          SetPlayerTransparency( pair[1], 1 )
       }
 
-      // update meeting
-      UpdateMeeting( file.clientGame )
+      let gameThread = file.clientGame.gameThread
+      if ( gameThread !== undefined )
+         coroutine.resume( gameThread )
+   } )
+}
 
+function CLGameStateChanged( oldGameState: number, newGameState: number )
+{
+   print( "GAME STATE CHANGED FROM " + oldGameState + " TO " + newGameState )
 
-      if ( oldGameState !== file.clientGame.GetGameState() )
-      {
-         print( "GAME STATE CHANGED FROM " + oldGameState + " TO " + file.clientGame.GetGameState() )
-         // game state changed!
-         switch ( file.clientGame.GetGameState() )
+   for ( let player of file.clientGame.GetAllPlayers() )
+   {
+      Assert( file.clientGame.HasPlayer( player ), "Game doesn't have player??" )
+      if ( player.Character !== undefined )
+         file.clientGame.Shared_OnGameStateChanged_PerPlayer( player, file.clientGame.GetGameState() )
+   }
+
+   // game state changed!
+   switch ( newGameState )
+   {
+      case GAME_STATE.GAME_STATE_MEETING_DISCUSS:
+         DrawMatchScreen_EmergencyMeeting()
+         break
+
+      case GAME_STATE.GAME_STATE_PLAYING:
+         switch ( oldGameState )
          {
-            case GAME_STATE.GAME_STATE_PLAYING:
-               MatchIntro( file.clientGame.GetPossessed(), file.clientGame.GetCampers(), file.clientGame.startingPossessedCount )
+            case GAME_STATE.GAME_STATE_PREMATCH:
+               {
+                  DrawMatchScreen_Intro( file.clientGame.GetPossessed(), file.clientGame.GetCampers(), file.clientGame.startingPossessedCount )
+               }
+               break
+
+            case GAME_STATE.GAME_STATE_MEETING_VOTE:
+               let voteResults = GetVoteResults( file.clientGame.GetVotes() )
+               let voted = voteResults.voted
+               let votedAndReceivedNoVotesMap = new Map<Player, boolean>()
+               for ( let voter of voted )
+               {
+                  votedAndReceivedNoVotesMap.set( voter, true )
+               }
+
+               for ( let receiver of voteResults.receivedAnyVotes )
+               {
+                  if ( votedAndReceivedNoVotesMap.has( receiver ) )
+                     votedAndReceivedNoVotesMap.delete( receiver )
+               }
+
+               let votedAndReceivedNoVotes: Array<Player> = []
+               for ( let pair of votedAndReceivedNoVotesMap )
+               {
+                  votedAndReceivedNoVotes.push( pair[0] )
+               }
+
+               DrawMatchScreen_VoteResults(
+                  voteResults.skipTie,
+                  voteResults.highestRecipients,
+                  voteResults.receivedAnyVotes,
+                  votedAndReceivedNoVotes,
+                  file.clientGame.startingPossessedCount
+               )
+
                break
          }
-      }
-
-   } )
+   }
 }
 
 function CreateCorpse( player: Player, pos: Vector3 ): Model | undefined

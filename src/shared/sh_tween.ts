@@ -1,4 +1,4 @@
-import { TweenService } from "@rbxts/services"
+import { TweenService, Workspace } from "@rbxts/services"
 import { Assert } from "./sh_utils"
 
 export function Tween( instance: Instance, goal: any, time: number, easingStyle?: Enum.EasingStyle, easingDirection?: Enum.EasingDirection )
@@ -71,3 +71,39 @@ export function TweenPlayerParts( player: Player, goal: any, time: number )
 {
    TweenCharacterParts( player.Character as Model, goal, time )
 }
+
+export function TweenModel( model: Model, goalCFrame: CFrame, time: number, easingStyle?: Enum.EasingStyle, easingDirection?: Enum.EasingDirection )
+{
+   if ( easingStyle === undefined )
+   {
+      Assert( easingDirection === undefined, "If style is undefined, direction should be undefined" )
+      easingStyle = Enum.EasingStyle.Linear
+      easingDirection = Enum.EasingDirection.In
+   }
+   else
+   {
+      Assert( easingDirection !== undefined, "If style is defined, direction should be defined" )
+   }
+
+   let tweenInfo = new TweenInfo( time, easingStyle, easingDirection )
+   let CFrameValue = new Instance( "CFrameValue" )
+   CFrameValue.Value = model.GetPrimaryPartCFrame()
+
+   CFrameValue.GetPropertyChangedSignal( "Value" ).Connect(
+      function ()
+      {
+         model.SetPrimaryPartCFrame( CFrameValue.Value )
+      } )
+
+   let tween = TweenService.Create( CFrameValue, tweenInfo, { Value: goalCFrame } )
+   tween.Play()
+
+   let signal = tween.Completed.Connect(
+      function ()
+      {
+         CFrameValue.Destroy()
+      } )
+
+   return tween
+}
+

@@ -1,12 +1,13 @@
 import { HttpService, Players } from "@rbxts/services"
 import { AddRPC } from "shared/sh_rpc"
 import { ArrayRandomize, Assert, GetHumanoid, IsAlive, Thread } from "shared/sh_utils"
-import { Assignment, GAME_STATE, SharedGameStateInit, NETVAR_JSON_TASKLIST, ROLE, IsPracticing, Game, GAMERESULTS, MEETING_TYPE_REPORT } from "shared/sh_gamestate"
+import { Assignment, GAME_STATE, SharedGameStateInit, NETVAR_JSON_TASKLIST, ROLE, IsPracticing, Game, GAMERESULTS, MEETING_TYPE_REPORT, GetVoteResults } from "shared/sh_gamestate"
 import { MAX_TASKLIST_SIZE, MAX_PLAYERS, MIN_PLAYERS, SPAWN_ROOM, DEV_STARTMEETING } from "shared/sh_settings"
 import { SetNetVar } from "shared/sh_player_netvars"
 import { AddCallback_OnPlayerCharacterAdded, SetPlayerWalkSpeed } from "shared/sh_onPlayerConnect"
 import { SendRPC } from "./sv_utils"
 import { GetAllRoomsAndTasks, GetCurrentRoom, GetRoomByName, GetRoomSpawnLocations, PutPlayerCameraInRoom, PutPlayersInRoom, SetPlayerCurrentRoom } from "./sv_rooms"
+import { ResetAllCooldownTimes } from "shared/sh_cooldown"
 
 class File
 {
@@ -16,6 +17,20 @@ let file = new File()
 
 export function SV_GameStateSetup()
 {
+   /*
+   Thread( function ()
+   {
+      wait( 6 )
+      let players = Players.GetPlayers()
+      for ( let player of players )
+      {
+         let human = GetHumanoid( player )
+         if ( human )
+            human.TakeDamage( human.Health )
+      }
+   } )
+   */
+
    SharedGameStateInit()
    AddRPC( "RPC_FromClient_OnPlayerFinishTask", RPC_FromClient_OnPlayerFinishTask )
 
@@ -24,7 +39,7 @@ export function SV_GameStateSetup()
       if ( file.playerToGame.has( player ) )
       {
          let game = PlayerToGame( player )
-         game.Shared_OnGameStateChanged_PerPlayer( player )
+         game.Shared_OnGameStateChanged_PerPlayer( player, game.GetGameState() )
       }
    } )
 
@@ -88,21 +103,93 @@ export function PlayerToGame( player: Player ): Game
    return file.playerToGame.get( player ) as Game
 }
 
+function GameStateChanged( game: Game, oldGameState: GAME_STATE, gameState: GAME_STATE )
+{
+   let players = game.GetAllPlayers()
+   {
+      for ( let player of players )
+      {
+         if ( player.Character !== undefined )
+            game.Shared_OnGameStateChanged_PerPlayer( player, game.GetGameState() )
+      }
+   }
+
+   // game state changed
+   switch ( gameState )
+   {
+      case GAME_STATE.GAME_STATE_MEETING_VOTE:
+         {
+            let remaining = game.GetTimeRemainingForState()
+            if ( remaining > 0 )
+            {
+               Thread( function ()
+               {
+                  wait( remaining )
+                  game.UpdateGame()
+               } )
+            }
+
+            if ( remaining <= 0 )
+            {
+               let voteResults = GetVoteResults( game.GetVotes() )
+
+               if ( !voteResults.skipTie && voteResults.highestRecipients.size() === 1 )
+               {
+                  let highestTarget = voteResults.highestRecipients[0]
+                  game.SetPlayerRole( highestTarget, ROLE.ROLE_SPECTATOR )
+                  if ( IsAlive( highestTarget ) )
+                  {
+                     let human = GetHumanoid( highestTarget )
+                     if ( human )
+                        human.TakeDamage( human.Health )
+                  }
+
+                  print( "Player " + highestTarget.Name + " was voted off" )
+               }
+
+               game.corpses = [] // clear the corpses
+
+               let room = GetRoomByName( 'Great Room' )
+               PutPlayersInRoom( game.GetAllPlayers(), room )
+
+               game.SetGameState( GAME_STATE.GAME_STATE_PLAYING )
+               break
+            }
+         }
+         break
+   }
+
+   // current game state
+   switch ( game.GetGameState() )
+   {
+      case GAME_STATE.GAME_STATE_PLAYING:
+         for ( let player of game.GetAllPlayers() )
+         {
+            ResetAllCooldownTimes( player )
+         }
+         break
+
+      case GAME_STATE.GAME_STATE_MEETING_DISCUSS:
+         game.ClearVotes()
+         Assert( game.GetVotes().size() === 0, "Expected zero votes" )
+         break
+   }
+}
+
 function GameThread( game: Game, gameEndFunc: Function )
 {
+   let lastGameState = game.GetGameState()
    for ( ; ; )
    {
-      let finishedInit = false
-      function FinishCheck()
-      {
-         wait()
-         Assert( finishedInit, "Never finished init" )
-      }
-
+      // do on-state-changed-from/to stuff
       let gameState = game.GetGameState()
-      print( "\nGAME STATE UPDATE, current state: " + gameState )
-      if ( gameState === GAME_STATE.GAME_STATE_DEAD )
-         return
+      print( "\nGAME STATE THREAD RESUMED, lastGameState " + lastGameState + ", gameState " + gameState )
+
+      if ( gameState !== lastGameState )
+      {
+         GameStateChanged( game, lastGameState, gameState )
+         lastGameState = gameState
+      }
 
       // quick check on whether or not game is even still going
       switch ( gameState )
@@ -110,14 +197,16 @@ function GameThread( game: Game, gameEndFunc: Function )
          case GAME_STATE.GAME_STATE_PLAYING:
          case GAME_STATE.GAME_STATE_MEETING_DISCUSS:
          case GAME_STATE.GAME_STATE_MEETING_VOTE:
-         case GAME_STATE.GAME_STATE_MEETING_RESULTS:
-            if ( game.GetGameResults() !== GAMERESULTS.RESULTS_IN_PROGRESS )
+            if ( game.GetGameResults() !== GAMERESULTS.RESULTS_STILL_PLAYING )
                game.SetGameState( GAME_STATE.GAME_STATE_COMPLETE )
             break
       }
 
       switch ( gameState )
       {
+         case GAME_STATE.GAME_STATE_DEAD:
+            return
+
          case GAME_STATE.GAME_STATE_PREMATCH:
 
             print( "Prematch, creating game" )
@@ -163,7 +252,7 @@ function GameThread( game: Game, gameEndFunc: Function )
                }
             }
 
-            game.IncrementGameState()
+            game.SetGameState( GAME_STATE.GAME_STATE_PLAYING )
             break
 
          case GAME_STATE.GAME_STATE_PLAYING:
@@ -224,82 +313,6 @@ function GameThread( game: Game, gameEndFunc: Function )
                let votes = game.GetVotes()
                if ( remaining <= 0 || votes.size() >= count )
                {
-                  game.SetGameState( GAME_STATE.GAME_STATE_MEETING_RESULTS )
-                  break
-               }
-            }
-            break
-
-         case GAME_STATE.GAME_STATE_MEETING_RESULTS:
-            {
-               let remaining = game.GetTimeRemainingForState()
-               if ( remaining > 0 )
-               {
-                  Thread( function ()
-                  {
-                     wait( remaining )
-                     game.UpdateGame()
-                  } )
-               }
-
-               if ( remaining <= 0 )
-               {
-                  let votes = game.GetVotes()
-                  print( "The results are in!" )
-                  let skipCount = 0
-                  let voteCount = new Map<Player, number>()
-                  for ( let player of game.GetAllPlayers() )
-                  {
-                     voteCount.set( player, 0 )
-                  }
-
-                  for ( let vote of votes )
-                  {
-                     if ( vote.target === undefined )
-                     {
-                        skipCount++
-                        continue
-                     }
-
-                     Assert( voteCount.has( vote.target ), "Not a voter! " + vote.target )
-                     let count = voteCount.get( vote.target ) as number
-                     count++
-                     voteCount.set( vote.target, count )
-                  }
-
-                  let highestCount = skipCount
-                  print( "Vote to skip: " + skipCount )
-                  let highestTarget: Player | undefined
-                  for ( let pair of voteCount )
-                  {
-                     print( "Vote for " + pair[0].Name + ": " + pair[1] )
-
-                     if ( pair[1] > highestCount )
-                     {
-                        highestCount = pair[1]
-                        highestTarget = pair[0]
-                     }
-                  }
-
-                  if ( highestTarget !== undefined )
-                  {
-                     game.SetPlayerRole( highestTarget, ROLE.ROLE_SPECTATOR )
-                     if ( IsAlive( highestTarget ) )
-                     {
-                        let human = GetHumanoid( highestTarget )
-                        if ( human )
-                           human.TakeDamage( human.Health )
-                     }
-
-                     print( "Player " + highestTarget.Name + " was voted off" )
-                  }
-
-                  game.corpses = [] // clear the corpses
-                  game.ClearVotes()
-
-                  let room = GetRoomByName( 'Great Room' )
-                  PutPlayersInRoom( game.GetAllPlayers(), room )
-
                   game.SetGameState( GAME_STATE.GAME_STATE_PLAYING )
                   break
                }
@@ -332,12 +345,11 @@ function GameThread( game: Game, gameEndFunc: Function )
             return
       }
 
-      finishedInit = true
-
       if ( gameState === game.GetGameState() )
       {
+         // completed loop without gamestate changing, so done updating, so broadcast and yield
          game.BroadcastGamestate()
-         print( "YIELD" )
+
          coroutine.yield() // wait until something says update again
       }
    }
@@ -447,3 +459,8 @@ export function ClearAssignments( game: Game, player: Player )
    UpdateTasklistNetvar( player, [] )
 }
 
+export function AddPlayer( game: Game, player: Player, role: ROLE )
+{
+   file.playerToGame.set( player, game )
+   game.AddPlayer( player, role )
+}

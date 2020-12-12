@@ -1,6 +1,6 @@
-import { Players, StarterGui, Workspace } from "@rbxts/services";
+import { Players } from "@rbxts/services";
 import { AssignDefaultNVs } from "shared/sh_player_netvars"
-import { Assert, ExecOnChildWhenItExists, GetHumanoid, GetPlayerFromCharacter, IsServer, Thread } from "./sh_utils";
+import { Assert, ExecOnChildWhenItExists, GetPlayerFromCharacter, IsServer, Thread } from "./sh_utils";
 
 class File
 {

@@ -2,7 +2,7 @@ import { RunService } from "@rbxts/services";
 import { Game, GAME_STATE, PlayerNumToGameViewable, ROLE } from "shared/sh_gamestate";
 import { MAX_PLAYERS, PLAYER_COLORS } from "shared/sh_settings";
 import { Assert, ClonePlayerModel, GetColor, GetFirstChildWithName, GetFirstChildWithNameAndClassName, GetLocalPlayer, LightenColor, SetCharacterTransparency, SetPlayerYaw } from "shared/sh_utils";
-import { AddPlayerGuiFolderExistsCallback } from "./cl_ui";
+import { AddPlayerGuiFolderExistsCallback, UIORDER } from "./cl_ui";
 import { SendRPC } from "./cl_utils";
 
 class File
@@ -190,6 +190,7 @@ export function CL_MeetingSetup()
       {
          file.meetingUI = GetFirstChildWithNameAndClassName( folder, 'MeetingUI', 'ScreenGui' ) as ScreenGui
          file.meetingUI.Enabled = false
+         file.meetingUI.DisplayOrder = UIORDER.UIORDER_MEETING
       } )
 }
 
@@ -207,7 +208,6 @@ class ActiveMeeting
    {
       let players = game.GetAllPlayers()
       Assert( players.size() > 0, "Can't start a meeting with zero players" )
-      print( "StartMeeting" )
       this.game = game
 
       let meetingUI = meetingUITemplate.Clone()
@@ -227,27 +227,16 @@ class ActiveMeeting
       function HideAllChecksAndDisplayThisOne( buttonGroup: ButtonGroup )
       {
          if ( game.GetGameState() !== GAME_STATE.GAME_STATE_MEETING_VOTE )
-         {
-            print( "wrong gamestate: " + game.GetGameState() )
             return
-         }
 
          if ( game.GetPlayerRole( player ) === ROLE.ROLE_SPECTATOR )
-         {
-            print( "Wrong role: " + game.GetPlayerRole( player ) )
             return
-         }
 
          for ( let vote of game.GetVotes() )
          {
             if ( vote.voter === player )
-            {
-               print( "Already voted!" )
                return // already voted
-            }
          }
-
-         print( "Passed returns" )
 
          for ( let buttonGroup of allButtonGroups )
          {
@@ -259,7 +248,6 @@ class ActiveMeeting
             case ROLE.ROLE_POSSESSED:
             case ROLE.ROLE_CAMPER:
                buttonGroup.ShowChecks()
-               print( "Show checks!" )
                break
          }
       }
@@ -309,26 +297,11 @@ class ActiveMeeting
          playerButtonGroup.frameButton.Visible = true
       }
 
-      print( "\nMEETING DRAW" )
-      //      this.playerButtonGroups.sort( SortByPlayerNum )
-      //      for ( let i = 0; i < this.playerButtonGroups.size(); i++ )
-      //      {
-      //         let playerButtonGroup = this.playerButtonGroups[i]
-      //         print( "i: " + i + " playerNum: " + PlayerNumToGameViewable( playerButtonGroup.playerNum ) )
-      //      }
-
-      print( "\nLIVING SORT" )
       this.playerButtonGroups.sort( SortByLiving )
-      for ( let i = 0; i < this.playerButtonGroups.size(); i++ )
-      {
-         let playerButtonGroup = this.playerButtonGroups[i]
-         print( "i: " + i + " playerNum: " + PlayerNumToGameViewable( playerButtonGroup.playerNum ) )
-      }
 
       let last = MAX_PLAYERS - 1
       let first = 0
 
-      print( "\nResult:" )
       for ( let i = 0; i < this.playerButtonGroups.size(); i++ )
       {
          let playerButtonGroup = this.playerButtonGroups[i]
@@ -347,7 +320,6 @@ class ActiveMeeting
 
          let odd = index % 2 > 0
          let row = math.floor( index / 2 )
-         print( "i: " + i + " alive:" + playerButtonGroup.alive + " index:" + index + " playerNum:" + PlayerNumToGameViewable( playerButtonGroup.playerNum ) + " row:" + row + " odd:" + odd )
 
          let y = this.playerButtonTemplate.Position.Y.Scale + row * 0.185
          let x = this.playerButtonTemplate.Position.X.Scale
@@ -360,7 +332,11 @@ class ActiveMeeting
 
       this.render = RunService.RenderStepped.Connect( function ()
       {
-         let timeRemainingMsg = " (" + math.floor( game.GetTimeRemainingForState() ) + ")"
+         let timeRemaining = math.floor( game.GetTimeRemainingForState() )
+         if ( timeRemaining > 0 )
+            timeRemaining++
+         let timeRemainingMsg = " (" + timeRemaining + ")"
+
          if ( game.GetPlayerRole( player ) === ROLE.ROLE_SPECTATOR )
          {
             switch ( game.GetGameState() )
@@ -371,10 +347,6 @@ class ActiveMeeting
 
                case GAME_STATE.GAME_STATE_MEETING_DISCUSS:
                   activeMeeting.meetingMessage.Text = "Prepare for voting.. " + timeRemainingMsg
-                  break
-
-               case GAME_STATE.GAME_STATE_MEETING_RESULTS:
-                  activeMeeting.meetingMessage.Text = "The results are in!"
                   break
             }
          }
@@ -391,10 +363,6 @@ class ActiveMeeting
 
                case GAME_STATE.GAME_STATE_MEETING_DISCUSS:
                   activeMeeting.meetingMessage.Text = "Prepare to vote.. " + timeRemainingMsg
-                  break
-
-               case GAME_STATE.GAME_STATE_MEETING_RESULTS:
-                  activeMeeting.meetingMessage.Text = "The results are in!"
                   break
             }
          }
@@ -429,9 +397,6 @@ class ActiveMeeting
 
    public RedrawMeeting( game: Game )
    {
-      print( "RedrawMeeting" )
-      print( "Visible: " + this.meetingUI.Enabled )
-
       let playerToButtonGroup = new Map<Player, PlayerButtonGroup>()
 
       let localPlayer = GetLocalPlayer()
@@ -489,14 +454,11 @@ class ActiveMeeting
             this.AddVote( playerButtonGroup.buttonGroup, voter )
          }
       }
-
-      print( "Finished refreshing meeting" )
    }
 }
 
 export function UpdateMeeting( game: Game )
 {
-   //print( "UpdateMeeting" )
    let meetingUITemplate = file.meetingUI
    if ( meetingUITemplate === undefined )
       return
@@ -511,7 +473,6 @@ export function UpdateMeeting( game: Game )
    {
       case GAME_STATE.GAME_STATE_MEETING_VOTE:
       case GAME_STATE.GAME_STATE_MEETING_DISCUSS:
-      case GAME_STATE.GAME_STATE_MEETING_RESULTS:
          if ( activeMeeting === undefined )
          {
             activeMeeting = new ActiveMeeting( game, meetingUITemplate )

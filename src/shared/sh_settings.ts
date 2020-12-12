@@ -13,11 +13,7 @@ export let MEETING_VOTE_TIME = 60
 if ( DEV_STARTMEETING )
    MEETING_VOTE_TIME = 6000
 
-export let MEETING_RESULTS_TIME = 10
-if ( DEV_STARTMEETING )
-   MEETING_RESULTS_TIME = 3
-
-export const SPECTATOR_TRANS = 0.75
+export const SPECTATOR_TRANS = 0.6
 
 export const PLAYER_COLORS =
    [
