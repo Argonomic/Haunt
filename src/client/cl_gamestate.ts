@@ -1,12 +1,13 @@
 import { Workspace } from "@rbxts/services"
-import { ROLE, Game, NETVAR_JSON_GAMESTATE, USETYPES, GAME_STATE, GetVoteResults } from "shared/sh_gamestate"
+import { ROLE, Game, NETVAR_JSON_GAMESTATE, USETYPES, GAME_STATE, GetVoteResults, GAMERESULTS } from "shared/sh_gamestate"
 import { AddCallback_OnPlayerCharacterAdded } from "shared/sh_onPlayerConnect"
 import { AddNetVarChangedCallback } from "shared/sh_player_netvars"
 import { SetTimeDelta } from "shared/sh_time"
 import { GetUsableByType } from "shared/sh_use"
-import { Assert, GetFirstChildWithName, GetLocalPlayer, RandomFloatRange, RecursiveOnChildren, SetCharacterTransparency, SetPlayerTransparency, Thread, UserIDToPlayer } from "shared/sh_utils"
+import { Assert, GetFirstChildWithName, GetLocalPlayer, RandomFloatRange, RecursiveOnChildren, SetCharacterTransparency, SetPlayerTransparency, Thread, UserIDToPlayer, WaitThread } from "shared/sh_utils"
 import { UpdateMeeting } from "./cl_meeting"
-import { DrawMatchScreen_EmergencyMeeting, DrawMatchScreen_Intro, DrawMatchScreen_VoteResults } from "./content/cl_matchScreen_content"
+import { TaskList_Disable, TaskList_Enable } from "./cl_taskList"
+import { DrawMatchScreen_EmergencyMeeting, DrawMatchScreen_Intro, DrawMatchScreen_VoteResults, DrawMatchScreen_Winners } from "./content/cl_matchScreen_content"
 
 
 class File
@@ -28,19 +29,27 @@ export function GetLocalRole(): ROLE
    return ROLE.ROLE_CAMPER
 }
 
+export function GetLocalIsSpectator(): boolean
+{
+   return file.clientGame.IsSpectator( GetLocalPlayer() )
+}
+
 function GameThread( game: Game )
 {
    let lastGameState = game.GetGameState()
    for ( ; ; )
    {
       let gameState = game.GetGameState()
+
+      let lastGameStateForMeeting = lastGameState
       if ( gameState !== lastGameState )
       {
          CLGameStateChanged( lastGameState, gameState )
          lastGameState = gameState
       }
 
-      UpdateMeeting( file.clientGame )
+      UpdateMeeting( file.clientGame, lastGameStateForMeeting )
+
 
       coroutine.yield() // wait until something says update again
    }
@@ -77,11 +86,8 @@ export function CL_GameStateSetup()
    GetUsableByType( USETYPES.USETYPE_REPORT ).DefineGetter(
       function ( player: Player ): Array<Vector3>
       {
-         switch ( file.clientGame.GetPlayerRole( player ) )
-         {
-            case ROLE.ROLE_SPECTATOR:
-               return []
-         }
+         if ( file.clientGame.IsSpectator( player ) )
+            return []
 
          let positions: Array<Vector3> = []
          for ( let corpse of file.clientGame.corpses )
@@ -134,51 +140,86 @@ function CLGameStateChanged( oldGameState: number, newGameState: number )
          file.clientGame.Shared_OnGameStateChanged_PerPlayer( player, file.clientGame.GetGameState() )
    }
 
-   // game state changed!
+   // leaving this game state
+   switch ( oldGameState )
+   {
+      case GAME_STATE.GAME_STATE_PREMATCH:
+         {
+            TaskList_Disable()
+
+            WaitThread( function ()
+            {
+               DrawMatchScreen_Intro( file.clientGame.GetPossessed(), file.clientGame.GetCampers(), file.clientGame.startingPossessedCount )
+               TaskList_Enable()
+            } )
+         }
+         break
+
+      case GAME_STATE.GAME_STATE_MEETING_VOTE:
+         let voteResults = GetVoteResults( file.clientGame.GetVotes() )
+         let voted = voteResults.voted
+         let votedAndReceivedNoVotesMap = new Map<Player, boolean>()
+         for ( let voter of voted )
+         {
+            votedAndReceivedNoVotesMap.set( voter, true )
+         }
+
+         for ( let receiver of voteResults.receivedAnyVotes )
+         {
+            if ( votedAndReceivedNoVotesMap.has( receiver ) )
+               votedAndReceivedNoVotesMap.delete( receiver )
+         }
+
+         let votedAndReceivedNoVotes: Array<Player> = []
+         for ( let pair of votedAndReceivedNoVotesMap )
+         {
+            votedAndReceivedNoVotes.push( pair[0] )
+         }
+
+         WaitThread( function ()
+         {
+            DrawMatchScreen_VoteResults(
+               voteResults.skipTie,
+               voteResults.highestRecipients,
+               voteResults.receivedAnyVotes,
+               votedAndReceivedNoVotes,
+               file.clientGame.startingPossessedCount
+            )
+         } )
+
+         break
+   }
+
+   // entering this game state
    switch ( newGameState )
    {
       case GAME_STATE.GAME_STATE_MEETING_DISCUSS:
-         DrawMatchScreen_EmergencyMeeting()
+         file.clientGame.ClearVotes()
+         WaitThread( function ()
+         {
+            DrawMatchScreen_EmergencyMeeting()
+         } )
          break
 
-      case GAME_STATE.GAME_STATE_PLAYING:
-         switch ( oldGameState )
+      case GAME_STATE.GAME_STATE_COMPLETE:
+
+         switch ( file.clientGame.GetGameResults() )
          {
-            case GAME_STATE.GAME_STATE_PREMATCH:
+            case GAMERESULTS.RESULTS_CAMPERS_WIN:
+               let nonPossessed: Array<Player> = []
+               nonPossessed = nonPossessed.concat( file.clientGame.GetCampers() )
+               nonPossessed = nonPossessed.concat( file.clientGame.GetSpectators() )
+               WaitThread( function ()
                {
-                  DrawMatchScreen_Intro( file.clientGame.GetPossessed(), file.clientGame.GetCampers(), file.clientGame.startingPossessedCount )
-               }
+                  DrawMatchScreen_Winners( nonPossessed, GetLocalRole() )
+               } )
                break
 
-            case GAME_STATE.GAME_STATE_MEETING_VOTE:
-               let voteResults = GetVoteResults( file.clientGame.GetVotes() )
-               let voted = voteResults.voted
-               let votedAndReceivedNoVotesMap = new Map<Player, boolean>()
-               for ( let voter of voted )
+            case GAMERESULTS.RESULTS_POSSESSED_WIN:
+               WaitThread( function ()
                {
-                  votedAndReceivedNoVotesMap.set( voter, true )
-               }
-
-               for ( let receiver of voteResults.receivedAnyVotes )
-               {
-                  if ( votedAndReceivedNoVotesMap.has( receiver ) )
-                     votedAndReceivedNoVotesMap.delete( receiver )
-               }
-
-               let votedAndReceivedNoVotes: Array<Player> = []
-               for ( let pair of votedAndReceivedNoVotesMap )
-               {
-                  votedAndReceivedNoVotes.push( pair[0] )
-               }
-
-               DrawMatchScreen_VoteResults(
-                  voteResults.skipTie,
-                  voteResults.highestRecipients,
-                  voteResults.receivedAnyVotes,
-                  votedAndReceivedNoVotes,
-                  file.clientGame.startingPossessedCount
-               )
-
+                  DrawMatchScreen_Winners( file.clientGame.GetPossessed(), GetLocalRole() )
+               } )
                break
          }
    }

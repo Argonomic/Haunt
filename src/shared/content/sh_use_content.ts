@@ -3,7 +3,7 @@ import { KILL_DIST, REPORT_DIST } from "shared/sh_settings";
 import { AddUseType } from "shared/sh_use";
 import { GetPosition, PlayerTouchesPart } from "shared/sh_utils";
 
-const ICON_CORPSE = 'rbxassetid://982410018'
+const ICON_CORPSE = 'rbxassetid://6080134682'
 const TEXT_CORPSE = "REPORT"
 
 const ICON_HAND = 'rbxassetid://982410018'

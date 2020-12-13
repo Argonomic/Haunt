@@ -4,12 +4,6 @@ import { SPECTATOR_TRANS } from "shared/sh_settings"
 import { GetLocalPlayer, IsAlive, SetPlayerTransparency, Thread } from "shared/sh_utils"
 import { GetLocalGame } from "./cl_gamestate"
 
-class File
-{
-}
-
-let file = new File()
-
 export function CL_PlayerSetup()
 {
    AddCallback_OnPlayerCharacterAdded( function ( player: Player )

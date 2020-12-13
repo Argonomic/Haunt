@@ -3,7 +3,7 @@ import { AddNetVar, GetNetVar_Number, GetNetVar_String, SetNetVar } from "shared
 import { AddCooldown } from "./sh_cooldown"
 import { SetPlayerWalkSpeed } from "./sh_onPlayerConnect"
 import { COOLDOWN_KILL, MEETING_DISCUSS_TIME, MEETING_VOTE_TIME, SPECTATOR_TRANS } from "./sh_settings"
-import { Assert, IsServer, IsClient, UserIDToPlayer, IsAlive, SetPlayerTransparency, GetLocalPlayer, SetPlayerYaw } from "./sh_utils"
+import { Assert, IsServer, IsClient, UserIDToPlayer, IsAlive, SetPlayerTransparency, GetLocalPlayer, SetPlayerYaw, ExecOnChildWhenItExists } from "./sh_utils"
 
 export const NETVAR_JSON_TASKLIST = "JS_TL"
 export const NETVAR_MATCHMAKING_STATUS = "MMS"
@@ -39,18 +39,19 @@ export enum ROLE
 {
    ROLE_CAMPER = 0,
    ROLE_POSSESSED,
-   ROLE_SPECTATOR
+   ROLE_SPECTATOR_CAMPER,
+   ROLE_SPECTATOR_IMPOSTER,
 }
 
 export enum GAME_STATE
 {
    GAME_STATE_UNKNOWN = 0,
-   GAME_STATE_PREMATCH,
-   GAME_STATE_PLAYING,
-   GAME_STATE_MEETING_DISCUSS,
-   GAME_STATE_MEETING_VOTE,
-   GAME_STATE_COMPLETE,
-   GAME_STATE_DEAD,
+   GAME_STATE_PREMATCH, // 1
+   GAME_STATE_PLAYING, //2
+   GAME_STATE_MEETING_DISCUSS, //3 
+   GAME_STATE_MEETING_VOTE,//4
+   GAME_STATE_COMPLETE, //5
+   GAME_STATE_DEAD, //6
 }
 
 export const MEETING_TYPE_EMERGENCY = 0
@@ -208,12 +209,6 @@ export class Game
       coroutine.resume( this.gameThread )
    }
 
-   public ClearVotes()
-   {
-      Assert( IsServer(), "Server expected" )
-      this.votes = []
-   }
-
    public GetGameResults()
    {
       let game = this
@@ -297,7 +292,8 @@ export class Game
 
          let gs = new NETVAR_GameState( this, infos, corpses, votes, startingPossessedCount )
          gameStateToRole.set( ROLE.ROLE_POSSESSED, gs )
-         gameStateToRole.set( ROLE.ROLE_SPECTATOR, gs )
+         gameStateToRole.set( ROLE.ROLE_SPECTATOR_CAMPER, gs )
+         gameStateToRole.set( ROLE.ROLE_SPECTATOR_IMPOSTER, gs )
       }
 
       if ( this.meetingCaller )
@@ -416,6 +412,11 @@ export class Game
       return math.max( 0, timeRemaining - this.GetTimeInGameState() )
    }
 
+   public ClearVotes()
+   {
+      this.votes = []
+   }
+
    public GetGameStateChangedTime(): number
    {
       return this._gameStateChangedTime
@@ -461,6 +462,14 @@ export class Game
 
    public SetPlayerRole( player: Player, role: ROLE ): PlayerInfo
    {
+      if ( IsServer() )
+      {
+         if ( role === ROLE.ROLE_SPECTATOR_CAMPER )
+            Assert( this.GetPlayerRole( player ) === ROLE.ROLE_CAMPER, "Bad role assignment" )
+         else if ( role === ROLE.ROLE_SPECTATOR_IMPOSTER )
+            Assert( this.GetPlayerRole( player ) === ROLE.ROLE_POSSESSED, "Bad role assignment" )
+      }
+
       Assert( this.playerToInfo.has( player ), "Game does not have " + player.Name )
       let playerInfo = this.playerToInfo.get( player ) as PlayerInfo
       playerInfo.role = role
@@ -490,7 +499,7 @@ export class Game
 
    public GetSpectators(): Array<Player>
    {
-      return this.GetPlayersOfRole( ROLE.ROLE_SPECTATOR )
+      return this.GetPlayersOfRole( ROLE.ROLE_SPECTATOR_CAMPER ).concat( this.GetPlayersOfRole( ROLE.ROLE_SPECTATOR_IMPOSTER ) )
    }
 
    public GetPlayersOfRole( role: ROLE ): Array<Player>
@@ -516,6 +525,18 @@ export class Game
          this.Shared_OnGameStateChanged_PerPlayer( player, this.GetGameState() )
 
       return playerInfo
+   }
+
+   public IsSpectator( player: Player ): boolean
+   {
+      switch ( this.GetPlayerRole( player ) )
+      {
+         case ROLE.ROLE_SPECTATOR_CAMPER:
+         case ROLE.ROLE_SPECTATOR_IMPOSTER:
+            return true
+      }
+
+      return false
    }
 
    public GetPlayerRole( player: Player ): ROLE
@@ -547,16 +568,29 @@ export class Game
 
    public Shared_OnGameStateChanged_PerPlayer( player: Player, state: GAME_STATE )
    {
+
+      if ( player.Character !== undefined )
+      {
+         ExecOnChildWhenItExists( player.Character, "Humanoid", function ( instance: Instance )
+         {
+            let human = instance as Humanoid
+            human.NameDisplayDistance = 1000
+            human.NameOcclusion = Enum.NameOcclusion.NoOcclusion
+            //human.DisplayDistanceType = Enum.HumanoidDisplayDistanceType.
+
+         } )
+      }
+
       switch ( state )
       {
          case GAME_STATE.GAME_STATE_MEETING_DISCUSS:
          case GAME_STATE.GAME_STATE_MEETING_VOTE:
-            SetPlayerYaw( player, 0 )
+            //SetPlayerYaw( player, 0 )
             SetPlayerWalkSpeed( player, 0 )
             break
 
          default:
-            if ( this.GetPlayerRole( player ) === ROLE.ROLE_SPECTATOR )
+            if ( this.IsSpectator( player ) )
                SetPlayerWalkSpeed( player, 24 )
             else
                SetPlayerWalkSpeed( player, 16 )
@@ -571,7 +605,7 @@ export class Game
    //////////////////////////////////////////////////////
    public NetvarToGamestate_ReturnServerTimeDelta(): number
    {
-      print( "\nNetvarToGamestate_ReturnServerTimeDelta()" )
+      //print( "\nNetvarToGamestate_ReturnServerTimeDelta()" )
       Assert( IsClient(), "Client only" )
       let localPlayer = GetLocalPlayer()
       let json = GetNetVar_String( localPlayer, NETVAR_JSON_GAMESTATE )
@@ -609,12 +643,11 @@ export class Game
             }
          }
 
-         let localSpectator = this.GetPlayerRole( localPlayer ) === ROLE.ROLE_SPECTATOR
+         let localSpectator = this.IsSpectator( localPlayer )
 
          for ( let player of this.GetAllPlayers() )
          {
-            let role = this.GetPlayerRole( player )
-            if ( role === ROLE.ROLE_SPECTATOR )
+            if ( this.IsSpectator( player ) )
             {
                if ( player === localPlayer )
                   SetPlayerTransparency( player, SPECTATOR_TRANS )

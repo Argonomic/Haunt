@@ -108,7 +108,7 @@ function CreateRoomFromFolder( folder: Folder ): Room
                let childPart = child as BasePart
                Assert( childPart.ClassName === "Part", "trigger_door should be a Part" )
 
-               let position = new Vector3( childPart.Position.X, childPart.Position.Y, childPart.Position.Z )
+               let position = new Vector3( childPart.Position.X, childPart.Position.Y + 2, childPart.Position.Z )
 
                childPart.Transparency = 1.0
                childPart.CanCollide = false

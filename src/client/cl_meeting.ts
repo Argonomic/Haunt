@@ -1,7 +1,9 @@
 import { RunService } from "@rbxts/services";
 import { Game, GAME_STATE, PlayerNumToGameViewable, ROLE } from "shared/sh_gamestate";
+import { ClonePlayerModel } from "shared/sh_onPlayerConnect";
 import { MAX_PLAYERS, PLAYER_COLORS } from "shared/sh_settings";
-import { Assert, ClonePlayerModel, GetColor, GetFirstChildWithName, GetFirstChildWithNameAndClassName, GetLocalPlayer, LightenColor, SetCharacterTransparency, SetPlayerYaw } from "shared/sh_utils";
+import { Tween } from "shared/sh_tween";
+import { Assert, GetColor, GetFirstChildWithName, GetFirstChildWithNameAndClassName, GetLocalPlayer, LightenColor, SetCharacterTransparency, SetPlayerYaw, Thread } from "shared/sh_utils";
 import { AddPlayerGuiFolderExistsCallback, UIORDER } from "./cl_ui";
 import { SendRPC } from "./cl_utils";
 
@@ -16,9 +18,11 @@ class PlayerButtonGroup
 {
    buttonGroup: ButtonGroup
    frameButton: TextButton
+   voted: TextLabel
    player: Player
    alive = true
    playerNum = -1
+   horn: ImageLabel
 
    constructor( game: Game, player: Player, playerButtonTemplate: TextButton, playerCount: number, displayChecks: ( buttonGroup: ButtonGroup ) => void, checkYes: () => void )
    {
@@ -27,12 +31,25 @@ class PlayerButtonGroup
       this.frameButton.Parent = playerButtonTemplate.Parent
       this.frameButton.Name = playerButtonTemplate.Name + " Clone"
       this.frameButton.Visible = true
+
       this.buttonGroup = new ButtonGroup( this.frameButton, playerCount, displayChecks, checkYes )
       let playerNumber = GetFirstChildWithNameAndClassName( this.frameButton, 'PlayerNumber', 'TextLabel' ) as TextLabel
 
       let playerImageLabel = GetFirstChildWithNameAndClassName( this.frameButton, 'PlayerImage', 'ImageLabel' ) as ImageLabel
 
       let playerName = GetFirstChildWithNameAndClassName( playerImageLabel, 'PlayerName', 'TextLabel' ) as TextLabel
+
+      let voted = GetFirstChildWithNameAndClassName( this.frameButton, 'voted', 'TextLabel' ) as TextLabel
+
+      let clipFrame = GetFirstChildWithNameAndClassName( this.frameButton, 'ClipFrame', 'TextButton' ) as TextButton
+      this.horn = GetFirstChildWithNameAndClassName( clipFrame, 'horn', 'ImageLabel' ) as ImageLabel
+      this.horn.Visible = false
+
+      let dead = GetFirstChildWithNameAndClassName( clipFrame, 'dead', 'ImageLabel' ) as ImageLabel
+      dead.Visible = false
+
+      voted.Visible = false
+      this.voted = voted
 
       playerImageLabel.ImageTransparency = 1.0
       playerImageLabel.BackgroundTransparency = 1.0
@@ -51,10 +68,11 @@ class PlayerButtonGroup
          playerNumber.Visible = false
       }
 
-      if ( game.GetPlayerRole( player ) === ROLE.ROLE_SPECTATOR )
+      if ( game.IsSpectator( player ) )
       {
          this.frameButton.Transparency = 0.75
          this.alive = false
+         dead.Visible = true
       }
 
       if ( player.Character === undefined )
@@ -82,7 +100,7 @@ class PlayerButtonGroup
       //         {
       //            if ( lastModel !== undefined )
       //               lastModel.Destroy()
-      SetPlayerYaw( player, 0 )//numVal.Value )
+      //SetPlayerYaw( player, 0 )//numVal.Value )
       let clonedModel = ClonePlayerModel( player ) as Model
       SetCharacterTransparency( clonedModel, 0 )
       //lastModel = clonedModel
@@ -169,7 +187,14 @@ class ButtonGroup
       }
       voteImage.Destroy()
 
-      this.button.MouseButton1Up.Connect(
+      let invisiButton = new Instance( 'TextButton' )
+      invisiButton.Parent = this.button
+      invisiButton.ZIndex = 6
+      invisiButton.Size = new UDim2( 1, 0, 1, 0 )
+      invisiButton.BackgroundTransparency = 1
+      invisiButton.BorderSizePixel = 0
+      invisiButton.Text = ""
+      invisiButton.MouseButton1Up.Connect(
          function ()
          {
             displayChecks( buttonGroup )
@@ -204,7 +229,7 @@ class ActiveMeeting
    game: Game
    render: RBXScriptConnection
 
-   constructor( game: Game, meetingUITemplate: ScreenGui )
+   constructor( game: Game, meetingUITemplate: ScreenGui, meetingCaller: Player )
    {
       let players = game.GetAllPlayers()
       Assert( players.size() > 0, "Can't start a meeting with zero players" )
@@ -229,7 +254,7 @@ class ActiveMeeting
          if ( game.GetGameState() !== GAME_STATE.GAME_STATE_MEETING_VOTE )
             return
 
-         if ( game.GetPlayerRole( player ) === ROLE.ROLE_SPECTATOR )
+         if ( game.IsSpectator( player ) )
             return
 
          for ( let vote of game.GetVotes() )
@@ -280,7 +305,7 @@ class ActiveMeeting
          let playerButtonGroup = new PlayerButtonGroup( game, player, playerButtonTemplate, players.size(),
             function ( buttonGroup: ButtonGroup )
             {
-               if ( game.GetPlayerRole( playerButtonGroup.player ) === ROLE.ROLE_SPECTATOR )
+               if ( game.IsSpectator( playerButtonGroup.player ) )
                   return
 
                HideAllChecksAndDisplayThisOne( buttonGroup )
@@ -295,9 +320,24 @@ class ActiveMeeting
 
          this.playerButtonGroups.push( playerButtonGroup )
          playerButtonGroup.frameButton.Visible = true
+
+         if ( playerButtonGroup.player === meetingCaller )
+            playerButtonGroup.horn.Visible = true
       }
 
       this.playerButtonGroups.sort( SortByLiving )
+
+
+      for ( let i = 0; i < this.playerButtonGroups.size(); i++ )
+      {
+         let zIndex = i
+         if ( i % 2 === 0 )
+            zIndex += 2
+
+         // so "VOTED" graphic doesn't draw behind stuff
+         this.playerButtonGroups[i].frameButton.ZIndex = zIndex
+      }
+
 
       let last = MAX_PLAYERS - 1
       let first = 0
@@ -337,7 +377,7 @@ class ActiveMeeting
             timeRemaining++
          let timeRemainingMsg = " (" + timeRemaining + ")"
 
-         if ( game.GetPlayerRole( player ) === ROLE.ROLE_SPECTATOR )
+         if ( game.IsSpectator( player ) )
          {
             switch ( game.GetGameState() )
             {
@@ -414,7 +454,7 @@ class ActiveMeeting
       if ( didVote )
       {
          this.skipButtonGroup.HideChecks()
-         this.skipButtonGroup.button.Visible = false
+         this.skipButtonGroup.button.BackgroundColor3 = new Color3( 0.5, 0.5, 0.5 )
          for ( let playerButtonGroup of this.playerButtonGroups )
          {
             playerButtonGroup.buttonGroup.HideChecks()
@@ -422,7 +462,7 @@ class ActiveMeeting
       }
       else
       {
-         if ( game.GetPlayerRole( localPlayer ) !== ROLE.ROLE_SPECTATOR )
+         if ( !game.IsSpectator( localPlayer ) )
          {
             if ( game.GetGameState() === GAME_STATE.GAME_STATE_MEETING_VOTE )
                this.skipButtonGroup.button.Visible = true
@@ -438,10 +478,30 @@ class ActiveMeeting
          this.HideVoteImages( playerButtonGroup.buttonGroup )
       }
 
+      const TIME = 0.6
+      let dif = 0.3
       for ( let vote of game.GetVotes() )
       {
          let voter = vote.voter as Player
          Assert( voter !== undefined, "No voter!" )
+
+         let playerButtonGroup = playerToButtonGroup.get( voter ) as PlayerButtonGroup
+         Assert( playerButtonGroup !== undefined, "playerButtonGroup !== undefined" )
+
+         if ( !playerButtonGroup.voted.Visible )
+         {
+            Tween( playerButtonGroup.voted, { Size: playerButtonGroup.voted.Size, TextTransparency: 0 }, TIME, Enum.EasingStyle.Quad, Enum.EasingDirection.Out )
+            Thread( function ()
+            {
+               wait( TIME * ( 1.0 - dif ) )
+               Tween( playerButtonGroup.voted, { TextTransparency: 0, TextStrokeTransparency: 0 }, dif, Enum.EasingStyle.Exponential, Enum.EasingDirection.Out )
+            } )
+
+            playerButtonGroup.voted.TextTransparency = 0.95
+            playerButtonGroup.voted.TextStrokeTransparency = 0.95
+            playerButtonGroup.voted.Size = new UDim2( playerButtonGroup.voted.Size.X.Scale * 5, 0, playerButtonGroup.voted.Size.Y.Scale * 5, 0 )
+         }
+         playerButtonGroup.voted.Visible = true
 
          if ( vote.target === undefined )
          {
@@ -457,7 +517,7 @@ class ActiveMeeting
    }
 }
 
-export function UpdateMeeting( game: Game )
+export function UpdateMeeting( game: Game, lastGameState: GAME_STATE )
 {
    let meetingUITemplate = file.meetingUI
    if ( meetingUITemplate === undefined )
@@ -469,13 +529,24 @@ export function UpdateMeeting( game: Game )
 
    let activeMeeting = file.activeMeeting
 
+   if ( lastGameState === GAME_STATE.GAME_STATE_PLAYING )
+   {
+      if ( activeMeeting !== undefined )
+      {
+         print( "DESTROYED ACTIVEMEETING" )
+         activeMeeting.render.Disconnect()
+         activeMeeting.meetingUI.Destroy()
+         file.activeMeeting = undefined
+      }
+   }
+
    switch ( game.GetGameState() )
    {
       case GAME_STATE.GAME_STATE_MEETING_VOTE:
       case GAME_STATE.GAME_STATE_MEETING_DISCUSS:
          if ( activeMeeting === undefined )
          {
-            activeMeeting = new ActiveMeeting( game, meetingUITemplate )
+            activeMeeting = new ActiveMeeting( game, meetingUITemplate, meetingCaller )
             file.activeMeeting = activeMeeting
          }
 

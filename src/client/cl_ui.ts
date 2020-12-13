@@ -340,6 +340,12 @@ export class ToggleButton
       button.SizeConstraint = Enum.SizeConstraint.RelativeYY
       button.Image = 'rbxassetid://89290230'
 
+      let UISizeConstraint = new Instance( 'UISizeConstraint' )
+      UISizeConstraint.MaxSize = new Vector2( 40, 40 )
+      UISizeConstraint.Parent = button
+
+
+
       this.time = 0.5
       this.Update()
 

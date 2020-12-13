@@ -23,7 +23,7 @@ class MatchScreenFrame
    viewportFrame: ViewportFrame
    viewportCamera: Camera
 
-   constructor()
+   constructor( str: string )
    {
       Assert( file.matchScreenUI.Parent !== undefined, "file.matchScreenUI should have a parent" )
       Assert( file.baseFrameTemplate !== undefined, "file.baseFrameTemplate !== undefined" )
@@ -53,11 +53,13 @@ class MatchScreenFrame
       this.viewportCamera = viewportCamera
 
       let thisThread = coroutine.running()
+
       Thread(
          function ()
          {
             for ( ; ; )
             {
+               //print( "coroutine.status( thisThread ): " + str + " " + coroutine.status( thisThread ) + " " + thisThread )
                if ( coroutine.status( thisThread ) === "dead" )
                {
                   Thread( function ()
@@ -76,11 +78,10 @@ class MatchScreenFrame
    }
 }
 
-export function WaitForMatchScreenFrame(): MatchScreenFrame
+export function WaitForMatchScreenFrame( str: string ): MatchScreenFrame
 {
    let thisThread = coroutine.running()
    Assert( thisThread !== undefined, "Must be threaded off" )
-
 
    file.threadQueue.push( thisThread )
 
@@ -95,7 +96,7 @@ export function WaitForMatchScreenFrame(): MatchScreenFrame
       wait( 0.1 )
    }
 
-   return new MatchScreenFrame()
+   return new MatchScreenFrame( str )
 }
 
 export function CL_MatchScreenSetup()

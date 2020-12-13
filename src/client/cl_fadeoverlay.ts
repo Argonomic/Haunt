@@ -2,8 +2,8 @@ import { RunService, Workspace } from "@rbxts/services"
 import { Corpse, IsPracticing, PlayerNumToGameViewable, ROLE } from "shared/sh_gamestate"
 import { PLAYER_COLORS } from "shared/sh_settings"
 import { TweenPlayerParts } from "shared/sh_tween"
-import { Assert, GetFirstChildWithNameAndClassName, GetLocalPlayer, SetCharacterTransparency } from "shared/sh_utils"
-import { GetLocalGame, GetLocalRole } from "./cl_gamestate"
+import { Assert, GetFirstChildWithNameAndClassName, GetLocalPlayer, IsAlive, SetCharacterTransparency } from "shared/sh_utils"
+import { GetLocalGame, GetLocalIsSpectator, GetLocalRole } from "./cl_gamestate"
 import { AddPlayerGuiFolderExistsCallback, UIORDER } from "./cl_ui"
 
 const FADE_CIRCLE = 'rbxassetid://6006022378'
@@ -29,15 +29,6 @@ export function CL_FadeOverlaySetup()
    AddPlayerGuiFolderExistsCallback( function ( gui: Instance )
    {
       let localPlayer = GetLocalPlayer()
-      if ( IsPracticing( localPlayer ) )
-         return
-
-      switch ( GetLocalRole() )
-      {
-         case ROLE.ROLE_POSSESSED:
-         case ROLE.ROLE_SPECTATOR:
-            return
-      }
 
       let game = GetLocalGame()
 
@@ -120,7 +111,23 @@ export function CL_FadeOverlaySetup()
 
       let camera = file.camera
 
-      const LIGHTDIST = 25
+      function GetLightDist(): number
+      {
+         const MAX = 200
+         if ( IsPracticing( localPlayer ) )
+            return MAX
+
+         if ( GetLocalIsSpectator() )
+            return MAX
+
+         switch ( GetLocalRole() )
+         {
+            case ROLE.ROLE_POSSESSED:
+               return MAX
+         }
+
+         return 25
+      }
 
       let visiblePlayersToPlayernum = new Map<Player, TextLabel>()
       let visibleCorpsesToPlayernum = new Map<Corpse, TextLabel>()
@@ -133,6 +140,8 @@ export function CL_FadeOverlaySetup()
 
       let connect = RunService.RenderStepped.Connect( function ()      
       {
+         let LIGHTDIST = GetLightDist()
+
          let character = localPlayer.Character
          if ( character === undefined )
             return
@@ -153,13 +162,7 @@ export function CL_FadeOverlaySetup()
 
          //myPlayerNum.Position = new UDim2( 0, screenCenter.X, 0, screenCenter.Y )
 
-         if ( game.GetPlayerRole( localPlayer ) === ROLE.ROLE_SPECTATOR )
-         {
-            screenUI.Parent = undefined
-            return
-         }
-
-         let players = game.GetLivingPlayers()
+         let players = game.GetAllPlayers()
 
          for ( let player of players )
          {
@@ -183,7 +186,21 @@ export function CL_FadeOverlaySetup()
             let [partScreenCenter, _2] = camera.WorldToScreenPoint( head.Position )
             let dist = partScreenCenter.sub( screenCenter ).Magnitude
 
-            let withinVisibleDist = dist < VISUAL_DIST
+            let withinVisibleDist =
+               !IsPracticing( localPlayer ) &&
+               IsAlive( player ) &&
+               !game.IsSpectator( player ) &&
+               dist < VISUAL_DIST
+
+            /*
+            print( "\n\nwithinVisibleDist: " + withinVisibleDist +
+               "\n!IsPracticing( localPlayer ): " + !IsPracticing( localPlayer ) +
+               "\nIsAlive( player ): " + ( IsAlive( player ) ) +
+               "\n!game.IsSpectator( player ): " + ( !game.IsSpectator( player ) ) +
+               "\ndist < VISUAL_DIST: " + ( dist < VISUAL_DIST ) +
+               "\ndist: " + ( dist ) )
+            */
+
             let wasVisible = visiblePlayersToPlayernum.has( player )
             if ( withinVisibleDist === wasVisible )
             {

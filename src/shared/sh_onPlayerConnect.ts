@@ -1,12 +1,14 @@
 import { Players } from "@rbxts/services";
 import { AssignDefaultNVs } from "shared/sh_player_netvars"
-import { Assert, ExecOnChildWhenItExists, GetPlayerFromCharacter, IsServer, Thread } from "./sh_utils";
+import { Assert, GetExistingFirstChildWithNameAndClassName, ExecOnChildWhenItExists, GetPlayerFromCharacter, IsServer, Thread } from "./sh_utils";
 
 class File
 {
    onPlayerConnected: Array<Function> = []
    onPlayerCharacterAdded: Array<Function> = []
    aPlayerConnected = false
+
+   playerToModel = new Map<Player, Model>()
 }
 
 let file = new File()
@@ -42,9 +44,31 @@ export function AddCallback_OnPlayerCharacterAdded( func: Function )
 function OnPlayerCharacterAdded( character: Model )
 {
    let player = GetPlayerFromCharacter( character ) as Player
+   player.TeamColor = BrickColor.Red()
 
    ExecOnChildWhenItExists( character, "Humanoid", function ( instance: Instance )
    {
+      if ( !file.playerToModel.has( player ) )
+      {
+         Thread(
+            function ()
+            {
+               for ( ; ; )
+               {
+                  let children = character.GetChildren()
+                  print( "children: " + children.size() )
+                  if ( children.size() > 20 )
+                  {
+                     let clone = _CloneCharacter( character )
+                     file.playerToModel.set( player, clone )
+                     break
+                  }
+
+                  wait()
+               }
+            } )
+      }
+
       let human = instance as Humanoid
       human.SetStateEnabled( Enum.HumanoidStateType.Jumping, false )
       human.SetStateEnabled( Enum.HumanoidStateType.Climbing, false )
@@ -55,6 +79,52 @@ function OnPlayerCharacterAdded( character: Model )
       }
    } )
 }
+
+export function ClonePlayerModel( player: Player ): Model | undefined
+{
+   if ( !file.playerToModel.has( player ) )
+      return undefined
+
+   let model = file.playerToModel.get( player ) as Model
+   return _CloneCharacter( model )
+}
+
+function _CloneCharacter( character: Model ): Model 
+{
+   character.Archivable = true
+   let bodyParts = character.GetChildren()
+   //print( "bodyParts: " + bodyParts.size() )
+   let clonedModel = new Instance( "Model" ) as Model
+
+   for ( let bodyPart of bodyParts )
+   {
+      if ( bodyPart.IsA( "Humanoid" ) || bodyPart.IsA( "Accessory" ) || bodyPart.IsA( "MeshPart" ) || bodyPart.IsA( "BasePart" ) || bodyPart.IsA( "Pants" ) || bodyPart.IsA( "Shirt" ) || bodyPart.IsA( "ShirtGraphic" ) || bodyPart.IsA( "BodyColors" ) )
+      {
+         if ( bodyPart.Archivable === false ) 
+         {
+            bodyPart.Archivable = true
+            let clone = bodyPart.Clone()
+            clone.Parent = clonedModel
+            bodyPart.Archivable = false
+         }
+         else
+         {
+            let clone = bodyPart.Clone()
+            clone.Parent = clonedModel
+         }
+
+         if ( bodyPart.IsA( "Humanoid" ) )
+         {
+            //bodyPart.DisplayDistanceType = Enum.HumanoidDisplayDistanceType.None
+            bodyPart.HealthDisplayType = Enum.HumanoidHealthDisplayType.AlwaysOff
+         }
+      }
+   }
+
+   clonedModel.PrimaryPart = GetExistingFirstChildWithNameAndClassName( clonedModel, "HumanoidRootPart", 'Part' ) as Part
+   return clonedModel
+}
+
 
 function OnPlayerConnected( player: Player )
 {
@@ -69,12 +139,8 @@ function OnPlayerConnected( player: Player )
       if ( IsServer() )
       {
          wait( 5 )
-         let human = GetHumanoid( player )
-         if ( human )
-         {
-            //game.playerToSpawnLocation.set( player, spawnLocations[i] )
-            human.TakeDamage( human.Health )
-         }
+         //game.playerToSpawnLocation.set( player, spawnLocations[i] )
+         //KillPlayer( player )
       }
       */
    } )

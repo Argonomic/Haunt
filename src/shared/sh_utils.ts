@@ -302,6 +302,18 @@ export function Thread( func: Function ): thread
    return result
 }
 
+export function WaitThread( func: Function )
+{
+   let result = coroutine.create( func )
+   coroutine.resume( result )
+   for ( ; ; )
+   {
+      if ( coroutine.status( result ) === "dead" )
+         return
+      wait()
+   }
+}
+
 export function SetPlayerState( player: Player, setting: Enum.HumanoidStateType, value: boolean )
 {
    let character = player.Character
@@ -354,13 +366,13 @@ export function SetPlayerTransparency( player: Player, value: number )
 
 export function SetCharacterTransparency( char: Model, value: number )
 {
-   let player = GetPlayerFromCharacter( char )
    /*
+   let player = GetPlayerFromCharacter( char )
    if ( player !== undefined )
       print( "SetCharacterTransparency " + value + " " + player.UserId + " local:" + ( player === GetLocalPlayer() ) )
    else
       print( "SetCharacterTransparency " + value + " _ local:" + ( player === GetLocalPlayer() ) )
-   */
+      */
 
    let head = char.FindFirstChild( "Head" )
    if ( head )
@@ -388,6 +400,7 @@ export function SetCharacterTransparency( char: Model, value: number )
    //rootPart.Transparency = 1
    let primaryPart = char.PrimaryPart as Part
    primaryPart.Transparency = 1
+
 }
 
 
@@ -475,6 +488,7 @@ export function GetLocalPlayer(): Player
    return Players.LocalPlayer
 }
 
+/*
 export function ClonePlayerModel( player: Player ): Model | undefined
 {
    if ( player.Character === undefined )
@@ -514,6 +528,7 @@ export function ClonePlayerModel( player: Player ): Model | undefined
 
    return clonedModel
 }
+*/
 
 export function SetPlayerYaw( player: Player, yaw: number )
 {
@@ -558,3 +573,10 @@ export function DisablePlayerAnchored( player: Player )
    part.Anchored = false
 }
 */
+
+export function KillPlayer( player: Player )
+{
+   let human = GetHumanoid( player )
+   if ( human )
+      human.TakeDamage( human.Health )
+}

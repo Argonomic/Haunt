@@ -95,7 +95,6 @@ function UpdateReadyUp()
    let player = GetLocalPlayer()
    let status = GetNetVar_Number( player, NETVAR_MATCHMAKING_STATUS )
    let numWithYou = GetNetVar_Number( player, NETVAR_MATCHMAKING_NUMWITHYOU )
-   print( "UpdateReadyUp: " + status )
 
    switch ( status )
    {
@@ -120,6 +119,7 @@ function CreateReadyUI()
       return
 
    let readyUI = file.baseReadyUI.Clone()
+   readyUI.Name = readyUI.Name + " Clone"
    readyUI.Parent = file.baseReadyUI.Parent
    readyUI.Enabled = true
    let checkboxReal: TextButton | undefined

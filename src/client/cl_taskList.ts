@@ -1,14 +1,15 @@
-import { HttpService, Players } from "@rbxts/services"
+import { HttpService } from "@rbxts/services"
 import { AddTaskUI, GetTaskSpec, GetTaskUI, TASK_UI } from "client/cl_tasks"
 import { Assignment, IsPracticing, NETVAR_JSON_TASKLIST, USETYPES } from "shared/sh_gamestate"
 import { AddNetVarChangedCallback, GetNetVar_String } from "shared/sh_player_netvars"
 import { AddRoomChangedCallback, CurrentRoomExists, GetCurrentRoom, GetRooms } from "./cl_rooms"
-import { Assert, ExecOnChildWhenItExists, GetFirstChildWithName, GetLocalPlayer, Graph } from "shared/sh_utils"
+import { Assert, ExecOnChildWhenItExists, GetFirstChildWithName, GetLocalPlayer, Graph, Thread } from "shared/sh_utils"
 import { AddCallout, ClearCallouts, InitCallouts } from "./cl_callouts2d"
 import { Room, Task } from "shared/sh_rooms"
 import { AddMapIcon, ClearMinimapIcons } from "./cl_minimap"
 import { AddPlayerGuiFolderExistsCallback, ToggleButton, UIORDER } from "./cl_ui"
 import { GetUsableByType } from "shared/sh_use"
+import { Tween } from "shared/sh_tween"
 
 const CALLOUTS_NAME = "TASKLIST_CALLOUTS"
 
@@ -22,6 +23,7 @@ type EDITOR_ScreenUIWithFrame = ScreenGui &
 
 class File
 {
+   enabled = false
    recreateTaskListUI: Function | undefined
    assignments: Array<Assignment> = []
    existingUI: ScreenGui | undefined
@@ -31,6 +33,16 @@ let file = new File()
 
 function RefreshTaskList()
 {
+   if ( !file.enabled )
+   {
+      if ( file.existingUI !== undefined )
+      {
+         file.existingUI.Destroy()
+         file.existingUI = undefined
+      }
+      return
+   }
+
    let json = GetNetVar_String( GetLocalPlayer(), NETVAR_JSON_TASKLIST )
    let assignments = HttpService.JSONDecode( json ) as Array<Assignment>
    file.assignments = assignments
@@ -103,7 +115,38 @@ export function CL_TaskListSetup()
 }
 
 
+export function TaskList_Disable()
+{
+   if ( !file.enabled )
+      return
+   file.enabled = false
 
+   if ( file.existingUI === undefined )
+      return
+
+   let ui = file.existingUI as EDITOR_ScreenUIWithFrame
+   ui.Frame.AnchorPoint = new Vector2( 1.5, 0 )
+}
+
+export function TaskList_Enable()
+{
+   if ( file.enabled )
+      return
+   file.enabled = true
+
+   RefreshTaskList()
+   if ( file.existingUI === undefined )
+      return // has no tasks
+
+   let ui = file.existingUI as EDITOR_ScreenUIWithFrame
+
+   Thread( function ()
+   {
+      ui.Frame.AnchorPoint = new Vector2( 1.5, 0 )
+      wait( 1 )
+      Tween( ui.Frame, { 'AnchorPoint': new Vector2( 0.0, 0 ) }, 1, Enum.EasingStyle.Quad, Enum.EasingDirection.Out )
+   } )
+}
 
 
 function RecreateTaskListUI()
@@ -119,13 +162,18 @@ function RecreateTaskListUI()
    copy.Parent = taskList.Parent
    copy.Name = copy.Name + " COPY"
 
-   ExecOnChildWhenItExists( copy, 'Frame', function ( frame: Frame )
-   {
-      new ToggleButton( frame,
-         { 'AnchorPoint': new Vector2( 1.1, 0 ) },
-         { 'AnchorPoint': new Vector2( 0.0, 0 ) }
-      )
-   } )
+   new ToggleButton( copy.Frame,
+      { 'AnchorPoint': new Vector2( 1.1, 0 ) },
+      { 'AnchorPoint': new Vector2( 0.0, 0 ) }
+   )
+
+   /*   ExecOnChildWhenItExists( copy, 'Frame', function ( frame: Frame )
+      {
+         new ToggleButton( frame,
+            { 'AnchorPoint': new Vector2( 1.1, 0 ) },
+            { 'AnchorPoint': new Vector2( 0.0, 0 ) }
+         )
+      } )*/
 
    let baseLabel = copy.Frame.TextLabel
    let count = 0

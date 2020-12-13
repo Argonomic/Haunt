@@ -1,5 +1,5 @@
 import { SetPlayerWalkSpeed } from "shared/sh_onPlayerConnect"
-import { GetHumanoid, GetPosition, IsAlive } from "shared/sh_utils"
+import { GetHumanoid, GetPosition, IsAlive, KillPlayer } from "shared/sh_utils"
 import { GAME_STATE, ROLE, IsPracticing, Corpse, USETYPES, MEETING_TYPE_REPORT, COOLDOWN_NAME_KILL } from "shared/sh_gamestate"
 import { GetUsableByType, USABLETYPES } from "shared/sh_use"
 import { PlayerHasUnfinishedAssignment, PlayerToGame, ClearAssignments } from "server/sv_gameState"
@@ -59,7 +59,8 @@ export function SV_UseContentSetup()
          switch ( game.GetPlayerRole( player ) )
          {
             case ROLE.ROLE_CAMPER:
-            case ROLE.ROLE_SPECTATOR:
+            case ROLE.ROLE_SPECTATOR_CAMPER:
+            case ROLE.ROLE_SPECTATOR_IMPOSTER:
                return []
          }
 
@@ -82,15 +83,11 @@ export function SV_UseContentSetup()
       {
          let camper = usedThing as Player
 
-         let human = GetHumanoid( camper )
-         if ( human === undefined )
-            return
-
          let game = PlayerToGame( player )
          game.corpses.push( new Corpse( camper, GetPosition( camper ) ) )
          game.playerToSpawnLocation.set( camper, GetPosition( camper ) )
-         human.TakeDamage( human.Health )
-         game.SetPlayerRole( camper, ROLE.ROLE_SPECTATOR )
+         KillPlayer( camper )
+         game.SetPlayerRole( camper, ROLE.ROLE_SPECTATOR_CAMPER )
          SendRPC( "RPC_FromServer_CancelTask", camper )
          ClearAssignments( game, player )
          game.UpdateGame()

@@ -1,8 +1,13 @@
-import { TweenService, Workspace } from "@rbxts/services"
+import { TweenService } from "@rbxts/services"
 import { Assert } from "./sh_utils"
+
+const ENABLED = true
 
 export function Tween( instance: Instance, goal: any, time: number, easingStyle?: Enum.EasingStyle, easingDirection?: Enum.EasingDirection )
 {
+   if ( !ENABLED )
+      return
+
    if ( easingStyle === undefined )
    {
       Assert( easingDirection === undefined, "If style is undefined, direction should be undefined" )
@@ -25,6 +30,9 @@ export function Tween( instance: Instance, goal: any, time: number, easingStyle?
 
 export function TweenThenDestroy( instance: Instance, goal: any, time: number, easingStyle: Enum.EasingStyle, easingDirection: Enum.EasingDirection )
 {
+   if ( !ENABLED )
+      return
+
    let tweenInfo = new TweenInfo( time, easingStyle, easingDirection )
    let tween = TweenService.Create( instance, tweenInfo, goal )
    tween.Play()
@@ -35,12 +43,11 @@ export function TweenThenDestroy( instance: Instance, goal: any, time: number, e
    } )
 }
 
-
-
-
-
 export function TweenCharacterParts( character: Model, goal: any, time: number )
 {
+   if ( !ENABLED )
+      return
+
    let head = character.FindFirstChild( "Head" )
    if ( head )
    {
@@ -57,7 +64,7 @@ export function TweenCharacterParts( character: Model, goal: any, time: number )
          if ( handle !== undefined )
             child = handle
 
-         if ( child.IsA( 'BasePart' ) )
+         if ( child.IsA( 'BasePart' ) && child !== character.PrimaryPart )
             Tween( child, goal, time, Enum.EasingStyle.Linear, Enum.EasingDirection.In )
 
          Recursive( child )
@@ -72,7 +79,7 @@ export function TweenPlayerParts( player: Player, goal: any, time: number )
    TweenCharacterParts( player.Character as Model, goal, time )
 }
 
-export function TweenModel( model: Model, goalCFrame: CFrame, time: number, easingStyle?: Enum.EasingStyle, easingDirection?: Enum.EasingDirection )
+export function TweenModel( model: Model, goalCFrame: CFrame, time: number, easingStyle?: Enum.EasingStyle, easingDirection?: Enum.EasingDirection ): Tween
 {
    if ( easingStyle === undefined )
    {
@@ -98,7 +105,7 @@ export function TweenModel( model: Model, goalCFrame: CFrame, time: number, easi
    let tween = TweenService.Create( CFrameValue, tweenInfo, { Value: goalCFrame } )
    tween.Play()
 
-   let signal = tween.Completed.Connect(
+   tween.Completed.Connect(
       function ()
       {
          CFrameValue.Destroy()
