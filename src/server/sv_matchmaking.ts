@@ -4,7 +4,7 @@ import { AddCallback_OnPlayerCharacterAdded, AddCallback_OnPlayerConnected } fro
 import { GetNetVar_Number, SetNetVar } from "shared/sh_player_netvars"
 import { AddRPC } from "shared/sh_rpc"
 import { MAX_PLAYERS, MIN_PLAYERS } from "shared/sh_settings"
-import { AddPlayer, CreateGame } from "./sv_gameState"
+import { AddPlayer, AssignAllTasks, AssignTasks, CreateGame } from "./sv_gameState"
 import { PutPlayerInStartRoom } from "./sv_rooms"
 
 class File
@@ -26,6 +26,7 @@ export function SV_MatchmakingSetup()
    {
       SetNetVar( player, NETVAR_MATCHMAKING_STATUS, MATCHMAKING_STATUS.MATCHMAKING_PRACTICE )
       AddPlayer( file.practiceGame, player, ROLE.ROLE_CAMPER )
+      AssignAllTasks( player, file.practiceGame )
       file.practiceGame.BroadcastGamestate()
    } )
 

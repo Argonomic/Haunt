@@ -1,13 +1,14 @@
 import { Chat, HttpService, Players } from "@rbxts/services"
 import { AddRPC } from "shared/sh_rpc"
-import { ArrayRandomize, Assert, IsAlive, Thread, UserIDToPlayer } from "shared/sh_utils"
-import { Assignment, GAME_STATE, SharedGameStateInit, NETVAR_JSON_TASKLIST, ROLE, IsPracticing, Game, GAMERESULTS, GetVoteResults } from "shared/sh_gamestate"
+import { ArrayRandomize, Assert, GetPlayerFromDescendant, IsAlive, Thread, UserIDToPlayer } from "shared/sh_utils"
+import { Assignment, GAME_STATE, SharedGameStateInit, NETVAR_JSON_TASKLIST, ROLE, IsPracticing, Game, GAMERESULTS, GetVoteResults, TASK_EXIT } from "shared/sh_gamestate"
 import { MAX_TASKLIST_SIZE, MAX_PLAYERS, MIN_PLAYERS, SPAWN_ROOM } from "shared/sh_settings"
 import { SetNetVar } from "shared/sh_player_netvars"
 import { AddCallback_OnPlayerCharacterAdded, SetPlayerWalkSpeed } from "shared/sh_onPlayerConnect"
 import { SendRPC } from "./sv_utils"
 import { GetAllRoomsAndTasks, GetCurrentRoom, GetRoomByName, GetRoomSpawnLocations, PutPlayerCameraInRoom, PutPlayersInRoom, SetPlayerCurrentRoom } from "./sv_rooms"
 import { ResetAllCooldownTimes } from "shared/sh_cooldown"
+import { AddCallback_OnRoomSetup, Room } from "shared/sh_rooms"
 
 class File
 {
@@ -18,6 +19,8 @@ let file = new File()
 
 export function SV_GameStateSetup()
 {
+
+
    class ChatResults
    {
       FromSpeaker: string = ""
@@ -60,7 +63,7 @@ export function SV_GameStateSetup()
                   ExtraData = {},
    }
          */
-         return a
+
       } )
 
    /*
@@ -296,7 +299,7 @@ function GameThread( game: Game, gameEndFunc: Function )
                      wait( 2 )
                      if ( game.GetGameState() !== GAME_STATE.GAME_STATE_PLAYING )
                         return
-
+ 
                      print( "START A MEETING!!" )
                      let players = game.GetAllPlayers()
                      game.meetingCaller = players[0]
@@ -411,25 +414,47 @@ export function CreateGame( players: Array<Player>, gameEndFunc: Function ): Gam
 function RPC_FromClient_OnPlayerFinishTask( player: Player, roomName: string, taskName: string )
 {
    SetPlayerWalkSpeed( player, 16 )
-   if ( IsPracticing( player ) )
-      return
 
    let game = PlayerToGame( player )
 
-   let assignments = game.assignments.get( player )
-   if ( assignments === undefined )
-   {
-      Assert( false, "Player has no assignments" )
-      return
-   }
+   Assert( game.assignments.has( player ), "Player has no assignments" )
+   let assignments = game.assignments.get( player ) as Array<Assignment>
 
    for ( let assignment of assignments )
    {
       if ( assignment.roomName === roomName && assignment.taskName === taskName )
-      {
          assignment.status = 1
-      }
    }
+
+   if ( !IsPracticing( player ) )
+   {
+      // you leave now!
+      if ( taskName === TASK_EXIT )
+         game.SetPlayerRole( player, ROLE.ROLE_SPECTATOR_CAMPER )
+
+      function ExitAssignment()
+      {
+         for ( let assignment of assignments )
+         {
+            if ( assignment.status === 0 )
+               return
+         }
+
+         // already has exit?
+         for ( let assignment of assignments )
+         {
+            if ( assignment.taskName === TASK_EXIT )
+            {
+               return
+            }
+         }
+
+         let assignment = new Assignment( "Foyer", TASK_EXIT, 0 )
+         assignments.push( assignment )
+      }
+      ExitAssignment()
+   }
+
    UpdateTasklistNetvar( player, assignments )
 }
 
@@ -453,13 +478,30 @@ export function PlayerHasUnfinishedAssignment( player: Player, game: Game, roomN
 }
 
 
-function AssignTasks( player: Player, game: Game )
+export function AssignTasks( player: Player, game: Game )
 {
    let assignments: Array<Assignment> = []
    // create a list of random tasks for player to do
    let roomsAndTasks = GetAllRoomsAndTasks()
    ArrayRandomize( roomsAndTasks )
    roomsAndTasks = roomsAndTasks.slice( 0, MAX_TASKLIST_SIZE )
+   for ( let roomAndTask of roomsAndTasks )
+   {
+      let assignment = new Assignment( roomAndTask.room.name, roomAndTask.task.name, 0 )
+      assignments.push( assignment )
+   }
+
+   game.assignments.set( player, assignments )
+   UpdateTasklistNetvar( player, assignments )
+}
+
+export function AssignAllTasks( player: Player, game: Game )
+{
+   let assignments: Array<Assignment> = []
+   // create a list of random tasks for player to do
+   let roomsAndTasks = GetAllRoomsAndTasks()
+   ArrayRandomize( roomsAndTasks )
+
    for ( let roomAndTask of roomsAndTasks )
    {
       let assignment = new Assignment( roomAndTask.room.name, roomAndTask.task.name, 0 )

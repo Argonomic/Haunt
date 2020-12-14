@@ -4,9 +4,8 @@ import { AddCallback_OnPlayerCharacterAdded } from "shared/sh_onPlayerConnect"
 import { AddNetVarChangedCallback } from "shared/sh_player_netvars"
 import { SetTimeDelta } from "shared/sh_time"
 import { GetUsableByType } from "shared/sh_use"
-import { Assert, GetFirstChildWithName, GetLocalPlayer, RandomFloatRange, RecursiveOnChildren, SetCharacterTransparency, SetPlayerTransparency, Thread, UserIDToPlayer, WaitThread } from "shared/sh_utils"
+import { Assert, GetFirstChildWithName, GetLocalPlayer, RandomFloatRange, RecursiveOnChildren, SetCharacterTransparency, SetPlayerTransparency, UserIDToPlayer, WaitThread } from "shared/sh_utils"
 import { UpdateMeeting } from "./cl_meeting"
-import { TaskList_Disable, TaskList_Enable } from "./cl_taskList"
 import { DrawMatchScreen_EmergencyMeeting, DrawMatchScreen_Intro, DrawMatchScreen_VoteResults, DrawMatchScreen_Winners } from "./content/cl_matchScreen_content"
 
 
@@ -145,12 +144,9 @@ function CLGameStateChanged( oldGameState: number, newGameState: number )
    {
       case GAME_STATE.GAME_STATE_PREMATCH:
          {
-            TaskList_Disable()
-
             WaitThread( function ()
             {
                DrawMatchScreen_Intro( file.clientGame.GetLivingPossessed(), file.clientGame.GetLivingCampers(), file.clientGame.startingPossessedCount )
-               TaskList_Enable()
             } )
          }
          break

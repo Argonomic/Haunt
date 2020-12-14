@@ -1,8 +1,7 @@
 import { AddRPC } from "shared/sh_rpc"
 import { AddCallback_OnRoomSetup, CreateClientBlockers, Room, AddRoomsFromWorkspace, FAST_ROOM_ITERATION } from "shared/sh_rooms"
-import { Assert, GetLocalPlayer, GetPlayerFromDescendant, GetPosition } from "shared/sh_utils"
+import { Assert, GetLocalPlayer, GetPlayerFromDescendant, GetClosest } from "shared/sh_utils"
 import { SetPlayerCameraToRoom } from "./cl_camera"
-import { Players } from "@rbxts/services"
 
 class File
 {
@@ -129,10 +128,8 @@ function OnTriggerDoorSetup( door: BasePart, room: Room )
 
       if ( file.clientCurrentDoorTrigger !== undefined )
       {
-         let playerOrg = GetPosition( player )
-         let dist1 = math.abs( ( playerOrg.sub( door.Position ).Magnitude ) )
-         let dist2 = math.abs( ( playerOrg.sub( file.clientCurrentDoorTrigger.Position ).Magnitude ) )
-         if ( dist2 <= dist1 )
+         let closestDoor = GetClosest( player, [door, file.clientCurrentDoorTrigger] )
+         if ( closestDoor === file.clientCurrentDoorTrigger )
             return
       }
 

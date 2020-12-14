@@ -5,6 +5,7 @@ import { PlayerHasUnfinishedAssignment, PlayerToGame, ClearAssignments } from "s
 import { SendRPC } from "server/sv_utils"
 import { GetCurrentRoom } from "server/sv_rooms"
 import { ResetPlayerCooldownTime } from "shared/sh_cooldown"
+import { SetPlayerWalkSpeed } from "shared/sh_onPlayerConnect"
 
 export function SV_UseContentSetup()
 {
@@ -99,6 +100,7 @@ export function SV_UseContentSetup()
       function ( player: Player ): Array<BasePart>
       {
          let room = GetCurrentRoom( player )
+         print( "Room for " + player.Name + " is " + room.name )
          let results: Array<BasePart> = []
 
          if ( IsPracticing( player ) )
@@ -122,6 +124,22 @@ export function SV_UseContentSetup()
 
          return results
       } )
+
+   usableTask.successFunc =
+      function ( player: Player, usedThing: USABLETYPES )
+      {
+         let volume = usedThing as BasePart
+         let room = GetCurrentRoom( player )
+         for ( let pair of room.tasks )
+         {
+            if ( pair[1].volume !== volume )
+               continue
+
+            SetPlayerWalkSpeed( player, 0 )
+            SendRPC( "RPC_FromServer_OnPlayerUseTask", player, room.name, pair[0] )
+            break
+         }
+      }
 
    {
       let usable = GetUsableByType( USETYPES.USETYPE_MEETING )

@@ -1,11 +1,13 @@
 import { RunService, Workspace } from "@rbxts/services"
 import { BoundsXZ, GetBoundsXZ } from "shared/sh_bounds"
-import { Assert, GetChildrenWithName, GetChildren_NoFutureOffspring, GetFirstChildWithNameAndClassName, GetInstanceChildWithName, GetLocalPlayer, GetPosition, GetWorkspaceChildByName, Graph } from "shared/sh_utils"
+import { Assert, GetChildrenWithName, GetChildren_NoFutureOffspring, GetExistingFirstChildWithNameAndClassName, GetInstanceChildWithName, GetLocalPlayer, GetPosition, GetWorkspaceChildByName, Graph } from "shared/sh_utils"
 import { CreateCalloutTextLabel } from "./cl_callouts2d"
 import { AddPlayerGuiFolderExistsCallback, UIORDER } from "./cl_ui"
 
 const SCR_FLOOR = "scr_floor"
 const SCR_FLOOR_NONAME = "scr_floor_noname"
+const ZINDEX_CALLOUT = 200
+const ZINDEX_ARROW = 199
 
 class MapIcon
 {
@@ -21,11 +23,11 @@ class MapIcon
 class File
 {
    mapIcons: Array<MapIcon> = []
-   minimapGui: Frame = new Instance( "Frame" )
+   minimapUI: ScreenGui | undefined
+   baseFrame: Frame | undefined
 }
 
 let file = new File()
-file.minimapGui.Destroy()
 
 export function CL_MinimapSetup()
 {
@@ -66,20 +68,40 @@ export function CL_MinimapSetup()
 
    AddPlayerGuiFolderExistsCallback( function ( gui: Instance )
    {
+      if ( file.minimapUI !== undefined )
+      {
+         file.minimapUI.Parent = gui
+         return
+      }
+
       file.mapIcons = []
-      let minimapUI = GetFirstChildWithNameAndClassName( gui, 'Minimap', 'ScreenGui' ) as ScreenGui
+      let minimapUI = GetExistingFirstChildWithNameAndClassName( gui, 'Minimap', 'ScreenGui' ) as ScreenGui
+
+      minimapUI.AncestryChanged.Connect(
+         function ()
+         {
+            minimapUI.Parent = undefined
+         } )
+
+      file.minimapUI = minimapUI
       let frameName = "MiniFrame"
       let scale = 2.0
       minimapUI.DisplayOrder = UIORDER.UIORDER_MINIMAP
 
-      let baseFrame = GetFirstChildWithNameAndClassName( minimapUI, frameName, 'Frame' ) as Frame
-      file.minimapGui = baseFrame
+      let baseFrame = GetExistingFirstChildWithNameAndClassName( minimapUI, frameName, 'Frame' ) as Frame
+      file.baseFrame = baseFrame
+      let arrow = GetExistingFirstChildWithNameAndClassName( baseFrame, 'PlayerArrow', 'ImageLabel' ) as ImageLabel
+      arrow.Rotation = 35
+      arrow.ZIndex = ZINDEX_ARROW
+
+
+
       baseFrame.BackgroundTransparency = 1
       baseFrame.BorderSizePixel = 0
 
       for ( let mapIcon of file.mapIcons )
       {
-         mapIcon.textLabel.Parent = file.minimapGui
+         mapIcon.textLabel.Parent = baseFrame
       }
 
       minimapUI.Enabled = true
@@ -156,15 +178,19 @@ export function CL_MinimapSetup()
          }
       }
 
+      let player = GetLocalPlayer()
       let connect = RunService.RenderStepped.Connect( function ()
       {
-         let position = GetPosition( GetLocalPlayer() )
+         let position = GetPosition( player )
          let posX = xCenter - position.X
          let posZ = zCenter - position.Z
 
          SetFramePositions( floors, frames, posX, posZ )
          SetFramePositions( floors, background, posX, posZ )
          SetIconPositions( posX, posZ )
+
+         if ( player.Character )
+            arrow.Rotation = 180 + 360 - ( player.Character.PrimaryPart as BasePart ).Orientation.Y - 90
       } );
 
       minimapUI.AncestryChanged.Connect( function ()
@@ -251,13 +277,13 @@ export function ClearMinimapIcons()
 
 export function AddMapIcon( position: Vector3 )
 {
-   if ( file.minimapGui === undefined )
+   if ( file.minimapUI === undefined )
       return
 
    let textLabel = CreateCalloutTextLabel()
    textLabel.Name = "MapIcon"
-   textLabel.ZIndex = 100
+   textLabel.ZIndex = ZINDEX_CALLOUT
    let mapIcon = new MapIcon( textLabel, position )
    file.mapIcons.push( mapIcon )
-   textLabel.Parent = file.minimapGui
+   textLabel.Parent = file.baseFrame
 }

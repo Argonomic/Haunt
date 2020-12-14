@@ -17,10 +17,10 @@ export enum UIORDER
    UIORDER_MINIMAP,
    UIORDER_CALLOUTS,
    UIORDER_USEBUTTON,
-   UIORDER_READY,
    UIORDER_TASKLIST,
    UIORDER_TASKS,
    UIORDER_MEETING,
+   UIORDER_READY,
    UIORDER_CHAT,
    UIORDER_MATCHSCREEN,
 }
@@ -335,7 +335,6 @@ export class ToggleButton
       button.BackgroundColor3 = new Color3( 140 / 256, 142 / 256, 182 / 256 )
       button.BorderColor3 = new Color3( 27 / 256, 42 / 256, 53 / 256 )
       button.BorderSizePixel = border
-      button.Position = new UDim2( 1, border, 0, 0 )
       button.Size = new UDim2( 0.2, 0, 0.2, 0 )
       button.SizeConstraint = Enum.SizeConstraint.RelativeYY
       button.Image = 'rbxassetid://89290230'
@@ -343,8 +342,6 @@ export class ToggleButton
       let UISizeConstraint = new Instance( 'UISizeConstraint' )
       UISizeConstraint.MaxSize = new Vector2( 40, 40 )
       UISizeConstraint.Parent = button
-
-
 
       this.time = 0.5
       this.Update()

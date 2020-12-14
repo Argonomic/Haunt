@@ -1,6 +1,6 @@
 import { Workspace } from "@rbxts/services"
 import { BoundsXZ } from "./sh_bounds"
-import { Assert, GetChildren_NoFutureOffspring, GetInstanceChildWithName, GetWorkspaceChildByName, IsClient, IsServer } from "./sh_utils"
+import { Assert, GetChildren_NoFutureOffspring, GetInstanceChildWithName, GetPosition, GetWorkspaceChildByName, IsClient, IsServer } from "./sh_utils"
 
 export const FAST_ROOM_ITERATION = false
 const DEFAULT_FIELDOFVIEW = 20
@@ -58,7 +58,6 @@ export class Room
 {
    name: string = ""
    doors: Array<Instance> = []
-   exitTriggers: Array<BasePart> = []
    center: BasePart | undefined
    tasks = new Map<string, Task>()
    cameraStart = new Vector3( 0, 0, 0 )
@@ -117,18 +116,6 @@ function CreateRoomFromFolder( folder: Folder ): Room
                room.startPoints.push( position )
             }
 
-            break
-
-         case "scr_trigger_exit":
-            {
-               let childPart = child as BasePart
-               Assert( childPart.ClassName === "Part", "scr_trigger_exit should be a Part" )
-
-               childPart.CanCollide = false
-               childPart.Transparency = 1.0
-
-               room.exitTriggers.push( childPart )
-            }
             break
 
          case "usable_task":
@@ -235,7 +222,6 @@ function CreateRoomFromFolder( folder: Folder ): Room
                childPart.Transparency = 1.0
                room.doors.push( childPart )
             }
-
 
             break
 

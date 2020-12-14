@@ -2,8 +2,9 @@ import { RunService, UserInputService, Workspace } from "@rbxts/services"
 import { AddCaptureInputChangeCallback } from "client/cl_input"
 import { AddTaskSpec, AddTaskUI, TaskStatus, TASK_UI } from "client/cl_tasks"
 import { AddDraggedButton, GetDraggedButton, ReleaseDraggedButton, ElementWithinElement, AddCallback_MouseUp, MoveOverTime, ElementDist_TopLeft, UIORDER, ElementDist, ElementDistFromXY, AddPlayerGuiFolderExistsCallback } from "client/cl_ui"
+import { TASK_EXIT } from "shared/sh_gamestate"
 import { TweenThenDestroy } from "shared/sh_tween"
-import { ArrayRandomize, Assert, ExecOnChildWhenItExists, GetChildren_NoFutureOffspring, LoadSound, RandomFloatRange } from "shared/sh_utils"
+import { ArrayRandomize, Assert, ExecOnChildWhenItExists, GetChildrenWithName, GetChildren_NoFutureOffspring, GetExistingFirstChildWithNameAndClassName, LoadSound, RandomFloatRange, RandomInt } from "shared/sh_utils"
 
 const IMAGE_WEB = 'rbxassetid://170195297'
 
@@ -51,6 +52,9 @@ function GetStartFunc( name: string ): Function
 {
    switch ( name )
    {
+      case TASK_EXIT:
+         return Task_Exit
+
       case "put_books_away":
          return Task_PutBooksAway
 
@@ -73,6 +77,9 @@ function GetTitle( name: string ): string
 {
    switch ( name )
    {
+      case TASK_EXIT:
+         return "Unlock the Door"
+
       case "put_books_away":
          return "Put Books Away"
 
@@ -553,5 +560,103 @@ function Task_CleanOutFridge( frame: Frame, closeTaskThread: Function, status: T
          return
       }
 
+   } )
+}
+
+
+
+function Task_Exit( frame: Frame, closeTaskThread: Function, status: TaskStatus )
+{
+   let background: ImageLabel | undefined
+   let doorFrame: Frame | undefined
+   let children = GetChildren_NoFutureOffspring( frame )
+   for ( let child of children )
+   {
+      switch ( child.Name )
+      {
+         case "Background":
+            background = child as ImageLabel
+            break
+
+         case "DoorFrame":
+            doorFrame = child as Frame
+            break
+      }
+   }
+
+   Assert( background !== undefined, "Could not find background" )
+   if ( background === undefined )
+      return
+
+   Assert( doorFrame !== undefined, "Could not find doorFrame" )
+   if ( doorFrame === undefined )
+      return
+
+
+   let key = GetExistingFirstChildWithNameAndClassName( doorFrame, "Key", "ImageButton" ) as ImageButton
+
+   Assert( key !== undefined, "Could not find key" )
+   if ( key === undefined )
+      return
+
+   background.ZIndex = 1
+
+   let cloneKey = key.Clone()
+   cloneKey.Visible = false
+   cloneKey.Parent = key.Parent
+
+   key.ZIndex = 3
+   AddDraggedButton( key )
+
+   let x
+   let y
+
+   switch ( RandomInt( 4 ) )
+   {
+      case 0:
+         x = 0
+         y = RandomFloatRange( 0, 1 )
+         break
+
+      case 1:
+         x = 1
+         y = RandomFloatRange( 0, 1 )
+         break
+
+      case 2:
+         y = 0
+         x = RandomFloatRange( 0, 1 )
+         break
+
+      case 3:
+      default: // always put default after cases!
+         y = 1
+         x = RandomFloatRange( 0, 1 )
+         break
+
+   }
+
+   x *= 0.9 + 0.05
+   y *= 0.9 + 0.05
+
+   key.Position = new UDim2( x, 0, y, 0 )
+
+   const DIST = 14
+   return RunService.RenderStepped.Connect( function ()
+   {
+      if ( key === undefined )
+         return
+      if ( background === undefined )
+         return
+
+      let button = GetDraggedButton()
+      if ( button === undefined )
+         return
+
+      if ( ElementDist( key, cloneKey ) > DIST )
+         return
+
+      status.success = true
+      closeTaskThread()
    } )
 }

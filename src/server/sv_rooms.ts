@@ -1,7 +1,8 @@
 import { Room, AddRoomsFromWorkspace, RoomAndTask, AddCallback_OnRoomSetup } from "shared/sh_rooms"
-import { ArrayRandomize, Assert, GetPlayerFromDescendant, GetPosition, RandomFloatRange, Thread } from "shared/sh_utils"
+import { ArrayRandomize, Assert, GetPlayerFromDescendant, RandomFloatRange, Thread } from "shared/sh_utils"
 import { QUICK_START_ROOM } from "shared/sh_settings"
 import { SendRPC } from "./sv_utils"
+import { AddCallback_OnPlayerConnected } from "shared/sh_onPlayerConnect"
 
 //import { ReplicatedStorage } from "@rbxts/services";
 
@@ -9,7 +10,8 @@ class File
 {
    dev_startRoomName: string = QUICK_START_ROOM
    rooms = new Map<string, Room>()
-   lastDoorTrigger = new Map<Player, BasePart>()
+   touchingDoorTriggers = new Map<Player, Array<BasePart>>()
+   triggerToRoom = new Map<BasePart, Room>()
    currentRoom = new Map<Player, Room>()
 }
 
@@ -50,31 +52,67 @@ export function SV_RoomsSetup()
 
 function OnTriggerDoorSetup( doorTrigger: BasePart, room: Room )
 {
+   file.triggerToRoom.set( doorTrigger, room )
+   AddCallback_OnPlayerConnected(
+      function ( player: Player )
+      {
+         file.touchingDoorTriggers.set( player, [] )
+      } )
+
    doorTrigger.Touched.Connect( function ( toucher: Instance )
    {
       let player = GetPlayerFromDescendant( toucher )
       if ( player === undefined )
          return
 
-      if ( player.ClassName !== "Player" )
-         return
-
-      let lastDoorTrigger = file.lastDoorTrigger.get( player )
-      if ( lastDoorTrigger === doorTrigger )
-         return
-
-      if ( lastDoorTrigger !== undefined )
+      let triggers = file.touchingDoorTriggers.get( player ) as Array<BasePart>
+      for ( let trigger of triggers )
       {
-         let playerOrg = GetPosition( player )
-         let dist1 = math.abs( ( playerOrg.sub( doorTrigger.Position ).Magnitude ) )
-         let dist2 = math.abs( ( playerOrg.sub( lastDoorTrigger.Position ).Magnitude ) )
-         if ( dist2 <= dist1 )
+         if ( trigger === doorTrigger )
             return
       }
-
-      file.lastDoorTrigger.set( player, doorTrigger )
-      file.currentRoom.set( player, room )
+      triggers.push( doorTrigger )
+      file.touchingDoorTriggers.set( player, triggers )
    } )
+
+   doorTrigger.TouchEnded.Connect( function ( toucher: Instance )
+   {
+      let player = GetPlayerFromDescendant( toucher )
+      if ( player === undefined )
+         return
+
+      let triggers = file.touchingDoorTriggers.get( player ) as Array<BasePart>
+      for ( let i = 0; i < triggers.size(); i++ )
+      {
+         if ( triggers[i] === doorTrigger )
+         {
+            triggers.remove( i )
+            break
+         }
+      }
+      file.touchingDoorTriggers.set( player, triggers )
+      if ( triggers.size() > 1 )
+         return
+
+      if ( GetCurrentRoom( player ) !== room )
+      {
+         let setRoom
+
+         if ( triggers.size() === 1 )
+         {
+            setRoom = file.triggerToRoom.get( triggers[0] ) as Room
+         }
+         else 
+         {
+            setRoom = room
+         }
+
+         file.currentRoom.set( player, setRoom )
+         //print( "Set player room to " + setRoom.name )
+      }
+   } )
+
+
 }
 
 export function GetCurrentRoom( player: Player ): Room

@@ -61,6 +61,8 @@ export enum MEETING_TYPE
    MEETING_REPORT = 1
 }
 
+export let TASK_EXIT = "task_exit"
+
 class NETVAR_Corpse
 {
    userId: number
@@ -117,7 +119,7 @@ class NETVAR_GameState
    serverTime: number
    startingPossessedCount: number
 
-   constructor( game: Game, playerInfos: Array<NETVAR_GamePlayerInfo>, corpses: Array<NETVAR_Corpse>, votes: Array<NETVAR_Vote>, startingPossessedCount: number )
+   constructor( game: Game, playerInfos: Array<NETVAR_GamePlayerInfo>, corpses: Array<NETVAR_Corpse>, votes: Array<NETVAR_Vote> )
    {
       this.currentGameState = game.GetGameState()
       this.gsChangedTime = game.GetGameStateChangedTime()
@@ -125,7 +127,7 @@ class NETVAR_GameState
       this.corpses = corpses
       this.votes = votes
       this.serverTime = Workspace.DistributedGameTime
-      this.startingPossessedCount = startingPossessedCount
+      this.startingPossessedCount = game.startingPossessedCount
    }
 }
 
@@ -236,18 +238,13 @@ export class Game
       return GAMERESULTS.RESULTS_STILL_PLAYING
    }
 
-   private SendGamestateToPlayers( players: Array<Player>, gs: NETVAR_GameState )
-   {
-      let json = HttpService.JSONEncode( gs )
-      for ( let player of players )
-      {
-         SetNetVar( player, NETVAR_JSON_GAMESTATE, json )
-      }
-   }
 
    public BroadcastGamestate()
    {
       Assert( IsServer(), "Server only" )
+      print( "\nBroadcasting game state: " + this.GetGameState() )
+
+      // these things are common/consistent to all players
       let corpses: Array<NETVAR_Corpse> = []
       for ( let corpse of this.corpses )
       {
@@ -264,66 +261,67 @@ export class Game
             votes.push( new NETVAR_Vote( vote.voter.UserId, result.UserId ) )
       }
 
-      let gameStateToRole = new Map<ROLE, NETVAR_GameState>()
-
-      for ( let pair of this.playerToInfo )
+      function RevealImposters( game: Game, player: Player ): boolean
       {
-         Assert( pair[0] === pair[1].player, "Not the same player!" )
+         if ( game.GetGameState() === GAME_STATE.GAME_STATE_COMPLETE )
+            return true
+         if ( game.IsImposter( player ) )
+            return true
+
+         return false
       }
 
-      let startingPossessedCount = this.startingPossessedCount
-
-      print( "\nBroadcasting game state: " + this.GetGameState() )
+      for ( let player of this.GetAllPlayers() )
       {
          // tell the campers about everyone, but mask the possessed
          let infos: Array<NETVAR_GamePlayerInfo> = []
-         for ( let pair of this.playerToInfo )
-         {
-            let role = pair[1].role
-            if ( role === ROLE.ROLE_POSSESSED )
-               role = ROLE.ROLE_CAMPER
+         let exitedGame = this.CompletedExitTask( player )
 
-            infos.push( new NETVAR_GamePlayerInfo( pair[0], role, pair[1].playernum ) )
+         if ( RevealImposters( this, player ) || exitedGame )
+         {
+            // full game info
+            for ( let pair of this.playerToInfo )
+            {
+               infos.push( new NETVAR_GamePlayerInfo( pair[0], pair[1].role, pair[1].playernum ) )
+            }
+         }
+         else
+         {
+            for ( let pair of this.playerToInfo )
+            {
+               let role = pair[1].role
+               switch ( role )
+               {
+                  case ROLE.ROLE_POSSESSED:
+                     role = ROLE.ROLE_CAMPER
+                     break
+
+                  case ROLE.ROLE_SPECTATOR_IMPOSTER:
+                     role = ROLE.ROLE_SPECTATOR_CAMPER
+                     break
+               }
+
+               infos.push( new NETVAR_GamePlayerInfo( pair[0], role, pair[1].playernum ) )
+            }
          }
 
-         let gs = new NETVAR_GameState( this, infos, corpses, votes, startingPossessedCount )
-         gameStateToRole.set( ROLE.ROLE_CAMPER, gs )
-         gameStateToRole.set( ROLE.ROLE_SPECTATOR_CAMPER, gs )
-      }
+         let gs = new NETVAR_GameState( this, infos, corpses, votes )
 
-      {
-         let infos: Array<NETVAR_GamePlayerInfo> = []
-         for ( let pair of this.playerToInfo )
+         if ( this.meetingCaller && this.meetingBody )
          {
-            infos.push( new NETVAR_GamePlayerInfo( pair[0], pair[1].role, pair[1].playernum ) )
-         }
-
-         let gs = new NETVAR_GameState( this, infos, corpses, votes, startingPossessedCount )
-         gameStateToRole.set( ROLE.ROLE_POSSESSED, gs )
-         gameStateToRole.set( ROLE.ROLE_SPECTATOR_IMPOSTER, gs )
-         if ( this.GetGameState() === GAME_STATE.GAME_STATE_COMPLETE )
-         {
-            // game is over, tell campers who the imposters are
-            gameStateToRole.set( ROLE.ROLE_CAMPER, gs )
-            gameStateToRole.set( ROLE.ROLE_SPECTATOR_CAMPER, gs )
-         }
-      }
-
-      if ( this.meetingCaller && this.meetingBody )
-      {
-         for ( let pair of gameStateToRole )
-         {
-            let gs = pair[1]
             gs.meetingCallerUserId = this.meetingCaller.UserId
             gs.meetingType = this.meetingType
             gs.meetingBodyUserId = this.meetingBody.UserId
          }
-      }
 
-      for ( let pair of gameStateToRole )
-      {
-         let players = this.GetPlayersOfRole( pair[0] )
-         this.SendGamestateToPlayers( players, pair[1] )
+         if ( exitedGame )
+         {
+            gs.currentGameState = GAME_STATE.GAME_STATE_COMPLETE
+            gs.gsChangedTime = Workspace.DistributedGameTime
+         }
+
+         let json = HttpService.JSONEncode( gs )
+         SetNetVar( player, NETVAR_JSON_GAMESTATE, json )
       }
    }
 
@@ -446,6 +444,20 @@ export class Game
       return false
    }
 
+   public CompletedExitTask( player: Player ): boolean
+   {
+      if ( !this.assignments.has( player ) )
+         return false
+
+      let assignments = this.assignments.get( player ) as Array<Assignment>
+      for ( let assignment of assignments )
+      {
+         if ( assignment.taskName === TASK_EXIT )
+            return assignment.status === 1
+      }
+      return false
+   }
+
    public SetVote( player: Player, voteUserID: number | undefined )
    {
       if ( this.GetGameState() !== GAME_STATE.GAME_STATE_MEETING_VOTE )
@@ -557,6 +569,30 @@ export class Game
       {
          case ROLE.ROLE_SPECTATOR_CAMPER:
          case ROLE.ROLE_SPECTATOR_IMPOSTER:
+            return true
+      }
+
+      return false
+   }
+
+   public IsCamper( player: Player ): boolean
+   {
+      switch ( this.GetPlayerRole( player ) )
+      {
+         case ROLE.ROLE_SPECTATOR_CAMPER:
+         case ROLE.ROLE_CAMPER:
+            return true
+      }
+
+      return false
+   }
+
+   public IsImposter( player: Player ): boolean
+   {
+      switch ( this.GetPlayerRole( player ) )
+      {
+         case ROLE.ROLE_SPECTATOR_IMPOSTER:
+         case ROLE.ROLE_POSSESSED:
             return true
       }
 

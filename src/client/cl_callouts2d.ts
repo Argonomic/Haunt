@@ -68,7 +68,7 @@ export function AddCallout( name: string, worldPoint: Vector3 )
 export function CreateCalloutTextLabel(): TextLabel
 {
    let textLabel = new Instance( "TextLabel" )
-   textLabel.AnchorPoint = new Vector2( 0.5, 0.5 )
+   textLabel.AnchorPoint = new Vector2( 0.5, 1.0 )
    textLabel.Size = new UDim2( 0.05, 0, 0.1, 0 )
    textLabel.TextScaled = true
    textLabel.Text = "!"

@@ -5,17 +5,17 @@ import { Assert, GetLocalPlayer, LoadSound } from "shared/sh_utils"
 import { Players } from "@rbxts/services"
 import { SetPlayerWalkSpeed } from "shared/sh_onPlayerConnect"
 import { AddPlayerUseDisabledCallback, SetUseDebounceTime } from "./cl_use"
+import { IsPracticing } from "shared/sh_gamestate"
 
 export enum TASK_UI
 {
-   TASK_LIST,
    TASK_CONTROLLER,
 }
 
 class File
 {
    camera: Camera | undefined
-   taskUI: Record<TASK_UI, ScreenGui | undefined> = { 0: undefined, 1: undefined }
+   taskUI: Record<TASK_UI, ScreenGui | undefined> = { 0: undefined }
 
    taskSpecs: Record<string, TaskSpec> = {}
 
@@ -112,7 +112,8 @@ export function RPC_FromServer_CancelTask()
 
 export function RPC_FromServer_OnPlayerUseTask( roomName: string, taskName: string )
 {
-   SetPlayerWalkSpeed( GetLocalPlayer(), 0 )
+   let localPlayer = GetLocalPlayer()
+   SetPlayerWalkSpeed( localPlayer, 0 )
 
    let taskUIController = GetTaskUI( TASK_UI.TASK_CONTROLLER ) as EDITOR_TaskUI
 

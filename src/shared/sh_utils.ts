@@ -286,6 +286,11 @@ export function RandomFloatRange( min: number, max: number ): number
    return Graph( math.random(), 0, 1, min, max )
 }
 
+export function RandomInt( num: number )
+{
+   return math.floor( math.random( 0, num - 1 ) )
+}
+
 export function CreateRemoteEvent( name: string ): RemoteEvent
 {
    Assert( IsServer(), "Can't do this on the client" )
@@ -330,7 +335,7 @@ export function SetPlayerState( player: Player, setting: Enum.HumanoidStateType,
 export function PlayerTouchesPart( player: Player, basePart: BasePart ): boolean
 {
    let playerOrg = GetPosition( player )
-   let dist = math.abs( ( playerOrg.sub( basePart.Position ) ).Magnitude )
+   let dist = ( playerOrg.sub( basePart.Position ) ).Magnitude
 
    if ( dist > basePart.Size.Magnitude )
       return false
@@ -564,4 +569,26 @@ export function KillPlayer( player: Player )
    let human = GetHumanoid( player )
    if ( human )
       human.TakeDamage( human.Health )
+}
+
+
+export function GetClosest( player: Player, baseParts: Array<BasePart> ): BasePart
+{
+   let playerOrg = GetPosition( player )
+   Assert( baseParts.size() > 0, "No parts" )
+   let closestPart = baseParts[0]
+   let closestDist = math.abs( ( playerOrg.sub( closestPart.Position ).Magnitude ) )
+
+   for ( let i = 1; i < baseParts.size(); i++ )
+   {
+      let basePart = baseParts[i]
+      let dist = math.abs( ( playerOrg.sub( basePart.Position ).Magnitude ) )
+      if ( dist < closestDist )
+      {
+         closestDist = dist
+         closestPart = basePart
+      }
+   }
+
+   return closestPart
 }

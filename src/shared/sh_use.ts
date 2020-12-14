@@ -1,7 +1,7 @@
 import { GetPlayerCooldownTimeRemaining } from "./sh_cooldown"
 import { USE_COOLDOWNS } from "./sh_gamestate"
 import { AddRPC } from "./sh_rpc"
-import { Assert, GetPosition, IsServer } from "./sh_utils"
+import { Assert, GetPosition, IsServer, Thread } from "./sh_utils"
 
 type USETYPES = number
 
@@ -62,6 +62,11 @@ export class Usable
       this.getter = getter
    }
 
+   public HasGetter()
+   {
+      return this.getter !== undefined
+   }
+
    constructor( useType: USETYPES, image: string, text: string )
    {
       this.useType = useType
@@ -77,22 +82,57 @@ export function SH_UseSetup()
    if ( IsServer() )
    {
       AddRPC( "RPC_FromClient_OnUse", RPC_FromClient_OnUse )
+
+      Thread(
+         function ()
+         {
+            wait()
+            for ( let pair of file.usablesByType )
+            {
+               let usable = pair[1]
+               Assert( usable.successFunc !== undefined, "usable.successFunc !== undefined" )
+               Assert( usable.HasGetter(), "usable.HasGetter()" )
+            }
+         } )
+   }
+   else
+   {
+      Thread(
+         function ()
+         {
+            wait()
+            for ( let pair of file.usablesByType )
+            {
+               let usable = pair[1]
+               Assert( usable.HasGetter(), "usable.HasGetter()" )
+            }
+         } )
    }
 }
 
 function RPC_FromClient_OnUse( player: Player )
 {
    print( "RPC_FromClient_OnUse " + player.Name )
+
    let useResults = GetUseResultsForAttempt( player )
    if ( useResults === undefined )
+   {
+      print( "no useResults" )
       return
+   }
 
    if ( GetPlayerCooldownTimeRemaining( player, USE_COOLDOWNS + useResults.usable.useType ) > 0 )
+   {
+      print( "On cooldown" )
       return
+   }
 
    let successFunc = useResults.usable.successFunc
    if ( successFunc === undefined )
+   {
+      print( "no success func" )
       return
+   }
    successFunc( player, useResults.usedThing )
 }
 
@@ -122,11 +162,13 @@ export function GetUsables(): Array<Usable>
 
 export function GetUseResultsForAttempt( player: Player ): UseResults | undefined
 {
+   //print( "GetUseResultsForAttempt " + player.Name )
    let pos = GetPosition( player )
 
    let usables = GetUsables()
    for ( let usable of usables )
    {
+      //print( "test " + usable.useType + " " + usable.text )
       if ( usable.testPlayerPosToInstance !== undefined )
       {
          let targets = usable.ExecuteGetter( player ) as Array<Instance>
@@ -141,6 +183,7 @@ export function GetUseResultsForAttempt( player: Player ): UseResults | undefine
             if ( usable.testPlayerPosToInstance( pos, target ) )
                return new UseResults( usable, target )
          }
+         //print( "failed usable.testPlayerPosToInstance " + targets.size() )
       }
       else if ( usable.testPlayerToBasePart !== undefined )
       {
@@ -155,6 +198,7 @@ export function GetUseResultsForAttempt( player: Player ): UseResults | undefine
             if ( usable.testPlayerToBasePart( player, target ) )
                return new UseResults( usable, target )
          }
+         //print( "failed usable.testPlayerToBasePart " + targets.size() )
       }
       else if ( usable.testPlayerPosToPos !== undefined )
       {
@@ -169,6 +213,7 @@ export function GetUseResultsForAttempt( player: Player ): UseResults | undefine
             if ( usable.testPlayerPosToPos( pos, target ) )
                return new UseResults( usable, target )
          }
+         //print( "failed usable.testPlayerPosToPos " + targets.size() )
       }
       else
       {
