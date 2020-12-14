@@ -68,6 +68,7 @@ export class Room
    bounds: BoundsXZ | undefined
    cameraAspectRatioMultiplier = 1.0
    startPoints: Array<Vector3> = []
+   meetingTrigger: BasePart | undefined
 }
 
 export class RoomAndTask
@@ -133,7 +134,7 @@ function CreateRoomFromFolder( folder: Folder ): Room
          case "usable_task":
             {
                let childPart = child as BasePart
-               Assert( childPart.ClassName === "Part", "trigger_door should be a Part" )
+               Assert( childPart.ClassName === "Part", "usable_task should be a Part" )
 
                childPart.CanCollide = false
                childPart.Transparency = 1.0
@@ -143,6 +144,17 @@ function CreateRoomFromFolder( folder: Folder ): Room
 
                Assert( !room.tasks.has( task.name ), "Room already has task " + task.name )
                room.tasks.set( task.name, task )
+            }
+            break
+
+         case "usable_meeting":
+            {
+               let childPart = child as BasePart
+               Assert( childPart.ClassName === "Part", "usable_meeting should be a Part" )
+
+               childPart.CanCollide = false
+               childPart.Transparency = 1.0
+               room.meetingTrigger = childPart
             }
             break
 

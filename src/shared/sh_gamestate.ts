@@ -2,8 +2,7 @@ import { HttpService, Workspace } from "@rbxts/services"
 import { AddNetVar, GetNetVar_Number, GetNetVar_String, SetNetVar } from "shared/sh_player_netvars"
 import { AddCooldown } from "./sh_cooldown"
 import { SetPlayerWalkSpeed } from "./sh_onPlayerConnect"
-import { PLAYER_COLORS, COOLDOWN_KILL, MEETING_DISCUSS_TIME, MEETING_VOTE_TIME, SPECTATOR_TRANS } from "./sh_settings"
-import { TweenCharacterParts } from "./sh_tween"
+import { COOLDOWN_KILL, MEETING_DISCUSS_TIME, MEETING_VOTE_TIME, SPECTATOR_TRANS } from "./sh_settings"
 import { Assert, IsServer, IsClient, UserIDToPlayer, IsAlive, SetPlayerTransparency, GetLocalPlayer, ExecOnChildWhenItExists } from "./sh_utils"
 
 export const NETVAR_JSON_TASKLIST = "JS_TL"
@@ -16,6 +15,7 @@ export enum USETYPES
    USETYPE_TASK = 0,
    USETYPE_KILL,
    USETYPE_REPORT,
+   USETYPE_MEETING,
 }
 
 export const USE_COOLDOWNS = "USE_COOLDOWNS"
@@ -55,8 +55,11 @@ export enum GAME_STATE
    GAME_STATE_DEAD, //6
 }
 
-export const MEETING_TYPE_EMERGENCY = 0
-export const MEETING_TYPE_REPORT = 1
+export enum MEETING_TYPE
+{
+   MEETING_EMERGENCY = 0,
+   MEETING_REPORT = 1
+}
 
 class NETVAR_Corpse
 {
@@ -109,7 +112,8 @@ class NETVAR_GameState
    corpses: Array<NETVAR_Corpse>
    votes: Array<NETVAR_Vote>
    meetingCallerUserId: number | undefined
-   meetingType: number | undefined
+   meetingType: MEETING_TYPE | undefined
+   meetingBodyUserId: number | undefined
    serverTime: number
    startingPossessedCount: number
 
@@ -195,7 +199,8 @@ export class Game
    assignments = new Map<Player, Array<Assignment>>()
 
    meetingCaller: Player | undefined
-   meetingType: number | undefined
+   meetingType: MEETING_TYPE | undefined
+   meetingBody: Player | undefined
 
    gameThread: thread | undefined
    playerToSpawnLocation = new Map<Player, Vector3>()
@@ -304,13 +309,14 @@ export class Game
          }
       }
 
-      if ( this.meetingCaller )
+      if ( this.meetingCaller && this.meetingBody )
       {
          for ( let pair of gameStateToRole )
          {
             let gs = pair[1]
             gs.meetingCallerUserId = this.meetingCaller.UserId
             gs.meetingType = this.meetingType
+            gs.meetingBodyUserId = this.meetingBody.UserId
          }
       }
 
@@ -744,6 +750,16 @@ export class Game
       {
          let meetingCaller = userIdToPlayer.get( gs.meetingCallerUserId )
          this.meetingCaller = meetingCaller
+      }
+
+      if ( gs.meetingBodyUserId === undefined )
+      {
+         this.meetingBody = undefined
+      }
+      else
+      {
+         let meetingBody = userIdToPlayer.get( gs.meetingBodyUserId )
+         this.meetingBody = meetingBody
       }
 
       return deltaTime

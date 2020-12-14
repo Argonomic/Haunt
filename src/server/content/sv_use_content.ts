@@ -1,6 +1,5 @@
-import { SetPlayerWalkSpeed } from "shared/sh_onPlayerConnect"
 import { GetHumanoid, GetPosition, IsAlive, KillPlayer } from "shared/sh_utils"
-import { GAME_STATE, ROLE, IsPracticing, Corpse, USETYPES, MEETING_TYPE_REPORT, COOLDOWN_NAME_KILL } from "shared/sh_gamestate"
+import { GAME_STATE, ROLE, IsPracticing, Corpse, USETYPES, COOLDOWN_NAME_KILL, MEETING_TYPE } from "shared/sh_gamestate"
 import { GetUsableByType, USABLETYPES } from "shared/sh_use"
 import { PlayerHasUnfinishedAssignment, PlayerToGame, ClearAssignments } from "server/sv_gameState"
 import { SendRPC } from "server/sv_utils"
@@ -41,7 +40,8 @@ export function SV_UseContentSetup()
             {
                print( "Set meeting caller to " + player.Name )
                game.meetingCaller = player
-               game.meetingType = MEETING_TYPE_REPORT
+               game.meetingBody = corpse.player
+               game.meetingType = MEETING_TYPE.MEETING_REPORT
                game.SetGameState( GAME_STATE.GAME_STATE_MEETING_DISCUSS )
                return
             }
@@ -123,19 +123,33 @@ export function SV_UseContentSetup()
          return results
       } )
 
-   usableTask.successFunc =
-      function ( player: Player, usedThing: USABLETYPES )
-      {
-         let volume = usedThing as BasePart
-         let room = GetCurrentRoom( player )
-         for ( let pair of room.tasks )
-         {
-            if ( pair[1].volume !== volume )
-               continue
+   {
+      let usable = GetUsableByType( USETYPES.USETYPE_MEETING )
 
-            SetPlayerWalkSpeed( player, 0 )
-            SendRPC( "RPC_FromServer_OnPlayerUseTask", player, room.name, pair[0] )
-            break
+      usable.DefineGetter(
+         function ( player: Player ): Array<BasePart>
+         {
+            if ( IsPracticing( player ) )
+               return []
+
+            let room = GetCurrentRoom( player )
+            if ( room.meetingTrigger !== undefined )
+               return [room.meetingTrigger]
+            return []
+         } )
+
+      usable.successFunc =
+         function ( player: Player, usedThing: USABLETYPES )
+         {
+            let volume = usedThing as BasePart
+            let room = GetCurrentRoom( player )
+            if ( room.meetingTrigger !== volume )
+               return
+
+            let game = PlayerToGame( player )
+            game.meetingCaller = player
+            game.meetingType = MEETING_TYPE.MEETING_EMERGENCY
+            game.SetGameState( GAME_STATE.GAME_STATE_MEETING_DISCUSS )
          }
-      }
+   }
 }

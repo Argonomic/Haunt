@@ -6,6 +6,9 @@ import { GetPosition, PlayerTouchesPart } from "shared/sh_utils";
 const ICON_CORPSE = 'rbxassetid://6080134682'
 const TEXT_CORPSE = "REPORT"
 
+const ICON_MEETING = 'rbxassetid://6080134682'
+const TEXT_MEETING = "CALL MEETING"
+
 const ICON_HAND = 'rbxassetid://982410018'
 const TEXT_HAND = "USE"
 
@@ -30,5 +33,11 @@ export function SH_UseContentSetup()
       function ( userPos: Vector3, target: Vector3 )
       {
          return userPos.sub( target ).Magnitude <= REPORT_DIST
+      }
+
+   AddUseType( USETYPES.USETYPE_MEETING, ICON_MEETING, TEXT_MEETING ).testPlayerToBasePart =
+      function ( player: Player, target: BasePart )
+      {
+         return PlayerTouchesPart( player, target )
       }
 }

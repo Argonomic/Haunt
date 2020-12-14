@@ -1,4 +1,4 @@
-export const DEV_STARTMEETING = false
+//export const DEV_STARTMEETING = false
 export const DEV_READYUP = true
 export const MIN_PLAYERS = 5
 export const MAX_PLAYERS = 10
@@ -10,8 +10,8 @@ export const REPORT_DIST = 5
 export const MEETING_DISCUSS_TIME = 5
 
 export let MEETING_VOTE_TIME = 60
-if ( DEV_STARTMEETING )
-   MEETING_VOTE_TIME = 6000
+//if ( DEV_STARTMEETING )
+//   MEETING_VOTE_TIME = 6000
 
 export const SPECTATOR_TRANS = 0.6
 

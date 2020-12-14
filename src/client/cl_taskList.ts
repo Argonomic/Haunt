@@ -62,13 +62,14 @@ export function CL_TaskListSetup()
    InitCallouts( CALLOUTS_NAME )
 
    AddRoomChangedCallback( RecreateTaskListCallouts2d )
+
    GetUsableByType( USETYPES.USETYPE_TASK ).DefineGetter(
       function ( player: Player ): Array<BasePart>
       {
-         let parts: Array<BasePart> = []
          if ( !CurrentRoomExists() )
-            return parts
+            return []
 
+         let parts: Array<BasePart> = []
          let room = GetCurrentRoom()
 
          if ( IsPracticing( GetLocalPlayer() ) )
@@ -95,6 +96,24 @@ export function CL_TaskListSetup()
          }
 
          return parts
+      } )
+
+
+
+   GetUsableByType( USETYPES.USETYPE_MEETING ).DefineGetter(
+      function ( player: Player ): Array<BasePart>
+      {
+         if ( !CurrentRoomExists() )
+            return []
+
+         if ( IsPracticing( GetLocalPlayer() ) )
+            return []
+
+         let room = GetCurrentRoom()
+         if ( room.meetingTrigger !== undefined )
+            return [room.meetingTrigger]
+
+         return []
       } )
 
    AddNetVarChangedCallback( NETVAR_JSON_TASKLIST, RefreshTaskList )

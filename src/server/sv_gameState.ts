@@ -1,8 +1,8 @@
 import { Chat, HttpService, Players } from "@rbxts/services"
 import { AddRPC } from "shared/sh_rpc"
-import { ArrayRandomize, Assert, GetHumanoid, IsAlive, KillPlayer, Thread, UserIDToPlayer } from "shared/sh_utils"
-import { Assignment, GAME_STATE, SharedGameStateInit, NETVAR_JSON_TASKLIST, ROLE, IsPracticing, Game, GAMERESULTS, MEETING_TYPE_REPORT, GetVoteResults } from "shared/sh_gamestate"
-import { MAX_TASKLIST_SIZE, MAX_PLAYERS, MIN_PLAYERS, SPAWN_ROOM, DEV_STARTMEETING } from "shared/sh_settings"
+import { ArrayRandomize, Assert, IsAlive, Thread, UserIDToPlayer } from "shared/sh_utils"
+import { Assignment, GAME_STATE, SharedGameStateInit, NETVAR_JSON_TASKLIST, ROLE, IsPracticing, Game, GAMERESULTS, GetVoteResults } from "shared/sh_gamestate"
+import { MAX_TASKLIST_SIZE, MAX_PLAYERS, MIN_PLAYERS, SPAWN_ROOM } from "shared/sh_settings"
 import { SetNetVar } from "shared/sh_player_netvars"
 import { AddCallback_OnPlayerCharacterAdded, SetPlayerWalkSpeed } from "shared/sh_onPlayerConnect"
 import { SendRPC } from "./sv_utils"
@@ -287,6 +287,7 @@ function GameThread( game: Game, gameEndFunc: Function )
 
          case GAME_STATE.GAME_STATE_PLAYING:
 
+            /*
             if ( DEV_STARTMEETING )
             {
                Thread(
@@ -299,10 +300,11 @@ function GameThread( game: Game, gameEndFunc: Function )
                      print( "START A MEETING!!" )
                      let players = game.GetAllPlayers()
                      game.meetingCaller = players[0]
-                     game.meetingType = MEETING_TYPE_REPORT
+                     game.meetingType = MEETING_TYPE.MEETING_REPORT
                      game.SetGameState( GAME_STATE.GAME_STATE_MEETING_DISCUSS )
                   } )
             }
+            */
 
             break
 

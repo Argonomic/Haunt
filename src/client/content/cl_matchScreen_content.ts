@@ -1,7 +1,7 @@
 import { Workspace } from "@rbxts/services";
 import { WaitForMatchScreenFrame } from "client/cl_matchScreen";
 import { AddPlayerGuiFolderExistsCallback } from "client/cl_ui";
-import { ROLE } from "shared/sh_gamestate";
+import { MEETING_TYPE, ROLE } from "shared/sh_gamestate";
 import { ClonePlayerModel } from "shared/sh_onPlayerConnect";
 import { Tween, TweenCharacterParts, TweenModel } from "shared/sh_tween";
 import { Assert, GetLocalPlayer, Graph, SetCharacterTransparency, SetCharacterYaw, Thread } from "shared/sh_utils";
@@ -52,7 +52,7 @@ export function CL_MatchScreenContentSetup()
             break
 
          case 1:
-            DrawMatchScreen_EmergencyMeeting()
+            //DrawMatchScreen_EmergencyMeeting()
             break
 
          case 2:
@@ -611,20 +611,37 @@ export function DrawMatchScreen_VoteResults( skipTie: boolean, receivedHighestVo
    }
 }
 
-export function DrawMatchScreen_EmergencyMeeting()
+export function DrawMatchScreen_EmergencyMeeting( meetingType: MEETING_TYPE, caller: Player, body: Player | undefined )
 {
    let matchScreenFrame = WaitForMatchScreenFrame( "EmergencyMeeting" )
    let baseFrame = matchScreenFrame.baseFrame
+   let title = matchScreenFrame.title
+   let subTitle = matchScreenFrame.subTitle
    Tween( baseFrame, { Transparency: 0 }, 0.5 )
    wait( 0.5 )
 
-   let centerprint = matchScreenFrame.centerprint
-   centerprint.TextTransparency = 1
-   centerprint.Text = "Emergency Meeting!"
+   title.TextTransparency = 1
+   title.Text = "Emergency Meeting!"
 
-   Tween( centerprint, { TextTransparency: 0 }, 0.5 )
-   wait( 2 )
-   Tween( centerprint, { TextTransparency: 1 }, 1.0 )
+   subTitle.TextTransparency = 1
+   switch ( meetingType )
+   {
+      case MEETING_TYPE.MEETING_EMERGENCY:
+         subTitle.Text = caller.Name + " called a meeting!"
+         break
+
+      case MEETING_TYPE.MEETING_REPORT:
+         if ( body !== undefined )
+            subTitle.Text = caller.Name + " found the corpse of " + body.Name
+         break
+   }
+
+   Tween( title, { TextTransparency: 0 }, 0.5 )
+   wait( 1 )
+   Tween( subTitle, { TextTransparency: 0 }, 0.5 )
+   wait( 1.5 )
+   Tween( title, { TextTransparency: 1 }, 1.0 )
+   Tween( subTitle, { TextTransparency: 1 }, 1.0 )
    wait( 1 )
    Tween( baseFrame, { Transparency: 1 }, 1.0 )
 }

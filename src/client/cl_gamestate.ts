@@ -1,5 +1,5 @@
 import { Workspace } from "@rbxts/services"
-import { ROLE, Game, NETVAR_JSON_GAMESTATE, USETYPES, GAME_STATE, GetVoteResults, GAMERESULTS } from "shared/sh_gamestate"
+import { ROLE, Game, NETVAR_JSON_GAMESTATE, USETYPES, GAME_STATE, GetVoteResults, GAMERESULTS, MEETING_TYPE } from "shared/sh_gamestate"
 import { AddCallback_OnPlayerCharacterAdded } from "shared/sh_onPlayerConnect"
 import { AddNetVarChangedCallback } from "shared/sh_player_netvars"
 import { SetTimeDelta } from "shared/sh_time"
@@ -197,7 +197,14 @@ function CLGameStateChanged( oldGameState: number, newGameState: number )
          file.clientGame.ClearVotes()
          WaitThread( function ()
          {
-            DrawMatchScreen_EmergencyMeeting()
+            if ( file.clientGame.meetingType !== undefined && file.clientGame.meetingCaller !== undefined )
+            {
+               let body: Player | undefined = file.clientGame.meetingBody
+               if ( file.clientGame.meetingType === MEETING_TYPE.MEETING_EMERGENCY )
+                  body = undefined
+
+               DrawMatchScreen_EmergencyMeeting( file.clientGame.meetingType, file.clientGame.meetingCaller, body )
+            }
          } )
          break
 
