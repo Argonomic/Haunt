@@ -207,22 +207,6 @@ function GameStateChanged( game: Game, oldGameState: GAME_STATE, gameState: GAME
             ResetAllCooldownTimes( player )
          }
          break
-
-      case GAME_STATE.GAME_STATE_MEETING_DISCUSS:
-      case GAME_STATE.GAME_STATE_MEETING_VOTE:
-         {
-            // these states need a reminder ot resume
-            let remaining = game.GetTimeRemainingForState()
-            if ( remaining > 0 )
-            {
-               Thread( function ()
-               {
-                  wait( remaining )
-                  game.UpdateGame()
-               } )
-            }
-         }
-         break
    }
 }
 
@@ -324,10 +308,18 @@ function GameThread( game: Game, gameEndFunc: Function )
 
          case GAME_STATE.GAME_STATE_MEETING_DISCUSS:
             {
-               if ( game.GetTimeRemainingForState() <= 0 )
+               let remaining = game.GetTimeRemainingForState()
+               if ( remaining <= 0 )
                {
                   game.SetGameState( GAME_STATE.GAME_STATE_MEETING_VOTE )
-                  break
+               }
+               else
+               {
+                  Thread( function ()
+                  {
+                     wait( remaining )
+                     game.UpdateGame()
+                  } )
                }
             }
             break
@@ -335,21 +327,32 @@ function GameThread( game: Game, gameEndFunc: Function )
          case GAME_STATE.GAME_STATE_MEETING_VOTE:
             {
                let remaining = game.GetTimeRemainingForState()
-               let count = game.GetPossessed().size() + game.GetCampers().size()
+               let count = game.GetLivingPossessed().size() + game.GetLivingCampers().size()
                let votes = game.GetVotes()
                if ( remaining <= 0 || votes.size() >= count )
                {
                   game.SetGameState( GAME_STATE.GAME_STATE_PLAYING )
                   break
                }
+               else
+               {
+                  Thread( function ()
+                  {
+                     wait( remaining )
+                     game.UpdateGame()
+                  } )
+               }
             }
             break
 
          case GAME_STATE.GAME_STATE_COMPLETE:
             print( "Game is over" )
+            game.BroadcastGamestate()
+            wait( 20 )
+
             //print( "Ending state: " + game.GetGameResults() )
-            //print( "Possessed: " + game.GetPossessed().size() )
-            //print( "Campers: " + game.GetCampers().size() )
+            //print( "Possessed: " + game.GetLivingPossessed().size() )
+            //print( "Campers: " + game.GetLivingCampers().size() )
             for ( let player of game.GetAllPlayers() )
             {
                ClearAssignments( game, player )

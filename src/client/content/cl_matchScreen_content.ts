@@ -80,7 +80,7 @@ export function CL_MatchScreenContentSetup()
 
          case 6:
             {
-               DrawMatchScreen_Winners( [player, player], ROLE.ROLE_CAMPER )
+               DrawMatchScreen_Winners( [player, player], ROLE.ROLE_CAMPER, 1 )
             }
       }
    }
@@ -627,11 +627,10 @@ export function DrawMatchScreen_EmergencyMeeting()
    Tween( centerprint, { TextTransparency: 1 }, 1.0 )
    wait( 1 )
    Tween( baseFrame, { Transparency: 1 }, 1.0 )
-   print( "DRAW THE MEETING ALREADY?" )
 }
 
 
-export function DrawMatchScreen_Winners( winners: Array<Player>, localRole: ROLE )
+export function DrawMatchScreen_Winners( winners: Array<Player>, localRole: ROLE, startingPossessedCount: number )
 {
    let localWinner = false
    for ( let player of winners )
@@ -658,7 +657,6 @@ export function DrawMatchScreen_Winners( winners: Array<Player>, localRole: ROLE
    else
       title.Text = "Defeat"
 
-
    title.TextTransparency = 1
    subTitle.TextTransparency = 1
    lowerTitle.TextTransparency = 1
@@ -675,8 +673,14 @@ export function DrawMatchScreen_Winners( winners: Array<Player>, localRole: ROLE
       switch ( localRole )
       {
          case ROLE.ROLE_CAMPER:
+         case ROLE.ROLE_SPECTATOR_CAMPER:
             if ( winners.size() > 1 )
-               subTitle.Text = "You defeated the imposters!"
+            {
+               if ( startingPossessedCount === 1 )
+                  subTitle.Text = "You defeated the imposter!"
+               else
+                  subTitle.Text = "You defeated the imposters!"
+            }
             else
                subTitle.Text = "You escaped!"
 

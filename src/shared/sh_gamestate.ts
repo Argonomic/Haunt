@@ -2,8 +2,9 @@ import { HttpService, Workspace } from "@rbxts/services"
 import { AddNetVar, GetNetVar_Number, GetNetVar_String, SetNetVar } from "shared/sh_player_netvars"
 import { AddCooldown } from "./sh_cooldown"
 import { SetPlayerWalkSpeed } from "./sh_onPlayerConnect"
-import { COOLDOWN_KILL, MEETING_DISCUSS_TIME, MEETING_VOTE_TIME, SPECTATOR_TRANS } from "./sh_settings"
-import { Assert, IsServer, IsClient, UserIDToPlayer, IsAlive, SetPlayerTransparency, GetLocalPlayer, SetPlayerYaw, ExecOnChildWhenItExists } from "./sh_utils"
+import { PLAYER_COLORS, COOLDOWN_KILL, MEETING_DISCUSS_TIME, MEETING_VOTE_TIME, SPECTATOR_TRANS } from "./sh_settings"
+import { TweenCharacterParts } from "./sh_tween"
+import { Assert, IsServer, IsClient, UserIDToPlayer, IsAlive, SetPlayerTransparency, GetLocalPlayer, ExecOnChildWhenItExists } from "./sh_utils"
 
 export const NETVAR_JSON_TASKLIST = "JS_TL"
 export const NETVAR_MATCHMAKING_STATUS = "MMS"
@@ -212,8 +213,8 @@ export class Game
    public GetGameResults()
    {
       let game = this
-      let possessed = game.GetPossessed().size()
-      let campers = game.GetCampers().size()
+      let possessed = game.GetLivingPossessed().size()
+      let campers = game.GetLivingCampers().size()
       if ( possessed === 0 )
       {
          if ( campers === 0 )
@@ -267,6 +268,7 @@ export class Game
 
       let startingPossessedCount = this.startingPossessedCount
 
+      print( "\nBroadcasting game state: " + this.GetGameState() )
       {
          // tell the campers about everyone, but mask the possessed
          let infos: Array<NETVAR_GamePlayerInfo> = []
@@ -281,6 +283,7 @@ export class Game
 
          let gs = new NETVAR_GameState( this, infos, corpses, votes, startingPossessedCount )
          gameStateToRole.set( ROLE.ROLE_CAMPER, gs )
+         gameStateToRole.set( ROLE.ROLE_SPECTATOR_CAMPER, gs )
       }
 
       {
@@ -292,8 +295,13 @@ export class Game
 
          let gs = new NETVAR_GameState( this, infos, corpses, votes, startingPossessedCount )
          gameStateToRole.set( ROLE.ROLE_POSSESSED, gs )
-         gameStateToRole.set( ROLE.ROLE_SPECTATOR_CAMPER, gs )
          gameStateToRole.set( ROLE.ROLE_SPECTATOR_IMPOSTER, gs )
+         if ( this.GetGameState() === GAME_STATE.GAME_STATE_COMPLETE )
+         {
+            // game is over, tell campers who the imposters are
+            gameStateToRole.set( ROLE.ROLE_CAMPER, gs )
+            gameStateToRole.set( ROLE.ROLE_SPECTATOR_CAMPER, gs )
+         }
       }
 
       if ( this.meetingCaller )
@@ -487,14 +495,24 @@ export class Game
       return players
    }
 
-   public GetCampers(): Array<Player>
+   public GetLivingCampers(): Array<Player>
    {
       return this.GetPlayersOfRole( ROLE.ROLE_CAMPER )
    }
 
-   public GetPossessed(): Array<Player>
+   public GetCampers(): Array<Player>
+   {
+      return this.GetPlayersOfRole( ROLE.ROLE_CAMPER ).concat( this.GetPlayersOfRole( ROLE.ROLE_SPECTATOR_CAMPER ) )
+   }
+
+   public GetLivingPossessed(): Array<Player>
    {
       return this.GetPlayersOfRole( ROLE.ROLE_POSSESSED )
+   }
+
+   public GetPossessed(): Array<Player>
+   {
+      return this.GetPlayersOfRole( ROLE.ROLE_POSSESSED ).concat( this.GetPlayersOfRole( ROLE.ROLE_SPECTATOR_IMPOSTER ) )
    }
 
    public GetSpectators(): Array<Player>
@@ -612,12 +630,10 @@ export class Game
       let gs = HttpService.JSONDecode( json ) as NETVAR_GameState
       let userIdToPlayer = UserIDToPlayer()
       this.currentGameState = gs.currentGameState
+
       let deltaTime = Workspace.DistributedGameTime - gs.serverTime
-
-      //this.gameStateChangedTime = gs.gsChangedTime + deltaTime // DistributedGameTime varies from player to player
+      this._gameStateChangedTime = gs.gsChangedTime + deltaTime // DistributedGameTime varies from player to player
       this.startingPossessedCount = gs.startingPossessedCount
-
-
 
       // update PLAYERS
       {
@@ -638,9 +654,7 @@ export class Game
                playerInfo = this.AddPlayer( player, role )
 
             if ( playerInfo !== undefined )
-            {
                playerInfo.playernum = gsPlayerInfo.playernum
-            }
          }
 
          let localSpectator = this.IsSpectator( localPlayer )
@@ -658,17 +672,6 @@ export class Game
             }
          }
 
-
-         /*
-         // remove players that were not sent
-         for ( let pair of this.playerToInfo )
-         {
-            if ( sentPlayers.has( pair[0] ) )
-               continue
-            this.playerToInfo.delete( pair[0] )
-            SetPlayerTransparency( pair[0], 1, new Color3( 1, 0, 0 ) )
-         }
-         */
       }
 
       // update CORPSES

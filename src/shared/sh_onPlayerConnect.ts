@@ -44,7 +44,6 @@ export function AddCallback_OnPlayerCharacterAdded( func: Function )
 function OnPlayerCharacterAdded( character: Model )
 {
    let player = GetPlayerFromCharacter( character ) as Player
-   player.TeamColor = BrickColor.Red()
 
    ExecOnChildWhenItExists( character, "Humanoid", function ( instance: Instance )
    {
@@ -56,7 +55,6 @@ function OnPlayerCharacterAdded( character: Model )
                for ( ; ; )
                {
                   let children = character.GetChildren()
-                  print( "children: " + children.size() )
                   if ( children.size() > 20 )
                   {
                      let clone = _CloneCharacter( character )

@@ -366,14 +366,6 @@ export function SetPlayerTransparency( player: Player, value: number )
 
 export function SetCharacterTransparency( char: Model, value: number )
 {
-   /*
-   let player = GetPlayerFromCharacter( char )
-   if ( player !== undefined )
-      print( "SetCharacterTransparency " + value + " " + player.UserId + " local:" + ( player === GetLocalPlayer() ) )
-   else
-      print( "SetCharacterTransparency " + value + " _ local:" + ( player === GetLocalPlayer() ) )
-      */
-
    let head = char.FindFirstChild( "Head" )
    if ( head )
    {
@@ -389,18 +381,11 @@ export function SetCharacterTransparency( char: Model, value: number )
          child = handle
 
       if ( child.IsA( 'BasePart' ) )
-      {
          child.Transparency = value
-         //   child.Color = color
-      }
    }
 
-
-   //let rootPart = GetExistingFirstChildWithNameAndClassName( char, "HumanoidRootPart", 'Part' ) as Part
-   //rootPart.Transparency = 1
    let primaryPart = char.PrimaryPart as Part
    primaryPart.Transparency = 1
-
 }
 
 

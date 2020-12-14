@@ -50,7 +50,6 @@ function GameThread( game: Game )
 
       UpdateMeeting( file.clientGame, lastGameStateForMeeting )
 
-
       coroutine.yield() // wait until something says update again
    }
 }
@@ -77,7 +76,7 @@ export function CL_GameStateSetup()
          switch ( file.clientGame.GetPlayerRole( player ) )
          {
             case ROLE.ROLE_POSSESSED:
-               return file.clientGame.GetCampers()
+               return file.clientGame.GetLivingCampers()
          }
 
          return []
@@ -131,7 +130,8 @@ export function CL_GameStateSetup()
 
 function CLGameStateChanged( oldGameState: number, newGameState: number )
 {
-   print( "GAME STATE CHANGED FROM " + oldGameState + " TO " + newGameState )
+   print( "\nGAME STATE CHANGED FROM " + oldGameState + " TO " + newGameState )
+
 
    for ( let player of file.clientGame.GetAllPlayers() )
    {
@@ -149,7 +149,7 @@ function CLGameStateChanged( oldGameState: number, newGameState: number )
 
             WaitThread( function ()
             {
-               DrawMatchScreen_Intro( file.clientGame.GetPossessed(), file.clientGame.GetCampers(), file.clientGame.startingPossessedCount )
+               DrawMatchScreen_Intro( file.clientGame.GetLivingPossessed(), file.clientGame.GetLivingCampers(), file.clientGame.startingPossessedCount )
                TaskList_Enable()
             } )
          }
@@ -203,22 +203,24 @@ function CLGameStateChanged( oldGameState: number, newGameState: number )
 
       case GAME_STATE.GAME_STATE_COMPLETE:
 
-         switch ( file.clientGame.GetGameResults() )
+         let gameResults = file.clientGame.GetGameResults()
+
+         switch ( gameResults )
          {
             case GAMERESULTS.RESULTS_CAMPERS_WIN:
-               let nonPossessed: Array<Player> = []
-               nonPossessed = nonPossessed.concat( file.clientGame.GetCampers() )
-               nonPossessed = nonPossessed.concat( file.clientGame.GetSpectators() )
+
                WaitThread( function ()
                {
-                  DrawMatchScreen_Winners( nonPossessed, GetLocalRole() )
+                  let campers = file.clientGame.GetCampers()
+                  DrawMatchScreen_Winners( campers, GetLocalRole(), file.clientGame.startingPossessedCount )
                } )
                break
 
             case GAMERESULTS.RESULTS_POSSESSED_WIN:
                WaitThread( function ()
                {
-                  DrawMatchScreen_Winners( file.clientGame.GetPossessed(), GetLocalRole() )
+                  let possessed = file.clientGame.GetPossessed()
+                  DrawMatchScreen_Winners( possessed, GetLocalRole(), file.clientGame.startingPossessedCount )
                } )
                break
          }

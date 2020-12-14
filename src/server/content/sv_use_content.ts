@@ -64,7 +64,7 @@ export function SV_UseContentSetup()
                return []
          }
 
-         let campers = game.GetCampers()
+         let campers = game.GetLivingCampers()
          let results: Array<Player> = []
          for ( let camper of campers )
          {
