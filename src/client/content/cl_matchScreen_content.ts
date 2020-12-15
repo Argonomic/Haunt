@@ -650,12 +650,19 @@ export function DrawMatchScreen_EmergencyMeeting( meetingType: MEETING_TYPE, cal
 export function DrawMatchScreen_Winners( winners: Array<Player>, localRole: ROLE, startingPossessedCount: number )
 {
    let localWinner = false
-   for ( let player of winners )
+   if ( localRole === ROLE.ROLE_SPECTATOR_CAMPER_ESCAPED )
    {
-      if ( file.player === player )
+      localWinner = true
+   }
+   else
+   {
+      for ( let player of winners )
       {
-         localWinner = true
-         break
+         if ( file.player === player )
+         {
+            localWinner = true
+            break
+         }
       }
    }
 
@@ -689,21 +696,26 @@ export function DrawMatchScreen_Winners( winners: Array<Player>, localRole: ROLE
    {
       switch ( localRole )
       {
+         case ROLE.ROLE_SPECTATOR_CAMPER_ESCAPED:
+            if ( startingPossessedCount === 1 )
+               subTitle.Text = "You escaped the imposter!"
+            else
+               subTitle.Text = "You escaped the imposters!"
+            break
+
          case ROLE.ROLE_CAMPER:
          case ROLE.ROLE_SPECTATOR_CAMPER:
-            if ( winners.size() > 1 )
-            {
-               if ( startingPossessedCount === 1 )
-                  subTitle.Text = "You defeated the imposter!"
-               else
-                  subTitle.Text = "You defeated the imposters!"
-            }
+            if ( startingPossessedCount === 1 )
+               subTitle.Text = "You defeated the imposter!"
             else
-               subTitle.Text = "You escaped!"
-
-            Tween( subTitle, { TextTransparency: 0 }, FADE_IN )
-            wait( 0.4 )
+               subTitle.Text = "You defeated the imposters!"
             break
+      }
+
+      if ( subTitle.Text !== "" )
+      {
+         Tween( subTitle, { TextTransparency: 0 }, FADE_IN )
+         wait( 0.4 )
       }
    }
 

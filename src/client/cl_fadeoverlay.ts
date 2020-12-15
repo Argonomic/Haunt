@@ -1,5 +1,6 @@
 import { RunService, Workspace } from "@rbxts/services"
 import { Corpse, IsPracticing, PlayerNumToGameViewable, ROLE } from "shared/sh_gamestate"
+import { AddCallback_OnPlayerCharacterAncestryChanged } from "shared/sh_onPlayerConnect"
 import { PLAYER_COLORS } from "shared/sh_settings"
 import { TweenPlayerParts } from "shared/sh_tween"
 import { Assert, GetFirstChildWithNameAndClassName, GetLocalPlayer, IsAlive, SetCharacterTransparency } from "shared/sh_utils"
@@ -12,7 +13,7 @@ const TRANSPARENCY = 0.5
 Assert( Workspace.CurrentCamera !== undefined, "Workspace has no camera" )
 class File
 {
-   screenUI = new Instance( "ScreenGui" )
+   screenUI: ScreenGui | undefined
    camera: Camera
 
    constructor( camera: Camera )
@@ -21,13 +22,17 @@ class File
    }
 }
 let file = new File( Workspace.CurrentCamera as Camera )
-file.screenUI.Destroy()
 
 
 export function CL_FadeOverlaySetup()
 {
-   AddPlayerGuiFolderExistsCallback( function ( gui: Instance )
+   AddPlayerGuiFolderExistsCallback( function ( folder: Folder )
    {
+      if ( file.screenUI !== undefined )
+      {
+         file.screenUI.Parent = folder
+         return
+      }
       let localPlayer = GetLocalPlayer()
 
       let game = GetLocalGame()
@@ -35,7 +40,7 @@ export function CL_FadeOverlaySetup()
       let screenUI = new Instance( "ScreenGui" )
       file.screenUI = screenUI
       screenUI.Name = "OverlayUI"
-      screenUI.Parent = gui
+      screenUI.Parent = folder
       screenUI.DisplayOrder = UIORDER.UIORDER_FADEOVERLAY
 
       let fadeCircle = new Instance( "ImageLabel" )
@@ -138,7 +143,7 @@ export function CL_FadeOverlaySetup()
 
       //let seed = math.round( math.random() * 100 )
 
-      let connect = RunService.RenderStepped.Connect( function ()      
+      RunService.RenderStepped.Connect( function ()      
       {
          let LIGHTDIST = GetLightDist()
 
@@ -258,11 +263,12 @@ export function CL_FadeOverlaySetup()
             }
          }
       } )
-
-      screenUI.AncestryChanged.Connect( function ()
-      {
-         connect.Disconnect()
-         screenUI.Destroy()
-      } )
    } )
+
+   AddCallback_OnPlayerCharacterAncestryChanged(
+      function ()
+      {
+         if ( file.screenUI !== undefined )
+            file.screenUI.Parent = undefined
+      } )
 }

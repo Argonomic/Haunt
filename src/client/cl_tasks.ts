@@ -2,10 +2,8 @@ import { AddRPC } from "shared/sh_rpc"
 import { ReleaseDraggedButton, AddCallback_MouseUp } from "client/cl_ui"
 import { SendRPC } from "./cl_utils"
 import { Assert, GetLocalPlayer, LoadSound } from "shared/sh_utils"
-import { Players } from "@rbxts/services"
 import { SetPlayerWalkSpeed } from "shared/sh_onPlayerConnect"
 import { AddPlayerUseDisabledCallback, SetUseDebounceTime } from "./cl_use"
-import { IsPracticing } from "shared/sh_gamestate"
 
 export enum TASK_UI
 {
@@ -98,8 +96,7 @@ export function GetTaskUI( name: TASK_UI ): ScreenGui
 }
 
 
-
-export function RPC_FromServer_CancelTask()
+export function CancelAnyOpenTask()
 {
    let activeTaskStatus = file.activeTaskStatus
    if ( activeTaskStatus === undefined )
@@ -108,6 +105,11 @@ export function RPC_FromServer_CancelTask()
    let closeFunction = activeTaskStatus.closeFunction
    if ( closeFunction )
       closeFunction()
+}
+
+export function RPC_FromServer_CancelTask()
+{
+   CancelAnyOpenTask()
 }
 
 export function RPC_FromServer_OnPlayerUseTask( roomName: string, taskName: string )

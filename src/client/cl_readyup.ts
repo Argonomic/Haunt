@@ -130,13 +130,13 @@ function CreateReadyUI()
    if ( frame === undefined )
       return
 
-   let toggleButton = new ToggleButton( frame,
-      { 'Position': new UDim2( -0.01, 25, 1, -25 ), 'AnchorPoint': new Vector2( 1, 1 ) }, // visible
-      { 'Position': new UDim2( 0, 25, 1, -25 ), 'AnchorPoint': new Vector2( 0, 1 ) } // hidden
+   let toggleButton = new ToggleButton( frame, 180,
+      { 'Position': new UDim2( 1, -25, 1, -25 ), 'AnchorPoint': new Vector2( 0, 1 ) }, // hidden
+      { 'Position': new UDim2( 1, -25, 1, -25 ), 'AnchorPoint': new Vector2( 1, 1 ) }, // visible
    )
    toggleButton.button.BackgroundColor3 = new Color3( 125 / 256, 170 / 256, 133 / 256 )
-   toggleButton.button.Position = new UDim2( 1, 5, 1, 0 )
-   toggleButton.button.AnchorPoint = new Vector2( 0, 1 )
+   toggleButton.button.Position = new UDim2( 0, -5, 1, 0 )
+   toggleButton.button.AnchorPoint = new Vector2( 1, 1 )
 
    let children = frame.GetChildren()
 

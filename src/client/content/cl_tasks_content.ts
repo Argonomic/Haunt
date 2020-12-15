@@ -78,7 +78,7 @@ function GetTitle( name: string ): string
    switch ( name )
    {
       case TASK_EXIT:
-         return "Unlock the Door"
+         return "Escape the Mansion"
 
       case "put_books_away":
          return "Put Books Away"

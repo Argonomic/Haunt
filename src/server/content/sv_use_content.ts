@@ -57,13 +57,11 @@ export function SV_UseContentSetup()
             return []
 
          let game = PlayerToGame( player )
-         switch ( game.GetPlayerRole( player ) )
-         {
-            case ROLE.ROLE_CAMPER:
-            case ROLE.ROLE_SPECTATOR_CAMPER:
-            case ROLE.ROLE_SPECTATOR_IMPOSTER:
-               return []
-         }
+         if ( game.IsSpectator( player ) )
+            return []
+
+         if ( !game.IsImposter( player ) )
+            return []
 
          let campers = game.GetLivingCampers()
          let results: Array<Player> = []
@@ -88,9 +86,11 @@ export function SV_UseContentSetup()
          game.corpses.push( new Corpse( camper, GetPosition( camper ) ) )
          game.playerToSpawnLocation.set( camper, GetPosition( camper ) )
          KillPlayer( camper )
+         SendRPC( "RPC_FromServer_CancelTask", player )
+
          game.SetPlayerRole( camper, ROLE.ROLE_SPECTATOR_CAMPER )
-         SendRPC( "RPC_FromServer_CancelTask", camper )
-         ClearAssignments( game, player )
+         ClearAssignments( game, camper )
+
          game.UpdateGame()
          ResetPlayerCooldownTime( player, COOLDOWN_NAME_KILL )
       }
@@ -150,6 +150,10 @@ export function SV_UseContentSetup()
             if ( IsPracticing( player ) )
                return []
 
+            let game = PlayerToGame( player )
+            if ( game.IsSpectator( player ) )
+               return []
+
             let room = GetCurrentRoom( player )
             if ( room.meetingTrigger !== undefined )
                return [room.meetingTrigger]
@@ -159,6 +163,7 @@ export function SV_UseContentSetup()
       usable.successFunc =
          function ( player: Player, usedThing: USABLETYPES )
          {
+            print( "Meeting called by " + player.Name )
             let volume = usedThing as BasePart
             let room = GetCurrentRoom( player )
             if ( room.meetingTrigger !== volume )

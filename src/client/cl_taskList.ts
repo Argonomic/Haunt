@@ -9,6 +9,9 @@ import { Room, Task } from "shared/sh_rooms"
 import { AddMapIcon, ClearMinimapIcons } from "./cl_minimap"
 import { AddPlayerGuiFolderExistsCallback, ToggleButton, UIORDER } from "./cl_ui"
 import { GetUsableByType } from "shared/sh_use"
+import { GetLocalIsSpectator, GetLocalRole } from "./cl_gamestate"
+import { AddCallback_OnPlayerCharacterAncestryChanged } from "shared/sh_onPlayerConnect"
+import { Tween } from "shared/sh_tween"
 
 const CALLOUTS_NAME = "TASKLIST_CALLOUTS"
 
@@ -25,19 +28,19 @@ class File
    assignments: Array<Assignment> = []
    existingUI: EDITOR_ScreenUIWithFrame | undefined
    taskLabels: Array<TextLabel> = []
+   toggleButton: ToggleButton | undefined
+   framePosition = new UDim2( 0, 0, 0, 0 )
 }
 
 let file = new File()
 
 function RefreshTaskList()
 {
-   print( "RefreshTaskList!" )
    let json = GetNetVar_String( GetLocalPlayer(), NETVAR_JSON_TASKLIST )
    let assignments = HttpService.JSONDecode( json ) as Array<Assignment>
    file.assignments = assignments
 
-   if ( file.assignments.size() )
-      RedrawTaskListUI()
+   RedrawTaskListUI()
 }
 
 export function CL_TaskListSetup()
@@ -77,6 +80,9 @@ export function CL_TaskListSetup()
          if ( IsPracticing( player ) )
             return []
 
+         if ( GetLocalIsSpectator() )
+            return []
+
          if ( !CurrentRoomExists() )
             return []
 
@@ -91,10 +97,8 @@ export function CL_TaskListSetup()
 
    AddPlayerGuiFolderExistsCallback( function ( folder: Folder )
    {
-      print( "AddPlayerGuiFolderExistsCallback " )
       if ( file.existingUI !== undefined )
       {
-         print( "defined" )
          file.existingUI.Parent = folder
          return
       }
@@ -109,13 +113,15 @@ export function CL_TaskListSetup()
       clone.Parent = folder
       clone.ResetOnSpawn = false
       file.existingUI = clone
-      print( "created " + clone )
 
-      let toggleButton = new ToggleButton( clone.Frame,
-         { 'AnchorPoint': new Vector2( 1.1, 0 ) }, // visible
-         { 'AnchorPoint': new Vector2( 0.0, 0 ) } // hidden
+      file.framePosition = clone.Frame.Position
+
+      let toggleButton = new ToggleButton( clone.Frame, 0,
+         { 'AnchorPoint': new Vector2( 1.0, 0 ) }, // hidden
+         { 'AnchorPoint': new Vector2( 0.0, 0 ) } // visible
       )
       toggleButton.button.Position = new UDim2( 1, 5, 0, 5 )
+      file.toggleButton = toggleButton
 
 
       let internalFrame = new Instance( 'Frame' )
@@ -141,23 +147,23 @@ export function CL_TaskListSetup()
       }
       baseLabel.Destroy()
 
-      clone.AncestryChanged.Connect(
-         function ()
-         {
-            clone.Parent = undefined
-         } )
-
       RefreshTaskList()
       RecreateTaskListCallouts2d()
       RecreateTaskListMapIcons()
    } )
+
+   AddCallback_OnPlayerCharacterAncestryChanged(
+      function ()
+      {
+         if ( file.existingUI !== undefined )
+            file.existingUI.Parent = undefined
+      } )
 }
+
 
 
 function RedrawTaskListUI()
 {
-   Assert( file.assignments.size() > 0, "No assignments!" )
-
    if ( file.existingUI === undefined )
       return
 
@@ -168,20 +174,46 @@ function RedrawTaskListUI()
          count++
    }
 
+   let toggleButton = file.toggleButton
+   if ( toggleButton !== undefined && count === 0 )
+   {
+      if ( toggleButton.IsOpen() )
+      {
+         toggleButton.Close()
+
+         let position = file.framePosition
+         let newPosition = new UDim2( position.X.Scale - 0.25, position.X.Offset, position.Y.Scale, position.Y.Offset )
+         // deep close it
+         Tween( file.existingUI.Frame, { Position: newPosition, 'AnchorPoint': new Vector2( 1.0, 0 ) }, 1.0 )
+         return
+      }
+   }
+
+   for ( let label of file.taskLabels )
+   {
+      label.Text = ""
+   }
+
+
    let assignIndex = 0
-   file.taskLabels[0].Text = count + " Tasks Remaining:"
+   if ( IsPracticing( GetLocalPlayer() ) )
+   {
+      file.taskLabels[0].Text = "Practice " + count + " tasks:"
+   }
+   else
+   {
+      file.taskLabels[0].Text = count + " Tasks Remaining:"
+   }
+
    for ( let i = 1; i < file.taskLabels.size(); i++ )
    {
-      print( "i " + i )
-      let label = file.taskLabels[i]
-      label.Text = ""
-
       for ( let p = assignIndex; p < file.assignments.size(); p++ )
       {
          let assignment = file.assignments[p]
          if ( assignment.status === 0 )
          {
             let taskSpec = GetTaskSpec( assignment.taskName )
+            let label = file.taskLabels[i]
             label.Text = assignment.roomName + ": " + taskSpec.title
             assignIndex = p + 1
             break

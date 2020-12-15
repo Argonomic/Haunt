@@ -238,7 +238,7 @@ export function GetUIPackageFolder(): Folder
    return packageFolder
 }
 
-export function AddPlayerGuiFolderExistsCallback( func: Function )
+export function AddPlayerGuiFolderExistsCallback( func: ( folder: Folder ) => void )
 {
    Assert( !APlayerHasConnected(), "Too late for AddPlayerGuiFolderExistsCallback" )
    file.playerGuiExistsCallbacks.push( func )
@@ -302,10 +302,23 @@ export class ToggleButton
    private openFrameTween: any
    private closeFrameTween: any
    private taskListOpen = true
+   private rotationOffset: number
 
    public IsOpen(): boolean
    {
       return this.taskListOpen
+   }
+
+   public Open()
+   {
+      this.taskListOpen = true
+      this.Update()
+   }
+
+   public Close()
+   {
+      this.taskListOpen = false
+      this.Update()
    }
 
    private Update()
@@ -313,23 +326,25 @@ export class ToggleButton
       if ( this.taskListOpen )
       {
          Tween( this.frame, this.closeFrameTween, this.time, Enum.EasingStyle.Quad, Enum.EasingDirection.InOut )
-         Tween( this.button, { Rotation: 0 }, this.time, Enum.EasingStyle.Quad, Enum.EasingDirection.InOut )
+         Tween( this.button, { Rotation: this.rotationOffset }, this.time, Enum.EasingStyle.Quad, Enum.EasingDirection.InOut )
       }
       else
       {
          Tween( this.frame, this.openFrameTween, this.time, Enum.EasingStyle.Quad, Enum.EasingDirection.InOut )
-         Tween( this.button, { Rotation: 180 }, this.time, Enum.EasingStyle.Quad, Enum.EasingDirection.InOut )
+         Tween( this.button, { Rotation: this.rotationOffset + 180 }, this.time, Enum.EasingStyle.Quad, Enum.EasingDirection.InOut )
       }
    }
 
-   constructor( frame: GuiObject, openFrameTween: any, closeFrameTween: any )
+   constructor( frame: GuiObject, rotationOffset: number, openFrameTween: any, closeFrameTween: any )
    {
       let border = 5
       let button = new Instance( 'ImageButton' )
+      button.Name = "ToggleButton"
       this.frame = frame
       this.openFrameTween = openFrameTween
       this.closeFrameTween = closeFrameTween
       this.button = button
+      this.rotationOffset = rotationOffset
       button.Parent = frame
       button.AnchorPoint = new Vector2( 0, 0 )
       button.BackgroundColor3 = new Color3( 140 / 256, 142 / 256, 182 / 256 )

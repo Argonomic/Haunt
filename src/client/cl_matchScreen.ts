@@ -1,4 +1,4 @@
-import { AddCallback_OnPlayerCharacterAdded } from "shared/sh_onPlayerConnect";
+import { AddCallback_OnPlayerCharacterAdded, AddCallback_OnPlayerCharacterAncestryChanged } from "shared/sh_onPlayerConnect";
 import { Tween } from "shared/sh_tween";
 import { Assert, GetExistingFirstChildWithNameAndClassName, GetLocalPlayer, Thread } from "shared/sh_utils";
 import { AddPlayerGuiFolderExistsCallback, GetUIPackageFolder, UIORDER } from "./cl_ui";
@@ -104,52 +104,43 @@ export function CL_MatchScreenSetup()
    file.matchScreenUI.ResetOnSpawn = false
 
    AddPlayerGuiFolderExistsCallback(
-      function ( folder: Folder )
+      function ( guiFolder: Folder )
       {
          let matchScreenUI = file.matchScreenUI
-         matchScreenUI.Parent = folder
+         matchScreenUI.Parent = guiFolder
 
-         if ( file.baseFrameTemplate === undefined )
-         {
-            matchScreenUI.Name = 'MatchScreenUI'
-            matchScreenUI.IgnoreGuiInset = true
-            matchScreenUI.DisplayOrder = UIORDER.UIORDER_MATCHSCREEN
-
-            let folder = GetUIPackageFolder()
-            let template = GetExistingFirstChildWithNameAndClassName( folder, 'TemplateUIs', 'ScreenGui' ) as ScreenGui
-            let baseFrameTemplate = GetExistingFirstChildWithNameAndClassName( template, 'BaseFrame', 'Frame' ) as Frame
-            file.baseFrameTemplate = baseFrameTemplate
-            baseFrameTemplate.Parent = undefined // so it is not destroyed when character cycles
-
-            // Fade in
-            Thread( function ()
-            {
-               let frame = baseFrameTemplate.Clone()
-               frame.Transparency = 0
-               frame.ZIndex = 0
-               wait( 0.2 )
-               const TIME = 0.8
-               Tween( frame, { Transparency: 1.0 }, TIME, Enum.EasingStyle.Linear, Enum.EasingDirection.Out )
-               wait( TIME )
-               frame.Destroy()
-            } )
-         }
-      }
-   )
-
-   let localPlayer = GetLocalPlayer()
-   AddCallback_OnPlayerCharacterAdded(
-      function ( player: Player )
-      {
-         if ( player !== localPlayer )
+         if ( file.baseFrameTemplate !== undefined )
             return
-         let character = localPlayer.Character as Model
-         Assert( character !== undefined, "Undefined" )
-         character.AncestryChanged.Connect(
-            function ()
-            {
-               file.matchScreenUI.Parent = undefined
-            } )
+
+         matchScreenUI.Name = 'MatchScreenUI'
+         matchScreenUI.IgnoreGuiInset = true
+         matchScreenUI.DisplayOrder = UIORDER.UIORDER_MATCHSCREEN
+
+         let folder = GetUIPackageFolder()
+         let template = GetExistingFirstChildWithNameAndClassName( folder, 'TemplateUIs', 'ScreenGui' ) as ScreenGui
+         let baseFrameTemplate = GetExistingFirstChildWithNameAndClassName( template, 'BaseFrame', 'Frame' ) as Frame
+         file.baseFrameTemplate = baseFrameTemplate
+         baseFrameTemplate.Parent = undefined // so it is not destroyed when character cycles
+
+         // Fade in
+         Thread( function ()
+         {
+            let frame = baseFrameTemplate.Clone()
+            frame.Transparency = 0
+            frame.ZIndex = 0
+            wait( 0.2 )
+            const TIME = 0.8
+            Tween( frame, { Transparency: 1.0 }, TIME, Enum.EasingStyle.Linear, Enum.EasingDirection.Out )
+            wait( TIME )
+            frame.Destroy()
+         } )
+      } )
+
+   AddCallback_OnPlayerCharacterAncestryChanged(
+      function ()
+      {
+         if ( file.matchScreenUI !== undefined )
+            file.matchScreenUI.Parent = undefined
       } )
 
 }

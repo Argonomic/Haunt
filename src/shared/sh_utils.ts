@@ -228,7 +228,14 @@ export function GetPosition( thing: Instance ): Vector3
 {
    Assert( thing !== undefined, "Can't get position of undefined" )
    if ( thing.IsA( 'Player' ) )
-      return ( thing.Character?.PrimaryPart as BasePart ).Position
+   {
+      if ( thing.Character !== undefined )
+      {
+         if ( thing.Character.PrimaryPart !== undefined )
+            return thing.Character.PrimaryPart.Position
+      }
+      return new Vector3( 0, 0, 0 )
+   }
 
    if ( thing.IsA( 'BasePart' ) )
       return thing.Position

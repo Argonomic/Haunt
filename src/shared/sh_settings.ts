@@ -1,8 +1,10 @@
 //export const DEV_STARTMEETING = false
+export const PLAYER_WALKSPEED = 16 //32
+
 export const DEV_READYUP = true
 export const MIN_PLAYERS = 5
 export const MAX_PLAYERS = 10
-export const MAX_TASKLIST_SIZE = 5
+export const MAX_TASKLIST_SIZE = 2
 export const QUICK_START_ROOM = "Foyer"
 export const SPAWN_ROOM = "Foyer"
 export const KILL_DIST = 6.5
@@ -30,4 +32,5 @@ export const PLAYER_COLORS =
    ]
 
 
-export const COOLDOWN_KILL = 8
+export const COOLDOWNTIME_KILL = 8
+export const COOLDOWNTIME_MEETING = 60

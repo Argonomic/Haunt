@@ -1,6 +1,7 @@
 import { Players } from "@rbxts/services";
+import { GetLocalRole } from "client/cl_gamestate";
 import { AssignDefaultNVs } from "shared/sh_player_netvars"
-import { Assert, GetExistingFirstChildWithNameAndClassName, ExecOnChildWhenItExists, GetPlayerFromCharacter, IsServer, Thread } from "./sh_utils";
+import { Assert, GetExistingFirstChildWithNameAndClassName, ExecOnChildWhenItExists, GetPlayerFromCharacter, IsServer, Thread, GetLocalPlayer, IsClient } from "./sh_utils";
 
 class File
 {
@@ -33,6 +34,25 @@ export function AddCallback_OnPlayerConnected( func: Function )
 export function APlayerHasConnected(): boolean
 {
    return file.aPlayerConnected
+}
+
+export function AddCallback_OnPlayerCharacterAncestryChanged( func: () => void )
+{
+   let localPlayer = GetLocalPlayer()
+   Assert( IsClient(), "Client only" )
+   AddCallback_OnPlayerCharacterAdded(
+      function ( player: Player )
+      {
+         if ( player !== localPlayer )
+            return
+         let character = localPlayer.Character as Model
+         Assert( character !== undefined, "Undefined" )
+         character.AncestryChanged.Connect(
+            function ()
+            {
+               func()
+            } )
+      } )
 }
 
 export function AddCallback_OnPlayerCharacterAdded( func: Function )

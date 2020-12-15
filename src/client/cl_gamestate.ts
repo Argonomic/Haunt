@@ -6,6 +6,7 @@ import { SetTimeDelta } from "shared/sh_time"
 import { GetUsableByType } from "shared/sh_use"
 import { Assert, GetFirstChildWithName, GetLocalPlayer, RandomFloatRange, RecursiveOnChildren, SetCharacterTransparency, SetPlayerTransparency, UserIDToPlayer, WaitThread } from "shared/sh_utils"
 import { UpdateMeeting } from "./cl_meeting"
+import { CancelAnyOpenTask } from "./cl_tasks"
 import { DrawMatchScreen_EmergencyMeeting, DrawMatchScreen_Intro, DrawMatchScreen_VoteResults, DrawMatchScreen_Winners } from "./content/cl_matchScreen_content"
 
 
@@ -95,9 +96,14 @@ export function CL_GameStateSetup()
          return positions
       } )
 
-
    AddNetVarChangedCallback( NETVAR_JSON_GAMESTATE, function ()
    {
+      /*let pastRoles = new Map<Player, ROLE>()
+      for ( let player of file.clientGame.GetAllPlayers() )
+      {
+         pastRoles.set( player, file.clientGame.GetPlayerRole( player ) )
+      }*/
+
       let deltaTime = file.clientGame.NetvarToGamestate_ReturnServerTimeDelta()
       SetTimeDelta( deltaTime )
 
@@ -131,7 +137,6 @@ function CLGameStateChanged( oldGameState: number, newGameState: number )
 {
    print( "\nGAME STATE CHANGED FROM " + oldGameState + " TO " + newGameState )
 
-
    for ( let player of file.clientGame.GetAllPlayers() )
    {
       Assert( file.clientGame.HasPlayer( player ), "Game doesn't have player??" )
@@ -144,6 +149,7 @@ function CLGameStateChanged( oldGameState: number, newGameState: number )
    {
       case GAME_STATE.GAME_STATE_PREMATCH:
          {
+            CancelAnyOpenTask()
             WaitThread( function ()
             {
                DrawMatchScreen_Intro( file.clientGame.GetLivingPossessed(), file.clientGame.GetLivingCampers(), file.clientGame.startingPossessedCount )
@@ -184,6 +190,10 @@ function CLGameStateChanged( oldGameState: number, newGameState: number )
          } )
 
          break
+
+      case GAME_STATE.GAME_STATE_PLAYING:
+         CancelAnyOpenTask()
+         break
    }
 
    // entering this game state
@@ -206,6 +216,13 @@ function CLGameStateChanged( oldGameState: number, newGameState: number )
 
       case GAME_STATE.GAME_STATE_COMPLETE:
 
+         print( "Game is over, local role is " + GetLocalRole() )
+         if ( GetLocalRole() === ROLE.ROLE_SPECTATOR_CAMPER_ESCAPED )
+         {
+            let possessed = file.clientGame.GetPossessed()
+            DrawMatchScreen_Winners( possessed, GetLocalRole(), file.clientGame.startingPossessedCount )
+            return
+         }
          let gameResults = file.clientGame.GetGameResults()
 
          switch ( gameResults )
@@ -226,6 +243,7 @@ function CLGameStateChanged( oldGameState: number, newGameState: number )
                   DrawMatchScreen_Winners( possessed, GetLocalRole(), file.clientGame.startingPossessedCount )
                } )
                break
+
          }
    }
 }

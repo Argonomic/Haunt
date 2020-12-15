@@ -1,14 +1,13 @@
 import { Chat, HttpService, Players } from "@rbxts/services"
 import { AddRPC } from "shared/sh_rpc"
-import { ArrayRandomize, Assert, GetPlayerFromDescendant, IsAlive, Thread, UserIDToPlayer } from "shared/sh_utils"
+import { ArrayRandomize, Assert, IsAlive, KillPlayer, Thread, UserIDToPlayer } from "shared/sh_utils"
 import { Assignment, GAME_STATE, SharedGameStateInit, NETVAR_JSON_TASKLIST, ROLE, IsPracticing, Game, GAMERESULTS, GetVoteResults, TASK_EXIT } from "shared/sh_gamestate"
-import { MAX_TASKLIST_SIZE, MAX_PLAYERS, MIN_PLAYERS, SPAWN_ROOM } from "shared/sh_settings"
+import { MAX_TASKLIST_SIZE, MAX_PLAYERS, MIN_PLAYERS, SPAWN_ROOM, PLAYER_WALKSPEED } from "shared/sh_settings"
 import { SetNetVar } from "shared/sh_player_netvars"
 import { AddCallback_OnPlayerCharacterAdded, SetPlayerWalkSpeed } from "shared/sh_onPlayerConnect"
 import { SendRPC } from "./sv_utils"
 import { GetAllRoomsAndTasks, GetCurrentRoom, GetRoomByName, GetRoomSpawnLocations, PutPlayerCameraInRoom, PutPlayersInRoom, SetPlayerCurrentRoom } from "./sv_rooms"
 import { ResetAllCooldownTimes } from "shared/sh_cooldown"
-import { AddCallback_OnRoomSetup, Room } from "shared/sh_rooms"
 
 class File
 {
@@ -66,7 +65,6 @@ export function SV_GameStateSetup()
 
       } )
 
-   /*
    Thread( function ()
    {
       wait( 6 )
@@ -74,9 +72,10 @@ export function SV_GameStateSetup()
       for ( let player of players )
       {
          //KillPlayer( player )
+         //let game = PlayerToGame( player )
+         //ClearAssignments( game, player )
       }
    } )
-   */
 
    SharedGameStateInit()
    AddRPC( "RPC_FromClient_OnPlayerFinishTask", RPC_FromClient_OnPlayerFinishTask )
@@ -264,6 +263,7 @@ function GameThread( game: Game, gameEndFunc: Function )
             for ( let player of possessedPlayers )
             {
                game.SetPlayerRole( player, ROLE.ROLE_POSSESSED )
+               UpdateTasklistNetvar( player, [] )
             }
 
             for ( let player of setCampers )
@@ -413,7 +413,7 @@ export function CreateGame( players: Array<Player>, gameEndFunc: Function ): Gam
 
 function RPC_FromClient_OnPlayerFinishTask( player: Player, roomName: string, taskName: string )
 {
-   SetPlayerWalkSpeed( player, 16 )
+   SetPlayerWalkSpeed( player, PLAYER_WALKSPEED )
 
    let game = PlayerToGame( player )
 
@@ -430,7 +430,11 @@ function RPC_FromClient_OnPlayerFinishTask( player: Player, roomName: string, ta
    {
       // you leave now!
       if ( taskName === TASK_EXIT )
-         game.SetPlayerRole( player, ROLE.ROLE_SPECTATOR_CAMPER )
+      {
+         print( player.Name + " exits!" )
+         game.SetPlayerRole( player, ROLE.ROLE_SPECTATOR_CAMPER_ESCAPED )
+         game.UpdateGame()
+      }
 
       function ExitAssignment()
       {
@@ -444,9 +448,7 @@ function RPC_FromClient_OnPlayerFinishTask( player: Player, roomName: string, ta
          for ( let assignment of assignments )
          {
             if ( assignment.taskName === TASK_EXIT )
-            {
                return
-            }
          }
 
          let assignment = new Assignment( "Foyer", TASK_EXIT, 0 )
@@ -484,11 +486,14 @@ export function AssignTasks( player: Player, game: Game )
    // create a list of random tasks for player to do
    let roomsAndTasks = GetAllRoomsAndTasks()
    ArrayRandomize( roomsAndTasks )
-   roomsAndTasks = roomsAndTasks.slice( 0, MAX_TASKLIST_SIZE )
+
    for ( let roomAndTask of roomsAndTasks )
    {
       let assignment = new Assignment( roomAndTask.room.name, roomAndTask.task.name, 0 )
-      assignments.push( assignment )
+      if ( assignment.taskName !== TASK_EXIT )
+         assignments.push( assignment )
+      if ( assignments.size() >= MAX_TASKLIST_SIZE )
+         break
    }
 
    game.assignments.set( player, assignments )
@@ -505,7 +510,8 @@ export function AssignAllTasks( player: Player, game: Game )
    for ( let roomAndTask of roomsAndTasks )
    {
       let assignment = new Assignment( roomAndTask.room.name, roomAndTask.task.name, 0 )
-      assignments.push( assignment )
+      if ( assignment.taskName !== TASK_EXIT )
+         assignments.push( assignment )
    }
 
    game.assignments.set( player, assignments )

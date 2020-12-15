@@ -2,7 +2,7 @@ import { HttpService, Workspace } from "@rbxts/services"
 import { AddNetVar, GetNetVar_Number, GetNetVar_String, SetNetVar } from "shared/sh_player_netvars"
 import { AddCooldown } from "./sh_cooldown"
 import { SetPlayerWalkSpeed } from "./sh_onPlayerConnect"
-import { COOLDOWN_KILL, MEETING_DISCUSS_TIME, MEETING_VOTE_TIME, SPECTATOR_TRANS } from "./sh_settings"
+import { COOLDOWNTIME_MEETING, COOLDOWNTIME_KILL, MEETING_DISCUSS_TIME, MEETING_VOTE_TIME, PLAYER_WALKSPEED, SPECTATOR_TRANS } from "./sh_settings"
 import { Assert, IsServer, IsClient, UserIDToPlayer, IsAlive, SetPlayerTransparency, GetLocalPlayer, ExecOnChildWhenItExists } from "./sh_utils"
 
 export const NETVAR_JSON_TASKLIST = "JS_TL"
@@ -18,8 +18,9 @@ export enum USETYPES
    USETYPE_MEETING,
 }
 
-export const USE_COOLDOWNS = "USE_COOLDOWNS"
+export const USE_COOLDOWNS = "USE_COOLDOWNS" // USE searches for these strings at runtime to identify if cooldown should happen
 export const COOLDOWN_NAME_KILL = USE_COOLDOWNS + USETYPES.USETYPE_KILL
+export const COOLDOWN_NAME_MEETING = USE_COOLDOWNS + USETYPES.USETYPE_MEETING
 
 export enum GAMERESULTS
 {
@@ -42,6 +43,7 @@ export enum ROLE
    ROLE_POSSESSED,
    ROLE_SPECTATOR_CAMPER,
    ROLE_SPECTATOR_IMPOSTER,
+   ROLE_SPECTATOR_CAMPER_ESCAPED,
 }
 
 export enum GAME_STATE
@@ -316,6 +318,7 @@ export class Game
 
          if ( exitedGame )
          {
+            print( player.Name + " exited the game" )
             gs.currentGameState = GAME_STATE.GAME_STATE_COMPLETE
             gs.gsChangedTime = Workspace.DistributedGameTime
          }
@@ -569,6 +572,7 @@ export class Game
       {
          case ROLE.ROLE_SPECTATOR_CAMPER:
          case ROLE.ROLE_SPECTATOR_IMPOSTER:
+         case ROLE.ROLE_SPECTATOR_CAMPER_ESCAPED:
             return true
       }
 
@@ -653,7 +657,7 @@ export class Game
             if ( this.IsSpectator( player ) )
                SetPlayerWalkSpeed( player, 24 )
             else
-               SetPlayerWalkSpeed( player, 16 )
+               SetPlayerWalkSpeed( player, PLAYER_WALKSPEED )
             break
       }
    }
@@ -809,7 +813,8 @@ export function SharedGameStateInit()
    AddNetVar( "number", NETVAR_MATCHMAKING_NUMWITHYOU, 0 )
    AddNetVar( "string", NETVAR_JSON_GAMESTATE, "{}" )
 
-   AddCooldown( COOLDOWN_NAME_KILL, COOLDOWN_KILL )
+   AddCooldown( COOLDOWN_NAME_KILL, COOLDOWNTIME_KILL )
+   AddCooldown( COOLDOWN_NAME_MEETING, COOLDOWNTIME_MEETING )
 }
 
 export function IsPracticing( player: Player ): boolean
