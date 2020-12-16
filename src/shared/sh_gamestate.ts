@@ -238,8 +238,8 @@ export class Game
       if ( campers === 0 )
          return GAMERESULTS.RESULTS_POSSESSED_WIN
 
-      if ( possessed >= campers )
-         return GAMERESULTS.RESULTS_POSSESSED_WIN
+      //if ( possessed >= campers )
+      //   return GAMERESULTS.RESULTS_POSSESSED_WIN
 
       return GAMERESULTS.RESULTS_STILL_PLAYING
    }

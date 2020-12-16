@@ -4,7 +4,7 @@ import { AddCallback_OnPlayerCharacterAdded } from "shared/sh_onPlayerConnect"
 import { AddNetVarChangedCallback } from "shared/sh_player_netvars"
 import { SetTimeDelta } from "shared/sh_time"
 import { GetUsableByType } from "shared/sh_use"
-import { Assert, GetFirstChildWithName, GetLocalPlayer, PlayerTouchesPart, RandomFloatRange, RecursiveOnChildren, SetCharacterTransparency, SetPlayerTransparency, UserIDToPlayer, WaitThread } from "shared/sh_utils"
+import { Assert, GetFirstChildWithName, GetLocalPlayer, PlayerTouchesPart, RandomFloatRange, RecursiveOnChildren, SetCharacterTransparency, WaitThread } from "shared/sh_utils"
 import { UpdateMeeting } from "./cl_meeting"
 import { CancelAnyOpenTask } from "./cl_tasks"
 import { AddPlayerUseDisabledCallback } from "./cl_use"
@@ -94,17 +94,26 @@ export function CL_GameStateSetup()
          file.clientGame.Shared_OnGameStateChanged_PerPlayer( player, file.clientGame.GetGameState() )
    } )
 
-   GetUsableByType( USETYPES.USETYPE_KILL ).DefineGetter(
-      function ( player: Player ): Array<Player>
-      {
-         switch ( file.clientGame.GetPlayerRole( player ) )
+   {
+      let usable = GetUsableByType( USETYPES.USETYPE_KILL )
+      usable.forceVisibleTest =
+         function ()
          {
-            case ROLE.ROLE_POSSESSED:
-               return file.clientGame.GetLivingCampers()
+            return GetLocalRole() === ROLE.ROLE_POSSESSED
          }
 
-         return []
-      } )
+      usable.DefineGetter(
+         function ( player: Player ): Array<Player>
+         {
+            switch ( file.clientGame.GetPlayerRole( player ) )
+            {
+               case ROLE.ROLE_POSSESSED:
+                  return file.clientGame.GetLivingCampers()
+            }
+
+            return []
+         } )
+   }
 
    GetUsableByType( USETYPES.USETYPE_REPORT ).DefineGetter(
       function ( player: Player ): Array<Vector3>

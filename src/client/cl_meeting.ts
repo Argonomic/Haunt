@@ -3,7 +3,7 @@ import { Game, GAME_STATE, PlayerNumToGameViewable, ROLE } from "shared/sh_games
 import { ClonePlayerModel } from "shared/sh_onPlayerConnect";
 import { MAX_PLAYERS, PLAYER_COLORS } from "shared/sh_settings";
 import { Tween } from "shared/sh_tween";
-import { Assert, GetColor, GetFirstChildWithName, GetFirstChildWithNameAndClassName, GetLocalPlayer, LightenColor, ScaleColor, SetCharacterTransparency, SetPlayerYaw, Thread } from "shared/sh_utils";
+import { Assert, GetColor, GetFirstChildWithName, GetFirstChildWithNameAndClassName, GetLocalPlayer, LightenColor, SetCharacterTransparency, Thread } from "shared/sh_utils";
 import { AddPlayerGuiFolderExistsCallback, UIORDER } from "./cl_ui";
 import { SendRPC } from "./cl_utils";
 

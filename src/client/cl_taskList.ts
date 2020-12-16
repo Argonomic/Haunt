@@ -1,9 +1,9 @@
 import { HttpService } from "@rbxts/services"
 import { GetTaskSpec } from "client/cl_tasks"
-import { Assignment, IsPracticing, NETVAR_JSON_TASKLIST, NETVAR_MEETINGS_CALLED, USETYPES } from "shared/sh_gamestate"
+import { Assignment, IsPracticing, NETVAR_JSON_GAMESTATE, NETVAR_JSON_TASKLIST, NETVAR_MEETINGS_CALLED, ROLE, USETYPES } from "shared/sh_gamestate"
 import { AddNetVarChangedCallback, GetNetVar_Number, GetNetVar_String } from "shared/sh_player_netvars"
 import { AddRoomChangedCallback, CurrentRoomExists, GetCurrentRoom, GetRooms } from "./cl_rooms"
-import { Assert, GetFirstChildWithName, GetLocalPlayer, Graph } from "shared/sh_utils"
+import { Assert, GetFirstChildWithName, GetLocalPlayer, Graph, Thread } from "shared/sh_utils"
 import { AddCallout, ClearCallouts, InitCallouts } from "./cl_callouts2d"
 import { Room, Task } from "shared/sh_rooms"
 import { AddMapIcon, ClearMinimapIcons } from "./cl_minimap"
@@ -12,6 +12,7 @@ import { GetUsableByType } from "shared/sh_use"
 import { GetLocalIsSpectator, GetLocalRole } from "./cl_gamestate"
 import { AddCallback_OnPlayerCharacterAncestryChanged } from "shared/sh_onPlayerConnect"
 import { Tween } from "shared/sh_tween"
+import { WaitForMatchScreenFrame } from "./cl_matchScreen"
 
 const CALLOUTS_NAME = "TASKLIST_CALLOUTS"
 
@@ -96,6 +97,16 @@ export function CL_TaskListSetup()
       } )
 
    AddNetVarChangedCallback( NETVAR_JSON_TASKLIST, RefreshTaskList )
+   AddNetVarChangedCallback( NETVAR_JSON_GAMESTATE,
+      function ()
+      {
+         Thread(
+            function ()
+            {
+               wait()  // wait for role to be updated elsewhere
+               RefreshTaskList()
+            } )
+      } )
 
    AddPlayerGuiFolderExistsCallback( function ( folder: Folder )
    {
@@ -164,7 +175,7 @@ export function CL_TaskListSetup()
 
 
 
-function RedrawTaskListUI()
+export function RedrawTaskListUI()
 {
    if ( file.existingUI === undefined )
       return
@@ -176,24 +187,31 @@ function RedrawTaskListUI()
          count++
    }
 
-   let toggleButton = file.toggleButton
-   if ( toggleButton !== undefined && count === 0 )
-   {
-      if ( toggleButton.IsOpen() )
-      {
-         toggleButton.Close()
-
-         let position = file.framePosition
-         let newPosition = new UDim2( position.X.Scale - 0.25, position.X.Offset, position.Y.Scale, position.Y.Offset )
-         // deep close it
-         Tween( file.existingUI.Frame, { Position: newPosition, 'AnchorPoint': new Vector2( 1.0, 0 ) }, 1.0 )
-         return
-      }
-   }
-
    for ( let label of file.taskLabels )
    {
       label.Text = ""
+   }
+
+   switch ( GetLocalRole() )
+   {
+      case ROLE.ROLE_POSSESSED:
+         file.taskLabels[0].Text = "Kill the innocent before they"
+         file.taskLabels[1].Text = "complete their tasks and escape"
+         return
+
+      case ROLE.ROLE_SPECTATOR_IMPOSTER:
+         let toggleButton = file.toggleButton
+         if ( toggleButton !== undefined && count === 0 && toggleButton.IsOpen() )
+         {
+            toggleButton.Close()
+
+            let position = file.framePosition
+            let newPosition = new UDim2( position.X.Scale - 0.25, position.X.Offset, position.Y.Scale, position.Y.Offset )
+            // deep close it
+            Tween( file.existingUI.Frame, { Position: newPosition, 'AnchorPoint': new Vector2( 1.0, 0 ) }, 1.0 )
+         }
+         return
+
    }
 
 
@@ -204,10 +222,11 @@ function RedrawTaskListUI()
    }
    else
    {
-      file.taskLabels[0].Text = count + " Tasks Remaining:"
+      file.taskLabels[0].Text = "Complete your tasks and then escape."
+      file.taskLabels[1].Text = count + " Tasks Remaining:"
    }
 
-   for ( let i = 1; i < file.taskLabels.size(); i++ )
+   for ( let i = 2; i < file.taskLabels.size(); i++ )
    {
       for ( let p = assignIndex; p < file.assignments.size(); p++ )
       {

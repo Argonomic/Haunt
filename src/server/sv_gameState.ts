@@ -446,6 +446,11 @@ function RPC_FromClient_OnPlayerFinishTask( player: Player, roomName: string, ta
    UpdateTasklistNetvar( player, assignments )
 }
 
+export function PlayerHasAssignments( player: Player, game: Game ): boolean
+{
+   return game.assignments.has( player )
+}
+
 export function PlayerHasUnfinishedAssignment( player: Player, game: Game, roomName: string, taskName: string ): boolean
 {
    let assignments = game.assignments.get( player )

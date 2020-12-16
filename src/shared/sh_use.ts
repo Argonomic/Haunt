@@ -21,12 +21,13 @@ class File
 export class UseResults
 {
    usable: Usable
-   usedThing: USABLETYPES
+   usedThing: USABLETYPES | undefined
 
-   constructor( usable: Usable, usedThing: USABLETYPES )
+   constructor( usable: Usable, usedThing?: USABLETYPES )
    {
       this.usable = usable
-      this.usedThing = usedThing
+      if ( usedThing )
+         this.usedThing = usedThing
    }
 }
 
@@ -41,6 +42,8 @@ export class Usable
    image: string
    text: string
    useType: number
+
+   forceVisibleTest: () => boolean = function () { return false }
 
    testPlayerToBasePart: PlayerBasePart_Boolean | undefined
    testPlayerPosToInstance: Vector3Instance_Boolean | undefined
@@ -120,6 +123,8 @@ function RPC_FromClient_OnUse( player: Player )
       print( "no useResults" )
       return
    }
+   if ( useResults.usedThing === undefined )
+      return
 
    if ( GetPlayerCooldownTimeRemaining( player, USE_COOLDOWNS + useResults.usable.useType ) > 0 )
    {
@@ -159,12 +164,29 @@ export function GetUsables(): Array<Usable>
    return usables
 }
 
+class BuildUseResults
+{
+   dist: number
+   useResults: UseResults
+
+   constructor( useResults: UseResults, position1: Vector3, position2: Vector3 )
+   {
+      if ( useResults.usedThing !== undefined )
+         this.dist = position1.sub( position2 ).Magnitude
+      else
+         this.dist = -1
+
+      this.useResults = useResults
+   }
+}
+
 
 export function GetUseResultsForAttempt( player: Player ): UseResults | undefined
 {
    //print( "GetUseResultsForAttempt " + player.Name )
    let pos = GetPosition( player )
 
+   let buildUseResults: Array<BuildUseResults> = []
    let usables = GetUsables()
    for ( let usable of usables )
    {
@@ -180,10 +202,11 @@ export function GetUseResultsForAttempt( player: Player ): UseResults | undefine
 
          for ( let target of targets )
          {
-            if ( usable.testPlayerPosToInstance( pos, target ) )
-               return new UseResults( usable, target )
+            if ( !usable.testPlayerPosToInstance( pos, target ) )
+               continue
+
+            buildUseResults.push( new BuildUseResults( new UseResults( usable, target ), pos, GetPosition( target ) ) )
          }
-         //print( "failed usable.testPlayerPosToInstance " + targets.size() )
       }
       else if ( usable.testPlayerToBasePart !== undefined )
       {
@@ -195,10 +218,11 @@ export function GetUseResultsForAttempt( player: Player ): UseResults | undefine
 
          for ( let target of targets )
          {
-            if ( usable.testPlayerToBasePart( player, target ) )
-               return new UseResults( usable, target )
+            if ( !usable.testPlayerToBasePart( player, target ) )
+               continue
+
+            buildUseResults.push( new BuildUseResults( new UseResults( usable, target ), pos, ( target as BasePart ).Position ) )
          }
-         //print( "failed usable.testPlayerToBasePart " + targets.size() )
       }
       else if ( usable.testPlayerPosToPos !== undefined )
       {
@@ -210,16 +234,36 @@ export function GetUseResultsForAttempt( player: Player ): UseResults | undefine
 
          for ( let target of targets )
          {
-            if ( usable.testPlayerPosToPos( pos, target ) )
-               return new UseResults( usable, target )
+            if ( !usable.testPlayerPosToPos( pos, target ) )
+               continue
+
+            buildUseResults.push( new BuildUseResults( new UseResults( usable, target ), pos, target as Vector3 ) )
          }
-         //print( "failed usable.testPlayerPosToPos " + targets.size() )
       }
       else
       {
          Assert( false, "No usable test defined" )
       }
+
+      if ( usable.forceVisibleTest() )
+      {
+         buildUseResults.push( new BuildUseResults( new UseResults( usable ), pos, pos ) )
+      }
+   }
+
+   if ( buildUseResults.size() )
+   {
+      buildUseResults.sort( SortBuildUseResults )
+      return buildUseResults[0].useResults
    }
 
    return undefined
+}
+
+function SortBuildUseResults( a: BuildUseResults, b: BuildUseResults ): boolean
+{
+   if ( ( a.useResults.usedThing !== undefined ) !== ( b.useResults.usedThing !== undefined ) )
+      return a.useResults.usedThing !== undefined
+
+   return a.dist < b.dist
 }

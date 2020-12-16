@@ -1,7 +1,7 @@
 import { GetHumanoid, GetPosition, IsAlive, KillPlayer } from "shared/sh_utils"
 import { GAME_STATE, ROLE, IsPracticing, Corpse, USETYPES, COOLDOWN_NAME_KILL, MEETING_TYPE, NETVAR_MEETINGS_CALLED, Game } from "shared/sh_gamestate"
 import { GetUsableByType, USABLETYPES } from "shared/sh_use"
-import { PlayerHasUnfinishedAssignment, PlayerToGame, ClearAssignments } from "server/sv_gameState"
+import { PlayerHasUnfinishedAssignment, PlayerToGame, ClearAssignments, PlayerHasAssignments } from "server/sv_gameState"
 import { SendRPC } from "server/sv_utils"
 import { GetCurrentRoom } from "server/sv_rooms"
 import { ResetPlayerCooldownTime } from "shared/sh_cooldown"
@@ -122,6 +122,9 @@ export function SV_UseContentSetup()
          {
             let game = PlayerToGame( player )
             if ( !UsableGameState( game ) )
+               return []
+
+            if ( !PlayerHasAssignments( player, game ) )
                return []
 
             for ( let taskPair of room.tasks )

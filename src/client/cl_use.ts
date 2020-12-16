@@ -125,10 +125,18 @@ export function CL_UseSetup()
                cooldownRemaining++ // add one because otherwise 0.5 is not drawn, but can't use.
 
             cooldownRemaining = math.floor( cooldownRemaining );
-            if ( cooldownRemaining > 0 )
+            if ( cooldownRemaining > 0 || newUseResults.usedThing === undefined )
             {
-               countdown.Text = cooldownRemaining + ""
-               countdown.Visible = true
+               if ( cooldownRemaining > 0 )
+               {
+                  countdown.Text = cooldownRemaining + ""
+                  countdown.Visible = true
+               }
+               else
+               {
+                  countdown.Visible = false
+               }
+
                imageButton.ImageTransparency = 0.5
                textButton.TextTransparency = 0.5
                textButton.TextColor3 = COLOR_GRAY
