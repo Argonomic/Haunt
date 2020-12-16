@@ -47,8 +47,16 @@ export function Assert( bool: boolean, msg: string )
    if ( bool )
       return
 
-   print( "ASSERT FAILED: " + msg )
+   print( "\n\n\n" )
+   print( "\rASSERT FAILED: " + msg )
    assert( false, msg )
+
+   for ( let i = 0; i < 5; i++ )
+   {
+      print( debug.traceback( undefined, i ) )
+      print( "********** ********** **********" )
+   }
+   print( "\n\n\n" )
 
 }
 
@@ -378,6 +386,10 @@ export function SetPlayerTransparency( player: Player, value: number )
 
 export function SetCharacterTransparency( char: Model, value: number )
 {
+   //   let player = GetPlayerFromCharacter( char )
+   //   if ( player !== undefined )
+   //      print( "!SetCharacterTransparency " + player.Name + " " + value )
+
    let head = char.FindFirstChild( "Head" )
    if ( head )
    {
@@ -471,9 +483,9 @@ export function LightenColor( color: Color3, scale: number ): Color3
 export function ScaleColor( color: Color3, scale: number ): Color3
 {
    let colors = [color.r, color.g, color.b]
-   for ( let col of colors )
+   for ( let i = 0; i < colors.size(); i++ )
    {
-      col *= scale
+      colors[i] = colors[i] * scale
    }
 
    return new Color3( colors[0], colors[1], colors[2] )
@@ -598,4 +610,10 @@ export function GetClosest( player: Player, baseParts: Array<BasePart> ): BasePa
    }
 
    return closestPart
+}
+
+export function CloneChild( instance: Instance ): Instance
+{
+   Assert( instance.Parent !== undefined, "Tried to clone thing with no parent" )
+   return instance.Clone()
 }

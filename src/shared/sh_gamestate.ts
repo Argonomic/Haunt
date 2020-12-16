@@ -1,14 +1,17 @@
-import { HttpService, Workspace } from "@rbxts/services"
+import { HttpService, RunService, Workspace } from "@rbxts/services"
 import { AddNetVar, GetNetVar_Number, GetNetVar_String, SetNetVar } from "shared/sh_player_netvars"
 import { AddCooldown } from "./sh_cooldown"
 import { SetPlayerWalkSpeed } from "./sh_onPlayerConnect"
 import { COOLDOWNTIME_MEETING, COOLDOWNTIME_KILL, MEETING_DISCUSS_TIME, MEETING_VOTE_TIME, PLAYER_WALKSPEED, SPECTATOR_TRANS } from "./sh_settings"
 import { Assert, IsServer, IsClient, UserIDToPlayer, IsAlive, SetPlayerTransparency, GetLocalPlayer, ExecOnChildWhenItExists } from "./sh_utils"
 
+export const LOCAL = RunService.IsStudio()
+
 export const NETVAR_JSON_TASKLIST = "JS_TL"
 export const NETVAR_MATCHMAKING_STATUS = "MMS"
 export const NETVAR_MATCHMAKING_NUMWITHYOU = "N_WY"
 export const NETVAR_JSON_GAMESTATE = "E_GS"
+export const NETVAR_MEETINGS_CALLED = "N_MC"
 
 export enum USETYPES 
 {
@@ -34,7 +37,8 @@ export enum MATCHMAKING_STATUS
 {
    MATCHMAKING_PRACTICE = 0,
    MATCHMAKING_LFG,
-   MATCHMAKING_PLAYING
+   MATCHMAKING_WAITING_TO_PLAY,
+   MATCHMAKING_PLAYING,
 }
 
 export enum ROLE
@@ -273,6 +277,7 @@ export class Game
          return false
       }
 
+      let revealedImposter = false
       for ( let player of this.GetAllPlayers() )
       {
          // tell the campers about everyone, but mask the possessed
@@ -281,6 +286,7 @@ export class Game
 
          if ( RevealImposters( this, player ) || exitedGame )
          {
+            revealedImposter = true
             // full game info
             for ( let pair of this.playerToInfo )
             {
@@ -309,12 +315,17 @@ export class Game
 
          let gs = new NETVAR_GameState( this, infos, corpses, votes )
 
-         if ( this.meetingCaller && this.meetingBody )
-         {
+         gs.meetingType = this.meetingType
+
+         if ( this.meetingCaller )
             gs.meetingCallerUserId = this.meetingCaller.UserId
-            gs.meetingType = this.meetingType
+         else
+            gs.meetingCallerUserId = undefined
+
+         if ( this.meetingBody )
             gs.meetingBodyUserId = this.meetingBody.UserId
-         }
+         else
+            gs.meetingBodyUserId = undefined
 
          if ( exitedGame )
          {
@@ -326,11 +337,13 @@ export class Game
          let json = HttpService.JSONEncode( gs )
          SetNetVar( player, NETVAR_JSON_GAMESTATE, json )
       }
+      Assert( revealedImposter || this.GetGameState() === GAME_STATE.GAME_STATE_PREMATCH, "Didn't reveal imposter" )
    }
 
    public SetGameState( state: GAME_STATE )
    {
       Assert( IsServer(), "Server only" )
+      print( "Time since last game state change: " + math.floor( ( Workspace.DistributedGameTime - this._gameStateChangedTime ) ) )
 
       this._gameStateChangedTime = Workspace.DistributedGameTime
       this.currentGameState = state
@@ -491,6 +504,7 @@ export class Game
 
    public SetPlayerRole( player: Player, role: ROLE ): PlayerInfo
    {
+      //print( "Set player " + player.UserId + " role to " + role )
       if ( IsServer() )
       {
          if ( role === ROLE.ROLE_SPECTATOR_CAMPER )
@@ -506,6 +520,15 @@ export class Game
       return playerInfo
    }
 
+   public GetAllConnectedPlayers(): Array<Player>
+   {
+      let players = this.GetAllPlayers()
+      return players.filter( function ( player )
+      {
+         return player.Character !== undefined
+      } )
+   }
+
    public GetAllPlayers(): Array<Player>
    {
       let players: Array<Player> = []
@@ -518,7 +541,10 @@ export class Game
 
    public GetLivingCampers(): Array<Player>
    {
-      return this.GetPlayersOfRole( ROLE.ROLE_CAMPER )
+      return this.GetPlayersOfRole( ROLE.ROLE_CAMPER ).filter( function ( player )
+      {
+         return player.Character !== undefined
+      } )
    }
 
    public GetCampers(): Array<Player>
@@ -528,7 +554,10 @@ export class Game
 
    public GetLivingPossessed(): Array<Player>
    {
-      return this.GetPlayersOfRole( ROLE.ROLE_POSSESSED )
+      return this.GetPlayersOfRole( ROLE.ROLE_POSSESSED ).filter( function ( player )
+      {
+         return player.Character !== undefined
+      } )
    }
 
    public GetPossessed(): Array<Player>
@@ -809,9 +838,10 @@ export class Game
 export function SharedGameStateInit()
 {
    AddNetVar( "string", NETVAR_JSON_TASKLIST, "{}" )
-   AddNetVar( "number", NETVAR_MATCHMAKING_STATUS, MATCHMAKING_STATUS.MATCHMAKING_PRACTICE )
    AddNetVar( "number", NETVAR_MATCHMAKING_NUMWITHYOU, 0 )
    AddNetVar( "string", NETVAR_JSON_GAMESTATE, "{}" )
+   AddNetVar( "number", NETVAR_MEETINGS_CALLED, 0 )
+   AddNetVar( "number", NETVAR_MATCHMAKING_STATUS, MATCHMAKING_STATUS.MATCHMAKING_PRACTICE )
 
    AddCooldown( COOLDOWN_NAME_KILL, COOLDOWNTIME_KILL )
    AddCooldown( COOLDOWN_NAME_MEETING, COOLDOWNTIME_MEETING )
@@ -823,6 +853,7 @@ export function IsPracticing( player: Player ): boolean
    {
       case MATCHMAKING_STATUS.MATCHMAKING_PRACTICE:
       case MATCHMAKING_STATUS.MATCHMAKING_LFG:
+      case MATCHMAKING_STATUS.MATCHMAKING_WAITING_TO_PLAY:
          return true
    }
 

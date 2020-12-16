@@ -20,19 +20,7 @@ export function CL_MatchScreenContentSetup()
 
    AddPlayerGuiFolderExistsCallback( function ()
    {
-      //DrawMatchScreen_Intro( [player, player, player], [player, player], 2 )
-
-      /*
-      Thread(
-         function ()
-         {
-            //for ( ; ; )
-            {
-               wait( 2 )
-               TestDraw( 6 )
-            }
-         } )
-         */
+      //TestDraw( 2 )
    } )
 
 
@@ -57,12 +45,18 @@ export function CL_MatchScreenContentSetup()
 
          case 2:
             {
-               let receivedVotes = [player, player, player]
-               let votedAndReceivedNoVotes = [player, player, player, player, player, player, player, player]
-               let possessedCount = 2
-               let skipTie = false
-               let receivedHighestVotes = [player, player]
-               DrawMatchScreen_VoteResults( skipTie, receivedHighestVotes, receivedVotes, votedAndReceivedNoVotes, possessedCount )
+               print( "drawing 3 skippers" )
+               let skipTie = true
+               let receivedHighestVotes: Array<Player> = []
+               let receivedVotes: Array<Player> = []
+               let votedAndReceivedNoVotes = [player, player, player]
+               let possessedCount = 1
+               DrawMatchScreen_VoteResults(
+                  skipTie,
+                  receivedHighestVotes,
+                  receivedVotes,
+                  votedAndReceivedNoVotes,
+                  possessedCount )
             }
             break
 
@@ -138,8 +132,8 @@ export function DrawMatchScreen_Intro( possessed: Array<Player>, campers: Array<
 
    const FADE_IN = 2
 
-   let debug = false
-   if ( debug )
+   let debugIt = false
+   if ( debugIt )
    {
       title.TextTransparency = 0
       subTitle.TextTransparency = 0
@@ -243,7 +237,7 @@ export function DrawMatchScreen_Intro( possessed: Array<Player>, campers: Array<
    wait( FADE_IN )
 
    {
-      if ( !debug )
+      if ( !debugIt )
          wait( 2 )
    }
 
@@ -254,7 +248,7 @@ export function DrawMatchScreen_Intro( possessed: Array<Player>, campers: Array<
    vecEnd2 = vecEnd2.add( delta )
    Tween( viewportCamera, { CFrame: new CFrame( vecStart2, vecEnd2 ) }, 2.0, Enum.EasingStyle.Quint, Enum.EasingDirection.In )
 
-   if ( debug )
+   if ( debugIt )
       wait( 2343 )
 
    const FADE_OUT = 2.0
@@ -275,15 +269,7 @@ function SortLocalPlayer( a: Player, b: Player ): boolean
 
 export function DrawMatchScreen_VoteResults( skipTie: boolean, receivedHighestVotes: Array<Player>, receivedVotes: Array<Player>, votedAndReceivedNoVotes: Array<Player>, possessedCount: number )
 {
-   //print( "\nDrawMatchScreen_VoteResults: " )
-   //print( "skipTie:" + skipTie )
-   //print( "receivedHighestVotes:" + receivedHighestVotes.size() )
-   //print( "receivedVotes:" + receivedVotes.size() )
-   //print( "votedAndReceivedNoVotes:" + votedAndReceivedNoVotes.size() )
-   //print( "possessedCount:" + possessedCount )
-   //print( " " )
-
-
+   print( "DrawMatchScreen_VoteResults" )
    function GetResultsText(): Array<string>
    {
       if ( receivedVotes.size() === 0 || receivedHighestVotes.size() === 0 )
@@ -310,8 +296,6 @@ export function DrawMatchScreen_VoteResults( skipTie: boolean, receivedHighestVo
    let viewportFrame = matchScreenFrame.viewportFrame
 
    viewportFrame.Parent = baseFrame
-
-
    viewportFrame.Size = new UDim2( 0.9, 0, viewportFrame.Size.Y.Scale, 0 )
 
    title.Text = "The voters have spoken.."
@@ -336,7 +320,6 @@ export function DrawMatchScreen_VoteResults( skipTie: boolean, receivedHighestVo
          let odd = true
          const dist = 2.5
 
-         let even = votedAndReceivedNoVotes.size() % 2 === 0
 
          // draw these players with their backs turned
          for ( let i = 0; i < votedAndReceivedNoVotes.size(); i++ )
@@ -386,7 +369,6 @@ export function DrawMatchScreen_VoteResults( skipTie: boolean, receivedHighestVo
             SetCharacterYaw( clonedModel, 180 + yaw )
          }
       }
-
 
 
       {
@@ -453,7 +435,6 @@ export function DrawMatchScreen_VoteResults( skipTie: boolean, receivedHighestVo
          viewportCamera.CFrame = new CFrame( vecStart, vecEnd )
       }
 
-      if ( receivedVotes.size() > 0 )
       {
          // CAMERA DOLLIES IN
          {
@@ -488,26 +469,34 @@ export function DrawMatchScreen_VoteResults( skipTie: boolean, receivedHighestVo
       wait( 5555 )
       */
 
+      const DO_PAN = receivedVotes.size() > 0
 
-      let secondCamTime = Workspace.DistributedGameTime + 3.0
 
-      Thread(
-         function ()
-         {
-            wait( 0.5 )
-            Tween( viewportFrame, { ImageTransparency: 0 }, 1.2 )
+      let secondCamTime = Workspace.DistributedGameTime
+      if ( DO_PAN )
+         secondCamTime += 3.0
+      else
+         secondCamTime += 1.0
 
-            wait( secondCamTime - Workspace.DistributedGameTime )
-
+      {
+         Thread(
+            function ()
             {
+               wait( 0.5 )
+               Tween( viewportFrame, { ImageTransparency: 0 }, 1.2 )
 
-               let cameraAngle = new Vector3( 0, 1, -4.5 )
-               let cameraPosition = new Vector3( 0, 1, 6.5 )
-               let vecEnd = cameraPosition
-               let vecStart = cameraAngle.add( cameraPosition )
-               Tween( viewportCamera, { CFrame: new CFrame( vecStart, vecEnd ) }, 1.5, Enum.EasingStyle.Quart, Enum.EasingDirection.InOut )
-            }
-         } )
+               wait( secondCamTime - Workspace.DistributedGameTime )
+
+               if ( DO_PAN )
+               {
+                  let cameraAngle = new Vector3( 0, 1, -4.5 )
+                  let cameraPosition = new Vector3( 0, 1, 6.5 )
+                  let vecEnd = cameraPosition
+                  let vecStart = cameraAngle.add( cameraPosition )
+                  Tween( viewportCamera, { CFrame: new CFrame( vecStart, vecEnd ) }, 1.5, Enum.EasingStyle.Quart, Enum.EasingDirection.InOut )
+               }
+            } )
+      }
 
 
       //      wait( 3523 )
@@ -515,12 +504,15 @@ export function DrawMatchScreen_VoteResults( skipTie: boolean, receivedHighestVo
 
       wait( secondCamTime - Workspace.DistributedGameTime )
 
-      let voteOffset = new Vector3( 0, -12, 0 )
-      for ( let clone of voterClones )
+      if ( DO_PAN )
       {
-         let cFrame = ( clone.PrimaryPart as Part ).CFrame
-         cFrame = cFrame.add( voteOffset )
-         TweenModel( clone, cFrame, 1.0, Enum.EasingStyle.Quart, Enum.EasingDirection.In )
+         let voteOffset = new Vector3( 0, -12, 0 )
+         for ( let clone of voterClones )
+         {
+            let cFrame = ( clone.PrimaryPart as Part ).CFrame
+            cFrame = cFrame.add( voteOffset )
+            TweenModel( clone, cFrame, 1.0, Enum.EasingStyle.Quart, Enum.EasingDirection.In )
+         }
       }
    }
    else
@@ -540,7 +532,7 @@ export function DrawMatchScreen_VoteResults( skipTie: boolean, receivedHighestVo
    //      subTitle.Text = "..."
    //   } )
 
-   wait( 2.0 )
+   wait( 1.0 )
 
    Tween( subTitle, { TextTransparency: 1 }, 0.5 )
    wait( 0.5 )

@@ -119,9 +119,6 @@ export function CL_FadeOverlaySetup()
       function GetLightDist(): number
       {
          const MAX = 200
-         if ( IsPracticing( localPlayer ) )
-            return MAX
-
          if ( GetLocalIsSpectator() )
             return MAX
 
@@ -141,10 +138,16 @@ export function CL_FadeOverlaySetup()
       let FADE_IN = { Transparency: 0 }
       const FADE_TIME = 0.25
 
-      //let seed = math.round( math.random() * 100 )
+      screenUI.Enabled = !IsPracticing( localPlayer )
 
       RunService.RenderStepped.Connect( function ()      
       {
+         if ( IsPracticing( localPlayer ) )
+            return
+
+         if ( !screenUI.Enabled )
+            screenUI.Enabled = true
+
          let LIGHTDIST = GetLightDist()
 
          let character = localPlayer.Character
@@ -174,37 +177,32 @@ export function CL_FadeOverlaySetup()
             if ( player === localPlayer )
                continue
 
+            let withinVisibleDist = false
             let character = player.Character
-            if ( character === undefined )
-               continue
+            let partScreenCenter = new Vector3( 0, 0, 0 )
+            let hasCharacter = false
+            if ( character !== undefined )
+            {
+               hasCharacter = true
+               let part = character.PrimaryPart
+               if ( part === undefined )
+                  continue
 
-            let part = character.PrimaryPart
-            if ( part === undefined )
-               continue
+               let head = GetFirstChildWithNameAndClassName( character, 'Head', 'Part' ) as Part
+               if ( head === undefined )
+                  continue
 
-            let head = GetFirstChildWithNameAndClassName( character, 'Head', 'Part' ) as Part
-            if ( head === undefined )
-               continue
+               //let human = GetFirstChildWithName( character, "Humanoid" ) as Humanoid
 
-            //let human = GetFirstChildWithName( character, "Humanoid" ) as Humanoid
+               let [_partScreenCenter, _2] = camera.WorldToScreenPoint( head.Position )
+               partScreenCenter = _partScreenCenter
+               let dist = partScreenCenter.sub( screenCenter ).Magnitude
 
-            let [partScreenCenter, _2] = camera.WorldToScreenPoint( head.Position )
-            let dist = partScreenCenter.sub( screenCenter ).Magnitude
-
-            let withinVisibleDist =
-               !IsPracticing( localPlayer ) &&
-               IsAlive( player ) &&
-               !game.IsSpectator( player ) &&
-               dist < VISUAL_DIST
-
-            /*
-            print( "\n\nwithinVisibleDist: " + withinVisibleDist +
-               "\n!IsPracticing( localPlayer ): " + !IsPracticing( localPlayer ) +
-               "\nIsAlive( player ): " + ( IsAlive( player ) ) +
-               "\n!game.IsSpectator( player ): " + ( !game.IsSpectator( player ) ) +
-               "\ndist < VISUAL_DIST: " + ( dist < VISUAL_DIST ) +
-               "\ndist: " + ( dist ) )
-            */
+               withinVisibleDist =
+                  IsAlive( player ) &&
+                  !game.IsSpectator( player ) &&
+                  dist < VISUAL_DIST
+            }
 
             let wasVisible = visiblePlayersToPlayernum.has( player )
             if ( withinVisibleDist === wasVisible )
@@ -220,13 +218,15 @@ export function CL_FadeOverlaySetup()
 
             if ( withinVisibleDist )
             {
-               TweenPlayerParts( player, FADE_IN, FADE_TIME )
+               if ( hasCharacter )
+                  TweenPlayerParts( player, FADE_IN, FADE_TIME )
                let textLabel = CreatePlayerNum( player )
                visiblePlayersToPlayernum.set( player, textLabel )
             }
             else
             {
-               TweenPlayerParts( player, FADE_OUT, FADE_TIME )
+               if ( hasCharacter )
+                  TweenPlayerParts( player, FADE_OUT, FADE_TIME )
                let textLabel = visiblePlayersToPlayernum.get( player ) as TextLabel
                textLabel.Destroy()
                visiblePlayersToPlayernum.delete( player )

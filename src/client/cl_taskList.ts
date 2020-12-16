@@ -1,7 +1,7 @@
 import { HttpService } from "@rbxts/services"
 import { GetTaskSpec } from "client/cl_tasks"
-import { Assignment, IsPracticing, NETVAR_JSON_TASKLIST, USETYPES } from "shared/sh_gamestate"
-import { AddNetVarChangedCallback, GetNetVar_String } from "shared/sh_player_netvars"
+import { Assignment, IsPracticing, NETVAR_JSON_TASKLIST, NETVAR_MEETINGS_CALLED, USETYPES } from "shared/sh_gamestate"
+import { AddNetVarChangedCallback, GetNetVar_Number, GetNetVar_String } from "shared/sh_player_netvars"
 import { AddRoomChangedCallback, CurrentRoomExists, GetCurrentRoom, GetRooms } from "./cl_rooms"
 import { Assert, GetFirstChildWithName, GetLocalPlayer, Graph } from "shared/sh_utils"
 import { AddCallout, ClearCallouts, InitCallouts } from "./cl_callouts2d"
@@ -84,6 +84,8 @@ export function CL_TaskListSetup()
             return []
 
          if ( !CurrentRoomExists() )
+            return []
+         if ( GetNetVar_Number( player, NETVAR_MEETINGS_CALLED ) > 0 )
             return []
 
          let room = GetCurrentRoom()

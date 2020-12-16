@@ -3,7 +3,7 @@ import { Game, GAME_STATE, PlayerNumToGameViewable, ROLE } from "shared/sh_games
 import { ClonePlayerModel } from "shared/sh_onPlayerConnect";
 import { MAX_PLAYERS, PLAYER_COLORS } from "shared/sh_settings";
 import { Tween } from "shared/sh_tween";
-import { Assert, GetColor, GetFirstChildWithName, GetFirstChildWithNameAndClassName, GetLocalPlayer, LightenColor, SetCharacterTransparency, SetPlayerYaw, Thread } from "shared/sh_utils";
+import { Assert, GetColor, GetFirstChildWithName, GetFirstChildWithNameAndClassName, GetLocalPlayer, LightenColor, ScaleColor, SetCharacterTransparency, SetPlayerYaw, Thread } from "shared/sh_utils";
 import { AddPlayerGuiFolderExistsCallback, UIORDER } from "./cl_ui";
 import { SendRPC } from "./cl_utils";
 
@@ -14,17 +14,33 @@ class File
 }
 let file = new File()
 
+type Editor_PlayerFrameButton = TextButton &
+{
+   PlayerNumber: TextLabel
+   voted: TextLabel
+   ClipFrame: TextButton &
+   {
+      horn: ImageLabel
+      dead: ImageLabel
+   }
+   PlayerImage: ImageLabel &
+   {
+      PlayerName: TextLabel
+   }
+}
+
 class PlayerButtonGroup
 {
    buttonGroup: ButtonGroup
-   frameButton: TextButton
+   frameButton: Editor_PlayerFrameButton
    voted: TextLabel
    player: Player
    alive = true
+   connected = true
    playerNum = -1
    horn: ImageLabel
 
-   constructor( game: Game, player: Player, playerButtonTemplate: TextButton, playerCount: number, displayChecks: ( buttonGroup: ButtonGroup ) => void, checkYes: () => void )
+   constructor( game: Game, player: Player, playerButtonTemplate: Editor_PlayerFrameButton, playerCount: number, displayChecks: ( buttonGroup: ButtonGroup ) => void, checkYes: () => void )
    {
       this.player = player
       this.frameButton = playerButtonTemplate.Clone()
@@ -33,19 +49,17 @@ class PlayerButtonGroup
       this.frameButton.Visible = true
 
       this.buttonGroup = new ButtonGroup( this.frameButton, playerCount, displayChecks, checkYes )
-      let playerNumber = GetFirstChildWithNameAndClassName( this.frameButton, 'PlayerNumber', 'TextLabel' ) as TextLabel
-
-      let playerImageLabel = GetFirstChildWithNameAndClassName( this.frameButton, 'PlayerImage', 'ImageLabel' ) as ImageLabel
-
-      let playerName = GetFirstChildWithNameAndClassName( playerImageLabel, 'PlayerName', 'TextLabel' ) as TextLabel
-
-      let voted = GetFirstChildWithNameAndClassName( this.frameButton, 'voted', 'TextLabel' ) as TextLabel
-
-      let clipFrame = GetFirstChildWithNameAndClassName( this.frameButton, 'ClipFrame', 'TextButton' ) as TextButton
-      this.horn = GetFirstChildWithNameAndClassName( clipFrame, 'horn', 'ImageLabel' ) as ImageLabel
+      let playerNumber = this.frameButton.PlayerNumber
+      let playerImageLabel = this.frameButton.PlayerImage
+      let playerName = playerImageLabel.PlayerName
+      let voted = this.frameButton.voted
+      let clipFrame = this.frameButton.ClipFrame
+      this.horn = clipFrame.horn
       this.horn.Visible = false
 
-      let dead = GetFirstChildWithNameAndClassName( clipFrame, 'dead', 'ImageLabel' ) as ImageLabel
+      this.connected = player.Character !== undefined
+
+      let dead = clipFrame.dead
       dead.Visible = false
 
       voted.Visible = false
@@ -68,15 +82,22 @@ class PlayerButtonGroup
          playerNumber.Visible = false
       }
 
-      if ( game.IsSpectator( player ) )
+      this.alive = this.connected
+
+      if ( game.GetPlayerRole( player ) === ROLE.ROLE_SPECTATOR_CAMPER_ESCAPED )
       {
-         this.frameButton.Transparency = 0.75
+         this.alive = false
+      }
+      else if ( game.IsSpectator( player ) )
+      {
          this.alive = false
          dead.Visible = true
       }
 
-      if ( player.Character === undefined )
-         return
+      if ( !this.alive )
+         this.frameButton.Transparency = 0.75
+
+
       let viewportFrame = new Instance( "ViewportFrame" ) as ViewportFrame
       viewportFrame.Size = new UDim2( 1.0, 0, 1.0, 0 )
       viewportFrame.Position = new UDim2( 0, 0, 0, 0 )
@@ -243,7 +264,7 @@ class ActiveMeeting
 
       let frame = GetFirstChildWithNameAndClassName( meetingUI, 'Frame', 'Frame' ) as Frame
       let playerBackground = GetFirstChildWithNameAndClassName( frame, 'PlayerBackground', 'Frame' ) as Frame
-      let playerButtonTemplate = GetFirstChildWithNameAndClassName( playerBackground, 'PlayerButton', 'TextButton' ) as TextButton
+      let playerButtonTemplate = GetFirstChildWithNameAndClassName( playerBackground, 'PlayerButton', 'TextButton' ) as Editor_PlayerFrameButton
       this.playerButtonTemplate = playerButtonTemplate
       playerButtonTemplate.Visible = false
 
@@ -521,7 +542,10 @@ export function UpdateMeeting( game: Game, lastGameState: GAME_STATE )
 {
    let meetingUITemplate = file.meetingUI
    if ( meetingUITemplate === undefined )
+   {
+      Assert( false, "meetingUITemplate === undefined" )
       return
+   }
 
    let meetingCaller = game.meetingCaller
    if ( meetingCaller === undefined )
@@ -542,8 +566,8 @@ export function UpdateMeeting( game: Game, lastGameState: GAME_STATE )
 
    switch ( game.GetGameState() )
    {
-      case GAME_STATE.GAME_STATE_MEETING_VOTE:
       case GAME_STATE.GAME_STATE_MEETING_DISCUSS:
+      case GAME_STATE.GAME_STATE_MEETING_VOTE:
          if ( activeMeeting === undefined )
          {
             activeMeeting = new ActiveMeeting( game, meetingUITemplate, meetingCaller )
@@ -568,6 +592,9 @@ function SortByLiving( a: PlayerButtonGroup, b: PlayerButtonGroup ): boolean
 {
    if ( a.alive !== b.alive )
       return a.alive
+
+   if ( a.connected !== b.connected )
+      return a.connected
 
    return a.playerNum < b.playerNum
 }

@@ -1,12 +1,14 @@
-import { Workspace } from "@rbxts/services"
+import { TeleportService, Workspace } from "@rbxts/services"
 import { ROLE, Game, NETVAR_JSON_GAMESTATE, USETYPES, GAME_STATE, GetVoteResults, GAMERESULTS, MEETING_TYPE } from "shared/sh_gamestate"
 import { AddCallback_OnPlayerCharacterAdded } from "shared/sh_onPlayerConnect"
 import { AddNetVarChangedCallback } from "shared/sh_player_netvars"
 import { SetTimeDelta } from "shared/sh_time"
 import { GetUsableByType } from "shared/sh_use"
-import { Assert, GetFirstChildWithName, GetLocalPlayer, RandomFloatRange, RecursiveOnChildren, SetCharacterTransparency, SetPlayerTransparency, UserIDToPlayer, WaitThread } from "shared/sh_utils"
+import { Assert, GetFirstChildWithName, GetLocalPlayer, PlayerTouchesPart, RandomFloatRange, RecursiveOnChildren, SetCharacterTransparency, SetPlayerTransparency, UserIDToPlayer, WaitThread } from "shared/sh_utils"
 import { UpdateMeeting } from "./cl_meeting"
 import { CancelAnyOpenTask } from "./cl_tasks"
+import { AddPlayerUseDisabledCallback } from "./cl_use"
+import { SendRPC } from "./cl_utils"
 import { DrawMatchScreen_EmergencyMeeting, DrawMatchScreen_Intro, DrawMatchScreen_VoteResults, DrawMatchScreen_Winners } from "./content/cl_matchScreen_content"
 
 
@@ -48,7 +50,8 @@ function GameThread( game: Game )
          lastGameState = gameState
       }
 
-      UpdateMeeting( file.clientGame, lastGameStateForMeeting )
+      if ( gameState !== GAME_STATE.GAME_STATE_PREMATCH )
+         UpdateMeeting( file.clientGame, lastGameStateForMeeting )
 
       coroutine.yield() // wait until something says update again
    }
@@ -56,6 +59,27 @@ function GameThread( game: Game )
 
 export function CL_GameStateSetup()
 {
+   AddPlayerUseDisabledCallback( function ()
+   {
+      let gameState = GetLocalGame().GetGameState()
+      switch ( gameState )
+      {
+         case GAME_STATE.GAME_STATE_PREMATCH:
+         case GAME_STATE.GAME_STATE_PLAYING:
+            return false
+      }
+      return true
+   } )
+
+
+   let playerData = TeleportService.GetLocalPlayerTeleportData()
+   if ( playerData !== undefined )
+   {
+      let playerCount = playerData as number
+      print( "RPC_FromClient_SetPlayerCount " + PlayerTouchesPart )
+      SendRPC( 'RPC_FromClient_SetPlayerCount', playerCount )
+   }
+
    file.clientGame.gameThread = coroutine.create(
       function ()
       {
@@ -113,6 +137,7 @@ export function CL_GameStateSetup()
             corpse.clientModel = CreateCorpse( corpse.player, corpse.pos )
       }
 
+      /*
       let userIDToPlayer = UserIDToPlayer()
 
       let gamePlayers = file.clientGame.GetAllPlayers()
@@ -126,6 +151,7 @@ export function CL_GameStateSetup()
       {
          SetPlayerTransparency( pair[1], 1 )
       }
+      */
 
       let gameThread = file.clientGame.gameThread
       if ( gameThread !== undefined )
@@ -144,6 +170,7 @@ function CLGameStateChanged( oldGameState: number, newGameState: number )
          file.clientGame.Shared_OnGameStateChanged_PerPlayer( player, file.clientGame.GetGameState() )
    }
 
+   print( "Leaving game state " + oldGameState )
    // leaving this game state
    switch ( oldGameState )
    {
@@ -196,6 +223,7 @@ function CLGameStateChanged( oldGameState: number, newGameState: number )
          break
    }
 
+   print( "Entering game state " + newGameState )
    // entering this game state
    switch ( newGameState )
    {

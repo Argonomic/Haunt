@@ -106,6 +106,10 @@ function UpdateReadyUp()
          SetReadyUp( status, "Waiting for " + numWithYou + " more players" )
          break
 
+      case MATCHMAKING_STATUS.MATCHMAKING_WAITING_TO_PLAY:
+         DestroyReadyUp()
+         break
+
       case MATCHMAKING_STATUS.MATCHMAKING_PLAYING:
          DestroyReadyUp()
          break
@@ -131,12 +135,12 @@ function CreateReadyUI()
       return
 
    let toggleButton = new ToggleButton( frame, 180,
-      { 'Position': new UDim2( 1, -25, 1, -25 ), 'AnchorPoint': new Vector2( 0, 1 ) }, // hidden
-      { 'Position': new UDim2( 1, -25, 1, -25 ), 'AnchorPoint': new Vector2( 1, 1 ) }, // visible
+      { 'Position': new UDim2( 1, -25, 0.5, -25 ), 'AnchorPoint': new Vector2( 0, 0.5 ) }, // hidden
+      { 'Position': new UDim2( 1, -25, 0.5, -25 ), 'AnchorPoint': new Vector2( 1, 0.5 ) }, // visible
    )
    toggleButton.button.BackgroundColor3 = new Color3( 125 / 256, 170 / 256, 133 / 256 )
-   toggleButton.button.Position = new UDim2( 0, -5, 1, 0 )
-   toggleButton.button.AnchorPoint = new Vector2( 1, 1 )
+   toggleButton.button.Position = new UDim2( 0, -5, 0, 0 )
+   toggleButton.button.AnchorPoint = new Vector2( 1, 0 )
 
    let children = frame.GetChildren()
 

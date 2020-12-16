@@ -32,7 +32,7 @@ export function CL_PlayerSetup()
          }
          else
          {
-            SetPlayerTransparency( player, 1 )
+            //SetPlayerTransparency( player, 1 )
          }
 
          wait() // otherwise fights with other color setters somewhere
@@ -45,7 +45,7 @@ export function CL_PlayerSetup()
          }
          else
          {
-            SetPlayerTransparency( player, 1 )
+            //SetPlayerTransparency( player, 1 )
          }
       } )
    } )

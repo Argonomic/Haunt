@@ -1,6 +1,4 @@
-//export const DEV_STARTMEETING = false
 export const PLAYER_WALKSPEED = 16 //32
-
 export const DEV_READYUP = true
 export const MIN_PLAYERS = 5
 export const MAX_PLAYERS = 10
@@ -10,12 +8,10 @@ export const SPAWN_ROOM = "Foyer"
 export const KILL_DIST = 6.5
 export const REPORT_DIST = 5
 export const MEETING_DISCUSS_TIME = 5
-
-export let MEETING_VOTE_TIME = 60
-//if ( DEV_STARTMEETING )
-//   MEETING_VOTE_TIME = 6000
-
+export const MEETING_VOTE_TIME = 60
 export const SPECTATOR_TRANS = 0.6
+export const COOLDOWNTIME_KILL = 8 // 30
+export const COOLDOWNTIME_MEETING = 8 // 20
 
 export const PLAYER_COLORS =
    [
@@ -32,5 +28,3 @@ export const PLAYER_COLORS =
    ]
 
 
-export const COOLDOWNTIME_KILL = 8
-export const COOLDOWNTIME_MEETING = 60

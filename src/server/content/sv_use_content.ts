@@ -1,11 +1,12 @@
 import { GetHumanoid, GetPosition, IsAlive, KillPlayer } from "shared/sh_utils"
-import { GAME_STATE, ROLE, IsPracticing, Corpse, USETYPES, COOLDOWN_NAME_KILL, MEETING_TYPE } from "shared/sh_gamestate"
+import { GAME_STATE, ROLE, IsPracticing, Corpse, USETYPES, COOLDOWN_NAME_KILL, MEETING_TYPE, NETVAR_MEETINGS_CALLED, Game } from "shared/sh_gamestate"
 import { GetUsableByType, USABLETYPES } from "shared/sh_use"
 import { PlayerHasUnfinishedAssignment, PlayerToGame, ClearAssignments } from "server/sv_gameState"
 import { SendRPC } from "server/sv_utils"
 import { GetCurrentRoom } from "server/sv_rooms"
 import { ResetPlayerCooldownTime } from "shared/sh_cooldown"
 import { SetPlayerWalkSpeed } from "shared/sh_onPlayerConnect"
+import { GetNetVar_Number, SetNetVar } from "shared/sh_player_netvars"
 
 export function SV_UseContentSetup()
 {
@@ -14,7 +15,7 @@ export function SV_UseContentSetup()
       function ( player: Player ): Array<USABLETYPES>
       {
          let game = PlayerToGame( player )
-         if ( game.GetGameState() !== GAME_STATE.GAME_STATE_PLAYING )
+         if ( !UsableGameState( game ) )
             return []
 
          // are we near a corpse?
@@ -31,7 +32,7 @@ export function SV_UseContentSetup()
       function ( player: Player, usedThing: USABLETYPES )
       {
          let game = PlayerToGame( player )
-         if ( game.GetGameState() !== GAME_STATE.GAME_STATE_PLAYING )
+         if ( !UsableGameState( game ) )
             return
 
          let pos = usedThing as Vector3
@@ -57,6 +58,9 @@ export function SV_UseContentSetup()
             return []
 
          let game = PlayerToGame( player )
+         if ( !UsableGameState( game ) )
+            return []
+
          if ( game.IsSpectator( player ) )
             return []
 
@@ -80,9 +84,12 @@ export function SV_UseContentSetup()
    usableKill.successFunc =
       function ( player: Player, usedThing: USABLETYPES )
       {
+         let game = PlayerToGame( player )
+         if ( !UsableGameState( game ) )
+            return
+
          let camper = usedThing as Player
 
-         let game = PlayerToGame( player )
          game.corpses.push( new Corpse( camper, GetPosition( camper ) ) )
          game.playerToSpawnLocation.set( camper, GetPosition( camper ) )
          KillPlayer( camper )
@@ -114,6 +121,9 @@ export function SV_UseContentSetup()
          else
          {
             let game = PlayerToGame( player )
+            if ( !UsableGameState( game ) )
+               return []
+
             for ( let taskPair of room.tasks )
             {
                let task = taskPair[1]
@@ -128,6 +138,9 @@ export function SV_UseContentSetup()
    usableTask.successFunc =
       function ( player: Player, usedThing: USABLETYPES )
       {
+         let game = PlayerToGame( player )
+         if ( !UsableGameState( game ) )
+            return
          let volume = usedThing as BasePart
          let room = GetCurrentRoom( player )
          for ( let pair of room.tasks )
@@ -150,7 +163,13 @@ export function SV_UseContentSetup()
             if ( IsPracticing( player ) )
                return []
 
+            if ( GetNetVar_Number( player, NETVAR_MEETINGS_CALLED ) > 0 )
+               return []
+
             let game = PlayerToGame( player )
+            if ( !UsableGameState( game ) )
+               return []
+
             if ( game.IsSpectator( player ) )
                return []
 
@@ -163,16 +182,31 @@ export function SV_UseContentSetup()
       usable.successFunc =
          function ( player: Player, usedThing: USABLETYPES )
          {
+            let game = PlayerToGame( player )
+            if ( !UsableGameState( game ) )
+               return
             print( "Meeting called by " + player.Name )
             let volume = usedThing as BasePart
             let room = GetCurrentRoom( player )
             if ( room.meetingTrigger !== volume )
                return
 
-            let game = PlayerToGame( player )
+            let meetingsCalled = GetNetVar_Number( player, NETVAR_MEETINGS_CALLED )
+            SetNetVar( player, NETVAR_MEETINGS_CALLED, meetingsCalled + 1 )
             game.meetingCaller = player
             game.meetingType = MEETING_TYPE.MEETING_EMERGENCY
             game.SetGameState( GAME_STATE.GAME_STATE_MEETING_DISCUSS )
          }
    }
+}
+
+function UsableGameState( game: Game ): boolean
+{
+   switch ( game.GetGameState() )
+   {
+      case GAME_STATE.GAME_STATE_PREMATCH:
+      case GAME_STATE.GAME_STATE_PLAYING:
+         return true
+   }
+   return false
 }

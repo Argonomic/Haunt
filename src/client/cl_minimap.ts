@@ -212,7 +212,7 @@ export function CL_MinimapSetup()
          SetFramePositions( connectors, connectorArt, posX, posZ )
          SetIconPositions( posX, posZ )
 
-         if ( player.Character )
+         if ( player.Character !== undefined && player.Character.PrimaryPart !== undefined )
             arrow.Rotation = 180 + 360 - ( player.Character.PrimaryPart as BasePart ).Orientation.Y - 90
       } );
 

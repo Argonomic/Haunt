@@ -1,12 +1,12 @@
 import { Chat, HttpService, Players } from "@rbxts/services"
 import { AddRPC } from "shared/sh_rpc"
-import { ArrayRandomize, Assert, IsAlive, KillPlayer, Thread, UserIDToPlayer } from "shared/sh_utils"
+import { ArrayRandomize, Assert, IsAlive, Thread, UserIDToPlayer } from "shared/sh_utils"
 import { Assignment, GAME_STATE, SharedGameStateInit, NETVAR_JSON_TASKLIST, ROLE, IsPracticing, Game, GAMERESULTS, GetVoteResults, TASK_EXIT } from "shared/sh_gamestate"
 import { MAX_TASKLIST_SIZE, MAX_PLAYERS, MIN_PLAYERS, SPAWN_ROOM, PLAYER_WALKSPEED } from "shared/sh_settings"
 import { SetNetVar } from "shared/sh_player_netvars"
 import { AddCallback_OnPlayerCharacterAdded, SetPlayerWalkSpeed } from "shared/sh_onPlayerConnect"
 import { SendRPC } from "./sv_utils"
-import { GetAllRoomsAndTasks, GetCurrentRoom, GetRoomByName, GetRoomSpawnLocations, PutPlayerCameraInRoom, PutPlayersInRoom, SetPlayerCurrentRoom } from "./sv_rooms"
+import { GetAllRoomsAndTasks, GetCurrentRoom, GetRoomByName, PutPlayerCameraInRoom, PutPlayersInRoom } from "./sv_rooms"
 import { ResetAllCooldownTimes } from "shared/sh_cooldown"
 
 class File
@@ -18,8 +18,6 @@ let file = new File()
 
 export function SV_GameStateSetup()
 {
-
-
    class ChatResults
    {
       FromSpeaker: string = ""
@@ -149,7 +147,7 @@ export function PlayerToGame( player: Player ): Game
    return file.playerToGame.get( player ) as Game
 }
 
-function GameStateChanged( game: Game, oldGameState: GAME_STATE, gameState: GAME_STATE )
+function GameStateChanged( game: Game, oldGameState: GAME_STATE, gameEndFunc: Function )
 {
    let players = game.GetAllPlayers()
    {
@@ -193,7 +191,7 @@ function GameStateChanged( game: Game, oldGameState: GAME_STATE, gameState: GAME
             game.corpses = [] // clear the corpses
 
             let room = GetRoomByName( 'Great Room' )
-            PutPlayersInRoom( game.GetAllPlayers(), room )
+            PutPlayersInRoom( game.GetAllConnectedPlayers(), room )
 
             game.SetGameState( GAME_STATE.GAME_STATE_PLAYING )
          }
@@ -209,6 +207,32 @@ function GameStateChanged( game: Game, oldGameState: GAME_STATE, gameState: GAME
             ResetAllCooldownTimes( player )
          }
          break
+
+      case GAME_STATE.GAME_STATE_COMPLETE:
+         print( "Game Complete. Game results: " + game.GetGameResults() )
+
+         print( "Ending state: " + game.GetGameResults() )
+         print( "Possessed: " + game.GetLivingPossessed().size() )
+         print( "Campers: " + game.GetLivingCampers().size() )
+         for ( let player of game.GetAllPlayers() )
+         {
+            ClearAssignments( game, player )
+            if ( !IsAlive( player ) )
+               continue
+
+            //KillPlayer( player )
+            SendRPC( "RPC_FromServer_CancelTask", player )
+         }
+
+         // draw end
+         game.BroadcastGamestate()
+         wait( 8 )
+         game.SetGameState( GAME_STATE.GAME_STATE_DEAD )
+         break
+
+      case GAME_STATE.GAME_STATE_DEAD:
+         gameEndFunc()
+         break
    }
 }
 
@@ -223,7 +247,7 @@ function GameThread( game: Game, gameEndFunc: Function )
 
       if ( gameState !== lastGameState )
       {
-         GameStateChanged( game, lastGameState, gameState )
+         GameStateChanged( game, lastGameState, gameEndFunc )
          lastGameState = gameState
       }
 
@@ -240,13 +264,22 @@ function GameThread( game: Game, gameEndFunc: Function )
 
       switch ( gameState )
       {
-         case GAME_STATE.GAME_STATE_DEAD:
-            return
-
          case GAME_STATE.GAME_STATE_PREMATCH:
 
             print( "Prematch, creating game" )
             let players = game.GetAllPlayers().concat( [] ) // "clone"
+
+            players = players.filter( function ( player )
+            {
+               return player.Character !== undefined
+            } )
+
+            if ( players.size() < MIN_PLAYERS )
+            {
+               game.SetGameState( GAME_STATE.GAME_STATE_DEAD )
+               break
+            }
+
             let possessedCount = 1
             let size = players.size()
             if ( size > 11 )
@@ -273,43 +306,17 @@ function GameThread( game: Game, gameEndFunc: Function )
             }
 
             let room = GetRoomByName( SPAWN_ROOM )
-            let spawnLocations = GetRoomSpawnLocations( room, players.size() )
+            PutPlayersInRoom( players, room )
 
             for ( let i = 0; i < players.size(); i++ )
             {
                let player = players[i]
-               SetPlayerCurrentRoom( player, room )
-
-               game.playerToSpawnLocation.set( player, spawnLocations[i] )
-               //KillPlayer( player )
                SendRPC( "RPC_FromServer_CancelTask", player )
             }
 
             game.SetGameState( GAME_STATE.GAME_STATE_PLAYING )
             break
 
-         case GAME_STATE.GAME_STATE_PLAYING:
-
-            /*
-            if ( DEV_STARTMEETING )
-            {
-               Thread(
-                  function ()
-                  {
-                     wait( 2 )
-                     if ( game.GetGameState() !== GAME_STATE.GAME_STATE_PLAYING )
-                        return
- 
-                     print( "START A MEETING!!" )
-                     let players = game.GetAllPlayers()
-                     game.meetingCaller = players[0]
-                     game.meetingType = MEETING_TYPE.MEETING_REPORT
-                     game.SetGameState( GAME_STATE.GAME_STATE_MEETING_DISCUSS )
-                  } )
-            }
-            */
-
-            break
 
          case GAME_STATE.GAME_STATE_MEETING_DISCUSS:
             {
@@ -349,30 +356,6 @@ function GameThread( game: Game, gameEndFunc: Function )
                }
             }
             break
-
-         case GAME_STATE.GAME_STATE_COMPLETE:
-            print( "Game is over" )
-            game.BroadcastGamestate()
-            wait( 20 )
-
-            //print( "Ending state: " + game.GetGameResults() )
-            //print( "Possessed: " + game.GetLivingPossessed().size() )
-            //print( "Campers: " + game.GetLivingCampers().size() )
-            for ( let player of game.GetAllPlayers() )
-            {
-               ClearAssignments( game, player )
-               if ( !IsAlive( player ) )
-                  continue
-
-               //KillPlayer( player )
-               SendRPC( "RPC_FromServer_CancelTask", player )
-            }
-
-            game.BroadcastGamestate()
-            game.SetGameState( GAME_STATE.GAME_STATE_DEAD )
-            // draw end
-            gameEndFunc()
-            return
       }
 
       if ( gameState === game.GetGameState() )
@@ -385,8 +368,13 @@ function GameThread( game: Game, gameEndFunc: Function )
    }
 }
 
-export function CreateGame( players: Array<Player>, gameEndFunc: Function ): Game
+export function CreateGame( players: Array<Player>, gameEndFunc: Function )
 {
+   for ( let player of players )
+   {
+      Assert( player.Character !== undefined, "player.Character !== undefined" )
+      Assert( ( player.Character as Model ).PrimaryPart !== undefined, "(player.Character as Model).PrimaryPart !== undefined" )
+   }
    Assert( players.size() >= MIN_PLAYERS, "Not enough players" )
    Assert( players.size() <= MAX_PLAYERS, "Too many players" )
    let game = new Game()
@@ -407,8 +395,6 @@ export function CreateGame( players: Array<Player>, gameEndFunc: Function ): Gam
          GameThread( game, gameEndFunc )
       } )
    coroutine.resume( game.gameThread )
-
-   return game
 }
 
 function RPC_FromClient_OnPlayerFinishTask( player: Player, roomName: string, taskName: string )
@@ -459,7 +445,6 @@ function RPC_FromClient_OnPlayerFinishTask( player: Player, roomName: string, ta
 
    UpdateTasklistNetvar( player, assignments )
 }
-
 
 export function PlayerHasUnfinishedAssignment( player: Player, game: Game, roomName: string, taskName: string ): boolean
 {
@@ -538,4 +523,9 @@ export function AddPlayer( game: Game, player: Player, role: ROLE )
 {
    file.playerToGame.set( player, game )
    game.AddPlayer( player, role )
+}
+
+export function IsReservedServer(): boolean
+{
+   return game.PrivateServerId !== "" && game.PrivateServerOwnerId === 0
 }

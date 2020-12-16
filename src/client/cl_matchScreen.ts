@@ -1,16 +1,31 @@
-import { AddCallback_OnPlayerCharacterAdded, AddCallback_OnPlayerCharacterAncestryChanged } from "shared/sh_onPlayerConnect";
+import { MATCHMAKING_STATUS, NETVAR_MATCHMAKING_STATUS } from "shared/sh_gamestate";
+import { AddCallback_OnPlayerCharacterAncestryChanged } from "shared/sh_onPlayerConnect";
+import { GetNetVar_Number } from "shared/sh_player_netvars";
 import { Tween } from "shared/sh_tween";
-import { Assert, GetExistingFirstChildWithNameAndClassName, GetLocalPlayer, Thread } from "shared/sh_utils";
-import { AddPlayerGuiFolderExistsCallback, GetUIPackageFolder, UIORDER } from "./cl_ui";
+import { Assert, CloneChild, GetExistingFirstChildWithNameAndClassName, GetFirstChildWithName, GetLocalPlayer, Thread } from "shared/sh_utils";
+import { AddPlayerGuiFolderExistsCallback, UIORDER } from "./cl_ui";
 
 class File
 {
-   matchScreenUI: ScreenGui = new Instance( 'ScreenGui' )
+   matchScreenUI = new Instance( "ScreenGui" )
+   matchScreenTemplate: ScreenGui | undefined
    threadQueue: Array<thread> = []
-   baseFrameTemplate: Frame | undefined
+   baseFrameTemplate: Editor_MatchScreenBaseFrame | undefined
 }
 
 let file = new File()
+
+type Editor_MatchScreenBaseFrame = Frame &
+{
+   TitleFrame: Frame &
+   {
+      Title: TextLabel
+      SubTitle: TextLabel
+      LowerTitle: TextLabel
+      Centerprint: TextLabel
+      ViewportFrame: ViewportFrame
+   }
+}
 
 class MatchScreenFrame
 {
@@ -25,24 +40,25 @@ class MatchScreenFrame
 
    constructor( str: string )
    {
-      Assert( file.matchScreenUI.Parent !== undefined, "file.matchScreenUI should have a parent" )
       Assert( file.baseFrameTemplate !== undefined, "file.baseFrameTemplate !== undefined" )
-      Assert( file.baseFrameTemplate !== undefined, "Undefined" )
+      Assert( ( file.baseFrameTemplate as Editor_MatchScreenBaseFrame ).Parent === file.matchScreenTemplate && file.matchScreenTemplate !== undefined, "file.baseFrameTemplate.Parent === file.matchScreenTemplate" )
 
-      let baseFrame = ( file.baseFrameTemplate as Frame ).Clone()
-      let titleFrame = GetExistingFirstChildWithNameAndClassName( baseFrame, 'TitleFrame', 'Frame' ) as Frame
-      let title = GetExistingFirstChildWithNameAndClassName( titleFrame, 'Title', 'TextLabel' ) as TextLabel
-      let subTitle = GetExistingFirstChildWithNameAndClassName( titleFrame, 'SubTitle', 'TextLabel' ) as TextLabel
-      let lowerTitle = GetExistingFirstChildWithNameAndClassName( titleFrame, 'LowerTitle', 'TextLabel' ) as TextLabel
-      let centerprint = GetExistingFirstChildWithNameAndClassName( titleFrame, 'Centerprint', 'TextLabel' ) as TextLabel
-      let viewportFrame = GetExistingFirstChildWithNameAndClassName( titleFrame, 'ViewportFrame', 'ViewportFrame' ) as ViewportFrame
-      let viewportCamera = new Instance( "Camera" ) as Camera
-
+      let baseFrameTemplate = ( file.baseFrameTemplate as Editor_MatchScreenBaseFrame )
+      Assert( baseFrameTemplate.Parent !== undefined, "1 baseFrameTemplate.Parent !== undefined" )
+      let baseFrame = CloneChild( baseFrameTemplate ) as Editor_MatchScreenBaseFrame
       baseFrame.Parent = file.matchScreenUI
+      baseFrame.Name = "BaseFrame: " + str
+      Assert( baseFrame.ClassName === "Frame", "baseFrame.ClassName === 'Frame'" )
+      let titleFrame = baseFrame.TitleFrame
+      let title = titleFrame.Title
+      let subTitle = titleFrame.SubTitle
+      let lowerTitle = titleFrame.LowerTitle
+      let centerprint = titleFrame.Centerprint
+      let viewportFrame = titleFrame.ViewportFrame
+      let viewportCamera = new Instance( "Camera" ) as Camera
       titleFrame.Transparency = 1
       viewportCamera.Parent = viewportFrame
       viewportFrame.CurrentCamera = viewportCamera
-
       this.baseFrame = baseFrame
       this.titleFrame = titleFrame
       this.title = title
@@ -54,6 +70,8 @@ class MatchScreenFrame
 
       let thisThread = coroutine.running()
 
+      print( "Starting matchscreen " + str )
+
       Thread(
          function ()
          {
@@ -62,6 +80,7 @@ class MatchScreenFrame
                //print( "coroutine.status( thisThread ): " + str + " " + coroutine.status( thisThread ) + " " + thisThread )
                if ( coroutine.status( thisThread ) === "dead" )
                {
+                  print( "Finished matchscreen " + str )
                   Thread( function ()
                   {
                      wait( 2 ) // give the frame a chance to fade away
@@ -80,6 +99,7 @@ class MatchScreenFrame
 
 export function WaitForMatchScreenFrame( str: string ): MatchScreenFrame
 {
+   print( "WaitForMatchScreenFrame matchscreen " + str )
    let thisThread = coroutine.running()
    Assert( thisThread !== undefined, "Must be threaded off" )
 
@@ -92,44 +112,66 @@ export function WaitForMatchScreenFrame( str: string ): MatchScreenFrame
       let firstThread = file.threadQueue[0]
       if ( firstThread === thisThread )
          break
+      print( "waiting for thread release: " + file.threadQueue.size() )
 
       wait( 0.1 )
    }
 
+   print( "Starting matchscreen: " + str + ".." )
    return new MatchScreenFrame( str )
 }
 
 export function CL_MatchScreenSetup()
 {
    file.matchScreenUI.ResetOnSpawn = false
+   file.matchScreenUI.Enabled = true
+   file.matchScreenUI.Name = "MatchScreenUI"
+   file.matchScreenUI.IgnoreGuiInset = true
+   file.matchScreenUI.DisplayOrder = UIORDER.UIORDER_MATCHSCREEN
 
    AddPlayerGuiFolderExistsCallback(
-      function ( guiFolder: Folder )
+      function ( folder: Folder )
       {
-         let matchScreenUI = file.matchScreenUI
-         matchScreenUI.Parent = guiFolder
+         file.matchScreenUI.Parent = folder
 
-         if ( file.baseFrameTemplate !== undefined )
+         if ( file.matchScreenTemplate !== undefined )
             return
 
-         matchScreenUI.Name = 'MatchScreenUI'
-         matchScreenUI.IgnoreGuiInset = true
-         matchScreenUI.DisplayOrder = UIORDER.UIORDER_MATCHSCREEN
+         Assert( file.baseFrameTemplate === undefined, "file.baseFrameTemplate === undefined" )
+         let template = GetExistingFirstChildWithNameAndClassName( folder, 'MatchScreenUI Template', 'ScreenGui' ) as ScreenGui
 
-         let folder = GetUIPackageFolder()
-         let template = GetExistingFirstChildWithNameAndClassName( folder, 'TemplateUIs', 'ScreenGui' ) as ScreenGui
-         let baseFrameTemplate = GetExistingFirstChildWithNameAndClassName( template, 'BaseFrame', 'Frame' ) as Frame
+         template.IgnoreGuiInset = true
+         template.Parent = undefined
+         template.Enabled = false
+         file.matchScreenTemplate = template
+
+         let baseFrameTemplate = GetExistingFirstChildWithNameAndClassName( template, 'BaseFrame', 'Frame' ) as Editor_MatchScreenBaseFrame
          file.baseFrameTemplate = baseFrameTemplate
-         baseFrameTemplate.Parent = undefined // so it is not destroyed when character cycles
+         baseFrameTemplate.Name = "BaseFrame Template"
 
          // Fade in
          Thread( function ()
          {
             let frame = baseFrameTemplate.Clone()
+            frame.Name = "Global Fade In"
+            frame.Parent = file.matchScreenUI
             frame.Transparency = 0
             frame.ZIndex = 0
-            wait( 0.2 )
-            const TIME = 0.8
+
+            wait( 1.0 )
+
+            for ( ; ; )
+            {
+               print( GetNetVar_Number( GetLocalPlayer(), NETVAR_MATCHMAKING_STATUS ) )
+
+               if ( GetNetVar_Number( GetLocalPlayer(), NETVAR_MATCHMAKING_STATUS ) !== MATCHMAKING_STATUS.MATCHMAKING_WAITING_TO_PLAY )
+                  break
+               wait( 0.1 )
+            }
+
+            print( "CLIENT GAME STARTED" )
+
+            const TIME = 2.0
             Tween( frame, { Transparency: 1.0 }, TIME, Enum.EasingStyle.Linear, Enum.EasingDirection.Out )
             wait( TIME )
             frame.Destroy()
@@ -139,8 +181,7 @@ export function CL_MatchScreenSetup()
    AddCallback_OnPlayerCharacterAncestryChanged(
       function ()
       {
-         if ( file.matchScreenUI !== undefined )
-            file.matchScreenUI.Parent = undefined
+         file.matchScreenUI.Parent = undefined
       } )
 
 }
