@@ -113,7 +113,7 @@ export function CL_MinimapSetup()
       arrow.Rotation = 35
       arrow.ZIndex = ZINDEX_ARROW
 
-      baseFrame.BackgroundTransparency = 1
+      baseFrame.BackgroundTransparency = 0 //1
       baseFrame.BorderSizePixel = 0
 
       for ( let mapIcon of file.mapIcons )

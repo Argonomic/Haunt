@@ -78,6 +78,9 @@ function OnPlayerCharacterAdded( character: Model )
                   if ( children.size() > 20 )
                   {
                      let clone = _CloneCharacter( character )
+                     clone.Name = player.Name + " clone model"
+                     if ( file.playerToModel.has( player ) )
+                        ( file.playerToModel.get( player ) as Model ).Destroy()
                      file.playerToModel.set( player, clone )
                      break
                   }
@@ -104,7 +107,9 @@ export function ClonePlayerModel( player: Player ): Model | undefined
       return undefined
 
    let model = file.playerToModel.get( player ) as Model
-   return _CloneCharacter( model )
+   let clone = _CloneCharacter( model )
+   //clone.Name = player.Name + " clone model"
+   return clone
 }
 
 function _CloneCharacter( character: Model ): Model 

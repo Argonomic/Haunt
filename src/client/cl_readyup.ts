@@ -1,81 +1,89 @@
-import { Players } from "@rbxts/services";
-import { NETVAR_MATCHMAKING_STATUS, MATCHMAKING_STATUS, NETVAR_MATCHMAKING_NUMWITHYOU } from "shared/sh_gamestate";
+import { NETVAR_MATCHMAKING_STATUS, MATCHMAKING_STATUS, NETVAR_MATCHMAKING_NUMWITHYOU, NETVAR_JSON_GAMESTATE, NETVAR_JSON_TASKLIST } from "shared/sh_gamestate";
+import { AddCallback_OnPlayerCharacterAncestryChanged } from "shared/sh_onPlayerConnect";
 import { AddNetVarChangedCallback, GetNetVar_Number } from "shared/sh_player_netvars";
 import { DEV_READYUP } from "shared/sh_settings";
-import { Assert, GetFirstChildWithName, GetFirstChildWithNameAndClassName, GetLocalPlayer, Thread } from "shared/sh_utils";
+import { GetFirstChildWithNameAndClassName, GetLocalPlayer, Thread } from "shared/sh_utils";
+import { GetLocalGame } from "./cl_gamestate";
 import { AddPlayerGuiFolderExistsCallback, ToggleButton, UIORDER } from "./cl_ui";
 import { SendRPC } from "./cl_utils";
+import { TasksRemaining } from "./cl_taskList";
 
-class ReadyUI
+
+type Editor_ReadyUI = ScreenGui &
 {
-   readyUI: ScreenGui
-   checkboxReal: TextButton
-   checkboxPractice: TextButton
-   check: ImageLabel
-   status: TextLabel
-
-   constructor( readyUI: ScreenGui, checkboxReal: TextButton, checkboxPractice: TextButton, check: ImageLabel, status: TextLabel )
+   Frame: Frame &
    {
-      this.readyUI = readyUI
-      this.checkboxReal = checkboxReal
-      this.checkboxPractice = checkboxPractice
-      this.check = check
-      this.status = status
+      InfoFrame: Frame &
+      {
+         Status: TextLabel
+      }
+
+      checkbox_play: TextButton
+      checkbox_practice: TextButton
+      Check: ImageLabel
+      COLORING: TextLabel
+      GameChoice: TextLabel
+      Practice: TextLabel
+      Real: TextLabel
    }
 }
 
 class File
 {
-   readyUI: ReadyUI | undefined
-   baseReadyUI: ScreenGui | undefined
+   oldTaskListCount = -1
+   _readyUI: Editor_ReadyUI | undefined
+   toggleButton: ToggleButton | undefined
 }
 
 let file = new File()
-
-export function DestroyReadyUp()
-{
-   if ( file.readyUI === undefined )
-      return
-
-   ( file.readyUI as ReadyUI ).readyUI.Destroy()
-}
-
-export function SetReadyUp( status: MATCHMAKING_STATUS, readyMessage: string )
-{
-   if ( file.baseReadyUI === undefined )
-      return
-
-   if ( file.readyUI === undefined )
-      CreateReadyUI()
-
-   Assert( file.readyUI !== undefined, "Ready UI is undefined" )
-
-   let readyUI = file.readyUI as ReadyUI
-
-   switch ( status )
-   {
-      case MATCHMAKING_STATUS.MATCHMAKING_PRACTICE:
-         readyUI.check.Position = readyUI.checkboxPractice.Position
-         break
-
-      case MATCHMAKING_STATUS.MATCHMAKING_LFG:
-         readyUI.check.Position = readyUI.checkboxReal.Position
-         break
-   }
-
-   readyUI.status.Text = readyMessage
-}
 
 export function CL_ReadyUpSetup()
 {
    AddPlayerGuiFolderExistsCallback( function ( gui: Instance )
    {
-      let readyUI = GetFirstChildWithNameAndClassName( gui, 'ReadyUI', 'ScreenGui' ) as ScreenGui
+      if ( file._readyUI !== undefined )
+      {
+         file._readyUI.Parent = gui
+         return
+      }
+
+      let readyUI = GetFirstChildWithNameAndClassName( gui, 'ReadyUI', 'ScreenGui' ) as Editor_ReadyUI
       readyUI.Enabled = false
       readyUI.DisplayOrder = UIORDER.UIORDER_READY
+      file._readyUI = readyUI
 
-      file.baseReadyUI = readyUI
-      CreateReadyUI()
+      let frame = readyUI.Frame
+
+      let toggleButton = new ToggleButton( frame, 180,
+         { 'Position': new UDim2( 1, -25, 0.5, -25 ), 'AnchorPoint': new Vector2( 0, 0.5 ) }, // hidden
+         { 'Position': new UDim2( 1, -25, 0.5, -25 ), 'AnchorPoint': new Vector2( 1, 0.5 ) }, // visible
+      )
+      toggleButton.button.BackgroundColor3 = new Color3( 125 / 256, 170 / 256, 133 / 256 )
+      toggleButton.button.Position = new UDim2( 0, -5, 0, 0 )
+      toggleButton.button.AnchorPoint = new Vector2( 1, 0 )
+      file.toggleButton = toggleButton
+
+      frame.checkbox_play.MouseButton1Up.Connect( function ()
+      {
+         SendRPC( "RPC_FromClient_RequestChange_MatchmakingStatus", MATCHMAKING_STATUS.MATCHMAKING_LFG )
+      } )
+
+      frame.checkbox_practice.MouseButton1Up.Connect( function ()
+      {
+         SendRPC( "RPC_FromClient_RequestChange_MatchmakingStatus", MATCHMAKING_STATUS.MATCHMAKING_PRACTICE )
+      } )
+
+      if ( DEV_READYUP )
+      {
+         Thread(
+            function ()
+            {
+               wait( 2 )
+               SendRPC( "RPC_FromClient_RequestChange_MatchmakingStatus", MATCHMAKING_STATUS.MATCHMAKING_LFG )
+            }
+         )
+      }
+
       UpdateReadyUp()
    } )
 
@@ -88,115 +96,113 @@ export function CL_ReadyUpSetup()
    {
       UpdateReadyUp()
    } )
+
+   AddNetVarChangedCallback( NETVAR_JSON_GAMESTATE,
+      function ()
+      {
+         Thread(
+            function ()
+            {
+               wait() // after it actually state
+               UpdateReadyUp()
+            } )
+      } )
+
+   AddNetVarChangedCallback( NETVAR_JSON_TASKLIST,
+      function ()
+      {
+         Thread(
+            function ()
+            {
+               wait() // wait for it to update
+               if ( file.toggleButton === undefined )
+                  return
+
+               let taskListCount = TasksRemaining()
+               if ( taskListCount === file.oldTaskListCount )
+                  return
+
+               file.oldTaskListCount = taskListCount
+
+               if ( taskListCount > 0 )
+                  return
+
+               Thread( function ()
+               {
+                  if ( file.toggleButton === undefined )
+                     return
+                  if ( file.toggleButton.IsOpen() )
+                     return
+
+                  wait( 3.0 )
+                  file.toggleButton.Open()
+               } )
+
+               UpdateReadyUp()
+            } )
+      } )
+
+   AddCallback_OnPlayerCharacterAncestryChanged( function ()
+   {
+      if ( file._readyUI !== undefined )
+         file._readyUI.Parent = undefined
+   } )
 }
 
 function UpdateReadyUp()
 {
+   if ( file._readyUI === undefined )
+      return
+
+   let readyUI = file._readyUI
    let player = GetLocalPlayer()
+   let game = GetLocalGame()
    let status = GetNetVar_Number( player, NETVAR_MATCHMAKING_STATUS )
    let numWithYou = GetNetVar_Number( player, NETVAR_MATCHMAKING_NUMWITHYOU )
+
+   if ( game.IsSpectator( player ) )
+   {
+      readyUI.Frame.Check.Visible = false
+      readyUI.Enabled = true
+      readyUI.Frame.InfoFrame.Status.Text = "Spectate or leave this game?"
+      readyUI.DisplayOrder = UIORDER.UIORDER_READY_AFTER_SPECTATE // move this to the front
+      if ( file.toggleButton !== undefined )
+         file.toggleButton.Open()
+      return
+   }
 
    switch ( status )
    {
       case MATCHMAKING_STATUS.MATCHMAKING_PRACTICE:
-         SetReadyUp( status, "Practicing.. go explore!" )
+         readyUI.Frame.Check.Visible = true
+         readyUI.Frame.Check.Position = readyUI.Frame.checkbox_practice.Position
+         if ( file.oldTaskListCount === 0 )
+            readyUI.Frame.InfoFrame.Status.Text = "Ready to find a match?"
+         else
+            readyUI.Frame.InfoFrame.Status.Text = "Practicing.. go explore!"
+         readyUI.Enabled = true
          break
 
       case MATCHMAKING_STATUS.MATCHMAKING_LFG:
-         SetReadyUp( status, "Waiting for " + numWithYou + " more players" )
-         break
-
-      case MATCHMAKING_STATUS.MATCHMAKING_WAITING_TO_PLAY:
-         DestroyReadyUp()
+         readyUI.Frame.Check.Visible = true
+         readyUI.Frame.Check.Position = readyUI.Frame.checkbox_play.Position
+         readyUI.Frame.InfoFrame.Status.Text = "Waiting for " + numWithYou + " more players"
+         readyUI.Enabled = true
          break
 
       case MATCHMAKING_STATUS.MATCHMAKING_PLAYING:
-         DestroyReadyUp()
+         Thread(
+            function ()
+            {
+               if ( file.toggleButton !== undefined )
+               {
+                  file.toggleButton.Close()
+                  wait( file.toggleButton.time )
+               }
+               readyUI.Enabled = false
+            } )
          break
    }
 }
 
 
-function CreateReadyUI()
-{
-   if ( file.baseReadyUI === undefined )
-      return
-
-   let readyUI = file.baseReadyUI.Clone()
-   readyUI.Name = readyUI.Name + " Clone"
-   readyUI.Parent = file.baseReadyUI.Parent
-   readyUI.Enabled = true
-   let checkboxReal: TextButton | undefined
-   let checkboxPractice: TextButton | undefined
-   let check: ImageLabel | undefined
-   let status: TextLabel | undefined
-   let frame = GetFirstChildWithName( readyUI, "Frame" ) as Frame | undefined
-   if ( frame === undefined )
-      return
-
-   let toggleButton = new ToggleButton( frame, 180,
-      { 'Position': new UDim2( 1, -25, 0.5, -25 ), 'AnchorPoint': new Vector2( 0, 0.5 ) }, // hidden
-      { 'Position': new UDim2( 1, -25, 0.5, -25 ), 'AnchorPoint': new Vector2( 1, 0.5 ) }, // visible
-   )
-   toggleButton.button.BackgroundColor3 = new Color3( 125 / 256, 170 / 256, 133 / 256 )
-   toggleButton.button.Position = new UDim2( 0, -5, 0, 0 )
-   toggleButton.button.AnchorPoint = new Vector2( 1, 0 )
-
-   let children = frame.GetChildren()
-
-   for ( let child of children )
-   {
-      switch ( child.Name )
-      {
-         case "checkbox_play":
-            checkboxReal = child as TextButton
-            break
-
-         case "checkbox_practice":
-            checkboxPractice = child as TextButton
-            break
-
-         case "Check":
-            check = child as ImageLabel
-            break
-
-         case "InfoFrame":
-            let infoFrame = child as Frame
-            status = GetFirstChildWithName( infoFrame, "TextLabel" ) as TextLabel | undefined
-            break
-      }
-   }
-
-   Assert( status !== undefined && check !== undefined && checkboxReal !== undefined && checkboxPractice !== undefined, "Buttons were not found" )
-   if ( status === undefined || check === undefined || checkboxReal === undefined || checkboxPractice === undefined )
-      return
-
-   checkboxReal.MouseButton1Up.Connect( function ()
-   {
-      if ( status === undefined || check === undefined || checkboxReal === undefined || checkboxPractice === undefined )
-         return
-      //check.Position = checkboxReal.Position
-      SendRPC( "RPC_FromClient_RequestChange_MatchmakingStatus", MATCHMAKING_STATUS.MATCHMAKING_LFG )
-   } )
-
-   checkboxPractice.MouseButton1Up.Connect( function ()
-   {
-      if ( status === undefined || check === undefined || checkboxReal === undefined || checkboxPractice === undefined )
-         return
-      //check.Position = checkboxPractice.Position
-      SendRPC( "RPC_FromClient_RequestChange_MatchmakingStatus", MATCHMAKING_STATUS.MATCHMAKING_PRACTICE )
-   } )
-
-   if ( DEV_READYUP )
-   {
-      Thread(
-         function ()
-         {
-            wait( 2 )
-            SendRPC( "RPC_FromClient_RequestChange_MatchmakingStatus", MATCHMAKING_STATUS.MATCHMAKING_LFG )
-         }
-      )
-   }
-
-   file.readyUI = new ReadyUI( readyUI, checkboxReal, checkboxPractice, check, status )
-}

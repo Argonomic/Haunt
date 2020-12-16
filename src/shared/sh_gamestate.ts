@@ -39,6 +39,8 @@ export enum MATCHMAKING_STATUS
    MATCHMAKING_LFG,
    MATCHMAKING_WAITING_TO_PLAY,
    MATCHMAKING_PLAYING,
+   MATCHMAKING_SEND_TO_RESERVEDSERVER,
+   MATCHMAKING_SEND_TO_LOBBY,
 }
 
 export enum ROLE
@@ -97,6 +99,11 @@ class NETVAR_Vote
    }
 }
 
+export class TELEPORT_PlayerData
+{
+   playerNum: number | undefined
+   matchmaking: MATCHMAKING_STATUS | undefined
+}
 
 export class Assignment
 {
@@ -513,7 +520,7 @@ export class Game
             Assert( this.GetPlayerRole( player ) === ROLE.ROLE_POSSESSED, "Bad role assignment" )
       }
 
-      Assert( this.playerToInfo.has( player ), "Game does not have " + player.Name )
+      Assert( this.playerToInfo.has( player ), "SetPlayerRole: Game does not have " + player.Name )
       let playerInfo = this.playerToInfo.get( player ) as PlayerInfo
       playerInfo.role = role
       this.playerToInfo.set( player, playerInfo )
@@ -634,7 +641,7 @@ export class Game
 
    public GetPlayerRole( player: Player ): ROLE
    {
-      Assert( this.playerToInfo.has( player ), "Game does not have " + player.Name )
+      Assert( this.playerToInfo.has( player ), "GetPlayerRole: Game does not have " + player.Name )
       return ( this.playerToInfo.get( player ) as PlayerInfo ).role
    }
 
@@ -661,7 +668,7 @@ export class Game
 
    public Shared_OnGameStateChanged_PerPlayer( player: Player, state: GAME_STATE )
    {
-
+      /*
       if ( player.Character !== undefined )
       {
          ExecOnChildWhenItExists( player.Character, "Humanoid", function ( instance: Instance )
@@ -669,22 +676,20 @@ export class Game
             let human = instance as Humanoid
             human.NameDisplayDistance = 1000
             human.NameOcclusion = Enum.NameOcclusion.NoOcclusion
-            //human.DisplayDistanceType = Enum.HumanoidDisplayDistanceType.
-
          } )
       }
+      */
 
       switch ( state )
       {
          case GAME_STATE.GAME_STATE_MEETING_DISCUSS:
          case GAME_STATE.GAME_STATE_MEETING_VOTE:
-            //SetPlayerYaw( player, 0 )
             SetPlayerWalkSpeed( player, 0 )
             break
 
          default:
             if ( this.IsSpectator( player ) )
-               SetPlayerWalkSpeed( player, 24 )
+               SetPlayerWalkSpeed( player, PLAYER_WALKSPEED * 1.5 )
             else
                SetPlayerWalkSpeed( player, PLAYER_WALKSPEED )
             break
@@ -862,10 +867,7 @@ export function IsPracticing( player: Player ): boolean
 
 export function PlayerNumToGameViewable( playerNum: number ): string
 {
-   playerNum++
-   if ( playerNum === 10 )
-      playerNum = 0
-   return playerNum + ""
+   return playerNum + 1 + ""
 }
 
 class VoteResults

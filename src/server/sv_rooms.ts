@@ -1,5 +1,5 @@
 import { Room, AddRoomsFromWorkspace, RoomAndTask, AddCallback_OnRoomSetup } from "shared/sh_rooms"
-import { ArrayRandomize, Assert, GetPlayerFromDescendant, RandomFloatRange, Thread } from "shared/sh_utils"
+import { ArrayRandomize, Assert, GetPlayerFromDescendant, RandomFloatRange, SetPlayerYaw, Thread } from "shared/sh_utils"
 import { QUICK_START_ROOM } from "shared/sh_settings"
 import { SendRPC } from "./sv_utils"
 import { AddCallback_OnPlayerConnected } from "shared/sh_onPlayerConnect"
@@ -143,6 +143,8 @@ export function PutPlayersInRoom( players: Array<Player>, room: Room )
    let startpoints = room.startPoints.concat()
    ArrayRandomize( startpoints )
 
+   let offset = 35
+
    for ( let i = 0; i < players.size(); i++ )
    {
       let player = players[i]
@@ -161,7 +163,8 @@ export function PutPlayersInRoom( players: Array<Player>, room: Room )
          part.CFrame = new CFrame( org )
       }
 
-      part.CFrame = part.CFrame.mul( CFrame.Angles( math.rad( 0 ), math.rad( RandomFloatRange( -25, 25 ) ), math.rad( 0 ) ) )
+      SetPlayerYaw( player, RandomFloatRange( 90 - offset, 90 + offset ) )
+      //part.CFrame = part.CFrame.mul( CFrame.Angles( math.rad( 0 ), math.rad( yaw ), math.rad( 0 ) ) )
 
       print( "Put player " + player.Name + " in room " + room.name )
       file.currentRoom.set( player, room )

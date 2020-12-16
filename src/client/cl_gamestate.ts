@@ -1,10 +1,10 @@
-import { TeleportService, Workspace } from "@rbxts/services"
-import { ROLE, Game, NETVAR_JSON_GAMESTATE, USETYPES, GAME_STATE, GetVoteResults, GAMERESULTS, MEETING_TYPE } from "shared/sh_gamestate"
+import { HttpService, TeleportService, Workspace } from "@rbxts/services"
+import { ROLE, Game, NETVAR_JSON_GAMESTATE, USETYPES, GAME_STATE, GetVoteResults, GAMERESULTS, MEETING_TYPE, TELEPORT_PlayerData } from "shared/sh_gamestate"
 import { AddCallback_OnPlayerCharacterAdded } from "shared/sh_onPlayerConnect"
 import { AddNetVarChangedCallback } from "shared/sh_player_netvars"
 import { SetTimeDelta } from "shared/sh_time"
 import { GetUsableByType } from "shared/sh_use"
-import { Assert, GetFirstChildWithName, GetLocalPlayer, PlayerTouchesPart, RandomFloatRange, RecursiveOnChildren, SetCharacterTransparency, WaitThread } from "shared/sh_utils"
+import { Assert, GetFirstChildWithName, GetLocalPlayer, RandomFloatRange, RecursiveOnChildren, SetCharacterTransparency, WaitThread } from "shared/sh_utils"
 import { UpdateMeeting } from "./cl_meeting"
 import { CancelAnyOpenTask } from "./cl_tasks"
 import { AddPlayerUseDisabledCallback } from "./cl_use"
@@ -71,13 +71,18 @@ export function CL_GameStateSetup()
       return true
    } )
 
-
    let playerData = TeleportService.GetLocalPlayerTeleportData()
    if ( playerData !== undefined )
    {
-      let playerCount = playerData as number
-      print( "RPC_FromClient_SetPlayerCount " + PlayerTouchesPart )
-      SendRPC( 'RPC_FromClient_SetPlayerCount', playerCount )
+      // data packaged with our teleport from previous server
+      Assert( typeOf( playerData ) === 'string', "typeOf( playerData ) === 'string'" )
+      let jsonString = playerData as string
+      let data = HttpService.JSONDecode( jsonString ) as TELEPORT_PlayerData
+      if ( data.playerNum !== undefined )
+         SendRPC( 'RPC_FromClient_SetPlayerCount', data.playerNum )
+
+      if ( data.matchmaking !== undefined )
+         SendRPC( "RPC_FromClient_RequestChange_MatchmakingStatus", data.matchmaking )
    }
 
    file.clientGame.gameThread = coroutine.create(

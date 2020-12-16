@@ -4,6 +4,7 @@ import { SendRPC } from "./cl_utils"
 import { Assert, GetLocalPlayer, LoadSound } from "shared/sh_utils"
 import { SetPlayerWalkSpeed } from "shared/sh_onPlayerConnect"
 import { AddPlayerUseDisabledCallback, SetUseDebounceTime } from "./cl_use"
+import { PLAYER_WALKSPEED } from "shared/sh_settings"
 
 export enum TASK_UI
 {
@@ -148,7 +149,7 @@ export function RPC_FromServer_OnPlayerUseTask( roomName: string, taskName: stri
          SetUseDebounceTime( 1 ) // hide use for a second
       }
 
-      SetPlayerWalkSpeed( GetLocalPlayer(), 16 )
+      SetPlayerWalkSpeed( GetLocalPlayer(), PLAYER_WALKSPEED )
 
       //SetPlayerState( GetLocalPlayer(), Enum.HumanoidStateType.Running, true )
       newFrame.Destroy()

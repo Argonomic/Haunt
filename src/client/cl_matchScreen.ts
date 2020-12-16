@@ -1,6 +1,8 @@
+import { TeleportService } from "@rbxts/services";
 import { MATCHMAKING_STATUS, NETVAR_MATCHMAKING_STATUS } from "shared/sh_gamestate";
-import { AddCallback_OnPlayerCharacterAncestryChanged } from "shared/sh_onPlayerConnect";
+import { AddCallback_OnPlayerCharacterAncestryChanged, SetPlayerWalkSpeed } from "shared/sh_onPlayerConnect";
 import { GetNetVar_Number } from "shared/sh_player_netvars";
+import { PLAYER_WALKSPEED } from "shared/sh_settings";
 import { Tween } from "shared/sh_tween";
 import { Assert, CloneChild, GetExistingFirstChildWithNameAndClassName, GetFirstChildWithName, GetLocalPlayer, Thread } from "shared/sh_utils";
 import { AddPlayerGuiFolderExistsCallback, UIORDER } from "./cl_ui";
@@ -71,6 +73,8 @@ class MatchScreenFrame
       let thisThread = coroutine.running()
 
       print( "Starting matchscreen " + str )
+      let player = GetLocalPlayer()
+      SetPlayerWalkSpeed( player, 0 )
 
       Thread(
          function ()
@@ -89,6 +93,8 @@ class MatchScreenFrame
 
                   if ( thisThread === file.threadQueue[0] )
                      file.threadQueue.remove( 0 )
+                  if ( file.threadQueue.size() === 0 )
+                     SetPlayerWalkSpeed( player, PLAYER_WALKSPEED )
                   return
                }
                wait( 0.1 )
@@ -129,6 +135,8 @@ export function CL_MatchScreenSetup()
    file.matchScreenUI.IgnoreGuiInset = true
    file.matchScreenUI.DisplayOrder = UIORDER.UIORDER_MATCHSCREEN
 
+   TeleportService.SetTeleportGui( file.matchScreenUI )
+
    AddPlayerGuiFolderExistsCallback(
       function ( folder: Folder )
       {
@@ -162,8 +170,6 @@ export function CL_MatchScreenSetup()
 
             for ( ; ; )
             {
-               print( GetNetVar_Number( GetLocalPlayer(), NETVAR_MATCHMAKING_STATUS ) )
-
                if ( GetNetVar_Number( GetLocalPlayer(), NETVAR_MATCHMAKING_STATUS ) !== MATCHMAKING_STATUS.MATCHMAKING_WAITING_TO_PLAY )
                   break
                wait( 0.1 )

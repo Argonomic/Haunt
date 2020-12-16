@@ -128,7 +128,7 @@ export function CL_FadeOverlaySetup()
                return MAX
          }
 
-         return 25
+         return 30
       }
 
       let visiblePlayersToPlayernum = new Map<Player, TextLabel>()

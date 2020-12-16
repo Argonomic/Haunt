@@ -72,6 +72,7 @@ function ResetCameraForCurrentRoom()
    file.camera.FieldOfView = room.fieldOfView
 
    let cframe = new CFrame( room.cameraStart, room.cameraEnd )
+   cframe = cframe.mul( CFrame.Angles( math.rad( 0 ), math.rad( 0 ), math.rad( room.cameraRotation ) ) )
 
    // put camera in room center
    let viewSize = file.camera.ViewportSize

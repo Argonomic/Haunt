@@ -27,10 +27,22 @@ type EDITOR_ScreenUIWithFrame = ScreenGui &
 class File
 {
    assignments: Array<Assignment> = []
+   lastAssignmentCount = 0
    existingUI: EDITOR_ScreenUIWithFrame | undefined
    taskLabels: Array<TextLabel> = []
    toggleButton: ToggleButton | undefined
    framePosition = new UDim2( 0, 0, 0, 0 )
+}
+
+export function TasksRemaining(): number
+{
+   let count = 0
+   for ( let assignment of file.assignments )
+   {
+      if ( assignment.status === 0 )
+         count++
+   }
+   return count
 }
 
 let file = new File()
@@ -40,6 +52,13 @@ function RefreshTaskList()
    let json = GetNetVar_String( GetLocalPlayer(), NETVAR_JSON_TASKLIST )
    let assignments = HttpService.JSONDecode( json ) as Array<Assignment>
    file.assignments = assignments
+
+   if ( file.lastAssignmentCount !== assignments.size() )
+   {
+      file.lastAssignmentCount = assignments.size()
+      if ( file.toggleButton !== undefined )
+         file.toggleButton.Open()
+   }
 
    RedrawTaskListUI()
 }
@@ -215,18 +234,21 @@ export function RedrawTaskListUI()
    }
 
 
+   let startIndex
    let assignIndex = 0
    if ( IsPracticing( GetLocalPlayer() ) )
    {
       file.taskLabels[0].Text = "Practice " + count + " tasks:"
+      startIndex = 2
    }
    else
    {
       file.taskLabels[0].Text = "Complete your tasks and then escape."
       file.taskLabels[1].Text = count + " Tasks Remaining:"
+      startIndex = 3
    }
 
-   for ( let i = 2; i < file.taskLabels.size(); i++ )
+   for ( let i = startIndex; i < file.taskLabels.size(); i++ )
    {
       for ( let p = assignIndex; p < file.assignments.size(); p++ )
       {

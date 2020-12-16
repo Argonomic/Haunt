@@ -1,7 +1,10 @@
+export const DEV_SKIP = false
+export const DEV_READYUP = false
+
+export const MATCHMAKE_PLAYERCOUNT = 10
+export const MATCHMAKE_PLAYERCOUNT_FALLBACK = 8
+
 export const PLAYER_WALKSPEED = 16 //32
-export const DEV_READYUP = true
-export const MIN_PLAYERS = 5
-export const MAX_PLAYERS = 10
 export const MAX_TASKLIST_SIZE = 2
 export const QUICK_START_ROOM = "Foyer"
 export const SPAWN_ROOM = "Foyer"
@@ -10,7 +13,12 @@ export const REPORT_DIST = 5
 export const MEETING_DISCUSS_TIME = 5
 export const MEETING_VOTE_TIME = 60
 export const SPECTATOR_TRANS = 0.6
-export const COOLDOWNTIME_KILL = 8 // 30
+
+export let COOLDOWNTIME_KILL = 30
+
+if ( DEV_SKIP )
+   COOLDOWNTIME_KILL = 0
+
 export const COOLDOWNTIME_MEETING = 8 // 20
 
 export const PLAYER_COLORS =

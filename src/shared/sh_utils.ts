@@ -49,14 +49,10 @@ export function Assert( bool: boolean, msg: string )
 
    print( "\n\n\n" )
    print( "\rASSERT FAILED: " + msg )
-   assert( false, msg )
-
-   for ( let i = 0; i < 5; i++ )
-   {
-      print( debug.traceback( undefined, i ) )
-      print( "********** ********** **********" )
-   }
+   print( debug.traceback() )
    print( "\n\n\n" )
+
+   assert( false, msg )
 
 }
 

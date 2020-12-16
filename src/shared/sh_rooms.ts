@@ -1,6 +1,6 @@
 import { Workspace } from "@rbxts/services"
 import { BoundsXZ } from "./sh_bounds"
-import { Assert, GetChildren_NoFutureOffspring, GetInstanceChildWithName, GetPosition, GetWorkspaceChildByName, IsClient, IsServer } from "./sh_utils"
+import { Assert, GetChildren_NoFutureOffspring, GetFirstChildWithNameAndClassName, GetInstanceChildWithName, GetWorkspaceChildByName, IsClient } from "./sh_utils"
 
 export const FAST_ROOM_ITERATION = false
 const DEFAULT_FIELDOFVIEW = 20
@@ -62,6 +62,7 @@ export class Room
    tasks = new Map<string, Task>()
    cameraStart = new Vector3( 0, 0, 0 )
    cameraEnd = new Vector3( 0, 0, 0 )
+   cameraRotation = 0
    fieldOfView: number = DEFAULT_FIELDOFVIEW
    clientBlockerInfo: Array<BlockerInfo> = []
    bounds: BoundsXZ | undefined
@@ -182,6 +183,10 @@ function CreateRoomFromFolder( folder: Folder ): Room
                if ( cameraDist === undefined )
                   return
 
+               let childCameraRotation = GetFirstChildWithNameAndClassName( childPart, "camera_rot", 'NumberValue' ) as NumberValue
+               if ( childCameraRotation !== undefined )
+                  room.cameraRotation = childCameraRotation.Value
+
                let aspectMultiplier = GetInstanceChildWithName( childPart, "camera_aspect_multiplier" )
                if ( aspectMultiplier !== undefined )
                {
@@ -209,6 +214,7 @@ function CreateRoomFromFolder( folder: Folder ): Room
 
                cameraDist *= 0.9
                room.cameraStart = room.cameraEnd.add( camOffset.mul( cameraDist ) )
+
                //room.cameraStart = room.cameraStart.add( cameraPosOffset )
                //room.cameraEnd = room.cameraEnd.add( cameraPosOffset )
             }
@@ -244,7 +250,7 @@ function CreateRoomFromFolder( folder: Folder ): Room
 
                   room.clientBlockerInfo.push( blockerInfo )
 
-                  if ( IsClient() && !FAST_ROOM_ITERATION )
+                  if ( IsClient() )
                      blocker.Destroy()
                }
             }

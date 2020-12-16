@@ -2,7 +2,7 @@ import { Chat, HttpService, Players } from "@rbxts/services"
 import { AddRPC } from "shared/sh_rpc"
 import { ArrayRandomize, Assert, IsAlive, Thread, UserIDToPlayer } from "shared/sh_utils"
 import { Assignment, GAME_STATE, SharedGameStateInit, NETVAR_JSON_TASKLIST, ROLE, IsPracticing, Game, GAMERESULTS, GetVoteResults, TASK_EXIT } from "shared/sh_gamestate"
-import { MAX_TASKLIST_SIZE, MAX_PLAYERS, MIN_PLAYERS, SPAWN_ROOM, PLAYER_WALKSPEED } from "shared/sh_settings"
+import { MAX_TASKLIST_SIZE, MATCHMAKE_PLAYERCOUNT, MATCHMAKE_PLAYERCOUNT_FALLBACK, SPAWN_ROOM, PLAYER_WALKSPEED } from "shared/sh_settings"
 import { SetNetVar } from "shared/sh_player_netvars"
 import { AddCallback_OnPlayerCharacterAdded, SetPlayerWalkSpeed } from "shared/sh_onPlayerConnect"
 import { SendRPC } from "./sv_utils"
@@ -161,6 +161,18 @@ function GameStateChanged( game: Game, oldGameState: GAME_STATE, gameEndFunc: Fu
    // leaving this game state
    switch ( oldGameState )
    {
+      case GAME_STATE.GAME_STATE_PREMATCH:
+         Thread( function ()
+         {
+            wait( 10 ) // wait for the intro
+            for ( let player of game.GetAllPlayers() )
+            {
+               ResetAllCooldownTimes( player )
+            }
+         } )
+
+         break
+
       case GAME_STATE.GAME_STATE_MEETING_DISCUSS:
          game.ClearVotes()
          break
@@ -169,31 +181,36 @@ function GameStateChanged( game: Game, oldGameState: GAME_STATE, gameEndFunc: Fu
          {
             let voteResults = GetVoteResults( game.GetVotes() )
 
-            if ( !voteResults.skipTie && voteResults.highestRecipients.size() === 1 )
-            {
-               let highestTarget = voteResults.highestRecipients[0]
-               switch ( game.GetPlayerRole( highestTarget ) )
-               {
-                  case ROLE.ROLE_CAMPER:
-                     game.SetPlayerRole( highestTarget, ROLE.ROLE_SPECTATOR_CAMPER )
-                     break
-
-                  case ROLE.ROLE_POSSESSED:
-                     game.SetPlayerRole( highestTarget, ROLE.ROLE_SPECTATOR_IMPOSTER )
-                     break
-               }
-               //if ( IsAlive( highestTarget ) )
-               //KillPlayer( highestTarget )
-
-               print( "Player " + highestTarget.Name + " was voted off" )
-            }
-
             game.corpses = [] // clear the corpses
 
             let room = GetRoomByName( 'Great Room' )
             PutPlayersInRoom( game.GetAllConnectedPlayers(), room )
 
             game.SetGameState( GAME_STATE.GAME_STATE_PLAYING )
+
+            if ( !voteResults.skipTie && voteResults.highestRecipients.size() === 1 )
+            {
+               Thread(
+                  function ()
+                  {
+                     wait( 8 ) // delay for vote matchscreen
+                     let highestTarget = voteResults.highestRecipients[0]
+                     switch ( game.GetPlayerRole( highestTarget ) )
+                     {
+                        case ROLE.ROLE_CAMPER:
+                           game.SetPlayerRole( highestTarget, ROLE.ROLE_SPECTATOR_CAMPER )
+                           break
+
+                        case ROLE.ROLE_POSSESSED:
+                           game.SetPlayerRole( highestTarget, ROLE.ROLE_SPECTATOR_IMPOSTER )
+                           break
+                     }
+                     game.UpdateGame()
+                     print( "Player " + highestTarget.Name + " was voted off" )
+                  } )
+
+            }
+
          }
          break
    }
@@ -274,7 +291,7 @@ function GameThread( game: Game, gameEndFunc: Function )
                return player.Character !== undefined
             } )
 
-            if ( players.size() < MIN_PLAYERS )
+            if ( players.size() < MATCHMAKE_PLAYERCOUNT_FALLBACK )
             {
                game.SetGameState( GAME_STATE.GAME_STATE_DEAD )
                break
@@ -375,8 +392,8 @@ export function CreateGame( players: Array<Player>, gameEndFunc: Function )
       Assert( player.Character !== undefined, "player.Character !== undefined" )
       Assert( ( player.Character as Model ).PrimaryPart !== undefined, "(player.Character as Model).PrimaryPart !== undefined" )
    }
-   Assert( players.size() >= MIN_PLAYERS, "Not enough players" )
-   Assert( players.size() <= MAX_PLAYERS, "Too many players" )
+   Assert( players.size() >= MATCHMAKE_PLAYERCOUNT_FALLBACK, "Not enough players" )
+   Assert( players.size() <= MATCHMAKE_PLAYERCOUNT, "Too many players" )
    let game = new Game()
 
    let playerNums = 0
@@ -502,6 +519,8 @@ export function AssignAllTasks( player: Player, game: Game )
       let assignment = new Assignment( roomAndTask.room.name, roomAndTask.task.name, 0 )
       if ( assignment.taskName !== TASK_EXIT )
          assignments.push( assignment )
+      if ( assignments.size() > 0 )
+         break
    }
 
    game.assignments.set( player, assignments )

@@ -23,6 +23,7 @@ export enum UIORDER
    UIORDER_READY,
    UIORDER_CHAT,
    UIORDER_MATCHSCREEN,
+   UIORDER_READY_AFTER_SPECTATE,
 }
 
 
@@ -298,7 +299,7 @@ export class ToggleButton
    button: ImageButton
 
    private frame: GuiObject
-   private time: number
+   time: number
    private openFrameTween: any
    private closeFrameTween: any
    private taskListOpen = true
@@ -311,12 +312,18 @@ export class ToggleButton
 
    public Open()
    {
+      if ( this.IsOpen() )
+         return
+
       this.taskListOpen = true
       this.Update()
    }
 
    public Close()
    {
+      if ( !this.IsOpen() )
+         return
+
       this.taskListOpen = false
       this.Update()
    }

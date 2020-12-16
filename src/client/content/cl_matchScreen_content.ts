@@ -1,8 +1,10 @@
+import { AddNetVarChangedCallback, GetNetVar_Number } from "shared/sh_player_netvars"
 import { Workspace } from "@rbxts/services";
 import { WaitForMatchScreenFrame } from "client/cl_matchScreen";
 import { AddPlayerGuiFolderExistsCallback } from "client/cl_ui";
-import { MEETING_TYPE, ROLE } from "shared/sh_gamestate";
+import { MATCHMAKING_STATUS, MEETING_TYPE, NETVAR_MATCHMAKING_STATUS, ROLE } from "shared/sh_gamestate";
 import { ClonePlayerModel } from "shared/sh_onPlayerConnect";
+import { DEV_SKIP } from "shared/sh_settings";
 import { Tween, TweenCharacterParts, TweenModel } from "shared/sh_tween";
 import { Assert, GetLocalPlayer, Graph, SetCharacterTransparency, SetCharacterYaw, Thread } from "shared/sh_utils";
 
@@ -15,6 +17,13 @@ let file = new File()
 export function CL_MatchScreenContentSetup()
 {
    print( "CL_MatchScreenContentSetup" )
+
+   AddNetVarChangedCallback( NETVAR_MATCHMAKING_STATUS, function ()
+   {
+      let status = GetNetVar_Number( player, NETVAR_MATCHMAKING_STATUS )
+      if ( status === MATCHMAKING_STATUS.MATCHMAKING_SEND_TO_RESERVEDSERVER )
+         Thread( DrawLevelTransition )
+   } )
 
    let player = GetLocalPlayer()
 
@@ -83,6 +92,12 @@ export function CL_MatchScreenContentSetup()
 
 export function DrawMatchScreen_Intro( possessed: Array<Player>, campers: Array<Player>, possessedCount: number )
 {
+   if ( DEV_SKIP )
+   {
+      wait( 3 )
+      return
+   }
+
    let foundLocalPossessed = false
    if ( possessed.size() )
    {
@@ -103,7 +118,6 @@ export function DrawMatchScreen_Intro( possessed: Array<Player>, campers: Array<
 
    let title = matchScreenFrame.title
    let subTitle = matchScreenFrame.subTitle
-   let lowerTitle = matchScreenFrame.lowerTitle
    let viewportFrame = matchScreenFrame.viewportFrame
    let viewportCamera = matchScreenFrame.viewportCamera
 
@@ -120,14 +134,14 @@ export function DrawMatchScreen_Intro( possessed: Array<Player>, campers: Array<
       subTitle.Text = "You are innocent"
    }
 
+   let imposterText: string
    if ( possessedCount === 1 )
-      lowerTitle.Text = "There is 1 imposter"
+      imposterText = "There is 1 imposter"
    else
-      lowerTitle.Text = "There are " + possessedCount + " imposters"
+      imposterText = "There are " + possessedCount + " imposters"
 
    title.TextTransparency = 1
    subTitle.TextTransparency = 1
-   lowerTitle.TextTransparency = 1
    viewportFrame.ImageTransparency = 1
 
    const FADE_IN = 2
@@ -137,7 +151,6 @@ export function DrawMatchScreen_Intro( possessed: Array<Player>, campers: Array<
    {
       title.TextTransparency = 0
       subTitle.TextTransparency = 0
-      lowerTitle.TextTransparency = 0
       wait( 1 )
    }
    else
@@ -153,7 +166,12 @@ export function DrawMatchScreen_Intro( possessed: Array<Player>, campers: Array<
          {
             wait( 2 )
             if ( !foundLocalPossessed )
-               Tween( lowerTitle, { TextTransparency: 0 }, FADE_IN )
+            {
+               Tween( subTitle, { TextTransparency: 1 }, 0.5 )
+               wait( 0.5 )
+               subTitle.Text = imposterText
+               Tween( subTitle, { TextTransparency: 0 }, 0.5 )
+            }
          } )
    }
 
@@ -254,12 +272,10 @@ export function DrawMatchScreen_Intro( possessed: Array<Player>, campers: Array<
    const FADE_OUT = 2.0
    Tween( title, { TextTransparency: 1 }, FADE_OUT * 0.75 )
    Tween( subTitle, { TextTransparency: 1 }, FADE_OUT * 0.75 )
-   Tween( lowerTitle, { TextTransparency: 1 }, FADE_OUT * 0.75 )
    wait( 1.0 )
    Tween( viewportFrame, { ImageTransparency: 1 }, 1.5 )
    wait( 0.75 )
    Tween( baseFrame, { Transparency: 1 }, 1.0 )
-   wait( 1.0 )
 }
 
 function SortLocalPlayer( a: Player, b: Player ): boolean
@@ -272,11 +288,11 @@ export function DrawMatchScreen_VoteResults( skipTie: boolean, receivedHighestVo
    print( "DrawMatchScreen_VoteResults" )
    function GetResultsText(): Array<string>
    {
-      if ( receivedVotes.size() === 0 || receivedHighestVotes.size() === 0 )
-         return ["No one was voted off"]
-
       if ( skipTie || receivedHighestVotes.size() > 1 )
          return ["It's a tie!", "No one was voted off"]
+
+      if ( receivedVotes.size() === 0 || receivedHighestVotes.size() === 0 )
+         return ["No one was voted off"]
 
       if ( receivedHighestVotes.size() === 1 )
          return [receivedHighestVotes[0].Name + " was voted out!"]
@@ -774,4 +790,14 @@ export function DrawMatchScreen_Winners( winners: Array<Player>, localRole: ROLE
    wait( 0.75 )
 
    Tween( baseFrame, { Transparency: 1 }, 1.0 )
+}
+
+export function DrawLevelTransition()
+{
+   let matchScreenFrame = WaitForMatchScreenFrame( "Winners" )
+   let baseFrame = matchScreenFrame.baseFrame
+   baseFrame.Transparency = 1
+   Tween( baseFrame, { Transparency: 0 }, 1.0 )
+
+   wait( 9999 )
 }
