@@ -3,6 +3,7 @@ export const DEV_READYUP = false
 
 export const MATCHMAKE_PLAYERCOUNT = 10
 export const MATCHMAKE_PLAYERCOUNT_FALLBACK = 8
+export const MAX_FRIEND_WAIT_TIME = 20
 
 export const PLAYER_WALKSPEED = 16 //32
 export const MAX_TASKLIST_SIZE = 2
@@ -19,7 +20,9 @@ export let COOLDOWNTIME_KILL = 30
 if ( DEV_SKIP )
    COOLDOWNTIME_KILL = 0
 
-export const COOLDOWNTIME_MEETING = 8 // 20
+export let COOLDOWNTIME_MEETING = 20
+if ( DEV_SKIP )
+   COOLDOWNTIME_MEETING = 0
 
 export const PLAYER_COLORS =
    [

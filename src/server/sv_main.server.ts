@@ -21,7 +21,7 @@ let file = new File()
 function FinishCheck()
 {
    wait()
-   Assert( file.finishedInit, "Never finished init" )
+   Assert( file.finishedInit, "Server Never finished init" )
 }
 Thread( FinishCheck )
 
@@ -49,4 +49,4 @@ SV_MatchmakingSetup()
 
 file.finishedInit = true
 
-print( "Server Version 2" )
+print( "Server Version 3" )

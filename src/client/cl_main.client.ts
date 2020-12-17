@@ -1,4 +1,3 @@
-print( "CL_MAIN_CLIENT" )
 import { CL_CameraSetup } from "client/cl_camera"
 import { CL_InputSetup } from "client/cl_input"
 import { CL_RoomSetup } from "client/cl_rooms"
@@ -36,7 +35,7 @@ let file = new File()
 function FinishCheck()
 {
    wait()
-   Assert( file.finishedInit, "Never finished init" )
+   Assert( file.finishedInit, "Client Never finished init" )
 }
 Thread( FinishCheck )
 
@@ -46,7 +45,6 @@ SH_UseSetup()
 SH_UseContentSetup()
 SH_CooldownSetup()
 SH_TimeSetup()
-
 CL_RoomSetup()
 CL_TasksSetup()
 CL_TasksContentSetup()
@@ -55,7 +53,6 @@ CL_InputSetup()
 CL_PlayerSetup()
 SharedGameStateInit()
 DoneCreatingNVs()
-
 CL_UISetup()
 CL_MinimapSetup()
 CL_TaskListSetup()
@@ -68,9 +65,6 @@ CL_ChatSetup()
 CL_MeetingSetup()
 CL_MatchScreenSetup()
 CL_MatchScreenContentSetup()
-
 SH_OnPlayerConnectSetup()
 
-
 file.finishedInit = true
-

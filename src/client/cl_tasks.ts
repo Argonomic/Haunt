@@ -1,10 +1,11 @@
 import { AddRPC } from "shared/sh_rpc"
 import { ReleaseDraggedButton, AddCallback_MouseUp } from "client/cl_ui"
 import { SendRPC } from "./cl_utils"
-import { Assert, GetLocalPlayer, LoadSound } from "shared/sh_utils"
+import { Assert, GetLocalPlayer, LoadSound, Thread } from "shared/sh_utils"
 import { SetPlayerWalkSpeed } from "shared/sh_onPlayerConnect"
 import { AddPlayerUseDisabledCallback, SetUseDebounceTime } from "./cl_use"
 import { PLAYER_WALKSPEED } from "shared/sh_settings"
+import { Tween } from "shared/sh_tween"
 
 export enum TASK_UI
 {
@@ -128,6 +129,12 @@ export function RPC_FromServer_OnPlayerUseTask( roomName: string, taskName: stri
    Assert( taskSpec !== undefined, "Unknown task " + taskName )
 
    let newFrame = taskSpec.frame.Clone()
+
+   taskUIController.Frame.Position = new UDim2( 0.5, 0, 2.0, 0 )
+   Tween( taskUIController.Frame, {
+      Position: new UDim2( 0.5, 0, 0.5, 0 )
+   }, 0.4, Enum.EasingStyle.Quad, Enum.EasingDirection.Out )
+
    newFrame.Visible = true
    newFrame.Parent = taskSpec.frame.Parent
 
@@ -152,8 +159,6 @@ export function RPC_FromServer_OnPlayerUseTask( roomName: string, taskName: stri
       SetPlayerWalkSpeed( GetLocalPlayer(), PLAYER_WALKSPEED )
 
       //SetPlayerState( GetLocalPlayer(), Enum.HumanoidStateType.Running, true )
-      newFrame.Destroy()
-      taskUIController.Enabled = false;
       let think = activeTaskStatus.think
       if ( think !== undefined )
          think.Disconnect()
@@ -164,6 +169,16 @@ export function RPC_FromServer_OnPlayerUseTask( roomName: string, taskName: stri
 
       ReleaseDraggedButton()
       file.activeTaskStatus = undefined
+      Thread( function ()
+      {
+         wait( 0.15 )
+         Tween( taskUIController.Frame, {
+            Position: new UDim2( 0.5, 0, 2.0, 0 )
+         }, 0.5, Enum.EasingStyle.Quad, Enum.EasingDirection.Out )
+         wait( 0.5 )
+         taskUIController.Enabled = false;
+         newFrame.Destroy()
+      } )
    }
 
    activeTaskStatus.closeFunction = closeFunction

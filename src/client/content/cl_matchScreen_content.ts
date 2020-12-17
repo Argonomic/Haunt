@@ -18,12 +18,14 @@ export function CL_MatchScreenContentSetup()
 {
    print( "CL_MatchScreenContentSetup" )
 
-   AddNetVarChangedCallback( NETVAR_MATCHMAKING_STATUS, function ()
-   {
-      let status = GetNetVar_Number( player, NETVAR_MATCHMAKING_STATUS )
-      if ( status === MATCHMAKING_STATUS.MATCHMAKING_SEND_TO_RESERVEDSERVER )
-         Thread( DrawLevelTransition )
-   } )
+   /*
+AddNetVarChangedCallback( NETVAR_MATCHMAKING_STATUS, function ()
+{
+   let status = GetNetVar_Number( player, NETVAR_MATCHMAKING_STATUS )
+   if ( status === MATCHMAKING_STATUS.MATCHMAKING_SEND_TO_RESERVEDSERVER )
+      Thread( DrawLevelTransition )      
+} )
+   */
 
    let player = GetLocalPlayer()
 
@@ -739,7 +741,6 @@ export function DrawMatchScreen_Winners( winners: Array<Player>, localRole: ROLE
    let vecStart2 = vecEnd2.add( new Vector3( 0, 1, -6 ) )
    viewportCamera.CFrame = new CFrame( vecStart2, vecEnd2 )
 
-
    let count = 0
    let odd = true
    const dist = 3.0
@@ -775,11 +776,11 @@ export function DrawMatchScreen_Winners( winners: Array<Player>, localRole: ROLE
    const CAMERA_TIME = 1.7
    Tween( viewportFrame, { ImageTransparency: 0 }, CAMERA_TIME * 0.5 )
 
-
    wait( FADE_IN )
    wait( 2 )
 
-   wait( 2343 )
+   if ( !localWinner )
+      wait( 2343 )
 
    const FADE_OUT = 2.0
    Tween( title, { TextTransparency: 1 }, FADE_OUT * 0.75 )
@@ -794,7 +795,7 @@ export function DrawMatchScreen_Winners( winners: Array<Player>, localRole: ROLE
 
 export function DrawLevelTransition()
 {
-   let matchScreenFrame = WaitForMatchScreenFrame( "Winners" )
+   let matchScreenFrame = WaitForMatchScreenFrame( "LevelTransition" )
    let baseFrame = matchScreenFrame.baseFrame
    baseFrame.Transparency = 1
    Tween( baseFrame, { Transparency: 0 }, 1.0 )

@@ -3,8 +3,8 @@ import { AddCaptureInputChangeCallback } from "client/cl_input"
 import { AddTaskSpec, AddTaskUI, TaskStatus, TASK_UI } from "client/cl_tasks"
 import { AddDraggedButton, GetDraggedButton, ReleaseDraggedButton, ElementWithinElement, AddCallback_MouseUp, MoveOverTime, ElementDist_TopLeft, UIORDER, ElementDist, ElementDistFromXY, AddPlayerGuiFolderExistsCallback } from "client/cl_ui"
 import { TASK_EXIT } from "shared/sh_gamestate"
-import { TweenThenDestroy } from "shared/sh_tween"
-import { ArrayRandomize, Assert, ExecOnChildWhenItExists, GetChildrenWithName, GetChildren_NoFutureOffspring, GetExistingFirstChildWithNameAndClassName, LoadSound, RandomFloatRange, RandomInt } from "shared/sh_utils"
+import { Tween, TweenThenDestroy } from "shared/sh_tween"
+import { ArrayRandomize, Assert, ExecOnChildWhenItExists, GetChildrenWithName, GetChildren_NoFutureOffspring, GetExistingFirstChildWithNameAndClassName, LoadSound, RandomFloatRange, RandomInt, Thread } from "shared/sh_utils"
 
 const IMAGE_WEB = 'rbxassetid://170195297'
 
@@ -14,6 +14,12 @@ class File
    bookSound = LoadSound( 1238528678 )
    kingSound = LoadSound( 4994284848 )
    checkerSound = LoadSound( 4880817564 )
+   matchboxOpenSound = LoadSound( 4381758333 )
+   matchboxLightSound = LoadSound( 261841453 )
+   matchboxFlameSound = LoadSound( 1072005487 )
+   matchboxPopOut = LoadSound( 180404792 )
+
+
 }
 
 let file = new File()
@@ -61,6 +67,9 @@ function GetStartFunc( name: string ): Function
       case "clean_out_fridge":
          return Task_CleanOutFridge
 
+      case "task_light_candle":
+         return Task_LightCandle
+
       case "win_at_checkers":
          return Task_WinAtCheckers
 
@@ -85,6 +94,9 @@ function GetTitle( name: string ): string
 
       case "clean_out_fridge":
          return "Clean Out the Fridge"
+
+      case "task_light_candle":
+         return "Light the Candle"
 
       case "win_at_checkers":
          return "Win at Checkers"
@@ -223,7 +235,9 @@ function Task_SweepTheFloor( frame: Frame, closeTaskThread: Function, status: Ta
    background.ClipsDescendants = true
    broom.ZIndex = 3
 
-   if ( !TOUCH_ENABLED )
+   if ( TOUCH_ENABLED )
+      broom.Destroy()
+   else
       AddDraggedButton( broom )
 
    let count = 0
@@ -494,6 +508,278 @@ function Task_WinAtCheckers( frame: Frame, closeTaskThread: Function, status: Ta
    } )
 }
 
+
+type Editor_TaskLightCandle = Frame &
+{
+   MatchPoints: Folder
+   Darkness: Frame
+   ClickMatchboxGet: ImageButton
+   ClickMatchboxOpen: ImageButton
+   MatchboxMatch: ImageButton
+   Background: ImageLabel
+   Candle: ImageLabel
+   Flame: ImageLabel
+   Sparks: ImageLabel
+   MatchboxBK: ImageLabel
+   MatchboxCase: ImageLabel
+   MatchboxDrawerEnd: ImageLabel
+   MatchboxDrawerStart: ImageLabel
+   FlameTargetArea: Frame
+}
+
+function Task_LightCandle( frameIn: Frame, closeTaskThread: Function, status: TaskStatus )
+{
+   let frame = frameIn as Editor_TaskLightCandle
+   let children = frameIn.GetChildren()
+   for ( let child of children )
+   {
+      print( "Child: " + child.Name )
+   }
+
+   let matchPoints: Array<ImageLabel> = []
+   for ( let matchPoint of frame.MatchPoints.GetChildren() )
+   {
+      matchPoints.push( matchPoint as ImageLabel )
+   }
+
+   for ( let matchPoint of matchPoints )
+   {
+      matchPoint.Transparency = 1.0
+   }
+
+   frame.ClickMatchboxGet.ImageTransparency = 1.0
+   frame.ClickMatchboxOpen.ImageTransparency = 1.0
+   frame.MatchboxDrawerEnd.Visible = false
+
+   frame.Flame.Visible = false
+   let frameFlame = frame.Flame.Clone()
+   frameFlame.Parent = frame
+
+   frame.MatchboxMatch.Visible = false
+   frame.FlameTargetArea.Transparency = 1.0
+   frame.Sparks.BackgroundTransparency = 1.0
+   frame.Sparks.ImageTransparency = 1.0
+
+   let matches: Array<ImageButton> = []
+
+   let boxConnect = frame.ClickMatchboxOpen.MouseButton1Click.Connect(
+      function ()
+      {
+         boxConnect.Disconnect()
+
+         Thread(
+            function ()
+            {
+               file.matchboxOpenSound.Play()
+               Tween( frame.MatchboxDrawerStart,
+                  {
+                     Position: frame.MatchboxDrawerEnd.Position
+                  }, 0.8, Enum.EasingStyle.Quart, Enum.EasingDirection.Out )
+               wait( 0.4 )
+
+               frame.ClickMatchboxGet.MouseButton1Click.Connect(
+                  function ()
+                  {
+                     let count = RandomInt( 3 ) + 4
+                     for ( let i = 0; i < count; i++ )
+                     {
+                        if ( matches.size() >= 15 )
+                           return
+
+                        let match = frame.MatchboxMatch.Clone()
+                        match.Visible = true
+                        match.Parent = frame
+                        matches.push( match )
+
+                        const x = RandomFloatRange( match.AbsoluteSize.X * -0.5, match.AbsoluteSize.X * 1.2 )
+                        const y = RandomFloatRange( match.AbsoluteSize.Y * -0.5, match.AbsoluteSize.Y * 3.0 )
+                        let offset = new UDim2( 0, x, 0, y )
+                        let position = match.Position.add( offset )
+                        match.Rotation = RandomFloatRange( 30, 50 )
+                        let rotation = RandomFloatRange( -90, 90 )
+                        Tween( match, { Position: position, Rotation: rotation }, 1.0, Enum.EasingStyle.Quart, Enum.EasingDirection.Out )
+
+                        AddDraggedButton( match )
+                     }
+                  } )
+
+            } )
+      } )
+
+   let rotatedButtons = new Map<ImageButton, boolean>()
+   let matchStartedTouchingTime = new Map<ImageLabel, number>()
+   let matchEndedTouchingTime = new Map<ImageLabel, number>()
+   let matchWithin = new Map<ImageLabel, boolean>()
+   let lastFoundTime = new Map<ImageLabel, number>()
+   for ( let match of matchPoints )
+   {
+      matchStartedTouchingTime.set( match, 0 )
+      matchEndedTouchingTime.set( match, 0 )
+      matchWithin.set( match, false )
+      lastFoundTime.set( match, 0 )
+   }
+
+   let lit = false
+   let skullLit = false
+   let lightingSkull = false
+   let lightingSkullTime = 0
+   let originalSparksSize = frame.Sparks.Size.add( new UDim2( 0, 0, 0, 0 ) )
+   let originalFlameSize = frameFlame.Size.add( new UDim2( 0, 0, 0, 0 ) )
+
+   return RunService.RenderStepped.Connect( function ()
+   {
+      let button = GetDraggedButton()
+      if ( button === undefined )
+      {
+         lit = false
+         frameFlame.Visible = false
+         return
+      }
+
+      if ( lit )
+      {
+         frame.Sparks.Position = button.Position
+         frameFlame.Position = button.Position
+
+         if ( skullLit )
+            return
+
+         if ( ElementWithinElement( button, frame.FlameTargetArea ) )
+         {
+            if ( !lightingSkull )
+            {
+               lightingSkull = true
+               lightingSkullTime = Workspace.DistributedGameTime
+            }
+
+            if ( Workspace.DistributedGameTime - lightingSkullTime > 1.250 )
+            {
+               Tween( frame.Darkness, { BackgroundTransparency: 1 }, 1 )
+               skullLit = true
+               let skullFlame = frame.Flame.Clone()
+               skullFlame.Parent = frame
+               skullFlame.Position = frame.FlameTargetArea.Position
+               skullFlame.Visible = true
+               skullFlame.ZIndex++
+               Tween( frameFlame, { Size: new UDim2( 0, 0, 0, 0 ) }, 0.5 )
+               ScaleFlame( skullFlame, originalFlameSize )
+               file.matchboxFlameSound.Play()
+               Thread( function ()
+               {
+                  wait( 1.5 )
+                  let draggedButton = GetDraggedButton()
+                  if ( draggedButton !== undefined )
+                     draggedButton.Destroy()
+
+                  status.success = true
+                  closeTaskThread()
+               } )
+
+            }
+         }
+         else
+         {
+            lightingSkull = false
+         }
+      }
+
+      if ( skullLit )
+      {
+         return
+      }
+
+      if ( !rotatedButtons.has( button ) )
+      {
+         // straighten out the match
+         Tween( button, { Rotation: 0 }, 0.5, Enum.EasingStyle.Quart, Enum.EasingDirection.InOut )
+         rotatedButtons.set( button, true )
+      }
+
+      let isTouchingNow = new Map<ImageLabel, boolean>()
+      for ( let matchPoint of matchPoints )
+      {
+         if ( ElementWithinElement( button, matchPoint ) )
+         {
+            isTouchingNow.set( matchPoint, true )
+            if ( ( matchWithin.get( matchPoint ) as boolean ) === false )
+            {
+               matchStartedTouchingTime.set( matchPoint, Workspace.DistributedGameTime )
+               matchWithin.set( matchPoint, true )
+            }
+         }
+         else
+         {
+            if ( matchWithin.get( matchPoint ) === true )
+            {
+               matchEndedTouchingTime.set( matchPoint, Workspace.DistributedGameTime )
+               matchWithin.set( matchPoint, false )
+            }
+         }
+      }
+
+      for ( let pair of matchStartedTouchingTime )
+      {
+         if ( isTouchingNow.has( pair[0] ) )
+         {
+            let touchingTime = Workspace.DistributedGameTime - pair[1]
+            if ( touchingTime >= 0.4 )
+               lastFoundTime.set( pair[0], Workspace.DistributedGameTime )
+            continue
+         }
+
+         let timeSinceStoppedTouching = Workspace.DistributedGameTime - ( matchEndedTouchingTime.get( pair[0] ) as number )
+         if ( timeSinceStoppedTouching > 0.2 )
+            continue
+         lastFoundTime.set( pair[0], Workspace.DistributedGameTime )
+
+         let thisMatchEndedTouchingTime = matchEndedTouchingTime.get( pair[0] ) as number
+         for ( let otherPair of matchEndedTouchingTime )
+         {
+            if ( otherPair[0] === pair[0] )
+               continue
+            let delta = otherPair[1] - thisMatchEndedTouchingTime
+            if ( delta > 0 && delta < 0.20 )
+               lastFoundTime.set( otherPair[0], Workspace.DistributedGameTime )
+         }
+      }
+
+      let found = 0
+      for ( let match of matchPoints )
+      {
+         let lastFound = lastFoundTime.get( match ) as number
+         if ( Workspace.DistributedGameTime - lastFound <= 1.0 )
+            found++
+      }
+
+      if ( found >= 3 )
+      {
+         if ( !lit )
+         {
+            lit = true
+            lightingSkull = false
+            file.matchboxLightSound.Play()
+            frameFlame.Visible = true
+            frame.Sparks.Visible = true
+            frame.Sparks.Rotation = RandomFloatRange( 0, 360 )
+            frame.Sparks.Size = originalSparksSize
+            frame.Sparks.ImageTransparency = 0
+            frame.Sparks.Position = button.Position
+            Tween( frame.Sparks, {
+               Size: new UDim2( originalSparksSize.X.Scale * 4.25, 0, originalSparksSize.Y.Scale * 4.25, 0 ),
+               Rotation: frame.Sparks.Rotation + 100,
+               ImageTransparency: 1
+            }, 0.5, Enum.EasingStyle.Quad, Enum.EasingDirection.Out )
+
+            ScaleFlame( frameFlame, originalFlameSize )
+         }
+      }
+
+   } )
+}
+
+
+
+
 function Task_CleanOutFridge( frame: Frame, closeTaskThread: Function, status: TaskStatus )
 {
    let items: Array<ImageButton> = []
@@ -547,7 +833,6 @@ function Task_CleanOutFridge( frame: Frame, closeTaskThread: Function, status: T
       {
          file.trashSound.Play()
          ReleaseDraggedButton()
-
 
          button.Destroy()
          count++
@@ -660,3 +945,22 @@ function Task_Exit( frame: Frame, closeTaskThread: Function, status: TaskStatus 
       closeTaskThread()
    } )
 }
+
+
+function ScaleFlame( gui: GuiObject, size: UDim2 )
+{
+   Thread(
+      function ()
+      {
+         gui.Size = new UDim2( 0, 0, 0, 0 )
+         Tween( gui,
+            {
+               Size: new UDim2( size.X.Scale * 2.0, 0, size.Y.Scale * 2.0, 0 ),
+            }, 0.4, Enum.EasingStyle.Quad, Enum.EasingDirection.Out )
+         wait( 0.4 )
+         Tween( gui,
+            {
+               Size: size,
+            }, 0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.In )
+      } )
+} 

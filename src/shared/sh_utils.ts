@@ -314,14 +314,14 @@ export function CreateRemoteEvent( name: string ): RemoteEvent
 export function Thread( func: Function ): thread
 {
    let result = coroutine.create( func )
-   coroutine.resume( result )
+   Resume( result )
    return result
 }
 
 export function WaitThread( func: Function )
 {
    let result = coroutine.create( func )
-   coroutine.resume( result )
+   Resume( result )
    for ( ; ; )
    {
       if ( coroutine.status( result ) === "dead" )
@@ -612,4 +612,11 @@ export function CloneChild( instance: Instance ): Instance
 {
    Assert( instance.Parent !== undefined, "Tried to clone thing with no parent" )
    return instance.Clone()
+}
+
+export function Resume( thrd: thread )
+{
+   Assert( coroutine.status( thrd ) === "suspended", "Tried to resume thread with status " + coroutine.status( thrd ) )
+   Assert( coroutine.running() !== thrd, "coroutine.running() !== thrd" )
+   coroutine.resume( thrd )
 }

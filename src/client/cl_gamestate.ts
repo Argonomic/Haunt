@@ -4,7 +4,7 @@ import { AddCallback_OnPlayerCharacterAdded } from "shared/sh_onPlayerConnect"
 import { AddNetVarChangedCallback } from "shared/sh_player_netvars"
 import { SetTimeDelta } from "shared/sh_time"
 import { GetUsableByType } from "shared/sh_use"
-import { Assert, GetFirstChildWithName, GetLocalPlayer, RandomFloatRange, RecursiveOnChildren, SetCharacterTransparency, WaitThread } from "shared/sh_utils"
+import { Assert, GetFirstChildWithName, GetLocalPlayer, RandomFloatRange, RecursiveOnChildren, Resume, SetCharacterTransparency, WaitThread } from "shared/sh_utils"
 import { UpdateMeeting } from "./cl_meeting"
 import { CancelAnyOpenTask } from "./cl_tasks"
 import { AddPlayerUseDisabledCallback } from "./cl_use"
@@ -90,7 +90,7 @@ export function CL_GameStateSetup()
       {
          GameThread( file.clientGame )
       } )
-   coroutine.resume( file.clientGame.gameThread )
+   Resume( file.clientGame.gameThread )
 
 
    AddCallback_OnPlayerCharacterAdded( function ( player: Player )
@@ -169,7 +169,7 @@ export function CL_GameStateSetup()
 
       let gameThread = file.clientGame.gameThread
       if ( gameThread !== undefined )
-         coroutine.resume( gameThread )
+         Resume( gameThread )
    } )
 }
 
@@ -261,8 +261,11 @@ function CLGameStateChanged( oldGameState: number, newGameState: number )
          print( "Game is over, local role is " + GetLocalRole() )
          if ( GetLocalRole() === ROLE.ROLE_SPECTATOR_CAMPER_ESCAPED )
          {
-            let possessed = file.clientGame.GetPossessed()
-            DrawMatchScreen_Winners( possessed, GetLocalRole(), file.clientGame.startingPossessedCount )
+            WaitThread( function ()
+            {
+               let possessed = file.clientGame.GetPossessed()
+               DrawMatchScreen_Winners( possessed, GetLocalRole(), file.clientGame.startingPossessedCount )
+            } )
             return
          }
          let gameResults = file.clientGame.GetGameResults()

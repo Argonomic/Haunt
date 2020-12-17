@@ -1,6 +1,6 @@
-import { Chat, HttpService, Players } from "@rbxts/services"
+import { Chat, HttpService, Players, ServerStorage } from "@rbxts/services"
 import { AddRPC } from "shared/sh_rpc"
-import { ArrayRandomize, Assert, IsAlive, Thread, UserIDToPlayer } from "shared/sh_utils"
+import { ArrayRandomize, Assert, IsAlive, Resume, Thread, UserIDToPlayer } from "shared/sh_utils"
 import { Assignment, GAME_STATE, SharedGameStateInit, NETVAR_JSON_TASKLIST, ROLE, IsPracticing, Game, GAMERESULTS, GetVoteResults, TASK_EXIT } from "shared/sh_gamestate"
 import { MAX_TASKLIST_SIZE, MATCHMAKE_PLAYERCOUNT, MATCHMAKE_PLAYERCOUNT_FALLBACK, SPAWN_ROOM, PLAYER_WALKSPEED } from "shared/sh_settings"
 import { SetNetVar } from "shared/sh_player_netvars"
@@ -83,6 +83,7 @@ export function SV_GameStateSetup()
       if ( file.playerToGame.has( player ) )
       {
          let game = PlayerToGame( player )
+         Assert( PlayerToGame( player ) === game, "1 PlayerToGame( player ) === game" )
          game.Shared_OnGameStateChanged_PerPlayer( player, game.GetGameState() )
       }
    } )
@@ -154,7 +155,10 @@ function GameStateChanged( game: Game, oldGameState: GAME_STATE, gameEndFunc: Fu
       for ( let player of players )
       {
          if ( player.Character !== undefined )
+         {
+            Assert( PlayerToGame( player ) === game, "2 PlayerToGame( player ) === game" )
             game.Shared_OnGameStateChanged_PerPlayer( player, game.GetGameState() )
+         }
       }
    }
 
@@ -411,7 +415,7 @@ export function CreateGame( players: Array<Player>, gameEndFunc: Function )
       {
          GameThread( game, gameEndFunc )
       } )
-   coroutine.resume( game.gameThread )
+   Resume( game.gameThread )
 }
 
 function RPC_FromClient_OnPlayerFinishTask( player: Player, roomName: string, taskName: string )
@@ -519,8 +523,6 @@ export function AssignAllTasks( player: Player, game: Game )
       let assignment = new Assignment( roomAndTask.room.name, roomAndTask.task.name, 0 )
       if ( assignment.taskName !== TASK_EXIT )
          assignments.push( assignment )
-      if ( assignments.size() > 0 )
-         break
    }
 
    game.assignments.set( player, assignments )

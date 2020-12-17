@@ -3,7 +3,7 @@ import { AddNetVar, GetNetVar_Number, GetNetVar_String, SetNetVar } from "shared
 import { AddCooldown } from "./sh_cooldown"
 import { SetPlayerWalkSpeed } from "./sh_onPlayerConnect"
 import { COOLDOWNTIME_MEETING, COOLDOWNTIME_KILL, MEETING_DISCUSS_TIME, MEETING_VOTE_TIME, PLAYER_WALKSPEED, SPECTATOR_TRANS } from "./sh_settings"
-import { Assert, IsServer, IsClient, UserIDToPlayer, IsAlive, SetPlayerTransparency, GetLocalPlayer, ExecOnChildWhenItExists } from "./sh_utils"
+import { Assert, IsServer, IsClient, UserIDToPlayer, IsAlive, SetPlayerTransparency, GetLocalPlayer, ExecOnChildWhenItExists, Resume } from "./sh_utils"
 
 export const LOCAL = RunService.IsStudio()
 
@@ -37,6 +37,7 @@ export enum MATCHMAKING_STATUS
 {
    MATCHMAKING_PRACTICE = 0,
    MATCHMAKING_LFG,
+   MATCHMAKING_LFG_WITH_FRIENDS,
    MATCHMAKING_WAITING_TO_PLAY,
    MATCHMAKING_PLAYING,
    MATCHMAKING_SEND_TO_RESERVEDSERVER,
@@ -227,7 +228,7 @@ export class Game
       if ( this.gameThread === undefined )
          return
 
-      coroutine.resume( this.gameThread )
+      Resume( this.gameThread )
    }
 
    public GetGameResults()
@@ -370,7 +371,7 @@ export class Game
             break
 
          case "suspended":
-            coroutine.resume( thread as thread )
+            Resume( thread as thread )
             break
       }
    }
@@ -858,7 +859,10 @@ export function IsPracticing( player: Player ): boolean
    {
       case MATCHMAKING_STATUS.MATCHMAKING_PRACTICE:
       case MATCHMAKING_STATUS.MATCHMAKING_LFG:
+      case MATCHMAKING_STATUS.MATCHMAKING_LFG_WITH_FRIENDS:
       case MATCHMAKING_STATUS.MATCHMAKING_WAITING_TO_PLAY:
+      case MATCHMAKING_STATUS.MATCHMAKING_SEND_TO_RESERVEDSERVER:
+      case MATCHMAKING_STATUS.MATCHMAKING_SEND_TO_LOBBY:
          return true
    }
 

@@ -1,7 +1,7 @@
-import { NETVAR_MATCHMAKING_STATUS, MATCHMAKING_STATUS, NETVAR_MATCHMAKING_NUMWITHYOU, NETVAR_JSON_GAMESTATE, NETVAR_JSON_TASKLIST } from "shared/sh_gamestate";
+import { NETVAR_MATCHMAKING_STATUS, MATCHMAKING_STATUS, NETVAR_MATCHMAKING_NUMWITHYOU, NETVAR_JSON_GAMESTATE, NETVAR_JSON_TASKLIST, ROLE, GAME_STATE } from "shared/sh_gamestate";
 import { AddCallback_OnPlayerCharacterAncestryChanged } from "shared/sh_onPlayerConnect";
 import { AddNetVarChangedCallback, GetNetVar_Number } from "shared/sh_player_netvars";
-import { DEV_READYUP } from "shared/sh_settings";
+import { DEV_READYUP, MAX_FRIEND_WAIT_TIME } from "shared/sh_settings";
 import { GetFirstChildWithNameAndClassName, GetLocalPlayer, Thread } from "shared/sh_utils";
 import { GetLocalGame } from "./cl_gamestate";
 import { AddPlayerGuiFolderExistsCallback, ToggleButton, UIORDER } from "./cl_ui";
@@ -149,60 +149,95 @@ export function CL_ReadyUpSetup()
    } )
 }
 
+
 function UpdateReadyUp()
 {
-   if ( file._readyUI === undefined )
-      return
-
-   let readyUI = file._readyUI
-   let player = GetLocalPlayer()
-   let game = GetLocalGame()
-   let status = GetNetVar_Number( player, NETVAR_MATCHMAKING_STATUS )
-   let numWithYou = GetNetVar_Number( player, NETVAR_MATCHMAKING_NUMWITHYOU )
-
-   if ( game.IsSpectator( player ) )
+   Thread( function ()
    {
-      readyUI.Frame.Check.Visible = false
-      readyUI.Enabled = true
-      readyUI.Frame.InfoFrame.Status.Text = "Spectate or leave this game?"
-      readyUI.DisplayOrder = UIORDER.UIORDER_READY_AFTER_SPECTATE // move this to the front
-      if ( file.toggleButton !== undefined )
-         file.toggleButton.Open()
-      return
-   }
+      if ( file._readyUI === undefined )
+         return
 
-   switch ( status )
-   {
-      case MATCHMAKING_STATUS.MATCHMAKING_PRACTICE:
-         readyUI.Frame.Check.Visible = true
-         readyUI.Frame.Check.Position = readyUI.Frame.checkbox_practice.Position
-         if ( file.oldTaskListCount === 0 )
-            readyUI.Frame.InfoFrame.Status.Text = "Ready to find a match?"
-         else
-            readyUI.Frame.InfoFrame.Status.Text = "Practicing.. go explore!"
+      let readyUI = file._readyUI
+      let player = GetLocalPlayer()
+      let game = GetLocalGame()
+      let status = GetNetVar_Number( player, NETVAR_MATCHMAKING_STATUS )
+      let numWithYou = GetNetVar_Number( player, NETVAR_MATCHMAKING_NUMWITHYOU )
+
+      function DisplaySpectatorReturnToQueue()
+      {
+         wait( 5 ) // for victory screen
+         readyUI.Frame.Check.Visible = false
          readyUI.Enabled = true
-         break
+         readyUI.Frame.InfoFrame.Status.Text = "Spectate or leave this game?"
+         readyUI.DisplayOrder = UIORDER.UIORDER_READY_AFTER_SPECTATE // move this to the front
+         if ( file.toggleButton !== undefined )
+            file.toggleButton.Open()
+      }
 
-      case MATCHMAKING_STATUS.MATCHMAKING_LFG:
-         readyUI.Frame.Check.Visible = true
-         readyUI.Frame.Check.Position = readyUI.Frame.checkbox_play.Position
-         readyUI.Frame.InfoFrame.Status.Text = "Waiting for " + numWithYou + " more players"
-         readyUI.Enabled = true
-         break
+      if ( game.GetPlayerRole( player ) === ROLE.ROLE_SPECTATOR_CAMPER_ESCAPED )
+      {
+         DisplaySpectatorReturnToQueue()
+         return
+      }
 
-      case MATCHMAKING_STATUS.MATCHMAKING_PLAYING:
-         Thread(
-            function ()
-            {
-               if ( file.toggleButton !== undefined )
+      if ( game.GetGameState() >= GAME_STATE.GAME_STATE_COMPLETE )
+      {
+         readyUI.Enabled = false
+         return
+      }
+
+      if ( game.IsSpectator( player ) )
+      {
+         DisplaySpectatorReturnToQueue()
+         return
+      }
+
+      switch ( status )
+      {
+         case MATCHMAKING_STATUS.MATCHMAKING_PRACTICE:
+            readyUI.Frame.Check.Visible = true
+            readyUI.Frame.Check.Position = readyUI.Frame.checkbox_practice.Position
+            if ( file.oldTaskListCount === 0 )
+               readyUI.Frame.InfoFrame.Status.Text = "Ready to find a match?"
+            else
+               readyUI.Frame.InfoFrame.Status.Text = "Practicing.. go explore!"
+            readyUI.Enabled = true
+            break
+
+         case MATCHMAKING_STATUS.MATCHMAKING_LFG:
+            readyUI.Frame.Check.Visible = true
+            readyUI.Frame.Check.Position = readyUI.Frame.checkbox_play.Position
+            if ( numWithYou === 1 )
+               readyUI.Frame.InfoFrame.Status.Text = "Waiting for " + numWithYou + " more player"
+            else
+               readyUI.Frame.InfoFrame.Status.Text = "Waiting for " + numWithYou + " more players"
+            readyUI.Enabled = true
+            break
+
+         case MATCHMAKING_STATUS.MATCHMAKING_LFG_WITH_FRIENDS:
+            readyUI.Frame.Check.Visible = true
+            readyUI.Frame.Check.Position = readyUI.Frame.checkbox_play.Position
+            if ( numWithYou === 1 )
+               readyUI.Frame.InfoFrame.Status.Text = "Waiting " + MAX_FRIEND_WAIT_TIME + " seconds for " + numWithYou + " friend to Ready Up"
+            else
+               readyUI.Frame.InfoFrame.Status.Text = "Waiting " + MAX_FRIEND_WAIT_TIME + " seconds for " + numWithYou + " friends to Ready Up"
+            readyUI.Enabled = true
+            break
+
+         case MATCHMAKING_STATUS.MATCHMAKING_PLAYING:
+            Thread(
+               function ()
                {
-                  file.toggleButton.Close()
-                  wait( file.toggleButton.time )
-               }
-               readyUI.Enabled = false
-            } )
-         break
-   }
+                  if ( file.toggleButton !== undefined )
+                  {
+                     file.toggleButton.Close()
+                     wait( file.toggleButton.time )
+                  }
+                  readyUI.Enabled = false
+               } )
+            break
+      }
+   } )
 }
 
 

@@ -234,36 +234,70 @@ export function RedrawTaskListUI()
    }
 
 
+   class DrawTask
+   {
+      total: number = 0
+      remaining: number = 0
+      roomName = "---"
+      title = "---"
+   }
+
+   let drawTasks = new Map<string, DrawTask>()
+   for ( let assignment of file.assignments )
+   {
+      if ( !drawTasks.has( assignment.taskName ) )
+      {
+         let drawTask = new DrawTask()
+         drawTask.roomName = assignment.roomName
+         let taskSpec = GetTaskSpec( assignment.taskName )
+         drawTask.title = taskSpec.title
+         drawTasks.set( assignment.taskName, drawTask )
+      }
+   }
+
+   for ( let assignment of file.assignments )
+   {
+      let drawTask = drawTasks.get( assignment.taskName ) as DrawTask
+      drawTask.total++
+
+      if ( assignment.status === 0 )
+         drawTask.remaining++
+   }
+
+   for ( let pair of drawTasks )
+   {
+      if ( pair[1].remaining === 0 )
+         drawTasks.delete( pair[0] )
+   }
+
    let startIndex
-   let assignIndex = 0
    if ( IsPracticing( GetLocalPlayer() ) )
    {
-      file.taskLabels[0].Text = "Practice " + count + " tasks:"
+      file.taskLabels[0].Text = "Practice " + drawTasks.size() + " tasks:"
       startIndex = 2
    }
    else
    {
       file.taskLabels[0].Text = "Complete your tasks and then escape."
-      file.taskLabels[1].Text = count + " Tasks Remaining:"
+      file.taskLabels[1].Text = drawTasks.size() + " Tasks Remaining:"
       startIndex = 3
    }
 
-   for ( let i = startIndex; i < file.taskLabels.size(); i++ )
+   let index = startIndex
+   for ( let pair of drawTasks )
    {
-      for ( let p = assignIndex; p < file.assignments.size(); p++ )
-      {
-         let assignment = file.assignments[p]
-         if ( assignment.status === 0 )
-         {
-            let taskSpec = GetTaskSpec( assignment.taskName )
-            let label = file.taskLabels[i]
-            label.Text = assignment.roomName + ": " + taskSpec.title
-            assignIndex = p + 1
-            break
-         }
-      }
+      let drawTask = pair[1]
+      if ( drawTask.remaining === 0 )
+         continue
 
-      if ( assignIndex >= file.assignments.size() )
+      let label = file.taskLabels[index]
+      if ( drawTask.total === 1 )
+         label.Text = drawTask.roomName + ": " + drawTask.title
+      else
+         label.Text = drawTask.title + " (" + ( drawTask.total - drawTask.remaining ) + "/" + drawTask.total + ")"
+
+      index++
+      if ( index >= file.taskLabels.size() )
          break
    }
 

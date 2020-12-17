@@ -96,7 +96,10 @@ function OnPlayerCharacterAdded( character: Model )
 
       for ( let func of file.onPlayerCharacterAdded )
       {
-         func( player )
+         Thread( function ()
+         {
+            func( player )
+         } )
       }
    } )
 }
@@ -156,7 +159,7 @@ function OnPlayerConnected( player: Player )
    Thread( function ()
    {
       wait()
-      Assert( finished, "Never finished init" )
+      Assert( finished, "OnPlayerConnected Never finished init" )
 
       /*
       if ( IsServer() )
@@ -176,7 +179,10 @@ function OnPlayerConnected( player: Player )
 
    for ( let func of file.onPlayerConnected )
    {
-      func( player )
+      Thread( function ()
+      {
+         func( player )
+      } )
    }
 
    player.CharacterAdded.Connect( OnPlayerCharacterAdded )

@@ -108,6 +108,7 @@ export function WaitForMatchScreenFrame( str: string ): MatchScreenFrame
    print( "WaitForMatchScreenFrame matchscreen " + str )
    let thisThread = coroutine.running()
    Assert( thisThread !== undefined, "Must be threaded off" )
+   // need to somehow assert that this is a shallow thread so it is always threaded off
 
    file.threadQueue.push( thisThread )
 
@@ -135,7 +136,7 @@ export function CL_MatchScreenSetup()
    file.matchScreenUI.IgnoreGuiInset = true
    file.matchScreenUI.DisplayOrder = UIORDER.UIORDER_MATCHSCREEN
 
-   TeleportService.SetTeleportGui( file.matchScreenUI )
+   //TeleportService.SetTeleportGui( file.matchScreenUI )
 
    AddPlayerGuiFolderExistsCallback(
       function ( folder: Folder )

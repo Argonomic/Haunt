@@ -29,7 +29,7 @@ export function GetAllRoomsAndTasks(): Array<RoomAndTask>
       }
    }
 
-   print( "GetAllRoomsAndTasks " + roomsAndTasks.size() )
+   //print( "GetAllRoomsAndTasks " + roomsAndTasks.size() )
    return roomsAndTasks
 }
 
@@ -48,16 +48,17 @@ export function SV_RoomsSetup()
 {
    AddCallback_OnRoomSetup( "trigger_door", OnTriggerDoorSetup )
    file.rooms = AddRoomsFromWorkspace()
-}
 
-function OnTriggerDoorSetup( doorTrigger: BasePart, room: Room )
-{
-   file.triggerToRoom.set( doorTrigger, room )
    AddCallback_OnPlayerConnected(
       function ( player: Player )
       {
          file.touchingDoorTriggers.set( player, [] )
       } )
+}
+
+function OnTriggerDoorSetup( doorTrigger: BasePart, room: Room )
+{
+   file.triggerToRoom.set( doorTrigger, room )
 
    doorTrigger.Touched.Connect( function ( toucher: Instance )
    {

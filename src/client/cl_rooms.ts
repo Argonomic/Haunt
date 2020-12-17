@@ -1,6 +1,6 @@
 import { AddRPC } from "shared/sh_rpc"
 import { AddCallback_OnRoomSetup, CreateClientBlockers, Room, AddRoomsFromWorkspace, FAST_ROOM_ITERATION } from "shared/sh_rooms"
-import { Assert, GetLocalPlayer, GetPlayerFromDescendant, GetClosest } from "shared/sh_utils"
+import { Assert, GetLocalPlayer, GetPlayerFromDescendant, GetClosest, Resume } from "shared/sh_utils"
 import { SetPlayerCameraToRoom } from "./cl_camera"
 
 class File
@@ -33,7 +33,7 @@ export function CL_RoomSetup()
    if ( FAST_ROOM_ITERATION )
    {
       let delay = coroutine.create( FastRoomIteration )
-      coroutine.resume( delay )
+      Resume( delay )
    }
 }
 
