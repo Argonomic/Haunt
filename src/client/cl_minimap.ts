@@ -27,6 +27,7 @@ class File
    mapIcons: Array<MapIcon> = []
    minimapUI: ScreenGui | undefined
    baseFrame: Frame | undefined
+   minimapReferenceFrame: Frame | undefined
 }
 
 let file = new File()
@@ -104,10 +105,12 @@ export function CL_MinimapSetup()
       file.minimapUI = minimapUI
 
       let frameName = "MiniFrame"
-      let scale = 2.0
       minimapUI.DisplayOrder = UIORDER.UIORDER_MINIMAP
 
+      let megaFrame = GetExistingFirstChildWithNameAndClassName( minimapUI, 'MegaFrame', 'Frame' ) as Frame
       let baseFrame = GetExistingFirstChildWithNameAndClassName( minimapUI, frameName, 'Frame' ) as Frame
+      let miniFrame = baseFrame.Clone()
+      file.minimapReferenceFrame = miniFrame
       file.baseFrame = baseFrame
       let arrow = GetExistingFirstChildWithNameAndClassName( baseFrame, 'PlayerArrow', 'ImageLabel' ) as ImageLabel
       arrow.Rotation = 35
@@ -140,20 +143,60 @@ export function CL_MinimapSetup()
          frame.BackgroundColor3 = new Color3( 0.8, 0.8, 0.8 )
       }
 
-      SizeFramesForMinimap( floors, frames, boundsXZ, scale, shadowBorder )
-      SizeFramesForMinimap( floors, background, boundsXZ, scale, -shadowBorder )
-      SizeFramesForMinimap( connectors, connectorArt, boundsXZ, scale, 0 )
+      class ScaleHolder
+      {
+         xBuffer: number
+         zBuffer: number
+         xCenter: number
+         zCenter: number
+         scale: number
 
-      let xCenter = boundsXZ.minX + ( boundsXZ.maxX - boundsXZ.minX ) * 0.5
-      let zCenter = boundsXZ.minZ + ( boundsXZ.maxZ - boundsXZ.minZ ) * 0.5
+         constructor( scale: number, shadowBorder: number )
+         {
+            this.scale = scale
+            SizeFramesForMinimap( floors, frames, boundsXZ, scale, shadowBorder )
+            SizeFramesForMinimap( floors, background, boundsXZ, scale, -shadowBorder )
+            SizeFramesForMinimap( connectors, connectorArt, boundsXZ, scale, 0 )
 
-      const halfScale = scale * 0.50
-      const totalX = boundsXZ.maxX - boundsXZ.minX
-      const totalZ = boundsXZ.maxZ - boundsXZ.minZ
-      const total = math.max( totalX, totalZ )
+            this.xCenter = boundsXZ.minX + ( boundsXZ.maxX - boundsXZ.minX ) * 0.5
+            this.zCenter = boundsXZ.minZ + ( boundsXZ.maxZ - boundsXZ.minZ ) * 0.5
 
-      const xBuffer = ( 1.0 - ( total - totalX ) / total ) * halfScale
-      const zBuffer = ( 1.0 - ( total - totalZ ) / total ) * halfScale
+            const totalX = boundsXZ.maxX - boundsXZ.minX
+            const totalZ = boundsXZ.maxZ - boundsXZ.minZ
+            const total = math.max( totalX, totalZ )
+
+            const halfScale = scale * 0.50
+            this.xBuffer = ( 1.0 - ( total - totalX ) / total ) * halfScale
+            this.zBuffer = ( 1.0 - ( total - totalZ ) / total ) * halfScale
+         }
+      }
+
+      let scaleHolder = new ScaleHolder( 2, shadowBorder )
+
+      let button = new Instance( 'TextButton' )
+      button.Parent = baseFrame
+      button.ZIndex = 99999
+      button.Size = new UDim2( 1, 0, 1, 0 )
+      button.BackgroundTransparency = 1
+      button.Text = ""
+      button.MouseButton1Click.Connect( function ()
+      {
+         if ( scaleHolder.scale === 2 )
+         {
+            scaleHolder = new ScaleHolder( 1.0, shadowBorder * 0.4 )
+            baseFrame.Position = megaFrame.Position
+            baseFrame.Size = megaFrame.Size
+            baseFrame.AnchorPoint = megaFrame.AnchorPoint
+         }
+         else
+         {
+            scaleHolder = new ScaleHolder( 2, shadowBorder )
+            baseFrame.Position = miniFrame.Position
+            baseFrame.Size = miniFrame.Size
+            baseFrame.AnchorPoint = miniFrame.AnchorPoint
+         }
+      } )
+
 
       function SetFramePositions( floors: Array<BasePart>, frames: Array<TextLabel>, offsetX: number, offsetZ: number )
       {
@@ -161,8 +204,8 @@ export function CL_MinimapSetup()
          {
             const floor = floors[i]
             const frame = frames[i]
-            const posX = Graph( floor.Position.Z + offsetZ, boundsXZ.maxZ, boundsXZ.minZ, -zBuffer, zBuffer ) + 0.5
-            const posY = Graph( floor.Position.X + offsetX, boundsXZ.minX, boundsXZ.maxX, -xBuffer, xBuffer ) + 0.5
+            const posX = Graph( floor.Position.Z + offsetZ, boundsXZ.maxZ, boundsXZ.minZ, -scaleHolder.zBuffer, scaleHolder.zBuffer ) + 0.5
+            const posY = Graph( floor.Position.X + offsetX, boundsXZ.minX, boundsXZ.maxX, -scaleHolder.xBuffer, scaleHolder.xBuffer ) + 0.5
             frame.Position = new UDim2( posX, 0, posY, 0 )
          }
       }
@@ -174,8 +217,8 @@ export function CL_MinimapSetup()
          for ( let mapIcon of file.mapIcons )
          {
             let position = mapIcon.position
-            let posX = Graph( position.Z + offsetZ, boundsXZ.maxZ, boundsXZ.minZ, -zBuffer, zBuffer ) + 0.5
-            let posY = Graph( position.X + offsetX, boundsXZ.minX, boundsXZ.maxX, -xBuffer, xBuffer ) + 0.5
+            let posX = Graph( position.Z + offsetZ, boundsXZ.maxZ, boundsXZ.minZ, -scaleHolder.zBuffer, scaleHolder.zBuffer ) + 0.5
+            let posY = Graph( position.X + offsetX, boundsXZ.minX, boundsXZ.maxX, -scaleHolder.xBuffer, scaleHolder.xBuffer ) + 0.5
 
             posX *= CLAMP2
             posX -= CLAMP
@@ -204,8 +247,8 @@ export function CL_MinimapSetup()
       RunService.RenderStepped.Connect( function ()
       {
          let position = GetPosition( player )
-         let posX = xCenter - position.X
-         let posZ = zCenter - position.Z
+         let posX = scaleHolder.xCenter - position.X
+         let posZ = scaleHolder.zCenter - position.Z
 
          SetFramePositions( floors, frames, posX, posZ )
          SetFramePositions( floors, background, posX, posZ )
@@ -328,4 +371,9 @@ export function AddMapIcon( position: Vector3 )
    let mapIcon = new MapIcon( textLabel, position )
    file.mapIcons.push( mapIcon )
    textLabel.Parent = file.baseFrame
+}
+
+export function GetMinimapReferencesFrame(): Frame | undefined
+{
+   return file.minimapReferenceFrame
 }

@@ -1,12 +1,12 @@
 export const DEV_SKIP = false
 export const DEV_READYUP = false
 
+export const MATCHMAKE_PLAYERCOUNT_FALLBACK = 10
 export const MATCHMAKE_PLAYERCOUNT = 10
-export const MATCHMAKE_PLAYERCOUNT_FALLBACK = 8
 export const MAX_FRIEND_WAIT_TIME = 20
 
-export const PLAYER_WALKSPEED = 16 //32
-export const MAX_TASKLIST_SIZE = 2
+export const PLAYER_WALKSPEED = 16 * 1.0
+export const MAX_TASKLIST_SIZE = 7
 export const QUICK_START_ROOM = "Foyer"
 export const SPAWN_ROOM = "Foyer"
 export const KILL_DIST = 6.5

@@ -167,7 +167,6 @@ export function RPC_FromServer_OnPlayerUseTask( roomName: string, taskName: stri
       if ( closeButtonCallback !== undefined )
          closeButtonCallback.Disconnect()
 
-      ReleaseDraggedButton()
       file.activeTaskStatus = undefined
       Thread( function ()
       {
@@ -177,6 +176,7 @@ export function RPC_FromServer_OnPlayerUseTask( roomName: string, taskName: stri
          }, 0.5, Enum.EasingStyle.Quad, Enum.EasingDirection.Out )
          wait( 0.5 )
          taskUIController.Enabled = false;
+         ReleaseDraggedButton()
          newFrame.Destroy()
       } )
    }

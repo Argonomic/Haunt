@@ -55,8 +55,8 @@ export function CL_ReadyUpSetup()
       let frame = readyUI.Frame
 
       let toggleButton = new ToggleButton( frame, 180,
-         { 'Position': new UDim2( 1, -25, 0.5, -25 ), 'AnchorPoint': new Vector2( 0, 0.5 ) }, // hidden
-         { 'Position': new UDim2( 1, -25, 0.5, -25 ), 'AnchorPoint': new Vector2( 1, 0.5 ) }, // visible
+         { 'Position': new UDim2( 1, -25, 0.5, -25 ), 'AnchorPoint': new Vector2( 0, 0.75 ) }, // hidden
+         { 'Position': new UDim2( 1, -25, 0.5, -25 ), 'AnchorPoint': new Vector2( 1, 0.75 ) }, // visible
       )
       toggleButton.button.BackgroundColor3 = new Color3( 125 / 256, 170 / 256, 133 / 256 )
       toggleButton.button.Position = new UDim2( 0, -5, 0, 0 )

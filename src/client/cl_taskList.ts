@@ -6,13 +6,12 @@ import { AddRoomChangedCallback, CurrentRoomExists, GetCurrentRoom, GetRooms } f
 import { Assert, GetFirstChildWithName, GetLocalPlayer, Graph, Thread } from "shared/sh_utils"
 import { AddCallout, ClearCallouts, InitCallouts } from "./cl_callouts2d"
 import { Room, Task } from "shared/sh_rooms"
-import { AddMapIcon, ClearMinimapIcons } from "./cl_minimap"
+import { AddMapIcon, ClearMinimapIcons, GetMinimapReferencesFrame } from "./cl_minimap"
 import { AddPlayerGuiFolderExistsCallback, ToggleButton, UIORDER } from "./cl_ui"
 import { GetUsableByType } from "shared/sh_use"
-import { GetLocalIsSpectator, GetLocalRole } from "./cl_gamestate"
+import { GetLocalGame, GetLocalIsSpectator, GetLocalRole } from "./cl_gamestate"
 import { AddCallback_OnPlayerCharacterAncestryChanged } from "shared/sh_onPlayerConnect"
 import { Tween } from "shared/sh_tween"
-import { WaitForMatchScreenFrame } from "./cl_matchScreen"
 
 const CALLOUTS_NAME = "TASKLIST_CALLOUTS"
 
@@ -49,6 +48,16 @@ let file = new File()
 
 function RefreshTaskList()
 {
+   if ( file.existingUI === undefined )
+      return
+
+   let frame = GetMinimapReferencesFrame()
+   if ( frame !== undefined )
+   {
+      file.framePosition = new UDim2( 0, frame.AbsolutePosition.X, 0, frame.AbsoluteSize.Y + frame.AbsolutePosition.X )
+      file.existingUI.Frame.Position = file.framePosition
+   }
+
    let json = GetNetVar_String( GetLocalPlayer(), NETVAR_JSON_TASKLIST )
    let assignments = HttpService.JSONDecode( json ) as Array<Assignment>
    file.assignments = assignments
@@ -146,11 +155,13 @@ export function CL_TaskListSetup()
       clone.ResetOnSpawn = false
       file.existingUI = clone
 
-      file.framePosition = clone.Frame.Position
+      clone.Frame.Position = file.framePosition
+
+      clone.Frame.Position = new UDim2( 0.01, 0, 1, -clone.Frame.AbsolutePosition.X )
 
       let toggleButton = new ToggleButton( clone.Frame, 0,
-         { 'AnchorPoint': new Vector2( 1.0, 0 ) }, // hidden
-         { 'AnchorPoint': new Vector2( 0.0, 0 ) } // visible
+         { AnchorPoint: new Vector2( 1.0, 0 ) }, // hidden
+         { AnchorPoint: new Vector2( 0.0, 0 ) } // visible
       )
       toggleButton.button.Position = new UDim2( 1, 5, 0, 5 )
       file.toggleButton = toggleButton
@@ -217,20 +228,22 @@ export function RedrawTaskListUI()
          file.taskLabels[0].Text = "Kill the innocent before they"
          file.taskLabels[1].Text = "complete their tasks and escape"
          return
+   }
 
-      case ROLE.ROLE_SPECTATOR_IMPOSTER:
-         let toggleButton = file.toggleButton
-         if ( toggleButton !== undefined && count === 0 && toggleButton.IsOpen() )
-         {
-            toggleButton.Close()
+   let game = GetLocalGame()
+   if ( game.IsSpectator( GetLocalPlayer() ) )
+   {
+      let toggleButton = file.toggleButton
+      if ( toggleButton !== undefined && count === 0 && toggleButton.IsOpen() )
+      {
+         toggleButton.Close()
 
-            let position = file.framePosition
-            let newPosition = new UDim2( position.X.Scale - 0.25, position.X.Offset, position.Y.Scale, position.Y.Offset )
-            // deep close it
-            Tween( file.existingUI.Frame, { Position: newPosition, 'AnchorPoint': new Vector2( 1.0, 0 ) }, 1.0 )
-         }
-         return
-
+         let position = file.framePosition
+         let newPosition = new UDim2( position.X.Scale - 0.25, position.X.Offset, position.Y.Scale, position.Y.Offset )
+         // deep close it
+         Tween( file.existingUI.Frame, { Position: newPosition, 'AnchorPoint': new Vector2( 1.0, 0 ) }, 1.0 )
+      }
+      return
    }
 
 
@@ -278,9 +291,10 @@ export function RedrawTaskListUI()
    }
    else
    {
-      file.taskLabels[0].Text = "Complete your tasks and then escape."
-      file.taskLabels[1].Text = drawTasks.size() + " Tasks Remaining:"
-      startIndex = 3
+      file.taskLabels[0].Text = "Complete your tasks while avoiding"
+      file.taskLabels[1].Text = "any Imposters, then escape."
+      file.taskLabels[2].Text = drawTasks.size() + " Tasks Remaining:"
+      startIndex = 4
    }
 
    let index = startIndex

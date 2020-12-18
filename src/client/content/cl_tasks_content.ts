@@ -1,5 +1,5 @@
 import { RunService, UserInputService, Workspace } from "@rbxts/services"
-import { AddCaptureInputChangeCallback } from "client/cl_input"
+import { AddCaptureInputChangeCallback, AddOnTouchEndedCallback } from "client/cl_input"
 import { AddTaskSpec, AddTaskUI, TaskStatus, TASK_UI } from "client/cl_tasks"
 import { AddDraggedButton, GetDraggedButton, ReleaseDraggedButton, ElementWithinElement, AddCallback_MouseUp, MoveOverTime, ElementDist_TopLeft, UIORDER, ElementDist, ElementDistFromXY, AddPlayerGuiFolderExistsCallback } from "client/cl_ui"
 import { TASK_EXIT } from "shared/sh_gamestate"
@@ -19,6 +19,7 @@ class File
    matchboxFlameSound = LoadSound( 1072005487 )
    matchboxPopOut = LoadSound( 180404792 )
 
+   touchPositions: Array<Vector3> = []
 
 }
 
@@ -52,6 +53,13 @@ export function CL_TasksContentSetup()
          } )
       } )
    } )
+
+   AddOnTouchEndedCallback(
+      function ( touchPositions: Array<Vector3>, gameProcessedEvent: boolean )
+      {
+         file.touchPositions = touchPositions
+      } )
+
 }
 
 function GetStartFunc( name: string ): Function
@@ -90,7 +98,7 @@ function GetTitle( name: string ): string
          return "Escape the Mansion"
 
       case "put_books_away":
-         return "Put Books Away"
+         return "Put Away Books"
 
       case "clean_out_fridge":
          return "Clean Out the Fridge"
@@ -102,7 +110,7 @@ function GetTitle( name: string ): string
          return "Win at Checkers"
 
       case "sweep_the_floor":
-         return "Sweep the Floor"
+         return "Sweep away Cobwebs"
    }
 
    Assert( false, "No title found for " + name )
@@ -314,7 +322,7 @@ function Task_SweepTheFloor( frame: Frame, closeTaskThread: Function, status: Ta
       if ( Workspace.DistributedGameTime < checkTime )
          return
       checkTime = Workspace.DistributedGameTime + 0.075
-      let size = background.AbsoluteSize.X * 0.09
+      let size = background.AbsoluteSize.X * 0.15
 
       let button: ImageButton | undefined
       if ( TOUCH_ENABLED )
@@ -322,12 +330,17 @@ function Task_SweepTheFloor( frame: Frame, closeTaskThread: Function, status: Ta
          for ( let i = 0; i < webs.size(); i++ )
          {
             let imageLabel = webs[i]
-            if ( ElementDistFromXY( imageLabel, inputX, inputY ) < size )
+            let touchPositions = file.touchPositions.concat( [new Vector3( inputX, inputY, 0 )] )
+
+            for ( let touchPosition of touchPositions )
             {
-               WebGoesAway( imageLabel )
-               webs.remove( i )
-               i--
-               count--
+               if ( ElementDistFromXY( imageLabel, touchPosition.X, touchPosition.Y ) < size )
+               {
+                  WebGoesAway( imageLabel )
+                  webs.remove( i )
+                  i--
+                  count--
+               }
             }
          }
       }
@@ -580,7 +593,8 @@ function Task_LightCandle( frameIn: Frame, closeTaskThread: Function, status: Ta
                frame.ClickMatchboxGet.MouseButton1Click.Connect(
                   function ()
                   {
-                     let count = RandomInt( 3 ) + 4
+                     file.matchboxPopOut.Play()
+                     let count = RandomInt( 2 ) + 3
                      for ( let i = 0; i < count; i++ )
                      {
                         if ( matches.size() >= 15 )
@@ -626,15 +640,34 @@ function Task_LightCandle( frameIn: Frame, closeTaskThread: Function, status: Ta
    let originalSparksSize = frame.Sparks.Size.add( new UDim2( 0, 0, 0, 0 ) )
    let originalFlameSize = frameFlame.Size.add( new UDim2( 0, 0, 0, 0 ) )
 
+   let lastDraggedButton: ImageButton | undefined
+
+
    return RunService.RenderStepped.Connect( function ()
    {
       let button = GetDraggedButton()
       if ( button === undefined )
       {
+         if ( lastDraggedButton !== undefined )
+         {
+            for ( let i = 0; i < matches.size(); i++ )
+            {
+               if ( matches[i] === lastDraggedButton )
+               {
+                  matches.remove( i )
+                  break
+               }
+            }
+            lastDraggedButton.Destroy()
+            lastDraggedButton = undefined
+         }
+
          lit = false
          frameFlame.Visible = false
          return
       }
+
+      lastDraggedButton = button
 
       if ( lit )
       {
@@ -652,7 +685,7 @@ function Task_LightCandle( frameIn: Frame, closeTaskThread: Function, status: Ta
                lightingSkullTime = Workspace.DistributedGameTime
             }
 
-            if ( Workspace.DistributedGameTime - lightingSkullTime > 1.250 )
+            if ( Workspace.DistributedGameTime - lightingSkullTime > 0.250 )
             {
                Tween( frame.Darkness, { BackgroundTransparency: 1 }, 1 )
                skullLit = true
@@ -778,8 +811,6 @@ function Task_LightCandle( frameIn: Frame, closeTaskThread: Function, status: Ta
 }
 
 
-
-
 function Task_CleanOutFridge( frame: Frame, closeTaskThread: Function, status: TaskStatus )
 {
    let items: Array<ImageButton> = []
@@ -847,7 +878,6 @@ function Task_CleanOutFridge( frame: Frame, closeTaskThread: Function, status: T
 
    } )
 }
-
 
 
 function Task_Exit( frame: Frame, closeTaskThread: Function, status: TaskStatus )

@@ -2,15 +2,16 @@ import { AddNetVarChangedCallback, GetNetVar_Number } from "shared/sh_player_net
 import { Workspace } from "@rbxts/services";
 import { WaitForMatchScreenFrame } from "client/cl_matchScreen";
 import { AddPlayerGuiFolderExistsCallback } from "client/cl_ui";
-import { MATCHMAKING_STATUS, MEETING_TYPE, NETVAR_MATCHMAKING_STATUS, ROLE } from "shared/sh_gamestate";
+import { MEETING_TYPE, ROLE } from "shared/sh_gamestate";
 import { ClonePlayerModel } from "shared/sh_onPlayerConnect";
 import { DEV_SKIP } from "shared/sh_settings";
 import { Tween, TweenCharacterParts, TweenModel } from "shared/sh_tween";
-import { Assert, GetLocalPlayer, Graph, SetCharacterTransparency, SetCharacterYaw, Thread } from "shared/sh_utils";
+import { Assert, GetLocalPlayer, Graph, LoadSound, SetCharacterTransparency, SetCharacterYaw, Thread } from "shared/sh_utils";
 
 class File
 {
    player: Player = GetLocalPlayer()
+   meetingSound = LoadSound( 1846987125 ) //2899745945 ) //4544797741 )//
 }
 let file = new File()
 
@@ -623,6 +624,8 @@ export function DrawMatchScreen_VoteResults( skipTie: boolean, receivedHighestVo
 
 export function DrawMatchScreen_EmergencyMeeting( meetingType: MEETING_TYPE, caller: Player, body: Player | undefined )
 {
+   file.meetingSound.Play()
+
    let matchScreenFrame = WaitForMatchScreenFrame( "EmergencyMeeting" )
    let baseFrame = matchScreenFrame.baseFrame
    let title = matchScreenFrame.title

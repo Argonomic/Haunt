@@ -10,7 +10,7 @@ class File
 let file = new File()
 
 
-export function AddOnTouchEndedCallback( func: Function )
+export function AddOnTouchEndedCallback( func: ( touchPositions: Array<Vector3>, gameProcessedEvent: boolean ) => void )
 {
    file.onTouchEndedCallbacks.push( func )
 }
@@ -69,12 +69,21 @@ UserInputService.TouchStarted.Connect(
    } )
       */
 
+      UserInputService.TouchTap.Connect(
+         function ( touchPositions: Array<InputObject>, gameProcessedEvent: boolean )
+         {
+            for ( let callback of file.onTouchEndedCallbacks )
+            {
+               callback( touchPositions, gameProcessedEvent )
+            }
+         } )
+
       UserInputService.TouchEnded.Connect(
          function ( touch: InputObject, gameProcessedEvent: boolean )
          {
             for ( let callback of file.onTouchEndedCallbacks )
             {
-               callback()
+               callback( [touch.Position], gameProcessedEvent )
             }
          } )
       //UserInputService.TouchLongPress.Connect( TouchLong )
@@ -147,7 +156,6 @@ export function AddCaptureInputChangeCallback( func: Function )
 {
    file.captureInputChangeCallbacks.push( func )
 }
-
 
 
 function InputChanged( input: InputObject, gameProcessedEvent: boolean )

@@ -1,7 +1,7 @@
 import { RunService, Workspace } from "@rbxts/services";
 import { AddCallback_OnPlayerCharacterAdded, APlayerHasConnected } from "shared/sh_onPlayerConnect";
 import { Tween } from "shared/sh_tween";
-import { Assert, ExecOnChildWhenItExists, GetFirstChildWithName, GetFirstChildWithNameAndClassName, GetLocalPlayer, Graph, LoadSound } from "shared/sh_utils";
+import { Assert, ExecOnChildWhenItExists, GetFirstChildWithName, Graph, LoadSound, Thread } from "shared/sh_utils";
 import { AddCaptureInputChangeCallback, AddOnTouchEndedCallback } from "./cl_input";
 
 const DRAGGED_ZINDEX_OFFSET = 20
@@ -14,8 +14,8 @@ export type ImageButtonWithParent = ImageButton &
 export enum UIORDER
 {
    UIORDER_FADEOVERLAY = 1,
-   UIORDER_MINIMAP,
    UIORDER_CALLOUTS,
+   UIORDER_MINIMAP,
    UIORDER_USEBUTTON,
    UIORDER_TASKLIST,
    UIORDER_TASKS,
@@ -24,6 +24,7 @@ export enum UIORDER
    UIORDER_CHAT,
    UIORDER_MATCHSCREEN,
    UIORDER_READY_AFTER_SPECTATE,
+   UIORDER_LAST,
 }
 
 
@@ -182,7 +183,7 @@ function CheckOutOfBoundsOfParent( button: ImageButtonWithParent ): boolean
 
 export function CL_UISetup()
 {
-   AddOnTouchEndedCallback( function ( touch: InputObject, gameProcessedEvent: boolean )
+   AddOnTouchEndedCallback( function ( touchPositions: Array<Vector3>, gameProcessedEvent: boolean )
    {
       ReleaseDraggedButton()
    } )
@@ -212,31 +213,49 @@ export function CL_UISetup()
 
          for ( let func of file.playerGuiExistsCallbacks )
          {
-            func( packageFolder )
+            Thread(
+               function ()
+               {
+                  func( packageFolder )
+               } )
          }
       } )
    } )
 
-}
-
-export function GetUIPackageFolder(): Folder
-{
-   let player = GetLocalPlayer()
-   let gui = GetFirstChildWithName( player, 'PlayerGui' )
-   if ( gui === undefined )
+   AddPlayerGuiFolderExistsCallback( function ( folder: Folder )
    {
-      Assert( false, "PlayerGui undefined" )
-      throw undefined
-   }
+      let screenGui = new Instance( 'ScreenGui' )
+      screenGui.Enabled = true
+      screenGui.DisplayOrder = UIORDER.UIORDER_LAST + 1
+      screenGui.Name = "BETA"
+      screenGui.Parent = folder
 
-   let packageFolder = GetFirstChildWithNameAndClassName( gui, 'Package', 'Folder' ) as Folder
-   if ( packageFolder === undefined )
-   {
-      Assert( false, "Package undefined" )
-      throw undefined
-   }
+      let frame = new Instance( 'TextLabel' )
+      frame.Parent = screenGui
+      frame.AnchorPoint = new Vector2( 0.5, 0.5 )
+      frame.Size = new UDim2( 0.3, 0, 0.3, 0 )
+      frame.Position = new UDim2( 0.5, 0, 0.5, 0 )
+      frame.Text = "BETA"
+      frame.BackgroundTransparency = 1
+      frame.TextTransparency = 1
+      frame.TextScaled = true
+      frame.TextColor3 = new Color3( 1, 1, 1 )
+      frame.TextStrokeTransparency = 1
+      frame.TextStrokeColor3 = new Color3( 0, 0, 0 )
 
-   return packageFolder
+      wait( 2 )
+      Tween( frame, { TextTransparency: 0.333 }, 0.75 )
+      wait( 1.4 )
+
+      Tween( frame,
+         {
+            AnchorPoint: new Vector2( 1, 1 ),
+            Position: new UDim2( 1, 0, 1, 0 ),
+            Size: new UDim2( 0.1, 0, 0.08, 0 )
+         },
+         0.75, Enum.EasingStyle.Quad, Enum.EasingDirection.InOut )
+
+   } )
 }
 
 export function AddPlayerGuiFolderExistsCallback( func: ( folder: Folder ) => void )
@@ -264,34 +283,47 @@ export function DragButtonInFrame( input: InputObject, button: GuiObject, xOffse
 
 export function MoveOverTime( element: GuiObject, endPos: UDim2, blendTime: number, runFunc: Function )
 {
-   // replace with TWEEN
-   let startTime = Workspace.DistributedGameTime
-   let endTime = Workspace.DistributedGameTime + blendTime
-   let start = element.Position
-
-   class Render
-   {
-      rbx: RBXScriptConnection
-      constructor( rbx: RBXScriptConnection )
+   Thread(
+      function ()
       {
-         this.rbx = rbx
-      }
+         Tween( element, {
+            Position: endPos
+         }, blendTime, Enum.EasingStyle.Quad, Enum.EasingDirection.InOut )
+         wait( blendTime )
+         runFunc()
+      } )
+
+
+   /*
+// replace with TWEEN
+let startTime = Workspace.DistributedGameTime
+let endTime = Workspace.DistributedGameTime + blendTime
+let start = element.Position
+
+class Render
+{
+   rbx: RBXScriptConnection
+   constructor( rbx: RBXScriptConnection )
+   {
+      this.rbx = rbx
+   }
+}
+
+let rbx = new Render( RunService.RenderStepped.Connect( function ()
+{
+   if ( Workspace.DistributedGameTime >= endTime )
+   {
+      element.Position = endPos
+      rbx.rbx.Disconnect()
+      runFunc()
+      return
    }
 
-   let rbx = new Render( RunService.RenderStepped.Connect( function ()
-   {
-      if ( Workspace.DistributedGameTime >= endTime )
-      {
-         element.Position = endPos
-         rbx.rbx.Disconnect()
-         runFunc()
-         return
-      }
-
-      let x = Graph( Workspace.DistributedGameTime, startTime, endTime, start.X.Scale, endPos.X.Scale )
-      let y = Graph( Workspace.DistributedGameTime, startTime, endTime, start.Y.Scale, endPos.Y.Scale )
-      element.Position = new UDim2( x, 0, y, 0 )
-   } ) )
+   let x = Graph( Workspace.DistributedGameTime, startTime, endTime, start.X.Scale, endPos.X.Scale )
+   let y = Graph( Workspace.DistributedGameTime, startTime, endTime, start.Y.Scale, endPos.Y.Scale )
+   element.Position = new UDim2( x, 0, y, 0 )
+} ) )
+*/
 }
 
 export class ToggleButton
