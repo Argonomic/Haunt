@@ -2,7 +2,7 @@ import { Chat, HttpService, Players, ServerStorage } from "@rbxts/services"
 import { AddRPC } from "shared/sh_rpc"
 import { ArrayRandomize, Assert, IsAlive, Resume, Thread, UserIDToPlayer } from "shared/sh_utils"
 import { Assignment, GAME_STATE, SharedGameStateInit, NETVAR_JSON_TASKLIST, ROLE, IsPracticing, Game, GAMERESULTS, GetVoteResults, TASK_EXIT } from "shared/sh_gamestate"
-import { MAX_TASKLIST_SIZE, MATCHMAKE_PLAYERCOUNT, MATCHMAKE_PLAYERCOUNT_FALLBACK, SPAWN_ROOM, PLAYER_WALKSPEED } from "shared/sh_settings"
+import { MAX_TASKLIST_SIZE, MATCHMAKE_PLAYERCOUNT_DESIRED, MATCHMAKE_PLAYERCOUNT_FALLBACK, SPAWN_ROOM, PLAYER_WALKSPEED } from "shared/sh_settings"
 import { SetNetVar } from "shared/sh_player_netvars"
 import { AddCallback_OnPlayerCharacterAdded, SetPlayerWalkSpeed } from "shared/sh_onPlayerConnect"
 import { SendRPC } from "./sv_utils"
@@ -397,7 +397,7 @@ export function CreateGame( players: Array<Player>, gameEndFunc: Function )
       Assert( ( player.Character as Model ).PrimaryPart !== undefined, "(player.Character as Model).PrimaryPart !== undefined" )
    }
    Assert( players.size() >= MATCHMAKE_PLAYERCOUNT_FALLBACK, "Not enough players" )
-   Assert( players.size() <= MATCHMAKE_PLAYERCOUNT, "Too many players" )
+   Assert( players.size() <= MATCHMAKE_PLAYERCOUNT_DESIRED, "Too many players" )
    let game = new Game()
 
    let playerNums = 0

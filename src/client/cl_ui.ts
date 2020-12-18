@@ -243,7 +243,7 @@ export function CL_UISetup()
       frame.TextStrokeTransparency = 1
       frame.TextStrokeColor3 = new Color3( 0, 0, 0 )
 
-      wait( 2 )
+      wait( 4 )
       Tween( frame, { TextTransparency: 0.333 }, 0.75 )
       wait( 1.4 )
 

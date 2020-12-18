@@ -3,8 +3,8 @@ import { TELEPORT_PlayerData, NETVAR_MATCHMAKING_STATUS, MATCHMAKING_STATUS, NET
 import { AddCallback_OnPlayerCharacterAdded, AddCallback_OnPlayerConnected } from "shared/sh_onPlayerConnect"
 import { GetNetVar_Number, SetNetVar } from "shared/sh_player_netvars"
 import { AddRPC } from "shared/sh_rpc"
-import { MAX_FRIEND_WAIT_TIME, MATCHMAKE_PLAYERCOUNT, MATCHMAKE_PLAYERCOUNT_FALLBACK } from "shared/sh_settings"
-import { Assert, Resume, Thread } from "shared/sh_utils"
+import { MAX_FRIEND_WAIT_TIME, MATCHMAKE_PLAYERCOUNT_DESIRED, MATCHMAKE_PLAYERCOUNT_FALLBACK } from "shared/sh_settings"
+import { Assert, GraphCapped, Resume, Thread } from "shared/sh_utils"
 import { AddPlayer, AssignAllTasks, CreateGame, IsReservedServer } from "./sv_gameState"
 import { PutPlayerInStartRoom } from "./sv_rooms"
 
@@ -175,10 +175,12 @@ export function SV_MatchmakingSetup()
             i--
          }
 
-         let searchers = MATCHMAKE_PLAYERCOUNT - lfgPlayers.size()
+         const PLAYERCOUNT = GetMatchmakingMinPlayersForLongestWaitTime( lfgPlayers )
+
+         let waitingForPlayerCount = PLAYERCOUNT - lfgPlayers.size()
          for ( let player of lfgPlayers )
          {
-            SetNetVar( player, NETVAR_MATCHMAKING_NUMWITHYOU, searchers )
+            SetNetVar( player, NETVAR_MATCHMAKING_NUMWITHYOU, waitingForPlayerCount )
 
             let friends = GetFriends( lfgPlayers, player )
             let lowestTime = GetLowestMatchmakingTime( friends )
@@ -187,15 +189,10 @@ export function SV_MatchmakingSetup()
                file.playerToSearchStartedTime.set( player, lowestTime + 0.01 )// let original matchmaker have priority 
          }
 
-
-         let PLAYERCOUNT = MATCHMAKE_PLAYERCOUNT
-
          let players: Array<Player> = []
 
          if ( IsReservedServer() )
          {
-            if ( Workspace.DistributedGameTime > 20 )
-               PLAYERCOUNT = MATCHMAKE_PLAYERCOUNT_FALLBACK
             players = GetPlayersWithMatchmakingStatus( MATCHMAKING_STATUS.MATCHMAKING_WAITING_TO_PLAY )
          }
          else
@@ -226,10 +223,12 @@ export function SV_MatchmakingSetup()
             else
             {
                print( "file.matchmakeThread yield" )
-               let lfgPlayersFriends = GetPlayersWithMatchmakingStatus( MATCHMAKING_STATUS.MATCHMAKING_LFG_WITH_FRIENDS )
-               if ( lfgPlayersFriends.size() )
+               if (
+                  GetPlayersWithMatchmakingStatus( MATCHMAKING_STATUS.MATCHMAKING_LFG ).size() ||
+                  GetPlayersWithMatchmakingStatus( MATCHMAKING_STATUS.MATCHMAKING_LFG_WITH_FRIENDS ).size()
+               )
                {
-                  wait( 1 )
+                  wait( 0.3 )
                }
                else
                {
@@ -390,4 +389,27 @@ function GetLowestMatchmakingTime( players: Array<Player> ): number
 function SortByMatchmakeTime( a: Player, b: Player )
 {
    return ( file.playerToSearchStartedTime.get( a ) as number ) < ( file.playerToSearchStartedTime.get( b ) as number )
+}
+
+function GetLongestSearchTime( players: Array<Player> ): number
+{
+   let time = 0
+   for ( let player of players )
+   {
+      if ( !file.playerToSearchStartedTime.has( player ) )
+         continue
+      let searchTime = Workspace.DistributedGameTime - ( file.playerToSearchStartedTime.get( player ) as number )
+      if ( searchTime > time )
+         time = searchTime
+   }
+   return time
+}
+
+function GetMatchmakingMinPlayersForLongestWaitTime( players: Array<Player> ): number
+{
+   if ( IsReservedServer() )
+      return math.floor( GraphCapped( Workspace.DistributedGameTime, 10, 20, MATCHMAKE_PLAYERCOUNT_DESIRED, MATCHMAKE_PLAYERCOUNT_FALLBACK ) )
+
+   let timer = GetLongestSearchTime( players )
+   return math.floor( GraphCapped( timer, 25, 45, MATCHMAKE_PLAYERCOUNT_DESIRED, MATCHMAKE_PLAYERCOUNT_FALLBACK ) )
 }

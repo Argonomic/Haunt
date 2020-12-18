@@ -1,7 +1,7 @@
 import { RunService } from "@rbxts/services";
 import { Game, GAME_STATE, PlayerNumToGameViewable, ROLE } from "shared/sh_gamestate";
 import { ClonePlayerModel } from "shared/sh_onPlayerConnect";
-import { MATCHMAKE_PLAYERCOUNT, PLAYER_COLORS } from "shared/sh_settings";
+import { MATCHMAKE_PLAYERCOUNT_DESIRED, PLAYER_COLORS } from "shared/sh_settings";
 import { Tween } from "shared/sh_tween";
 import { Assert, GetColor, GetFirstChildWithName, GetFirstChildWithNameAndClassName, GetLocalPlayer, LightenColor, SetCharacterTransparency, Thread, SetCharacterYaw } from "shared/sh_utils";
 import { AddPlayerGuiFolderExistsCallback, UIORDER } from "./cl_ui";
@@ -361,7 +361,7 @@ class ActiveMeeting
       }
 
 
-      let last = MATCHMAKE_PLAYERCOUNT - 1
+      let last = MATCHMAKE_PLAYERCOUNT_DESIRED - 1
       let first = 0
 
       for ( let i = 0; i < this.playerButtonGroups.size(); i++ )
