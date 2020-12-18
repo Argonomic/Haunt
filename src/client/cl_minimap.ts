@@ -110,6 +110,8 @@ export function CL_MinimapSetup()
       let megaFrame = GetExistingFirstChildWithNameAndClassName( minimapUI, 'MegaFrame', 'Frame' ) as Frame
       let baseFrame = GetExistingFirstChildWithNameAndClassName( minimapUI, frameName, 'Frame' ) as Frame
       let miniFrame = baseFrame.Clone()
+      miniFrame.Visible = false
+      miniFrame.Parent = baseFrame.Parent
       file.minimapReferenceFrame = miniFrame
       file.baseFrame = baseFrame
       let arrow = GetExistingFirstChildWithNameAndClassName( baseFrame, 'PlayerArrow', 'ImageLabel' ) as ImageLabel
