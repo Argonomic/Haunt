@@ -1,6 +1,7 @@
 import { AddRPC } from "shared/sh_rpc"
 import { AddCallback_OnRoomSetup, CreateClientBlockers, Room, AddRoomsFromWorkspace, FAST_ROOM_ITERATION } from "shared/sh_rooms"
-import { Assert, GetLocalPlayer, GetPlayerFromDescendant, GetClosest, Resume } from "shared/sh_utils"
+import { GetLocalPlayer, GetPlayerFromDescendant, GetClosest, Resume } from "shared/sh_utils"
+import { Assert } from "shared/sh_assert"
 import { SetPlayerCameraToRoom } from "./cl_camera"
 
 class File

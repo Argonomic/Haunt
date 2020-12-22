@@ -42,20 +42,6 @@ export function GetWorkspaceChildByName( name: string ): any
    return undefined
 }
 
-export function Assert( bool: boolean, msg: string )
-{
-   if ( bool )
-      return
-
-   print( "\n\n\n" )
-   print( "\rASSERT FAILED: " + msg )
-   print( debug.traceback() )
-   print( "\n\n\n" )
-
-   assert( false, msg )
-
-}
-
 export function GetInstanceChildWithName( parent: Instance, name: string ): Instance | undefined
 {
    let kids = parent.GetChildren()
@@ -620,3 +606,18 @@ export function Resume( thrd: thread )
    Assert( coroutine.running() !== thrd, "coroutine.running() !== thrd" )
    coroutine.resume( thrd )
 }
+
+function Assert( bool: boolean, msg: string )
+{
+   if ( bool )
+      return
+
+   let stack = debug.traceback()
+   print( "\n\n\n" )
+   print( "\rASSERT FAILED: " + msg )
+   print( stack )
+   print( "\n\n\n" )
+
+   assert( false, msg )
+}
+

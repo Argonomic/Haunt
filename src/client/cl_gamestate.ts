@@ -4,7 +4,8 @@ import { AddCallback_OnPlayerCharacterAdded } from "shared/sh_onPlayerConnect"
 import { AddNetVarChangedCallback } from "shared/sh_player_netvars"
 import { SetTimeDelta } from "shared/sh_time"
 import { GetUsableByType } from "shared/sh_use"
-import { Assert, GetFirstChildWithName, GetLocalPlayer, RandomFloatRange, RecursiveOnChildren, Resume, SetCharacterTransparency, WaitThread } from "shared/sh_utils"
+import { GetFirstChildWithName, GetLocalPlayer, RandomFloatRange, RecursiveOnChildren, Resume, SetCharacterTransparency, WaitThread } from "shared/sh_utils"
+import { Assert } from "shared/sh_assert"
 import { UpdateMeeting } from "./cl_meeting"
 import { CancelAnyOpenTask } from "./cl_tasks"
 import { AddPlayerUseDisabledCallback } from "./cl_use"
@@ -78,8 +79,8 @@ export function CL_GameStateSetup()
       Assert( typeOf( playerData ) === 'string', "typeOf( playerData ) === 'string'" )
       let jsonString = playerData as string
       let data = HttpService.JSONDecode( jsonString ) as TELEPORT_PlayerData
-      if ( data.playerNum !== undefined )
-         SendRPC( 'RPC_FromClient_SetPlayerCount', data.playerNum )
+      if ( data.playerCount !== undefined )
+         SendRPC( 'RPC_FromClient_SetPlayerCount', data.playerCount )
 
       if ( data.matchmaking !== undefined )
          SendRPC( "RPC_FromClient_RequestChange_MatchmakingStatus", data.matchmaking )

@@ -1,8 +1,9 @@
 import { Room, AddRoomsFromWorkspace, RoomAndTask, AddCallback_OnRoomSetup } from "shared/sh_rooms"
-import { ArrayRandomize, Assert, GetPlayerFromDescendant, RandomFloatRange, SetPlayerYaw, Thread } from "shared/sh_utils"
+import { ArrayRandomize, GetPlayerFromDescendant, RandomFloatRange, SetPlayerYaw, Thread } from "shared/sh_utils"
 import { QUICK_START_ROOM } from "shared/sh_settings"
 import { SendRPC } from "./sv_utils"
 import { AddCallback_OnPlayerConnected } from "shared/sh_onPlayerConnect"
+import { Assert } from "shared/sh_assert"
 
 //import { ReplicatedStorage } from "@rbxts/services";
 

@@ -1,5 +1,6 @@
 import { ReplicatedStorage } from "@rbxts/services"
-import { Assert, CreateRemoteEvent, ExecOnChildWhenItExists, IsServer } from "./sh_utils"
+import { CreateRemoteEvent, ExecOnChildWhenItExists, IsServer } from "./sh_utils"
+import { Assert } from "shared/sh_assert"
 
 class File
 {

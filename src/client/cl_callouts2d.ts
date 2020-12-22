@@ -1,5 +1,6 @@
 import { Workspace } from "@rbxts/services"
-import { Assert, Graph, TextLabels } from "shared/sh_utils"
+import { Assert } from "shared/sh_assert"
+import { Graph, TextLabels } from "shared/sh_utils"
 import { AddPlayerGuiFolderExistsCallback, UIORDER } from "./cl_ui"
 
 class File

@@ -13,7 +13,8 @@ import { CL_TaskListSetup } from "./cl_taskList"
 import { CL_MinimapSetup } from "./cl_minimap"
 import { CL_CalloutsSetup } from "./cl_callouts2d"
 import { CL_FadeOverlaySetup } from "./cl_fadeoverlay"
-import { Assert, Thread } from "shared/sh_utils"
+import { Thread } from "shared/sh_utils"
+import { Assert, SH_AssertSetup } from "shared/sh_assert"
 import { CL_UseSetup } from "./cl_use"
 import { CL_ReadyUpSetup } from "./cl_readyup"
 import { CL_GameStateSetup } from "./cl_gamestate"
@@ -45,6 +46,7 @@ SH_UseSetup()
 SH_UseContentSetup()
 SH_CooldownSetup()
 SH_TimeSetup()
+SH_AssertSetup()
 CL_RoomSetup()
 CL_TasksSetup()
 CL_TasksContentSetup()

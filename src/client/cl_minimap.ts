@@ -1,7 +1,8 @@
 import { RunService, Workspace } from "@rbxts/services"
 import { BoundsXZ, GetBoundsXZ } from "shared/sh_bounds"
 import { AddCallback_OnPlayerCharacterAncestryChanged } from "shared/sh_onPlayerConnect"
-import { Assert, GetChildrenWithName, GetChildren_NoFutureOffspring, GetExistingFirstChildWithNameAndClassName, GetInstanceChildWithName, GetLocalPlayer, GetPosition, GetWorkspaceChildByName, Graph } from "shared/sh_utils"
+import { GetChildrenWithName, GetChildren_NoFutureOffspring, GetExistingFirstChildWithNameAndClassName, GetInstanceChildWithName, GetLocalPlayer, GetPosition, GetWorkspaceChildByName, Graph } from "shared/sh_utils"
+import { Assert } from "shared/sh_assert"
 import { CreateCalloutTextLabel } from "./cl_callouts2d"
 import { AddPlayerGuiFolderExistsCallback, UIORDER } from "./cl_ui"
 

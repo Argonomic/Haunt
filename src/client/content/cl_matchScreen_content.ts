@@ -1,4 +1,3 @@
-import { AddNetVarChangedCallback, GetNetVar_Number } from "shared/sh_player_netvars"
 import { Workspace } from "@rbxts/services";
 import { WaitForMatchScreenFrame } from "client/cl_matchScreen";
 import { AddPlayerGuiFolderExistsCallback } from "client/cl_ui";
@@ -6,7 +5,8 @@ import { MEETING_TYPE, ROLE } from "shared/sh_gamestate";
 import { ClonePlayerModel } from "shared/sh_onPlayerConnect";
 import { DEV_SKIP } from "shared/sh_settings";
 import { Tween, TweenCharacterParts, TweenModel } from "shared/sh_tween";
-import { Assert, GetLocalPlayer, Graph, LoadSound, SetCharacterTransparency, SetCharacterYaw, Thread } from "shared/sh_utils";
+import { GetLocalPlayer, Graph, LoadSound, SetCharacterTransparency, SetCharacterYaw, Thread } from "shared/sh_utils";
+import { Assert } from "shared/sh_assert"
 
 class File
 {
@@ -291,8 +291,12 @@ export function DrawMatchScreen_VoteResults( skipTie: boolean, receivedHighestVo
    print( "DrawMatchScreen_VoteResults" )
    function GetResultsText(): Array<string>
    {
-      if ( skipTie || receivedHighestVotes.size() > 1 )
-         return ["It's a tie!", "No one was voted off"]
+      if ( skipTie )
+      {
+         if ( receivedHighestVotes.size() > 0 )
+            return ["It's a tie!", "No one was voted off"]
+         return ["No one was voted off"]
+      }
 
       if ( receivedVotes.size() === 0 || receivedHighestVotes.size() === 0 )
          return ["No one was voted off"]

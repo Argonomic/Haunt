@@ -1,7 +1,8 @@
-import { Chat, HttpService, Players, ServerStorage } from "@rbxts/services"
+import { Chat, HttpService, Players } from "@rbxts/services"
 import { AddRPC } from "shared/sh_rpc"
-import { ArrayRandomize, Assert, IsAlive, Resume, Thread, UserIDToPlayer } from "shared/sh_utils"
-import { Assignment, GAME_STATE, SharedGameStateInit, NETVAR_JSON_TASKLIST, ROLE, IsPracticing, Game, GAMERESULTS, GetVoteResults, TASK_EXIT } from "shared/sh_gamestate"
+import { ArrayRandomize, IsAlive, Resume, Thread, UserIDToPlayer } from "shared/sh_utils"
+import { Assert } from "shared/sh_assert"
+import { Assignment, GAME_STATE, SharedGameStateInit, NETVAR_JSON_TASKLIST, ROLE, IsPracticing, Game, GAMERESULTS, GetVoteResults, TASK_EXIT, PlayerInfo } from "shared/sh_gamestate"
 import { MAX_TASKLIST_SIZE, MATCHMAKE_PLAYERCOUNT_DESIRED, MATCHMAKE_PLAYERCOUNT_FALLBACK, SPAWN_ROOM, PLAYER_WALKSPEED } from "shared/sh_settings"
 import { SetNetVar } from "shared/sh_player_netvars"
 import { AddCallback_OnPlayerCharacterAdded, SetPlayerWalkSpeed } from "shared/sh_onPlayerConnect"
@@ -545,10 +546,10 @@ export function ClearAssignments( game: Game, player: Player )
    UpdateTasklistNetvar( player, [] )
 }
 
-export function AddPlayer( game: Game, player: Player, role: ROLE )
+export function AddPlayer( game: Game, player: Player, role: ROLE ): PlayerInfo
 {
    file.playerToGame.set( player, game )
-   game.AddPlayer( player, role )
+   return game.AddPlayer( player, role )
 }
 
 export function IsReservedServer(): boolean

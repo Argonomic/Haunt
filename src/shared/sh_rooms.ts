@@ -1,6 +1,7 @@
 import { Workspace } from "@rbxts/services"
 import { BoundsXZ } from "./sh_bounds"
-import { Assert, GetChildren_NoFutureOffspring, GetFirstChildWithNameAndClassName, GetInstanceChildWithName, GetWorkspaceChildByName, IsClient } from "./sh_utils"
+import { GetChildren_NoFutureOffspring, GetFirstChildWithNameAndClassName, GetInstanceChildWithName, GetWorkspaceChildByName, IsClient } from "./sh_utils"
+import { Assert } from "shared/sh_assert"
 
 export const FAST_ROOM_ITERATION = false
 const DEFAULT_FIELDOFVIEW = 20

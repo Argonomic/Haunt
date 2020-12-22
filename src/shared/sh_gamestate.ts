@@ -3,7 +3,8 @@ import { AddNetVar, GetNetVar_Number, GetNetVar_String, SetNetVar } from "shared
 import { AddCooldown } from "./sh_cooldown"
 import { SetPlayerWalkSpeed } from "./sh_onPlayerConnect"
 import { COOLDOWNTIME_MEETING, COOLDOWNTIME_KILL, MEETING_DISCUSS_TIME, MEETING_VOTE_TIME, PLAYER_WALKSPEED, SPECTATOR_TRANS } from "./sh_settings"
-import { Assert, IsServer, IsClient, UserIDToPlayer, IsAlive, SetPlayerTransparency, GetLocalPlayer, ExecOnChildWhenItExists, Resume } from "./sh_utils"
+import { IsServer, IsClient, UserIDToPlayer, IsAlive, SetPlayerTransparency, GetLocalPlayer, ExecOnChildWhenItExists, Resume } from "./sh_utils"
+import { Assert } from "shared/sh_assert"
 
 export const LOCAL = RunService.IsStudio()
 
@@ -102,7 +103,7 @@ class NETVAR_Vote
 
 export class TELEPORT_PlayerData
 {
-   playerNum: number | undefined
+   playerCount: number | undefined
    matchmaking: MATCHMAKING_STATUS | undefined
 }
 
@@ -734,8 +735,11 @@ export class Game
             else
                playerInfo = this.AddPlayer( player, role )
 
+            Assert( playerInfo !== undefined, "playerInfo !== undefined" )
+
             if ( playerInfo !== undefined )
                playerInfo.playernum = gsPlayerInfo.playernum
+            Assert( ( ( this.playerToInfo.get( player ) as PlayerInfo ).playernum === playerInfo.playernum ) && playerInfo.playernum >= 0, "( this.playerToInfo.get( player ) as PlayerInfo ).playernum === playerInfo.playernum ) && playerInfo.playernum >= 0" )
          }
 
          let localSpectator = this.IsSpectator( localPlayer )

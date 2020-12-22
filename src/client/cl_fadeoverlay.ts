@@ -3,7 +3,8 @@ import { Corpse, IsPracticing, PlayerNumToGameViewable, ROLE } from "shared/sh_g
 import { AddCallback_OnPlayerCharacterAncestryChanged } from "shared/sh_onPlayerConnect"
 import { PLAYER_COLORS } from "shared/sh_settings"
 import { TweenPlayerParts } from "shared/sh_tween"
-import { Assert, GetFirstChildWithNameAndClassName, GetLocalPlayer, IsAlive, SetCharacterTransparency } from "shared/sh_utils"
+import { GetFirstChildWithNameAndClassName, GetLocalPlayer, IsAlive, SetCharacterTransparency } from "shared/sh_utils"
+import { Assert } from "shared/sh_assert"
 import { GetLocalGame, GetLocalIsSpectator, GetLocalRole } from "./cl_gamestate"
 import { AddPlayerGuiFolderExistsCallback, UIORDER } from "./cl_ui"
 
@@ -57,6 +58,7 @@ export function CL_FadeOverlaySetup()
          let textLabel = new Instance( 'TextLabel' )
          textLabel.Parent = screenUI
          let playerInfo = game.GetPlayerInfo( player )
+         print( "Player has playerNum " + playerInfo.playernum )
          if ( playerInfo.playernum >= 0 )
             textLabel.TextColor3 = PLAYER_COLORS[playerInfo.playernum]
 

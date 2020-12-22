@@ -33,6 +33,7 @@ class File
    oldTaskListCount = -1
    _readyUI: Editor_ReadyUI | undefined
    toggleButton: ToggleButton | undefined
+   displayedReturnToQueue = false
 }
 
 let file = new File()
@@ -59,9 +60,10 @@ export function CL_ReadyUpSetup()
          { 'Position': new UDim2( 1, -25, 0.5, -25 ), 'AnchorPoint': new Vector2( 1, 0.75 ) }, // visible
       )
       toggleButton.button.BackgroundColor3 = new Color3( 125 / 256, 170 / 256, 133 / 256 )
-      toggleButton.button.Position = new UDim2( 0, -5, 0, 0 )
-      toggleButton.button.AnchorPoint = new Vector2( 1, 0 )
+      toggleButton.button.Position = new UDim2( 0, -5, 1, 0 )
+      toggleButton.button.AnchorPoint = new Vector2( 1, 1 )
       file.toggleButton = toggleButton
+      //toggleButton.Close()
 
       frame.checkbox_play.MouseButton1Up.Connect( function ()
       {
@@ -170,6 +172,11 @@ function UpdateReadyUp()
          readyUI.Enabled = true
          readyUI.Frame.InfoFrame.Status.Text = "Spectate or leave this game?"
          readyUI.DisplayOrder = UIORDER.UIORDER_READY_AFTER_SPECTATE // move this to the front
+
+         if ( file.displayedReturnToQueue )
+            return
+         file.displayedReturnToQueue = true // don't make it keep popping out
+
          if ( file.toggleButton !== undefined )
             file.toggleButton.Open()
       }
@@ -191,6 +198,7 @@ function UpdateReadyUp()
          DisplaySpectatorReturnToQueue()
          return
       }
+
 
       switch ( status )
       {

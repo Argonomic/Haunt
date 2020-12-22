@@ -2,7 +2,7 @@ import { StarterGui } from "@rbxts/services"
 import { IsPracticing } from "shared/sh_gamestate"
 import { AddCallback_OnPlayerCharacterAdded } from "shared/sh_onPlayerConnect"
 import { SPECTATOR_TRANS } from "shared/sh_settings"
-import { Assert, GetLocalPlayer, IsAlive, SetPlayerTransparency, Thread } from "shared/sh_utils"
+import { GetLocalPlayer, IsAlive, SetPlayerTransparency, Thread } from "shared/sh_utils"
 import { GetLocalGame } from "./cl_gamestate"
 import { AddPlayerGuiFolderExistsCallback } from "./cl_ui"
 

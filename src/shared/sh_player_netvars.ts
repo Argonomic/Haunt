@@ -1,5 +1,6 @@
-import { Players, Workspace, ReplicatedStorage, RunService } from "@rbxts/services"
-import { Assert, CreateRemoteEvent, ExecOnChildWhenItExists, GetLocalPlayer, IsClient, IsServer } from "./sh_utils"
+import { Workspace, ReplicatedStorage, RunService } from "@rbxts/services"
+import { CreateRemoteEvent, ExecOnChildWhenItExists, GetLocalPlayer, IsClient, IsServer } from "./sh_utils"
+import { Assert } from "shared/sh_assert"
 
 const RESEND_HEARTBEAT_TIME = 2.0
 const RPC_NETVAR = "RPC_NetVar"

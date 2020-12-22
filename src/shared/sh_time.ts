@@ -1,5 +1,6 @@
 import { Workspace } from "@rbxts/services"
-import { Assert, IsClient } from "./sh_utils"
+import { IsClient } from "./sh_utils"
+import { Assert } from "shared/sh_assert"
 
 class File
 {

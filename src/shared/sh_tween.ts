@@ -1,5 +1,5 @@
 import { TweenService } from "@rbxts/services"
-import { Assert } from "./sh_utils"
+import { Assert } from "shared/sh_assert"
 
 const ENABLED = true
 

@@ -1,7 +1,7 @@
 import { Players } from "@rbxts/services";
-import { GetLocalRole } from "client/cl_gamestate";
 import { AssignDefaultNVs } from "shared/sh_player_netvars"
-import { Assert, GetExistingFirstChildWithNameAndClassName, ExecOnChildWhenItExists, GetPlayerFromCharacter, IsServer, Thread, GetLocalPlayer, IsClient } from "./sh_utils";
+import { GetExistingFirstChildWithNameAndClassName, ExecOnChildWhenItExists, GetPlayerFromCharacter, IsServer, Thread, GetLocalPlayer, IsClient } from "./sh_utils";
+import { Assert } from "shared/sh_assert"
 
 class File
 {
@@ -23,6 +23,7 @@ export function SH_OnPlayerConnectSetup()
    {
       OnPlayerConnected( player )
    }
+
 }
 
 export function AddCallback_OnPlayerConnected( func: Function )

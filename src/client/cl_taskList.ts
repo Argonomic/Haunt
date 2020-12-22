@@ -3,7 +3,8 @@ import { GetTaskSpec } from "client/cl_tasks"
 import { Assignment, IsPracticing, NETVAR_JSON_GAMESTATE, NETVAR_JSON_TASKLIST, NETVAR_MEETINGS_CALLED, ROLE, USETYPES } from "shared/sh_gamestate"
 import { AddNetVarChangedCallback, GetNetVar_Number, GetNetVar_String } from "shared/sh_player_netvars"
 import { AddRoomChangedCallback, CurrentRoomExists, GetCurrentRoom, GetRooms } from "./cl_rooms"
-import { Assert, GetFirstChildWithName, GetLocalPlayer, Graph, Thread } from "shared/sh_utils"
+import { GetFirstChildWithName, GetLocalPlayer, Graph, Thread } from "shared/sh_utils"
+import { Assert } from "shared/sh_assert"
 import { AddCallout, ClearCallouts, InitCallouts } from "./cl_callouts2d"
 import { Room, Task } from "shared/sh_rooms"
 import { AddMapIcon, ClearMinimapIcons, GetMinimapReferencesFrame } from "./cl_minimap"
@@ -165,7 +166,6 @@ export function CL_TaskListSetup()
       )
       toggleButton.button.Position = new UDim2( 1, 5, 0, 5 )
       file.toggleButton = toggleButton
-
 
       let internalFrame = new Instance( 'Frame' )
       internalFrame.Parent = clone.Frame

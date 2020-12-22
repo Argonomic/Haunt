@@ -1,7 +1,8 @@
 import { GetPlayerCooldownTimeRemaining } from "./sh_cooldown"
 import { USE_COOLDOWNS } from "./sh_gamestate"
 import { AddRPC } from "./sh_rpc"
-import { Assert, GetPosition, IsServer, Thread } from "./sh_utils"
+import { GetPosition, IsServer, Thread } from "./sh_utils"
+import { Assert } from "shared/sh_assert"
 
 type USETYPES = number
 

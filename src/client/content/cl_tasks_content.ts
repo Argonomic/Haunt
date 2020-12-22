@@ -4,7 +4,8 @@ import { AddTaskSpec, AddTaskUI, TaskStatus, TASK_UI } from "client/cl_tasks"
 import { AddDraggedButton, GetDraggedButton, ReleaseDraggedButton, ElementWithinElement, AddCallback_MouseUp, MoveOverTime, ElementDist_TopLeft, UIORDER, ElementDist, ElementDistFromXY, AddPlayerGuiFolderExistsCallback } from "client/cl_ui"
 import { TASK_EXIT } from "shared/sh_gamestate"
 import { Tween, TweenThenDestroy } from "shared/sh_tween"
-import { ArrayRandomize, Assert, ExecOnChildWhenItExists, GetChildrenWithName, GetChildren_NoFutureOffspring, GetExistingFirstChildWithNameAndClassName, LoadSound, RandomFloatRange, RandomInt, Thread } from "shared/sh_utils"
+import { ArrayRandomize, ExecOnChildWhenItExists, GetChildrenWithName, GetChildren_NoFutureOffspring, GetExistingFirstChildWithNameAndClassName, LoadSound, RandomFloatRange, RandomInt, Thread } from "shared/sh_utils"
+import { Assert } from "shared/sh_assert"
 
 const IMAGE_WEB = 'rbxassetid://170195297'
 

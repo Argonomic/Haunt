@@ -1,10 +1,11 @@
-import { DataStoreService, HttpService, Players, TeleportService, Workspace } from "@rbxts/services"
+import { HttpService, Players, TeleportService, Workspace } from "@rbxts/services"
 import { TELEPORT_PlayerData, NETVAR_MATCHMAKING_STATUS, MATCHMAKING_STATUS, NETVAR_MATCHMAKING_NUMWITHYOU, IsPracticing, ROLE, Game, LOCAL } from "shared/sh_gamestate"
 import { AddCallback_OnPlayerCharacterAdded, AddCallback_OnPlayerConnected } from "shared/sh_onPlayerConnect"
 import { GetNetVar_Number, SetNetVar } from "shared/sh_player_netvars"
 import { AddRPC } from "shared/sh_rpc"
 import { MAX_FRIEND_WAIT_TIME, MATCHMAKE_PLAYERCOUNT_DESIRED, MATCHMAKE_PLAYERCOUNT_FALLBACK } from "shared/sh_settings"
-import { Assert, GraphCapped, Resume, Thread } from "shared/sh_utils"
+import { GraphCapped, Resume, Thread } from "shared/sh_utils"
+import { Assert } from "shared/sh_assert"
 import { AddPlayer, AssignAllTasks, CreateGame, IsReservedServer } from "./sv_gameState"
 import { PutPlayerInStartRoom } from "./sv_rooms"
 
@@ -46,6 +47,7 @@ export function SV_MatchmakingSetup()
 
    AddCallback_OnPlayerConnected( function ( player: Player )
    {
+      print( "AddCallback_OnPlayerConnected " + player.UserId )
       Thread( function ()
       {
          let friends = new Map<Player, boolean>()
@@ -58,20 +60,26 @@ export function SV_MatchmakingSetup()
             if ( player.IsFriendsWith( other.UserId ) )
             {
                friends.set( other, true )
+               if ( !file.isFriends.has( other ) )
+               {
+                  print( "Other: " + other.UserId + " " + other.Character )
+                  Assert( false, "file.isFriends.has( other )" )
+               }
 
-               Assert( file.isFriends.has( other ), "file.isFriends.has( other )" )
                let otherFriends = file.isFriends.get( other ) as Map<Player, boolean>
                otherFriends.set( player, true )
                file.isFriends.set( other, otherFriends )
             }
          }
          file.isFriends.set( player, friends )
+         print( "file.isFriends.set " + player.UserId )
       } )
 
       if ( IsReservedServer() )
          SetNetVar( player, NETVAR_MATCHMAKING_STATUS, MATCHMAKING_STATUS.MATCHMAKING_WAITING_TO_PLAY )
 
-      AddPlayer( file.practiceGame, player, ROLE.ROLE_CAMPER )
+      let playerInfo = AddPlayer( file.practiceGame, player, ROLE.ROLE_CAMPER )
+      playerInfo.playernum = 0 // Needs to be set to something, but doesn't really matter for practice
       AssignAllTasks( player, file.practiceGame )
       file.practiceGame.BroadcastGamestate()
       UpdateMatchmakingStatus_AndMatchmake()
@@ -80,6 +88,7 @@ export function SV_MatchmakingSetup()
    Players.PlayerRemoving.Connect(
       function ( player: Player )
       {
+         print( "file.isFriends.delete " + player.UserId )
          file.isFriends.delete( player )
          for ( let pair of file.isFriends )
          {
@@ -87,7 +96,7 @@ export function SV_MatchmakingSetup()
                pair[1].delete( player )
          }
 
-         if ( IsPracticing( player ) )
+         if ( file.practiceGame.HasPlayer( player ) )
          {
             file.practiceGame.RemovePlayer( player )
             file.practiceGame.BroadcastGamestate()
@@ -134,7 +143,13 @@ export function SV_MatchmakingSetup()
    {
       for ( ; ; )
       {
-         print( "file.matchmakeThread start" )
+         print( "\n" )
+         let allPlayers = Players.GetPlayers()
+         for ( let player of allPlayers )
+         {
+            print( player.UserId + " " + ( GetNetVar_Number( player, NETVAR_MATCHMAKING_STATUS ) as number ) )
+         }
+         print( "\n" )
          let practicePlayers = GetPlayersWithMatchmakingStatus( MATCHMAKING_STATUS.MATCHMAKING_PRACTICE )
 
          let lfgPlayersFriends = GetPlayersWithMatchmakingStatus( MATCHMAKING_STATUS.MATCHMAKING_LFG_WITH_FRIENDS )
@@ -144,8 +159,10 @@ export function SV_MatchmakingSetup()
             if ( TimeInQueue( player ) <= MAX_FRIEND_WAIT_TIME )
             {
                let practicingFriends = GetFriendCount( practicePlayers, player )
+
                if ( GetNetVar_Number( player, NETVAR_MATCHMAKING_NUMWITHYOU ) !== practicingFriends )
                   SetNetVar( player, NETVAR_MATCHMAKING_NUMWITHYOU, practicingFriends )
+
                if ( practicingFriends !== 0 )
                   continue
             }
@@ -172,10 +189,12 @@ export function SV_MatchmakingSetup()
             SetNetVar( player, NETVAR_MATCHMAKING_NUMWITHYOU, practicingFriends )
             SetNetVar( player, NETVAR_MATCHMAKING_STATUS, MATCHMAKING_STATUS.MATCHMAKING_LFG_WITH_FRIENDS )
             lfgPlayers.remove( i )
+            lfgPlayersFriends.push( player )
             i--
          }
 
          const PLAYERCOUNT = GetMatchmakingMinPlayersForLongestWaitTime( lfgPlayers )
+         print( "MM LFG:" + lfgPlayers.size() + ", LFGWF:" + lfgPlayersFriends.size() + ", looking for " + PLAYERCOUNT + " players" )
 
          let waitingForPlayerCount = PLAYERCOUNT - lfgPlayers.size()
          for ( let player of lfgPlayers )
@@ -212,26 +231,25 @@ export function SV_MatchmakingSetup()
             {
                if ( Workspace.DistributedGameTime > 40 )
                {
-                  //print( "Matchmaking took too long, send players home" )
+                  print( "Matchmaking took too long, send players home" )
                   SendPlayersToLobby()
                   return
                }
 
-               print( "file.matchmakeThread tick: " + Workspace.DistributedGameTime )
                wait( 1 )
             }
             else
             {
-               print( "file.matchmakeThread yield" )
                if (
                   GetPlayersWithMatchmakingStatus( MATCHMAKING_STATUS.MATCHMAKING_LFG ).size() ||
                   GetPlayersWithMatchmakingStatus( MATCHMAKING_STATUS.MATCHMAKING_LFG_WITH_FRIENDS ).size()
                )
                {
-                  wait( 0.3 )
+                  wait( 1.8 )
                }
                else
                {
+                  print( "file.matchmakeThread yield" )
                   coroutine.yield()
                }
             }
@@ -284,7 +302,7 @@ export function SV_MatchmakingSetup()
                   let code = TeleportService.ReserveServer( game.PlaceId )
 
                   let data = new TELEPORT_PlayerData()
-                  data.playerNum = players.size()
+                  data.playerCount = players.size()
                   let json = HttpService.JSONEncode( data )
                   TeleportService.TeleportToPrivateServer( game.PlaceId, code[0], players, "none", json )
                } )

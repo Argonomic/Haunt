@@ -4,7 +4,8 @@ import { AddCallback_OnPlayerCharacterAncestryChanged, SetPlayerWalkSpeed } from
 import { GetNetVar_Number } from "shared/sh_player_netvars";
 import { PLAYER_WALKSPEED } from "shared/sh_settings";
 import { Tween } from "shared/sh_tween";
-import { Assert, CloneChild, GetExistingFirstChildWithNameAndClassName, GetFirstChildWithName, GetLocalPlayer, Thread } from "shared/sh_utils";
+import { CloneChild, GetExistingFirstChildWithNameAndClassName, GetFirstChildWithName, GetLocalPlayer, Thread } from "shared/sh_utils";
+import { Assert } from "shared/sh_assert"
 import { AddPlayerGuiFolderExistsCallback, UIORDER } from "./cl_ui";
 
 class File

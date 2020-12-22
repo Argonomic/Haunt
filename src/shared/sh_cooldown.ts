@@ -1,7 +1,8 @@
 import { Workspace } from "@rbxts/services"
 import { AddNetVar, GetNetVar_Number, SetNetVar } from "./sh_player_netvars"
 import { GetServerTime } from "./sh_time"
-import { Assert, IsServer } from "./sh_utils"
+import { IsServer } from "./sh_utils"
+import { Assert } from "shared/sh_assert"
 
 class Cooldown
 {

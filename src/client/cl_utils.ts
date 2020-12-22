@@ -1,5 +1,5 @@
 import { GetRPCRemoteEvent } from "shared/sh_rpc"
-import { Assert } from "shared/sh_utils"
+import { Assert } from "shared/sh_assert"
 
 export function SendRPC( name: string, ...args: Array<unknown> ): void
 {

@@ -1,7 +1,8 @@
 import { RunService, Workspace } from "@rbxts/services";
 import { AddCallback_OnPlayerCharacterAdded, APlayerHasConnected } from "shared/sh_onPlayerConnect";
 import { Tween } from "shared/sh_tween";
-import { Assert, ExecOnChildWhenItExists, GetFirstChildWithName, Graph, LoadSound, Thread } from "shared/sh_utils";
+import { ExecOnChildWhenItExists, GetFirstChildWithName, Graph, LoadSound, Thread } from "shared/sh_utils";
+import { Assert } from "shared/sh_assert"
 import { AddCaptureInputChangeCallback, AddOnTouchEndedCallback } from "./cl_input";
 
 const DRAGGED_ZINDEX_OFFSET = 20

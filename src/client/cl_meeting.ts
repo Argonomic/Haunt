@@ -1,9 +1,10 @@
 import { RunService } from "@rbxts/services";
-import { Game, GAME_STATE, PlayerNumToGameViewable, ROLE } from "shared/sh_gamestate";
+import { Game, GAME_STATE, PlayerInfo, PlayerNumToGameViewable, ROLE } from "shared/sh_gamestate";
 import { ClonePlayerModel } from "shared/sh_onPlayerConnect";
 import { MATCHMAKE_PLAYERCOUNT_DESIRED, PLAYER_COLORS } from "shared/sh_settings";
 import { Tween } from "shared/sh_tween";
-import { Assert, GetColor, GetFirstChildWithName, GetFirstChildWithNameAndClassName, GetLocalPlayer, LightenColor, SetCharacterTransparency, Thread, SetCharacterYaw } from "shared/sh_utils";
+import { GetColor, GetFirstChildWithName, GetFirstChildWithNameAndClassName, GetLocalPlayer, LightenColor, SetCharacterTransparency, Thread, SetCharacterYaw } from "shared/sh_utils";
+import { Assert } from "shared/sh_assert"
 import { AddPlayerGuiFolderExistsCallback, UIORDER } from "./cl_ui";
 import { SendRPC } from "./cl_utils";
 
@@ -37,7 +38,7 @@ class PlayerButtonGroup
    player: Player
    alive = true
    connected = true
-   playerNum = -1
+   playerInfo: PlayerInfo
    horn: ImageLabel
 
    constructor( game: Game, player: Player, playerButtonTemplate: Editor_PlayerFrameButton, playerCount: number, displayChecks: ( buttonGroup: ButtonGroup ) => void, checkYes: () => void )
@@ -69,13 +70,13 @@ class PlayerButtonGroup
       playerImageLabel.BackgroundTransparency = 1.0
       playerName.Text = player.Name
       let playerInfo = game.GetPlayerInfo( player )
+      this.playerInfo = playerInfo
       if ( playerInfo.playernum >= 0 )
       {
          let color = PLAYER_COLORS[playerInfo.playernum]
          this.frameButton.BackgroundColor3 = LightenColor( color, 0.75 )
          playerNumber.Text = PlayerNumToGameViewable( playerInfo.playernum )
          playerNumber.TextColor3 = color
-         this.playerNum = playerInfo.playernum
       }
       else
       {
@@ -597,5 +598,5 @@ function SortByLiving( a: PlayerButtonGroup, b: PlayerButtonGroup ): boolean
    if ( a.connected !== b.connected )
       return a.connected
 
-   return a.playerNum < b.playerNum
+   return a.playerInfo.playernum < b.playerInfo.playernum
 }
