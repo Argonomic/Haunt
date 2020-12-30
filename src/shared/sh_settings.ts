@@ -16,6 +16,7 @@ export const MEETING_VOTE_TIME = 60
 export const SPECTATOR_TRANS = 0.6
 
 export let COOLDOWNTIME_KILL = 30
+export let COOLDOWNTIME_SABOTAGE_LIGHTS = 45
 
 if ( DEV_SKIP )
    COOLDOWNTIME_KILL = 0

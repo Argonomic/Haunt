@@ -1,7 +1,7 @@
 import { RunService, Workspace } from "@rbxts/services";
-import { AddCallback_OnPlayerCharacterAdded, APlayerHasConnected } from "shared/sh_onPlayerConnect";
+import { AddCallback_OnPlayerCharacterAdded, AddCallback_OnPlayerCharacterAncestryChanged, APlayerHasConnected } from "shared/sh_onPlayerConnect";
 import { Tween } from "shared/sh_tween";
-import { ExecOnChildWhenItExists, GetFirstChildWithName, Graph, LoadSound, Thread } from "shared/sh_utils";
+import { ExecOnChildWhenItExists, GetFirstChildWithName, GetLocalPlayer, Graph, LoadSound, Thread } from "shared/sh_utils";
 import { Assert } from "shared/sh_assert"
 import { AddCaptureInputChangeCallback, AddOnTouchEndedCallback } from "./cl_input";
 
@@ -31,6 +31,7 @@ export enum UIORDER
 
 class File
 {
+   playedBeta = false
    pickupSound = LoadSound( 4831091467 )
    dragOffsetX = 0
    dragOffsetY = 0
@@ -38,6 +39,8 @@ class File
    draggedButtonRenderStepped: RBXScriptConnection | undefined
    draggedButtonStartPosition: UDim2 | undefined
    playerGuiExistsCallbacks: Array<Function> = []
+
+   ancestorServices: Array<RBXScriptConnection> = []
 }
 
 let file = new File()
@@ -184,6 +187,17 @@ function CheckOutOfBoundsOfParent( button: ImageButtonWithParent ): boolean
 
 export function CL_UISetup()
 {
+   AddCallback_OnPlayerCharacterAncestryChanged(
+      function ()
+      {
+         for ( let service of file.ancestorServices )
+         {
+            service.Disconnect()
+         }
+         file.ancestorServices = []
+      } )
+
+
    AddOnTouchEndedCallback( function ( touchPositions: Array<Vector3>, gameProcessedEvent: boolean )
    {
       ReleaseDraggedButton()
@@ -244,17 +258,27 @@ export function CL_UISetup()
       frame.TextStrokeTransparency = 1
       frame.TextStrokeColor3 = new Color3( 0, 0, 0 )
 
-      wait( 4 )
-      Tween( frame, { TextTransparency: 0.333 }, 0.75 )
-      wait( 1.4 )
+      if ( !file.playedBeta )
+      {
+         file.playedBeta = true
+         wait( 4 )
+         Tween( frame, { TextTransparency: 0.333 }, 0.75 )
+         wait( 1.4 )
 
-      Tween( frame,
-         {
-            AnchorPoint: new Vector2( 1, 1 ),
-            Position: new UDim2( 1, 0, 1, 0 ),
-            Size: new UDim2( 0.1, 0, 0.08, 0 )
-         },
-         0.75, Enum.EasingStyle.Quad, Enum.EasingDirection.InOut )
+         Tween( frame,
+            {
+               AnchorPoint: new Vector2( 1, 1 ),
+               Position: new UDim2( 1, 0, 1, 0 ),
+               Size: new UDim2( 0.1, 0, 0.08, 0 )
+            },
+            0.75, Enum.EasingStyle.Quad, Enum.EasingDirection.InOut )
+      }
+      else
+      {
+         frame.AnchorPoint = new Vector2( 1, 1 )
+         frame.Position = new UDim2( 1, 0, 1, 0 )
+         frame.Size = new UDim2( 0.1, 0, 0.08, 0 )
+      }
 
    } )
 }
@@ -409,4 +433,102 @@ export class ToggleButton
          toggleButton.Update()
       } )
    }
+}
+
+
+
+
+
+export enum UI_CLICK_RESULTS_TYPE
+{
+   RESULTS_HIDE = 0,
+   RESULTS_VISIBLE,
+   RESULTS_COOLDOWN,
+   RESULTS_VISIBLE_DISABLED,
+}
+
+export class UIClickResults
+{
+   resultsType = UI_CLICK_RESULTS_TYPE.RESULTS_HIDE
+   cooldown = 0
+}
+
+export type EDITOR_ClickableUI = ScreenGui &
+{
+   ImageButton: ImageButton &
+   {
+      TextButton: TextButton
+      Countdown: TextLabel
+   }
+}
+
+export function AddClickable( clickUI: EDITOR_ClickableUI, canClickFunc: ( () => boolean ), onClickFunc: ( () => void ), setArt_getClickResults: ( ( imageButton: ImageButton, textButton: TextButton ) => UIClickResults ) )
+{
+   clickUI.DisplayOrder = UIORDER.UIORDER_USEBUTTON
+
+   let imageButton = clickUI.ImageButton
+   let textButton = imageButton.TextButton
+   let countdown = imageButton.Countdown
+
+   textButton.MouseButton1Up.Connect( function ()
+   {
+      onClickFunc()
+   } )
+
+   imageButton.MouseButton1Up.Connect( function ()
+   {
+      onClickFunc()
+   } )
+
+   clickUI.Enabled = false
+   let lastResultsType = UI_CLICK_RESULTS_TYPE.RESULTS_HIDE
+
+   const COLOR_GRAY = new Color3( 0.5, 0.5, 0.5 )
+   const COLOR_WHITE = new Color3( 1.0, 1.0, 1.0 )
+
+   let service = RunService.RenderStepped.Connect( function ()
+   {
+      if ( !canClickFunc() )
+      {
+         if ( clickUI.Enabled )
+            clickUI.Enabled = false
+         return
+      }
+
+      let results = setArt_getClickResults( imageButton, textButton )
+      switch ( results.resultsType )
+      {
+         case UI_CLICK_RESULTS_TYPE.RESULTS_HIDE:
+            if ( results.resultsType !== lastResultsType )
+               clickUI.Enabled = false
+            break
+
+         case UI_CLICK_RESULTS_TYPE.RESULTS_COOLDOWN:
+         case UI_CLICK_RESULTS_TYPE.RESULTS_VISIBLE_DISABLED:
+            clickUI.Enabled = true
+
+            let cooldownRemaining = results.cooldown
+            countdown.Text = cooldownRemaining + ""
+            if ( cooldownRemaining > 0 || results.resultsType === UI_CLICK_RESULTS_TYPE.RESULTS_VISIBLE_DISABLED )
+            {
+               imageButton.ImageTransparency = 0.5
+               textButton.TextTransparency = 0.5
+               textButton.TextColor3 = COLOR_GRAY
+            }
+            else
+            {
+               imageButton.ImageTransparency = 0
+               textButton.TextTransparency = 0
+               textButton.TextColor3 = COLOR_WHITE
+            }
+            if ( cooldownRemaining > 0 )
+               countdown.Visible = true
+            else
+               countdown.Visible = false
+
+            break
+      }
+      lastResultsType = results.resultsType
+   } )
+   file.ancestorServices.push( service )
 }

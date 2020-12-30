@@ -5,8 +5,6 @@ import { SendRPC } from "./sv_utils"
 import { AddCallback_OnPlayerConnected } from "shared/sh_onPlayerConnect"
 import { Assert } from "shared/sh_assert"
 
-//import { ReplicatedStorage } from "@rbxts/services";
-
 class File
 {
    dev_startRoomName: string = QUICK_START_ROOM

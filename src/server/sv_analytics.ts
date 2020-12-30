@@ -1,5 +1,6 @@
 import { AddAssertServerCallback } from "shared/sh_assert"
 import { AddCallback_OnPlayerConnected } from "shared/sh_onPlayerConnect"
+import { Thread } from "shared/sh_utils"
 
 class AnalyticsData
 {
@@ -24,9 +25,12 @@ interface GoogleAnalytics
 
 export function SV_AnalyticsSetup()
 {
-   print( "Analytics!!" )
-   let config = new AnalyticsData()
-   file.GA.Init( "UA-185857526-1", config )
+   Thread(
+      function ()
+      {
+         // blocking call
+         file.GA.Init( "UA-185857526-1", new AnalyticsData() )
+      } )
 
    AddAssertServerCallback( function ( stack: string )
    {

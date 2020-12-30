@@ -38,17 +38,20 @@ export function SH_RPCSetup()
 {
    let rpcs =
       [
-         "RPC_FromServer_SetPlayerRoom",
-         "RPC_FromServer_OnPlayerUseTask",
+         "RPC_FromClient_OnPlayerFinishTask",
+         "RPC_FromClient_OnPlayerUseFromRoom",
+         "RPC_FromClient_OnUse",
+         "RPC_FromClient_RequestChange_MatchmakingStatus",
+         "RPC_FromClient_RestoreLighting_Fuse",
+         "RPC_FromClient_SetPlayerCount",
+         "RPC_FromClient_Skipvote",
+         "RPC_FromClient_UseAbility",
+         "RPC_FromClient_Vote",
          "RPC_FromServer_CancelTask",
          "RPC_FromServer_ConfirmReadyUp",
-         "RPC_FromClient_OnPlayerUseFromRoom",
-         "RPC_FromClient_OnPlayerFinishTask",
-         "RPC_FromClient_RequestChange_MatchmakingStatus",
-         "RPC_FromClient_Vote",
-         "RPC_FromClient_Skipvote",
-         "RPC_FromClient_SetPlayerCount",
-         "RPC_FromClient_OnUse",
+         "RPC_FromServer_OnPlayerUseTask",
+         "RPC_FromServer_RestoreLighting_Fuse",
+         "RPC_FromServer_SetPlayerRoom",
       ]
 
    for ( let rpc of rpcs )

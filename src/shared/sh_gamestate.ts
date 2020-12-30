@@ -1,10 +1,12 @@
 import { HttpService, RunService, Workspace } from "@rbxts/services"
 import { AddNetVar, GetNetVar_Number, GetNetVar_String, SetNetVar } from "shared/sh_player_netvars"
 import { AddCooldown } from "./sh_cooldown"
-import { SetPlayerWalkSpeed } from "./sh_onPlayerConnect"
+import { AddCallback_OnPlayerConnected, SetPlayerWalkSpeed } from "./sh_onPlayerConnect"
 import { COOLDOWNTIME_MEETING, COOLDOWNTIME_KILL, MEETING_DISCUSS_TIME, MEETING_VOTE_TIME, PLAYER_WALKSPEED, SPECTATOR_TRANS } from "./sh_settings"
-import { IsServer, IsClient, UserIDToPlayer, IsAlive, SetPlayerTransparency, GetLocalPlayer, ExecOnChildWhenItExists, Resume } from "./sh_utils"
+import { IsServer, IsClient, UserIDToPlayer, IsAlive, SetPlayerTransparency, GetLocalPlayer, ExecOnChildWhenItExists, Resume, Thread } from "./sh_utils"
 import { Assert } from "shared/sh_assert"
+import { GiveAbility, TakeAbility } from "./sh_ability"
+import { ABILITIES } from "./content/sh_ability_content"
 
 export const LOCAL = RunService.IsStudio()
 
@@ -72,6 +74,14 @@ export enum MEETING_TYPE
 }
 
 export let TASK_EXIT = "task_exit"
+export let TASK_RESTORE_LIGHTS = "task_restore_lights"
+
+class File
+{
+   onRoleChangeCallback: Array<( ( player: Player, role: ROLE, lastRole: ROLE ) => void )> = []
+}
+let file = new File()
+
 
 class NETVAR_Corpse
 {
@@ -111,13 +121,12 @@ export class Assignment
 {
    roomName: string
    taskName: string
-   status: number
+   status = 0
 
-   constructor( roomName: string, taskName: string, status: number )
+   constructor( roomName: string, taskName: string )
    {
       this.roomName = roomName
       this.taskName = taskName
-      this.status = status
    }
 }
 
@@ -190,7 +199,6 @@ export class PlayerInfo
       this._userid = player.UserId
    }
 }
-
 
 export class PlayerVote
 {
@@ -513,6 +521,7 @@ export class Game
 
    public SetPlayerRole( player: Player, role: ROLE ): PlayerInfo
    {
+      let lastRole = this.GetPlayerRole( player )
       //print( "Set player " + player.UserId + " role to " + role )
       if ( IsServer() )
       {
@@ -522,10 +531,20 @@ export class Game
             Assert( this.GetPlayerRole( player ) === ROLE.ROLE_POSSESSED, "Bad role assignment" )
       }
 
+
       Assert( this.playerToInfo.has( player ), "SetPlayerRole: Game does not have " + player.Name )
       let playerInfo = this.playerToInfo.get( player ) as PlayerInfo
       playerInfo.role = role
       this.playerToInfo.set( player, playerInfo )
+
+      if ( lastRole !== role )
+      {
+         for ( let func of file.onRoleChangeCallback )
+         {
+            func( player, role, lastRole )
+         }
+      }
+
       return playerInfo
    }
 
@@ -631,14 +650,7 @@ export class Game
 
    public IsImposter( player: Player ): boolean
    {
-      switch ( this.GetPlayerRole( player ) )
-      {
-         case ROLE.ROLE_SPECTATOR_IMPOSTER:
-         case ROLE.ROLE_POSSESSED:
-            return true
-      }
-
-      return false
+      return IsImposterRole( this.GetPlayerRole( player ) )
    }
 
    public GetPlayerRole( player: Player ): ROLE
@@ -855,6 +867,39 @@ export function SharedGameStateInit()
 
    AddCooldown( COOLDOWN_NAME_KILL, COOLDOWNTIME_KILL )
    AddCooldown( COOLDOWN_NAME_MEETING, COOLDOWNTIME_MEETING )
+
+   AddRoleChangeCallback(
+      function ( player: Player, role: ROLE, lastRole: ROLE )
+      {
+         if ( IsImposterRole( role ) )
+         {
+            if ( !IsImposterRole( lastRole ) )
+            {
+               // became an imposter
+               GiveAbility( player, ABILITIES.ABILITY_SABOTAGE_LIGHTS )
+            }
+         }
+         else if ( IsImposterRole( lastRole ) )
+         {
+            // became not an imposter
+            TakeAbility( player, ABILITIES.ABILITY_SABOTAGE_LIGHTS )
+         }
+      } )
+
+   /*
+   AddCallback_OnPlayerConnected(
+      function ( player: Player )
+      {
+         Thread(
+            function ()
+            {
+               wait( 3 )
+               GiveAbility( player, ABILITIES.ABILITY_SABOTAGE_LIGHTS )
+            }
+         )
+      } )
+   */
+
 }
 
 export function IsPracticing( player: Player ): boolean
@@ -944,4 +989,28 @@ export function GetVoteResults( votes: Array<PlayerVote> ): VoteResults
 
    let voteResults = new VoteResults( skipCount === highestCount, highestRecipients, receivedAnyVotes, voted )
    return voteResults
+}
+
+export function AssignmentIsSame( assignment: Assignment, roomName: string, taskName: string ): boolean
+{
+   if ( assignment.roomName !== roomName )
+      return false
+   return assignment.taskName === taskName
+}
+
+export function AddRoleChangeCallback( func: ( player: Player, role: ROLE, lastRole: ROLE ) => void )
+{
+   file.onRoleChangeCallback.push( func )
+}
+
+export function IsImposterRole( role: ROLE ): boolean
+{
+   switch ( role )
+   {
+      case ROLE.ROLE_SPECTATOR_IMPOSTER:
+      case ROLE.ROLE_POSSESSED:
+         return true
+   }
+
+   return false
 }

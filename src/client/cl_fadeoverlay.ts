@@ -1,12 +1,13 @@
 import { RunService, Workspace } from "@rbxts/services"
-import { Corpse, IsPracticing, PlayerNumToGameViewable, ROLE } from "shared/sh_gamestate"
+import { Assignment, Corpse, IsPracticing, TASK_RESTORE_LIGHTS, PlayerNumToGameViewable, ROLE } from "shared/sh_gamestate"
 import { AddCallback_OnPlayerCharacterAncestryChanged } from "shared/sh_onPlayerConnect"
 import { PLAYER_COLORS } from "shared/sh_settings"
 import { TweenPlayerParts } from "shared/sh_tween"
-import { GetFirstChildWithNameAndClassName, GetLocalPlayer, IsAlive, SetCharacterTransparency } from "shared/sh_utils"
+import { GetFirstChildWithNameAndClassName, GetLocalPlayer, GraphCapped, IsAlive, SetCharacterTransparency } from "shared/sh_utils"
 import { Assert } from "shared/sh_assert"
 import { GetLocalGame, GetLocalIsSpectator, GetLocalRole } from "./cl_gamestate"
 import { AddPlayerGuiFolderExistsCallback, UIORDER } from "./cl_ui"
+import { ClientGetAssignmentAssignedTime, ClientHasAssignment } from "./cl_taskList"
 
 const FADE_CIRCLE = 'rbxassetid://6006022378'
 const TRANSPARENCY = 0.5
@@ -88,25 +89,25 @@ export function CL_FadeOverlaySetup()
             case 0:
                frame.AnchorPoint = new Vector2( 0, 1 )
                frame.Position = new UDim2( 0, 0, 0, 0 )
-               frame.Size = new UDim2( 1, 0, 10, 0 )
+               frame.Size = new UDim2( 1, 0, 25, 0 )
                break
 
             case 1:
                frame.AnchorPoint = new Vector2( 0, -1 )
                frame.Position = new UDim2( 0, 0, 1, 0 )
-               frame.Size = new UDim2( 1, 0, 10, 0 )
+               frame.Size = new UDim2( 1, 0, 25, 0 )
                break
 
             case 2:
                frame.AnchorPoint = new Vector2( 1, 0.5 )
                frame.Position = new UDim2( 0, 0, 0, 0 )
-               frame.Size = new UDim2( 10, 0, 10, 0 )
+               frame.Size = new UDim2( 25, 0, 25, 0 )
                break
 
             case 3:
                frame.AnchorPoint = new Vector2( 0, 0.5 )
                frame.Position = new UDim2( 1, 0, 0, 0 )
-               frame.Size = new UDim2( 10, 0, 10, 0 )
+               frame.Size = new UDim2( 25, 0, 25, 0 )
                break
          }
       }
@@ -117,6 +118,7 @@ export function CL_FadeOverlaySetup()
       }
 
       let camera = file.camera
+      let lightsLastDimmedTime = 0
 
       function GetLightDist(): number
       {
@@ -130,7 +132,15 @@ export function CL_FadeOverlaySetup()
                return MAX
          }
 
-         return 30
+         if ( ClientHasAssignment( 'Garage', TASK_RESTORE_LIGHTS ) )
+         {
+            lightsLastDimmedTime = Workspace.DistributedGameTime
+            let delta = lightsLastDimmedTime - ClientGetAssignmentAssignedTime( 'Garage', TASK_RESTORE_LIGHTS )
+            return GraphCapped( delta, 1, 5, 30, 5 )
+         }
+
+         let delta = Workspace.DistributedGameTime - lightsLastDimmedTime
+         return GraphCapped( delta, 1, 5, 5, 30 )
       }
 
       let visiblePlayersToPlayernum = new Map<Player, TextLabel>()

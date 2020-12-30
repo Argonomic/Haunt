@@ -26,6 +26,10 @@ import { SH_CooldownSetup } from "shared/sh_cooldown"
 import { SH_TimeSetup } from "shared/sh_time"
 import { CL_MatchScreenSetup } from "./cl_matchScreen"
 import { CL_MatchScreenContentSetup } from "./content/cl_matchScreen_content"
+import { CL_Ability_Setup } from "./cl_ability"
+import { SH_AbilitySetup } from "shared/sh_ability"
+import { SH_AbilityContentSetup } from "shared/content/sh_ability_content"
+import { CL_AbilityContentSetup } from "./content/cl_ability_content"
 
 class File
 {
@@ -44,16 +48,18 @@ SH_RPCSetup()
 SH_PlayerNetVarsSetup()
 SH_UseSetup()
 SH_UseContentSetup()
+SH_AbilitySetup()
+SH_AbilityContentSetup()
 SH_CooldownSetup()
 SH_TimeSetup()
 SH_AssertSetup()
+SharedGameStateInit()
 CL_RoomSetup()
 CL_TasksSetup()
 CL_TasksContentSetup()
 CL_CameraSetup()
 CL_InputSetup()
 CL_PlayerSetup()
-SharedGameStateInit()
 DoneCreatingNVs()
 CL_UISetup()
 CL_MinimapSetup()
@@ -61,6 +67,8 @@ CL_TaskListSetup()
 CL_CalloutsSetup()
 CL_FadeOverlaySetup()
 CL_UseSetup()
+CL_Ability_Setup()
+CL_AbilityContentSetup()
 CL_ReadyUpSetup()
 CL_GameStateSetup()
 CL_ChatSetup()

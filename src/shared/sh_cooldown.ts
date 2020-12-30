@@ -33,7 +33,16 @@ export function GetPlayerCooldownTimeRemaining( player: Player, name: string ): 
    return GetNetVar_Number( player, cooldown.netvar ) - GetServerTime()
 }
 
-export function ResetPlayerCooldownTime( player: Player, name: string )
+export function GetRenderedCooldownTimeRemaining( player: Player, name: string ): number
+{
+   let cooldownRemaining = GetPlayerCooldownTimeRemaining( player, name )
+   if ( cooldownRemaining > 0 )
+      cooldownRemaining++ // add one because otherwise 0.5 is not drawn, but can't use.
+   cooldownRemaining = math.floor( cooldownRemaining );
+   return cooldownRemaining
+}
+
+export function ResetCooldownTime( player: Player, name: string )
 {
    Assert( IsServer(), "Only server does this" )
    Assert( file.nameToCooldown.has( name ), "Cooldown " + name + " does not exist" )

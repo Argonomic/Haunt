@@ -1,6 +1,6 @@
-import { HttpService } from "@rbxts/services"
+import { HttpService, Workspace } from "@rbxts/services"
 import { GetTaskSpec } from "client/cl_tasks"
-import { Assignment, IsPracticing, NETVAR_JSON_GAMESTATE, NETVAR_JSON_TASKLIST, NETVAR_MEETINGS_CALLED, ROLE, USETYPES } from "shared/sh_gamestate"
+import { Assignment, AssignmentIsSame, IsPracticing, NETVAR_JSON_GAMESTATE, NETVAR_JSON_TASKLIST, NETVAR_MEETINGS_CALLED, ROLE, USETYPES } from "shared/sh_gamestate"
 import { AddNetVarChangedCallback, GetNetVar_Number, GetNetVar_String } from "shared/sh_player_netvars"
 import { AddRoomChangedCallback, CurrentRoomExists, GetCurrentRoom, GetRooms } from "./cl_rooms"
 import { GetFirstChildWithName, GetLocalPlayer, Graph, Thread } from "shared/sh_utils"
@@ -10,7 +10,7 @@ import { Room, Task } from "shared/sh_rooms"
 import { AddMapIcon, ClearMinimapIcons, GetMinimapReferencesFrame } from "./cl_minimap"
 import { AddPlayerGuiFolderExistsCallback, ToggleButton, UIORDER } from "./cl_ui"
 import { GetUsableByType } from "shared/sh_use"
-import { GetLocalGame, GetLocalIsSpectator, GetLocalRole } from "./cl_gamestate"
+import { GetLocalGame, GetLocalIsSpectator } from "./cl_gamestate"
 import { AddCallback_OnPlayerCharacterAncestryChanged } from "shared/sh_onPlayerConnect"
 import { Tween } from "shared/sh_tween"
 
@@ -32,6 +32,7 @@ class File
    taskLabels: Array<TextLabel> = []
    toggleButton: ToggleButton | undefined
    framePosition = new UDim2( 0, 0, 0, 0 )
+   gainedAssignmentTime = new Map<Assignment, number>()
 }
 
 export function TasksRemaining(): number
@@ -125,7 +126,36 @@ export function CL_TaskListSetup()
          return []
       } )
 
-   AddNetVarChangedCallback( NETVAR_JSON_TASKLIST, RefreshTaskList )
+   AddNetVarChangedCallback( NETVAR_JSON_TASKLIST,
+      function ()
+      {
+         let json = GetNetVar_String( GetLocalPlayer(), NETVAR_JSON_TASKLIST )
+         let assignments = HttpService.JSONDecode( json ) as Array<Assignment>
+         let lostAssignments = new Map<Assignment, boolean>()
+         for ( let pair of file.gainedAssignmentTime )
+         {
+            lostAssignments.set( pair[0], true )
+         }
+
+         for ( let assignment of assignments )
+         {
+            if ( lostAssignments.has( assignment ) )
+               lostAssignments.delete( assignment )
+
+            if ( !file.gainedAssignmentTime.has( assignment ) )
+               file.gainedAssignmentTime.set( assignment, Workspace.DistributedGameTime )
+         }
+
+         for ( let pair of lostAssignments )
+         {
+            // remove assignments we don't have anymore
+            file.gainedAssignmentTime.delete( pair[0] )
+         }
+
+
+         RefreshTaskList()
+      } )
+
    AddNetVarChangedCallback( NETVAR_JSON_GAMESTATE,
       function ()
       {
@@ -222,14 +252,6 @@ export function RedrawTaskListUI()
       label.Text = ""
    }
 
-   switch ( GetLocalRole() )
-   {
-      case ROLE.ROLE_POSSESSED:
-         file.taskLabels[0].Text = "Kill the innocent before they"
-         file.taskLabels[1].Text = "complete their tasks and escape"
-         return
-   }
-
    let game = GetLocalGame()
    if ( game.IsSpectator( GetLocalPlayer() ) )
    {
@@ -284,10 +306,18 @@ export function RedrawTaskListUI()
    }
 
    let startIndex
-   if ( IsPracticing( GetLocalPlayer() ) )
+   let localPlayer = GetLocalPlayer()
+
+   if ( IsPracticing( localPlayer ) )
    {
       file.taskLabels[0].Text = "Practice " + drawTasks.size() + " tasks:"
       startIndex = 2
+   }
+   else if ( game.IsImposter( localPlayer ) )
+   {
+      file.taskLabels[0].Text = "Kill the innocent before they"
+      file.taskLabels[1].Text = "complete their tasks and escape"
+      startIndex = 3
    }
    else
    {
@@ -361,4 +391,24 @@ function RecreateTaskListCallouts2d()
       let task = room.tasks.get( assignment.taskName ) as Task
       AddCallout( CALLOUTS_NAME, task.volume.Position )
    }
+}
+
+export function ClientHasAssignment( roomName: string, taskName: string ): boolean
+{
+   for ( let assignment of file.assignments )
+   {
+      if ( AssignmentIsSame( assignment, roomName, taskName ) )
+         return true
+   }
+   return false
+}
+
+export function ClientGetAssignmentAssignedTime( roomName: string, taskName: string ): number
+{
+   for ( let pair of file.gainedAssignmentTime )
+   {
+      if ( AssignmentIsSame( pair[0], roomName, taskName ) )
+         return pair[1]
+   }
+   throw undefined
 }

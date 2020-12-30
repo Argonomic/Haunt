@@ -1,11 +1,13 @@
-import { RunService, UserInputService, Workspace } from "@rbxts/services"
+import { HttpService, RunService, UserInputService, Workspace } from "@rbxts/services"
 import { AddCaptureInputChangeCallback, AddOnTouchEndedCallback } from "client/cl_input"
 import { AddTaskSpec, AddTaskUI, TaskStatus, TASK_UI } from "client/cl_tasks"
 import { AddDraggedButton, GetDraggedButton, ReleaseDraggedButton, ElementWithinElement, AddCallback_MouseUp, MoveOverTime, ElementDist_TopLeft, UIORDER, ElementDist, ElementDistFromXY, AddPlayerGuiFolderExistsCallback } from "client/cl_ui"
-import { TASK_EXIT } from "shared/sh_gamestate"
+import { TASK_EXIT, TASK_RESTORE_LIGHTS } from "shared/sh_gamestate"
 import { Tween, TweenThenDestroy } from "shared/sh_tween"
-import { ArrayRandomize, ExecOnChildWhenItExists, GetChildrenWithName, GetChildren_NoFutureOffspring, GetExistingFirstChildWithNameAndClassName, LoadSound, RandomFloatRange, RandomInt, Thread } from "shared/sh_utils"
+import { ArrayRandomize, ExecOnChildWhenItExists, GetChildren_NoFutureOffspring, GetExistingFirstChildWithNameAndClassName, LoadSound, RandomFloatRange, RandomInt, Thread } from "shared/sh_utils"
 import { Assert } from "shared/sh_assert"
+import { AddRPC } from "shared/sh_rpc"
+import { SendRPC } from "client/cl_utils"
 
 const IMAGE_WEB = 'rbxassetid://170195297'
 
@@ -22,10 +24,12 @@ class File
 
    touchPositions: Array<Vector3> = []
 
+   restoreLightsFlipSound = LoadSound( 5136823037 )
+   restoreLightsRedraw = false
+   restoreLightsFusePositions: Array<boolean> = [false, false, false, false, false, false, false]
 }
 
 let file = new File()
-
 
 export function CL_TasksContentSetup()
 {
@@ -61,6 +65,12 @@ export function CL_TasksContentSetup()
          file.touchPositions = touchPositions
       } )
 
+   AddRPC( "RPC_FromServer_RestoreLighting_Fuse", function ( fusesJson: string )
+   {
+      let fuseArray = HttpService.JSONDecode( fusesJson ) as Array<boolean>
+      file.restoreLightsFusePositions = fuseArray
+      file.restoreLightsRedraw = true
+   } )
 }
 
 function GetStartFunc( name: string ): Function
@@ -84,6 +94,9 @@ function GetStartFunc( name: string ): Function
 
       case "sweep_the_floor":
          return Task_SweepTheFloor
+
+      case TASK_RESTORE_LIGHTS:
+         return Task_RestoreLights
    }
 
    Assert( false, "No func for " + name )
@@ -112,6 +125,9 @@ function GetTitle( name: string ): string
 
       case "sweep_the_floor":
          return "Sweep away Cobwebs"
+
+      case TASK_RESTORE_LIGHTS:
+         return "Restore Lights"
    }
 
    Assert( false, "No title found for " + name )
@@ -210,6 +226,83 @@ type ImageButtonWithNumber = ImageButton &
 function SortByButtonNumber( a: ImageButtonWithNumber, b: ImageButtonWithNumber ): boolean
 {
    return a.Number.Value < b.Number.Value
+}
+
+type RestoreLights = Frame &
+{
+   Fuses: Folder
+}
+
+function Task_RestoreLights( frame: RestoreLights, closeTaskThread: Function, status: TaskStatus )
+{
+   let fuses = frame.Fuses.GetChildren() as Array<ImageButton>
+   Assert( fuses.size() === file.restoreLightsFusePositions.size(), "Size of file.restoreLightsFusePositions does not match number of fuses in image" )
+
+   file.restoreLightsRedraw = true
+   const RED = new Color3( 1.0, 0.8, 0.8 )
+   const GREEN = new Color3( 0.8, 1.0, 0.8 )
+
+   let localFusePositions: Array<boolean> = []
+   let localRedraw = false
+
+   for ( let i = 0; i < fuses.size(); i++ )
+   {
+      localFusePositions[i] = file.restoreLightsFusePositions[i]
+
+      let fuse = fuses[i]
+      fuse.MouseButton1Click.Connect( function ()
+      {
+         localRedraw = true
+         file.restoreLightsFlipSound.Play()
+         localFusePositions[i] = !localFusePositions[i]
+         SendRPC( "RPC_FromClient_RestoreLighting_Fuse", i, localFusePositions[i] )
+      } )
+   }
+
+   return RunService.RenderStepped.Connect( function ()
+   {
+      let trues = 0
+      if ( file.restoreLightsRedraw )
+      {
+         for ( let i = 0; i < fuses.size(); i++ )
+         {
+            localFusePositions[i] = file.restoreLightsFusePositions[i]
+            if ( localFusePositions[i] )
+               trues++
+         }
+
+         file.restoreLightsRedraw = false
+         localRedraw = true
+      }
+
+      if ( localRedraw )
+      {
+         localRedraw = false
+         for ( let i = 0; i < localFusePositions.size(); i++ )
+         {
+            let fuse = fuses[i]
+            if ( localFusePositions[i] )
+            {
+               fuse.Image = 'rbxassetid://6123744137'
+               fuse.ImageColor3 = GREEN
+            }
+            else
+            {
+               fuse.Image = 'rbxassetid://6123692159'
+               fuse.ImageColor3 = RED
+            }
+         }
+      }
+
+      /*
+      // server closes this one, because its shared across players
+      if ( trues === fuses.size() )
+      {
+         status.success = true
+         closeTaskThread()
+      }
+      */
+   } )
 }
 
 function Task_SweepTheFloor( frame: Frame, closeTaskThread: Function, status: TaskStatus )

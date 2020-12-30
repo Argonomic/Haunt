@@ -4,7 +4,7 @@ import { GetUsableByType, USABLETYPES } from "shared/sh_use"
 import { PlayerHasUnfinishedAssignment, PlayerToGame, ClearAssignments, PlayerHasAssignments } from "server/sv_gameState"
 import { SendRPC } from "server/sv_utils"
 import { GetCurrentRoom } from "server/sv_rooms"
-import { ResetPlayerCooldownTime } from "shared/sh_cooldown"
+import { ResetCooldownTime } from "shared/sh_cooldown"
 import { SetPlayerWalkSpeed } from "shared/sh_onPlayerConnect"
 import { GetNetVar_Number, SetNetVar } from "shared/sh_player_netvars"
 
@@ -99,7 +99,7 @@ export function SV_UseContentSetup()
          ClearAssignments( game, camper )
 
          game.UpdateGame()
-         ResetPlayerCooldownTime( player, COOLDOWN_NAME_KILL )
+         ResetCooldownTime( player, COOLDOWN_NAME_KILL )
       }
 
    let usableTask = GetUsableByType( USETYPES.USETYPE_TASK )

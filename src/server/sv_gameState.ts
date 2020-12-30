@@ -2,13 +2,16 @@ import { Chat, HttpService, Players } from "@rbxts/services"
 import { AddRPC } from "shared/sh_rpc"
 import { ArrayRandomize, IsAlive, Resume, Thread, UserIDToPlayer } from "shared/sh_utils"
 import { Assert } from "shared/sh_assert"
-import { Assignment, GAME_STATE, SharedGameStateInit, NETVAR_JSON_TASKLIST, ROLE, IsPracticing, Game, GAMERESULTS, GetVoteResults, TASK_EXIT, PlayerInfo } from "shared/sh_gamestate"
+import { Assignment, GAME_STATE, SharedGameStateInit, NETVAR_JSON_TASKLIST, ROLE, IsPracticing, Game, GAMERESULTS, GetVoteResults, TASK_EXIT, AssignmentIsSame, TASK_RESTORE_LIGHTS, PlayerInfo } from "shared/sh_gamestate"
 import { MAX_TASKLIST_SIZE, MATCHMAKE_PLAYERCOUNT_DESIRED, MATCHMAKE_PLAYERCOUNT_FALLBACK, SPAWN_ROOM, PLAYER_WALKSPEED } from "shared/sh_settings"
 import { SetNetVar } from "shared/sh_player_netvars"
 import { AddCallback_OnPlayerCharacterAdded, SetPlayerWalkSpeed } from "shared/sh_onPlayerConnect"
 import { SendRPC } from "./sv_utils"
 import { GetAllRoomsAndTasks, GetCurrentRoom, GetRoomByName, PutPlayerCameraInRoom, PutPlayersInRoom } from "./sv_rooms"
-import { ResetAllCooldownTimes } from "shared/sh_cooldown"
+import { ResetAllCooldownTimes, ResetCooldownTime } from "shared/sh_cooldown"
+import { COOLDOWN_SABOTAGE_LIGHTS } from "shared/content/sh_ability_content"
+
+
 
 class File
 {
@@ -319,6 +322,7 @@ function GameThread( game: Game, gameEndFunc: Function )
             {
                game.SetPlayerRole( player, ROLE.ROLE_POSSESSED )
                UpdateTasklistNetvar( player, [] )
+               ClearAssignments( game, player )
             }
 
             for ( let player of setCampers )
@@ -430,8 +434,26 @@ function RPC_FromClient_OnPlayerFinishTask( player: Player, roomName: string, ta
 
    for ( let assignment of assignments )
    {
-      if ( assignment.roomName === roomName && assignment.taskName === taskName )
-         assignment.status = 1
+      if ( !AssignmentIsSame( assignment, roomName, taskName ) )
+         continue
+
+      assignment.status = 1
+      switch ( taskName )
+      {
+         case TASK_RESTORE_LIGHTS:
+            // group task, take the task from all others that have it
+            for ( let allPlayer of game.GetAllPlayers() )
+            {
+               if ( ServerPlayeyHasAssignment( allPlayer, game, roomName, taskName ) )
+                  RemoveAssignment( allPlayer, game, roomName, taskName )
+            }
+
+            for ( let imposter of game.GetPossessed() )
+            {
+               ResetCooldownTime( imposter, COOLDOWN_SABOTAGE_LIGHTS )
+            }
+            break
+      }
    }
 
    if ( !IsPracticing( player ) )
@@ -459,7 +481,7 @@ function RPC_FromClient_OnPlayerFinishTask( player: Player, roomName: string, ta
                return
          }
 
-         let assignment = new Assignment( "Foyer", TASK_EXIT, 0 )
+         let assignment = new Assignment( "Foyer", TASK_EXIT )
          assignments.push( assignment )
       }
       ExitAssignment()
@@ -470,7 +492,60 @@ function RPC_FromClient_OnPlayerFinishTask( player: Player, roomName: string, ta
 
 export function PlayerHasAssignments( player: Player, game: Game ): boolean
 {
-   return game.assignments.has( player )
+   let assignments = game.assignments.get( player )
+   if ( assignments === undefined )
+      throw undefined
+
+   return assignments.size() > 0
+}
+
+export function ServerPlayeyHasAssignment( player: Player, game: Game, roomName: string, taskName: string ): boolean
+{
+   if ( !PlayerHasAssignments( player, game ) )
+      return false
+
+   let assignments = game.assignments.get( player )
+   if ( assignments === undefined )
+   {
+      Assert( false, "Player has no assignments" )
+      throw undefined
+   }
+
+   for ( let assignment of assignments )
+   {
+      if ( AssignmentIsSame( assignment, roomName, taskName ) )
+         return true
+   }
+   return false
+}
+
+export function RemoveAssignment( player: Player, game: Game, roomName: string, taskName: string )
+{
+   let assignments = game.assignments.get( player )
+   if ( assignments === undefined )
+   {
+      Assert( false, "Player has no assignments" )
+      throw undefined
+   }
+
+   for ( let i = 0; i < assignments.size(); i++ )
+   {
+      let assignment = assignments[i]
+      if ( !AssignmentIsSame( assignment, roomName, taskName ) )
+         continue
+      assignments.remove( i )
+      i--
+   }
+   UpdateTasklistNetvar( player, assignments )
+}
+
+export function GiveAssignment( player: Player, game: Game, assignment: Assignment )
+{
+   let assignments = game.assignments.get( player )
+   if ( assignments === undefined )
+      assignments = []
+   assignments.push( assignment )
+   UpdateTasklistNetvar( player, assignments )
 }
 
 export function PlayerHasUnfinishedAssignment( player: Player, game: Game, roomName: string, taskName: string ): boolean
@@ -501,9 +576,18 @@ export function AssignTasks( player: Player, game: Game )
 
    for ( let roomAndTask of roomsAndTasks )
    {
-      let assignment = new Assignment( roomAndTask.room.name, roomAndTask.task.name, 0 )
-      if ( assignment.taskName !== TASK_EXIT )
-         assignments.push( assignment )
+      let assignment = new Assignment( roomAndTask.room.name, roomAndTask.task.name )
+      switch ( assignment.taskName )
+      {
+         case TASK_EXIT:
+         case TASK_RESTORE_LIGHTS:
+            break
+
+         default:
+            assignments.push( assignment )
+            break
+      }
+
       if ( assignments.size() >= MAX_TASKLIST_SIZE )
          break
    }
@@ -521,16 +605,24 @@ export function AssignAllTasks( player: Player, game: Game )
 
    for ( let roomAndTask of roomsAndTasks )
    {
-      let assignment = new Assignment( roomAndTask.room.name, roomAndTask.task.name, 0 )
-      if ( assignment.taskName !== TASK_EXIT )
-         assignments.push( assignment )
+      let assignment = new Assignment( roomAndTask.room.name, roomAndTask.task.name )
+      switch ( assignment.taskName )
+      {
+         case TASK_EXIT:
+         case TASK_RESTORE_LIGHTS:
+            break
+
+         default:
+            assignments.push( assignment )
+            break
+      }
    }
 
    game.assignments.set( player, assignments )
    UpdateTasklistNetvar( player, assignments )
 }
 
-function UpdateTasklistNetvar( player: Player, assignments: Array<Assignment> )
+export function UpdateTasklistNetvar( player: Player, assignments: Array<Assignment> )
 {
    Assert( assignments !== undefined, "Player does not have tasklist" )
    if ( assignments === undefined )

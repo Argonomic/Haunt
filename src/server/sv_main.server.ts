@@ -14,6 +14,10 @@ import { SV_UseContentSetup } from "./content/sv_use_content";
 import { SH_CooldownSetup } from "shared/sh_cooldown";
 import { SH_TimeSetup } from "shared/sh_time";
 import { SV_AnalyticsSetup } from "./sv_analytics";
+import { SV_TasksContentSetup } from "./content/sv_tasks_content";
+import { SH_AbilitySetup } from "shared/sh_ability";
+import { SH_AbilityContentSetup } from "shared/content/sh_ability_content";
+import { SV_AbilityContentSetup } from "./content/sv_ability_content";
 
 class File
 {
@@ -36,6 +40,8 @@ SH_PlayerNetVarsSetup()
 SH_OnPlayerConnectSetup()
 SH_UseSetup()
 SH_UseContentSetup()
+SH_AbilitySetup()
+SH_AbilityContentSetup()
 SH_CooldownSetup()
 SH_TimeSetup()
 SH_AssertSetup()
@@ -45,6 +51,8 @@ SV_RoomsSetup()
 SV_GameStateSetup()
 SV_UseContentSetup()
 SV_AnalyticsSetup()
+SV_TasksContentSetup()
+SV_AbilityContentSetup()
 
 DoneCreatingNVs()
 

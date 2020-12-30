@@ -1,4 +1,6 @@
 import { AddRPC } from "shared/sh_rpc"
+import { Assignment, AssignmentIsSame, NETVAR_JSON_TASKLIST } from "shared/sh_gamestate"
+import { AddNetVarChangedCallback, GetNetVar_String } from "shared/sh_player_netvars"
 import { ReleaseDraggedButton, AddCallback_MouseUp } from "client/cl_ui"
 import { SendRPC } from "./cl_utils"
 import { GetLocalPlayer, LoadSound, Thread } from "shared/sh_utils"
@@ -7,6 +9,7 @@ import { SetPlayerWalkSpeed } from "shared/sh_onPlayerConnect"
 import { AddPlayerUseDisabledCallback, SetUseDebounceTime } from "./cl_use"
 import { PLAYER_WALKSPEED } from "shared/sh_settings"
 import { Tween } from "shared/sh_tween"
+import { HttpService } from "@rbxts/services"
 
 export enum TASK_UI
 {
@@ -48,8 +51,18 @@ export class TaskStatus
 {
    think: RBXScriptConnection | undefined
    closeButtonCallback: RBXScriptConnection | undefined
-   closeFunction: Function | undefined
+   closeFunction: ( () => void ) = function () { }
    success = false
+   taskSpec: TaskSpec
+   roomName: string
+   taskName: string
+
+   constructor( taskSpec: TaskSpec, roomName: string, taskName: string )
+   {
+      this.taskSpec = taskSpec
+      this.roomName = roomName
+      this.taskName = taskName
+   }
 }
 
 type EDITOR_TaskUI = ScreenGui &
@@ -72,6 +85,28 @@ export function CL_TasksSetup()
    {
       return HasActiveTask()
    } )
+
+   AddNetVarChangedCallback( NETVAR_JSON_TASKLIST,
+      function ()
+      {
+         if ( !HasActiveTask() )
+            return
+         let activeTaskStatus = file.activeTaskStatus
+         if ( activeTaskStatus === undefined )
+            return
+
+         let json = GetNetVar_String( GetLocalPlayer(), NETVAR_JSON_TASKLIST )
+         let assignments = HttpService.JSONDecode( json ) as Array<Assignment>
+         for ( let assignment of assignments )
+         {
+            if ( AssignmentIsSame( assignment, activeTaskStatus.roomName, activeTaskStatus.taskName ) )
+               return
+         }
+
+         // no longer have the current task
+         CancelAnyOpenTask()
+      } )
+
 }
 
 export function AddTaskUI( name: TASK_UI, ui: ScreenGui )
@@ -105,9 +140,7 @@ export function CancelAnyOpenTask()
    if ( activeTaskStatus === undefined )
       return
 
-   let closeFunction = activeTaskStatus.closeFunction
-   if ( closeFunction )
-      closeFunction()
+   activeTaskStatus.closeFunction()
 }
 
 export function RPC_FromServer_CancelTask()
@@ -145,7 +178,7 @@ export function RPC_FromServer_OnPlayerUseTask( roomName: string, taskName: stri
    taskUIController.Enabled = true
    let closeButton = taskUIController.Frame.CloseButton
 
-   let activeTaskStatus = new TaskStatus()
+   let activeTaskStatus = new TaskStatus( taskSpec, roomName, taskName )
    file.activeTaskStatus = activeTaskStatus
 
    let closeFunction = function ()
