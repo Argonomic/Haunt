@@ -164,6 +164,9 @@ export function GetDraggedButton(): ImageButtonWithParent | undefined
 
 function CheckOutOfBoundsOfParent( button: ImageButtonWithParent ): boolean
 {
+   Assert( button !== undefined, "button !== undefined" )
+   Assert( button.Parent !== undefined, "button.Parent !== undefined" )
+
    {
       let dif = button.AbsolutePosition.X - button.Parent.AbsolutePosition.X
       if ( dif < button.AbsoluteSize.X * -1 )

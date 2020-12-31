@@ -541,7 +541,6 @@ function Task_WinAtCheckers( frame: Frame, closeTaskThread: Function, status: Ta
 
    function onCheckerClick()
    {
-      print( "Click checker" )
       if ( Workspace.DistributedGameTime <= moveTime )
          return
 
@@ -595,7 +594,6 @@ function Task_WinAtCheckers( frame: Frame, closeTaskThread: Function, status: Ta
 
    AddCallback_MouseUp( kingMe, function ()
    {
-      print( "Click king" )
       if ( kinged )
          return
 
@@ -638,10 +636,6 @@ function Task_LightCandle( frameIn: Frame, closeTaskThread: Function, status: Ta
 {
    let frame = frameIn as Editor_TaskLightCandle
    let children = frameIn.GetChildren()
-   for ( let child of children )
-   {
-      print( "Child: " + child.Name )
-   }
 
    let matchPoints: Array<ImageLabel> = []
    for ( let matchPoint of frame.MatchPoints.GetChildren() )
@@ -795,6 +789,7 @@ function Task_LightCandle( frameIn: Frame, closeTaskThread: Function, status: Ta
                {
                   wait( 1.5 )
                   let draggedButton = GetDraggedButton()
+                  ReleaseDraggedButton()
                   if ( draggedButton !== undefined )
                      draggedButton.Destroy()
 

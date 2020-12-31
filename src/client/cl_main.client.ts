@@ -30,6 +30,8 @@ import { CL_Ability_Setup } from "./cl_ability"
 import { SH_AbilitySetup } from "shared/sh_ability"
 import { SH_AbilityContentSetup } from "shared/content/sh_ability_content"
 import { CL_AbilityContentSetup } from "./content/cl_ability_content"
+import { SH_CoinsSetup } from "shared/sh_coins"
+import { SH_PickupsSetup } from "shared/sh_pickups"
 
 class File
 {
@@ -53,7 +55,10 @@ SH_AbilityContentSetup()
 SH_CooldownSetup()
 SH_TimeSetup()
 SH_AssertSetup()
+SH_PickupsSetup()
+SH_CoinsSetup()
 SharedGameStateInit()
+
 CL_RoomSetup()
 CL_TasksSetup()
 CL_TasksContentSetup()
@@ -61,6 +66,7 @@ CL_CameraSetup()
 CL_InputSetup()
 CL_PlayerSetup()
 DoneCreatingNVs()
+
 CL_UISetup()
 CL_MinimapSetup()
 CL_TaskListSetup()

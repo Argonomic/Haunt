@@ -18,6 +18,8 @@ import { SV_TasksContentSetup } from "./content/sv_tasks_content";
 import { SH_AbilitySetup } from "shared/sh_ability";
 import { SH_AbilityContentSetup } from "shared/content/sh_ability_content";
 import { SV_AbilityContentSetup } from "./content/sv_ability_content";
+import { SH_CoinsSetup } from "shared/sh_coins";
+import { SH_PickupsSetup } from "shared/sh_pickups";
 
 class File
 {
@@ -45,6 +47,8 @@ SH_AbilityContentSetup()
 SH_CooldownSetup()
 SH_TimeSetup()
 SH_AssertSetup()
+SH_PickupsSetup()
+SH_CoinsSetup()
 
 SV_CollisionGroupsSetup()
 SV_RoomsSetup()

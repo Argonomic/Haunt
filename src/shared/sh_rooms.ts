@@ -25,6 +25,7 @@ class BlockerInfo
 class File
 {
    onRoomSetupCallbacks: Record<string, Array<Function>> = {}
+   rooms = new Map<string, Room>()
 }
 
 let file = new File()
@@ -382,6 +383,7 @@ export function AddRoomsFromWorkspace(): Map<string, Room>
       }
    }
 
+   file.rooms = rooms
    return rooms
 }
 
@@ -390,4 +392,15 @@ export function AddCallback_OnRoomSetup( name: string, func: Function )
    if ( file.onRoomSetupCallbacks[name] === undefined )
       file.onRoomSetupCallbacks[name] = []
    file.onRoomSetupCallbacks[name].push( func )
+}
+
+export function GetAllRooms(): Array<Room>
+{
+   let rooms: Array<Room> = []
+   for ( let room of file.rooms )
+   {
+      rooms.push( room[1] )
+   }
+
+   return rooms
 }

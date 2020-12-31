@@ -276,113 +276,7 @@ function GameThread( game: Game, gameEndFunc: Function )
          lastGameState = gameState
       }
 
-      // quick check on whether or not game is even still going
-      switch ( gameState )
-      {
-         case GAME_STATE.GAME_STATE_PLAYING:
-         case GAME_STATE.GAME_STATE_MEETING_DISCUSS:
-         case GAME_STATE.GAME_STATE_MEETING_VOTE:
-            if ( game.GetGameResults() !== GAMERESULTS.RESULTS_STILL_PLAYING )
-               game.SetGameState( GAME_STATE.GAME_STATE_COMPLETE )
-            break
-      }
-
-      switch ( gameState )
-      {
-         case GAME_STATE.GAME_STATE_PREMATCH:
-
-            print( "Prematch, creating game" )
-            let players = game.GetAllPlayers().concat( [] ) // "clone"
-
-            players = players.filter( function ( player )
-            {
-               return player.Character !== undefined
-            } )
-
-            if ( players.size() < MATCHMAKE_PLAYERCOUNT_FALLBACK )
-            {
-               game.SetGameState( GAME_STATE.GAME_STATE_DEAD )
-               break
-            }
-
-            let possessedCount = 1
-            let size = players.size()
-            if ( size > 11 )
-               possessedCount = 3
-            else if ( size > 6 )
-               possessedCount = 2
-            game.startingPossessedCount = possessedCount
-
-            ArrayRandomize( players )
-            let possessedPlayers = players.slice( 0, possessedCount )
-            let setCampers = players.slice( possessedCount, size )
-
-            print( "\nSetting game roles, possessedCount " + possessedCount )
-            for ( let player of possessedPlayers )
-            {
-               game.SetPlayerRole( player, ROLE.ROLE_POSSESSED )
-               UpdateTasklistNetvar( player, [] )
-               ClearAssignments( game, player )
-            }
-
-            for ( let player of setCampers )
-            {
-               game.SetPlayerRole( player, ROLE.ROLE_CAMPER )
-               AssignTasks( player, game )
-            }
-
-            let room = GetRoomByName( SPAWN_ROOM )
-            PutPlayersInRoom( players, room )
-
-            for ( let i = 0; i < players.size(); i++ )
-            {
-               let player = players[i]
-               SendRPC( "RPC_FromServer_CancelTask", player )
-            }
-
-            game.SetGameState( GAME_STATE.GAME_STATE_PLAYING )
-            break
-
-
-         case GAME_STATE.GAME_STATE_MEETING_DISCUSS:
-            {
-               let remaining = game.GetTimeRemainingForState()
-               if ( remaining <= 0 )
-               {
-                  game.SetGameState( GAME_STATE.GAME_STATE_MEETING_VOTE )
-               }
-               else
-               {
-                  Thread( function ()
-                  {
-                     wait( remaining )
-                     game.UpdateGame()
-                  } )
-               }
-            }
-            break
-
-         case GAME_STATE.GAME_STATE_MEETING_VOTE:
-            {
-               let remaining = game.GetTimeRemainingForState()
-               let count = game.GetLivingPossessed().size() + game.GetLivingCampers().size()
-               let votes = game.GetVotes()
-               if ( remaining <= 0 || votes.size() >= count )
-               {
-                  game.SetGameState( GAME_STATE.GAME_STATE_PLAYING )
-                  break
-               }
-               else
-               {
-                  Thread( function ()
-                  {
-                     wait( remaining )
-                     game.UpdateGame()
-                  } )
-               }
-            }
-            break
-      }
+      GameStateThink( game )
 
       if ( gameState === game.GetGameState() )
       {
@@ -392,6 +286,122 @@ function GameThread( game: Game, gameEndFunc: Function )
          coroutine.yield() // wait until something says update again
       }
    }
+}
+
+function GameStateThink( game: Game )
+{
+   let debugState = game.GetGameState()
+   // quick check on whether or not game is even still going
+   switch ( game.GetGameState() )
+   {
+      case GAME_STATE.GAME_STATE_PLAYING:
+      case GAME_STATE.GAME_STATE_MEETING_DISCUSS:
+      case GAME_STATE.GAME_STATE_MEETING_VOTE:
+         if ( game.GetGameResults() !== GAMERESULTS.RESULTS_STILL_PLAYING )
+         {
+            game.SetGameState( GAME_STATE.GAME_STATE_COMPLETE )
+            return
+         }
+         break
+   }
+
+   Assert( debugState === game.GetGameState(), "1 debugState === game.GetGameState()" )
+
+   switch ( game.GetGameState() )
+   {
+      case GAME_STATE.GAME_STATE_PREMATCH:
+
+         print( "Prematch, creating game" )
+         let players = game.GetAllPlayers().concat( [] ) // "clone"
+
+         players = players.filter( function ( player )
+         {
+            return player.Character !== undefined
+         } )
+
+         if ( players.size() < MATCHMAKE_PLAYERCOUNT_FALLBACK )
+         {
+            game.SetGameState( GAME_STATE.GAME_STATE_DEAD )
+            return
+         }
+
+         let possessedCount = 1
+         let size = players.size()
+         if ( size > 11 )
+            possessedCount = 3
+         else if ( size > 6 )
+            possessedCount = 2
+         game.startingPossessedCount = possessedCount
+
+         ArrayRandomize( players )
+         let possessedPlayers = players.slice( 0, possessedCount )
+         let setCampers = players.slice( possessedCount, size )
+
+         print( "\nSetting game roles, possessedCount " + possessedCount )
+         for ( let player of possessedPlayers )
+         {
+            game.SetPlayerRole( player, ROLE.ROLE_POSSESSED )
+            UpdateTasklistNetvar( player, [] )
+            ClearAssignments( game, player )
+         }
+
+         for ( let player of setCampers )
+         {
+            game.SetPlayerRole( player, ROLE.ROLE_CAMPER )
+            AssignTasks( player, game )
+         }
+
+         let room = GetRoomByName( SPAWN_ROOM )
+         PutPlayersInRoom( players, room )
+
+         for ( let i = 0; i < players.size(); i++ )
+         {
+            let player = players[i]
+            SendRPC( "RPC_FromServer_CancelTask", player )
+         }
+
+         game.SetGameState( GAME_STATE.GAME_STATE_PLAYING )
+         return
+
+
+      case GAME_STATE.GAME_STATE_MEETING_DISCUSS:
+         {
+            let remaining = game.GetTimeRemainingForState()
+            if ( remaining <= 0 )
+            {
+               game.SetGameState( GAME_STATE.GAME_STATE_MEETING_VOTE )
+               return
+            }
+
+            Thread( function ()
+            {
+               wait( remaining )
+               game.UpdateGame()
+            } )
+         }
+         break
+
+      case GAME_STATE.GAME_STATE_MEETING_VOTE:
+         {
+            let remaining = game.GetTimeRemainingForState()
+            let count = game.GetLivingPossessed().size() + game.GetLivingCampers().size()
+            let votes = game.GetVotes()
+            if ( remaining <= 0 || votes.size() >= count )
+            {
+               game.SetGameState( GAME_STATE.GAME_STATE_PLAYING )
+               return
+            }
+
+            Thread( function ()
+            {
+               wait( remaining )
+               game.UpdateGame()
+            } )
+         }
+         break
+   }
+
+   Assert( debugState === game.GetGameState(), "2 debugState === game.GetGameState()" )
 }
 
 export function CreateGame( players: Array<Player>, gameEndFunc: Function )

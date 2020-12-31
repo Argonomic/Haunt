@@ -18,7 +18,7 @@ let file = new File()
 
 export function GetAllRoomsAndTasks(): Array<RoomAndTask>
 {
-   let rooms = GetAllRooms()
+   let rooms = SV_GetAllRooms()
    let roomsAndTasks: Array<RoomAndTask> = []
    for ( let room of rooms )
    {
@@ -32,7 +32,7 @@ export function GetAllRoomsAndTasks(): Array<RoomAndTask>
    return roomsAndTasks
 }
 
-export function GetAllRooms(): Array<Room>
+export function SV_GetAllRooms(): Array<Room>
 {
    let rooms: Array<Room> = []
    for ( let room of file.rooms )

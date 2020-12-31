@@ -7,6 +7,7 @@ import { IsServer, IsClient, UserIDToPlayer, IsAlive, SetPlayerTransparency, Get
 import { Assert } from "shared/sh_assert"
 import { GiveAbility, TakeAbility } from "./sh_ability"
 import { ABILITIES } from "./content/sh_ability_content"
+import { Coin } from "./sh_coins"
 
 export const LOCAL = RunService.IsStudio()
 
@@ -79,6 +80,8 @@ export let TASK_RESTORE_LIGHTS = "task_restore_lights"
 class File
 {
    onRoleChangeCallback: Array<( ( player: Player, role: ROLE, lastRole: ROLE ) => void )> = []
+   gameStateChangedCallbacks: Array<( ( game: Game ) => void )> = []
+   gameCreatedCallbacks: Array<( ( game: Game ) => void )> = []
 }
 let file = new File()
 
@@ -214,6 +217,19 @@ export class PlayerVote
 
 export class Game
 {
+   constructor()
+   {
+      let game = this
+      for ( let func of file.gameCreatedCallbacks )
+      {
+         Thread(
+            function ()
+            {
+               func( game )
+            } )
+      }
+   }
+
    creationTime = Workspace.DistributedGameTime
 
    //////////////////////////////////////////////////////
@@ -231,6 +247,8 @@ export class Game
    playerToSpawnLocation = new Map<Player, Vector3>()
    startingPossessedCount = 0
 
+   coins: Array<Coin> = []
+
    public UpdateGame() 
    {
       // if the server or client has a gamethread that yields until game update, this resumes it
@@ -243,22 +261,36 @@ export class Game
    public GetGameResults()
    {
       let game = this
-      let possessed = game.GetLivingPossessed().size()
-      let campers = game.GetLivingCampers().size()
-      if ( possessed === 0 )
+      function func(): GAMERESULTS
       {
+         let possessed = game.GetLivingPossessed().size()
+         let campers = game.GetLivingCampers().size()
+         if ( possessed === 0 )
+         {
+            if ( campers === 0 )
+               return GAMERESULTS.RESULTS_NO_WINNER
+            return GAMERESULTS.RESULTS_CAMPERS_WIN
+         }
+
          if ( campers === 0 )
-            return GAMERESULTS.RESULTS_NO_WINNER
-         return GAMERESULTS.RESULTS_CAMPERS_WIN
+            return GAMERESULTS.RESULTS_POSSESSED_WIN
+
+         switch ( game.GetGameState() )
+         {
+            case GAME_STATE.GAME_STATE_MEETING_DISCUSS:
+            case GAME_STATE.GAME_STATE_MEETING_VOTE:
+            case GAME_STATE.GAME_STATE_COMPLETE:
+            case GAME_STATE.GAME_STATE_DEAD:
+
+               if ( possessed >= campers )
+                  return GAMERESULTS.RESULTS_POSSESSED_WIN
+         }
+
+         return GAMERESULTS.RESULTS_STILL_PLAYING
       }
-
-      if ( campers === 0 )
-         return GAMERESULTS.RESULTS_POSSESSED_WIN
-
-      //if ( possessed >= campers )
-      //   return GAMERESULTS.RESULTS_POSSESSED_WIN
-
-      return GAMERESULTS.RESULTS_STILL_PLAYING
+      let results = func()
+      print( "GetGameResults:" + results + ", isserver: " + IsServer() )
+      return results
    }
 
 
@@ -359,8 +391,11 @@ export class Game
 
    public SetGameState( state: GAME_STATE )
    {
+      let game = this
       Assert( IsServer(), "Server only" )
-      print( "Time since last game state change: " + math.floor( ( Workspace.DistributedGameTime - this._gameStateChangedTime ) ) )
+      print( "Set Game State " + state + ", Time since last change: " + math.floor( ( Workspace.DistributedGameTime - this._gameStateChangedTime ) ) )
+
+      Assert( state >= GAME_STATE.GAME_STATE_COMPLETE || this.currentGameState < GAME_STATE.GAME_STATE_COMPLETE, "Illegal game state setting. Tried to set state " + state + ", but game state was " + this.currentGameState )
 
       this._gameStateChangedTime = Workspace.DistributedGameTime
       this.currentGameState = state
@@ -382,6 +417,15 @@ export class Game
          case "suspended":
             Resume( thread as thread )
             break
+      }
+
+      for ( let func of file.gameStateChangedCallbacks )
+      {
+         Thread(
+            function ()
+            {
+               func( game )
+            } )
       }
    }
 
@@ -1013,4 +1057,14 @@ export function IsImposterRole( role: ROLE ): boolean
    }
 
    return false
+}
+
+export function AddGameStateChangedCallback( func: ( game: Game ) => void )
+{
+   file.gameStateChangedCallbacks.push( func )
+}
+
+export function AddGameCreatedCallback( func: ( game: Game ) => void )
+{
+   file.gameCreatedCallbacks.push( func )
 }
