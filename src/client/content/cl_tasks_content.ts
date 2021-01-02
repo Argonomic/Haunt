@@ -533,7 +533,6 @@ function Task_WinAtCheckers( frame: Frame, closeTaskThread: Function, status: Ta
    let kingPiece = _kingPiece as ImageButton
    let clickChecker = _clickChecker as ImageButton
 
-   let mouseUp: RBXScriptConnection | undefined
    let moveTime = 0
    let count = 0
    let kinged = false
@@ -579,8 +578,6 @@ function Task_WinAtCheckers( frame: Frame, closeTaskThread: Function, status: Ta
                MoveOverTime( clickChecker, clickChecker.Position, MOVE_TIME,
                   function ()
                   {
-                     if ( mouseUp !== undefined )
-                        mouseUp.Disconnect()
                      status.success = true
                      closeTaskThread()
                   }
@@ -590,7 +587,14 @@ function Task_WinAtCheckers( frame: Frame, closeTaskThread: Function, status: Ta
       )
    }
 
-   mouseUp = AddCallback_MouseUp( clickChecker, onCheckerClick )
+   let extraClickBuffer = new Instance( 'ImageButton' )
+   extraClickBuffer.Parent = clickChecker
+   extraClickBuffer.Size = new UDim2( 2.5, 0, 2.5, 0 )
+   extraClickBuffer.AnchorPoint = new Vector2( 0.3, 0.3 )
+   extraClickBuffer.BackgroundTransparency = 1.0
+
+   AddCallback_MouseUp( clickChecker, onCheckerClick )
+   AddCallback_MouseUp( extraClickBuffer, onCheckerClick )
 
    AddCallback_MouseUp( kingMe, function ()
    {

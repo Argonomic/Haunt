@@ -267,6 +267,12 @@ export function Graph( x: number, x1: number, x2: number, y1: number, y2: number
    return y1 + slope * ( x - x1 )
 }
 
+export function ArrayRandom( tbl: Array<unknown> )
+{
+   let p = RandomInt( tbl.size() )
+   return tbl[p]
+}
+
 export function ArrayRandomize( tbl: Array<unknown> )
 {
    for ( let i = 0; i < tbl.size(); i++ )
@@ -578,12 +584,12 @@ export function GetClosest( player: Player, baseParts: Array<BasePart> ): BasePa
    let playerOrg = GetPosition( player )
    Assert( baseParts.size() > 0, "No parts" )
    let closestPart = baseParts[0]
-   let closestDist = math.abs( ( playerOrg.sub( closestPart.Position ).Magnitude ) )
+   let closestDist = playerOrg.sub( closestPart.Position ).Magnitude
 
    for ( let i = 1; i < baseParts.size(); i++ )
    {
       let basePart = baseParts[i]
-      let dist = math.abs( ( playerOrg.sub( basePart.Position ).Magnitude ) )
+      let dist = playerOrg.sub( basePart.Position ).Magnitude
       if ( dist < closestDist )
       {
          closestDist = dist
@@ -592,6 +598,67 @@ export function GetClosest( player: Player, baseParts: Array<BasePart> ): BasePa
    }
 
    return closestPart
+}
+
+export function Distance( a: Instance, b: Instance ): number
+{
+   let pos1 = GetPosition( a )
+   let pos2 = GetPosition( b )
+   return pos1.sub( pos2 ).Magnitude
+}
+
+/*
+export function TrimArrayDistSorted( thing: Instance, baseParts: Array<Instance>, maxDist: number )
+{
+   let org = GetPosition( thing )
+
+   let dist = new Map<Instance, number>()
+   let filtered = baseParts.filter( function ( part )
+   {
+      let distance = org.sub( GetPosition( part ) ).Magnitude
+      if ( distance > maxDist )
+         return false
+      dist.set( part, distance )
+      return true
+   } )
+
+   function DistSort( a: Instance, b: Instance ): boolean
+   {
+      return ( dist.get( a ) as number ) < ( dist.get( b ) as number )
+   }
+
+   filtered.sort( DistSort )
+   for ( let i = 0; i < filtered.size(); i++ )
+   {
+      baseParts[i] = filtered[i]
+   }
+   for ( let i = filtered.size(); i < baseParts.size(); i++ )
+   {
+      baseParts.remove( i )
+      i--
+   }
+}
+*/
+
+export function ArrayDistSorted( org: Vector3, baseParts: Array<Instance>, maxDist: number ): Array<Instance>
+{
+   let dist = new Map<Instance, number>()
+   let filtered = baseParts.filter( function ( part )
+   {
+      let distance = org.sub( GetPosition( part ) ).Magnitude
+      if ( distance > maxDist )
+         return false
+      dist.set( part, distance )
+      return true
+   } )
+
+   function DistSort( a: Instance, b: Instance ): boolean
+   {
+      return ( dist.get( a ) as number ) < ( dist.get( b ) as number )
+   }
+
+   filtered.sort( DistSort )
+   return filtered
 }
 
 export function CloneChild( instance: Instance ): Instance
@@ -621,3 +688,7 @@ function Assert( bool: boolean, msg: string )
    assert( false, msg )
 }
 
+export function IsReservedServer(): boolean
+{
+   return game.PrivateServerId !== "" && game.PrivateServerOwnerId === 0
+}

@@ -3,15 +3,18 @@ import { AddRPC } from "shared/sh_rpc"
 import { ArrayRandomize, IsAlive, Resume, Thread, UserIDToPlayer } from "shared/sh_utils"
 import { Assert } from "shared/sh_assert"
 import { Assignment, GAME_STATE, SharedGameStateInit, NETVAR_JSON_TASKLIST, ROLE, IsPracticing, Game, GAMERESULTS, GetVoteResults, TASK_EXIT, AssignmentIsSame, TASK_RESTORE_LIGHTS, PlayerInfo } from "shared/sh_gamestate"
-import { MAX_TASKLIST_SIZE, MATCHMAKE_PLAYERCOUNT_DESIRED, MATCHMAKE_PLAYERCOUNT_FALLBACK, SPAWN_ROOM, PLAYER_WALKSPEED } from "shared/sh_settings"
+import { MAX_TASKLIST_SIZE, MATCHMAKE_PLAYERCOUNT_DESIRED, MATCHMAKE_PLAYERCOUNT_FALLBACK, SPAWN_ROOM, PLAYER_WALKSPEED, TASK_VALUE } from "shared/sh_settings"
 import { SetNetVar } from "shared/sh_player_netvars"
 import { AddCallback_OnPlayerCharacterAdded, SetPlayerWalkSpeed } from "shared/sh_onPlayerConnect"
 import { SendRPC } from "./sv_utils"
 import { GetAllRoomsAndTasks, GetCurrentRoom, GetRoomByName, PutPlayerCameraInRoom, PutPlayersInRoom } from "./sv_rooms"
 import { ResetAllCooldownTimes, ResetCooldownTime } from "shared/sh_cooldown"
 import { COOLDOWN_SABOTAGE_LIGHTS } from "shared/content/sh_ability_content"
-
-
+import { PickupsDisable, PickupsEnable } from "shared/sh_pickups"
+import { SpawnRandomCoins } from "server/sv_coins"
+import { GetTotalValueOfWorldCoins } from "shared/sh_coins"
+import { GivePersistentPoints } from "./sv_persistence"
+import { ClearScore, GetScore, IncrementScore } from "shared/sh_score"
 
 class File
 {
@@ -166,6 +169,15 @@ function GameStateChanged( game: Game, oldGameState: GAME_STATE, gameEndFunc: Fu
       }
    }
 
+   if ( game.GetGameState() < GAME_STATE.GAME_STATE_COMPLETE )
+   {
+      if ( game.GetGameResults_NoParityAllowed() !== GAMERESULTS.RESULTS_STILL_PLAYING )
+      {
+         game.SetGameState( GAME_STATE.GAME_STATE_COMPLETE )
+         return
+      }
+   }
+
    // leaving this game state
    switch ( oldGameState )
    {
@@ -201,8 +213,8 @@ function GameStateChanged( game: Game, oldGameState: GAME_STATE, gameEndFunc: Fu
                Thread(
                   function ()
                   {
-                     wait( 8 ) // delay for vote matchscreen
                      let highestTarget = voteResults.highestRecipients[0]
+                     wait( 8 ) // delay for vote matchscreen
                      switch ( game.GetPlayerRole( highestTarget ) )
                      {
                         case ROLE.ROLE_CAMPER:
@@ -213,20 +225,40 @@ function GameStateChanged( game: Game, oldGameState: GAME_STATE, gameEndFunc: Fu
                            game.SetPlayerRole( highestTarget, ROLE.ROLE_SPECTATOR_IMPOSTER )
                            break
                      }
+
+                     let score = GetScore( highestTarget )
+                     if ( score > 0 )
+                     {
+                        ClearScore( highestTarget )
+                        DividePointsToLivingPlayers( game, score )
+                     }
+
                      game.UpdateGame()
                      print( "Player " + highestTarget.Name + " was voted off" )
                   } )
-
             }
 
          }
          break
    }
 
+   PickupsDisable()
+
    // entering this game state
    switch ( game.GetGameState() )
    {
       case GAME_STATE.GAME_STATE_PLAYING:
+         let livingCampers = game.GetLivingCampers().size()
+         if ( game.previouslyLivingCampers === 0 || game.previouslyLivingCampers > livingCampers )
+         {
+            SpawnRandomCoins( 100 + game.roundsPassed * 50 )
+
+            game.previouslyLivingCampers = livingCampers
+            game.roundsPassed++
+         }
+
+         PickupsEnable()
+
          for ( let player of game.GetAllPlayers() )
          {
             ResetAllCooldownTimes( player )
@@ -234,11 +266,18 @@ function GameStateChanged( game: Game, oldGameState: GAME_STATE, gameEndFunc: Fu
          break
 
       case GAME_STATE.GAME_STATE_COMPLETE:
-         print( "Game Complete. Game results: " + game.GetGameResults() )
-
-         print( "Ending state: " + game.GetGameResults() )
+         print( "Game Complete. Game results: " + game.GetGameResults_NoParityAllowed() )
          print( "Possessed: " + game.GetLivingPossessed().size() )
          print( "Campers: " + game.GetLivingCampers().size() )
+
+         let points = GetTotalValueOfWorldCoins()
+         DividePointsToLivingPlayers( game, points )
+         for ( let player of game.GetLivingPlayers() )
+         {
+            let score = GetScore( player )
+            GivePersistentPoints( player, score )
+         }
+
          for ( let player of game.GetAllPlayers() )
          {
             ClearAssignments( game, player )
@@ -251,6 +290,7 @@ function GameStateChanged( game: Game, oldGameState: GAME_STATE, gameEndFunc: Fu
 
          // draw end
          game.BroadcastGamestate()
+
          wait( 8 )
          game.SetGameState( GAME_STATE.GAME_STATE_DEAD )
          break
@@ -294,10 +334,17 @@ function GameStateThink( game: Game )
    // quick check on whether or not game is even still going
    switch ( game.GetGameState() )
    {
-      case GAME_STATE.GAME_STATE_PLAYING:
       case GAME_STATE.GAME_STATE_MEETING_DISCUSS:
       case GAME_STATE.GAME_STATE_MEETING_VOTE:
-         if ( game.GetGameResults() !== GAMERESULTS.RESULTS_STILL_PLAYING )
+         if ( game.GetGameResults_NoParityAllowed() !== GAMERESULTS.RESULTS_STILL_PLAYING )
+         {
+            game.SetGameState( GAME_STATE.GAME_STATE_COMPLETE )
+            return
+         }
+         break
+
+      case GAME_STATE.GAME_STATE_PLAYING:
+         if ( game.GetGameResults_ParityAllowed() !== GAMERESULTS.RESULTS_STILL_PLAYING )
          {
             game.SetGameState( GAME_STATE.GAME_STATE_COMPLETE )
             return
@@ -419,6 +466,7 @@ export function CreateGame( players: Array<Player>, gameEndFunc: Function )
    //   file.games.push( game )
    for ( let player of players )
    {
+      ClearScore( player )
       let playerInfo = game.AddPlayer( player, ROLE.ROLE_CAMPER )
       playerInfo.playernum = playerNums
       playerNums++
@@ -442,11 +490,14 @@ function RPC_FromClient_OnPlayerFinishTask( player: Player, roomName: string, ta
    Assert( game.assignments.has( player ), "Player has no assignments" )
    let assignments = game.assignments.get( player ) as Array<Assignment>
 
+   let thisAssignment: Assignment | undefined
+
    for ( let assignment of assignments )
    {
       if ( !AssignmentIsSame( assignment, roomName, taskName ) )
          continue
 
+      thisAssignment = assignment
       assignment.status = 1
       switch ( taskName )
       {
@@ -469,11 +520,31 @@ function RPC_FromClient_OnPlayerFinishTask( player: Player, roomName: string, ta
    if ( !IsPracticing( player ) )
    {
       // you leave now!
-      if ( taskName === TASK_EXIT )
+      switch ( taskName )
       {
-         print( player.Name + " exits!" )
-         game.SetPlayerRole( player, ROLE.ROLE_SPECTATOR_CAMPER_ESCAPED )
-         game.UpdateGame()
+         case TASK_EXIT:
+            print( player.Name + " exits!" )
+            game.SetPlayerRole( player, ROLE.ROLE_SPECTATOR_CAMPER_ESCAPED )
+            let score = GetScore( player )
+            GivePersistentPoints( player, score )
+            game.UpdateGame()
+            break
+
+         case TASK_RESTORE_LIGHTS:
+            break
+
+         default:
+            if ( thisAssignment !== undefined )
+            {
+               let room = GetRoomByName( thisAssignment.roomName )
+               let task = room.tasks.get( thisAssignment.taskName )
+               if ( task === undefined ) throw undefined
+
+               let reward = TASK_VALUE + math.floor( ( game.roundsPassed - 1 ) * TASK_VALUE * 0.5 )
+               IncrementScore( player, reward )
+               SendRPC( "RPC_FromServer_GavePoints", player, task.volume.Position, reward )
+            }
+            break
       }
 
       function ExitAssignment()
@@ -654,7 +725,15 @@ export function AddPlayer( game: Game, player: Player, role: ROLE ): PlayerInfo
    return game.AddPlayer( player, role )
 }
 
-export function IsReservedServer(): boolean
+function DividePointsToLivingPlayers( game: Game, score: number )
 {
-   return game.PrivateServerId !== "" && game.PrivateServerOwnerId === 0
+   let livingPlayers = game.GetLivingPlayers()
+   let scorePerPlayer = math.floor( score / livingPlayers.size() )
+   if ( scorePerPlayer < 1 )
+      scorePerPlayer = 1
+
+   for ( let player of livingPlayers )
+   {
+      IncrementScore( player, scorePerPlayer )
+   }
 }

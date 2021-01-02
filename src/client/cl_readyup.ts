@@ -80,7 +80,7 @@ export function CL_ReadyUpSetup()
          Thread(
             function ()
             {
-               wait( 2 )
+               wait( 4.2 )
                SendRPC( "RPC_FromClient_RequestChange_MatchmakingStatus", MATCHMAKING_STATUS.MATCHMAKING_LFG )
             }
          )

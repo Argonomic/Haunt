@@ -4,9 +4,9 @@ import { AddCallback_OnPlayerCharacterAdded, AddCallback_OnPlayerConnected } fro
 import { GetNetVar_Number, SetNetVar } from "shared/sh_player_netvars"
 import { AddRPC } from "shared/sh_rpc"
 import { MAX_FRIEND_WAIT_TIME, MATCHMAKE_PLAYERCOUNT_DESIRED, MATCHMAKE_PLAYERCOUNT_FALLBACK } from "shared/sh_settings"
-import { GraphCapped, Resume, Thread } from "shared/sh_utils"
+import { GraphCapped, Resume, Thread, IsReservedServer } from "shared/sh_utils"
 import { Assert } from "shared/sh_assert"
-import { AddPlayer, AssignAllTasks, CreateGame, IsReservedServer } from "./sv_gameState"
+import { AddPlayer, AssignAllTasks, CreateGame } from "./sv_gameState"
 import { PutPlayerInStartRoom } from "./sv_rooms"
 
 export const DATASTORE_MATCHMAKING = "datastore_matchmaking"
@@ -143,6 +143,7 @@ export function SV_MatchmakingSetup()
    {
       for ( ; ; )
       {
+         /*
          print( "\n" )
          let allPlayers = Players.GetPlayers()
          for ( let player of allPlayers )
@@ -150,6 +151,7 @@ export function SV_MatchmakingSetup()
             print( player.UserId + " " + ( GetNetVar_Number( player, NETVAR_MATCHMAKING_STATUS ) as number ) )
          }
          print( "\n" )
+         */
          let practicePlayers = GetPlayersWithMatchmakingStatus( MATCHMAKING_STATUS.MATCHMAKING_PRACTICE )
 
          let lfgPlayersFriends = GetPlayersWithMatchmakingStatus( MATCHMAKING_STATUS.MATCHMAKING_LFG_WITH_FRIENDS )
@@ -194,7 +196,8 @@ export function SV_MatchmakingSetup()
          }
 
          const PLAYERCOUNT = GetMatchmakingMinPlayersForLongestWaitTime( lfgPlayers )
-         print( "MM LFG:" + lfgPlayers.size() + ", LFGWF:" + lfgPlayersFriends.size() + ", looking for " + PLAYERCOUNT + " players" )
+         if ( !LOCAL )
+            print( "MM LFG:" + lfgPlayers.size() + ", LFGWF:" + lfgPlayersFriends.size() + ", looking for " + PLAYERCOUNT + " players" )
 
          let waitingForPlayerCount = PLAYERCOUNT - lfgPlayers.size()
          for ( let player of lfgPlayers )

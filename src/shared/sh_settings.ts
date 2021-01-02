@@ -1,6 +1,11 @@
 export const DEV_SKIP = false
 export const DEV_READYUP = false
 
+export const COIN_VALUE_SILVER = 1
+export const COIN_VALUE_GOLD = 10
+export const COIN_VALUE_GEM = 50
+export const TASK_VALUE = 10
+
 export const MATCHMAKE_PLAYERCOUNT_FALLBACK = 4
 export const MATCHMAKE_PLAYERCOUNT_DESIRED = 10
 export const MAX_FRIEND_WAIT_TIME = 20

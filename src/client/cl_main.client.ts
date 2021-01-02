@@ -32,6 +32,8 @@ import { SH_AbilityContentSetup } from "shared/content/sh_ability_content"
 import { CL_AbilityContentSetup } from "./content/cl_ability_content"
 import { SH_CoinsSetup } from "shared/sh_coins"
 import { SH_PickupsSetup } from "shared/sh_pickups"
+import { CL_CoinsSetup } from "./cl_coins"
+import { SH_ScoreSetup } from "shared/sh_score"
 
 class File
 {
@@ -57,6 +59,7 @@ SH_TimeSetup()
 SH_AssertSetup()
 SH_PickupsSetup()
 SH_CoinsSetup()
+SH_ScoreSetup()
 SharedGameStateInit()
 
 CL_RoomSetup()
@@ -81,6 +84,7 @@ CL_ChatSetup()
 CL_MeetingSetup()
 CL_MatchScreenSetup()
 CL_MatchScreenContentSetup()
+CL_CoinsSetup()
 SH_OnPlayerConnectSetup()
 
 file.finishedInit = true

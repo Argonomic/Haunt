@@ -1,5 +1,5 @@
 import { HttpService, TeleportService, Workspace } from "@rbxts/services"
-import { ROLE, Game, NETVAR_JSON_GAMESTATE, USETYPES, GAME_STATE, GetVoteResults, GAMERESULTS, MEETING_TYPE, TELEPORT_PlayerData, AddRoleChangeCallback } from "shared/sh_gamestate"
+import { ROLE, Game, NETVAR_JSON_GAMESTATE, USETYPES, GAME_STATE, GetVoteResults, GAMERESULTS, MEETING_TYPE, TELEPORT_PlayerData } from "shared/sh_gamestate"
 import { AddCallback_OnPlayerCharacterAdded } from "shared/sh_onPlayerConnect"
 import { AddNetVarChangedCallback } from "shared/sh_player_netvars"
 import { SetTimeDelta } from "shared/sh_time"
@@ -11,6 +11,7 @@ import { CancelAnyOpenTask } from "./cl_tasks"
 import { AddPlayerUseDisabledCallback } from "./cl_use"
 import { SendRPC } from "./cl_utils"
 import { DrawMatchScreen_EmergencyMeeting, DrawMatchScreen_Intro, DrawMatchScreen_VoteResults, DrawMatchScreen_Winners } from "./content/cl_matchScreen_content"
+import { GetScore } from "shared/sh_score"
 
 
 class File
@@ -227,7 +228,8 @@ function CLGameStateChanged( oldGameState: number, newGameState: number )
                voteResults.highestRecipients,
                voteResults.receivedAnyVotes,
                votedAndReceivedNoVotes,
-               file.clientGame.startingPossessedCount
+               file.clientGame.startingPossessedCount,
+               file.clientGame.highestVotedScore
             )
          } )
 
@@ -259,17 +261,19 @@ function CLGameStateChanged( oldGameState: number, newGameState: number )
 
       case GAME_STATE.GAME_STATE_COMPLETE:
 
+         let score = GetScore( GetLocalPlayer() )
+
          print( "Game is over, local role is " + GetLocalRole() )
          if ( GetLocalRole() === ROLE.ROLE_SPECTATOR_CAMPER_ESCAPED )
          {
             WaitThread( function ()
             {
                let possessed = file.clientGame.GetPossessed()
-               DrawMatchScreen_Winners( possessed, GetLocalRole(), file.clientGame.startingPossessedCount )
+               DrawMatchScreen_Winners( possessed, GetLocalRole(), file.clientGame.startingPossessedCount, score )
             } )
             return
          }
-         let gameResults = file.clientGame.GetGameResults()
+         let gameResults = file.clientGame.GetGameResults_NoParityAllowed()
 
          switch ( gameResults )
          {
@@ -278,7 +282,7 @@ function CLGameStateChanged( oldGameState: number, newGameState: number )
                WaitThread( function ()
                {
                   let campers = file.clientGame.GetCampers()
-                  DrawMatchScreen_Winners( campers, GetLocalRole(), file.clientGame.startingPossessedCount )
+                  DrawMatchScreen_Winners( campers, GetLocalRole(), file.clientGame.startingPossessedCount, score )
                } )
                break
 
@@ -286,7 +290,7 @@ function CLGameStateChanged( oldGameState: number, newGameState: number )
                WaitThread( function ()
                {
                   let possessed = file.clientGame.GetPossessed()
-                  DrawMatchScreen_Winners( possessed, GetLocalRole(), file.clientGame.startingPossessedCount )
+                  DrawMatchScreen_Winners( possessed, GetLocalRole(), file.clientGame.startingPossessedCount, score )
                } )
                break
 

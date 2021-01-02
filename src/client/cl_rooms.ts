@@ -3,6 +3,7 @@ import { AddCallback_OnRoomSetup, CreateClientBlockers, Room, AddRoomsFromWorksp
 import { GetLocalPlayer, GetPlayerFromDescendant, GetClosest, Resume } from "shared/sh_utils"
 import { Assert } from "shared/sh_assert"
 import { SetPlayerCameraToRoom } from "./cl_camera"
+import { ClearCoinOverlays } from "./cl_coins"
 
 class File
 {
@@ -104,6 +105,7 @@ function SetCurrentRoom( room: Room )
    SetPlayerCameraToRoom( room )
    SetBlockersFromRoom( room )
    //SetTaskCalloutsFromRoom( room )
+   ClearCoinOverlays()
 
    for ( let roomChangedCallback of file.roomChangedCallbacks )
    {

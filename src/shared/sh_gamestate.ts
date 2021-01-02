@@ -3,11 +3,12 @@ import { AddNetVar, GetNetVar_Number, GetNetVar_String, SetNetVar } from "shared
 import { AddCooldown } from "./sh_cooldown"
 import { AddCallback_OnPlayerConnected, SetPlayerWalkSpeed } from "./sh_onPlayerConnect"
 import { COOLDOWNTIME_MEETING, COOLDOWNTIME_KILL, MEETING_DISCUSS_TIME, MEETING_VOTE_TIME, PLAYER_WALKSPEED, SPECTATOR_TRANS } from "./sh_settings"
-import { IsServer, IsClient, UserIDToPlayer, IsAlive, SetPlayerTransparency, GetLocalPlayer, ExecOnChildWhenItExists, Resume, Thread } from "./sh_utils"
+import { IsServer, IsClient, UserIDToPlayer, IsAlive, SetPlayerTransparency, GetLocalPlayer, ExecOnChildWhenItExists, Resume, Thread, RandomFloatRange, RandomInt } from "./sh_utils"
 import { Assert } from "shared/sh_assert"
 import { GiveAbility, TakeAbility } from "./sh_ability"
 import { ABILITIES } from "./content/sh_ability_content"
-import { Coin } from "./sh_coins"
+import { PlayerPickupsDisabled, PlayerPickupsEnabled } from "./sh_pickups"
+import { GetScore, NETVAR_SCORE } from "./sh_score"
 
 export const LOCAL = RunService.IsStudio()
 
@@ -16,6 +17,11 @@ export const NETVAR_MATCHMAKING_STATUS = "MMS"
 export const NETVAR_MATCHMAKING_NUMWITHYOU = "N_WY"
 export const NETVAR_JSON_GAMESTATE = "E_GS"
 export const NETVAR_MEETINGS_CALLED = "N_MC"
+
+export enum PICKUPS
+{
+   PICKUP_COIN = 0,
+}
 
 export enum USETYPES 
 {
@@ -140,6 +146,7 @@ class NETVAR_GameState
    gsChangedTime: number
    corpses: Array<NETVAR_Corpse>
    votes: Array<NETVAR_Vote>
+   voteTargetScore = 0
    meetingCallerUserId: number | undefined
    meetingType: MEETING_TYPE | undefined
    meetingBodyUserId: number | undefined
@@ -242,12 +249,15 @@ export class Game
    meetingCaller: Player | undefined
    meetingType: MEETING_TYPE | undefined
    meetingBody: Player | undefined
+   roundsPassed = 0 // whenever a meeting is called and there is a new kill, a round passes
+   previouslyLivingCampers = 0
 
    gameThread: thread | undefined
    playerToSpawnLocation = new Map<Player, Vector3>()
    startingPossessedCount = 0
+   highestVotedScore = 0
 
-   coins: Array<Coin> = []
+   //   coins: Array<Coin> = []
 
    public UpdateGame() 
    {
@@ -258,7 +268,7 @@ export class Game
       Resume( this.gameThread )
    }
 
-   public GetGameResults()
+   public GetGameResults_ParityAllowed(): GAMERESULTS
    {
       let game = this
       function func(): GAMERESULTS
@@ -275,21 +285,32 @@ export class Game
          if ( campers === 0 )
             return GAMERESULTS.RESULTS_POSSESSED_WIN
 
-         switch ( game.GetGameState() )
-         {
-            case GAME_STATE.GAME_STATE_MEETING_DISCUSS:
-            case GAME_STATE.GAME_STATE_MEETING_VOTE:
-            case GAME_STATE.GAME_STATE_COMPLETE:
-            case GAME_STATE.GAME_STATE_DEAD:
-
-               if ( possessed >= campers )
-                  return GAMERESULTS.RESULTS_POSSESSED_WIN
-         }
-
          return GAMERESULTS.RESULTS_STILL_PLAYING
       }
       let results = func()
-      print( "GetGameResults:" + results + ", isserver: " + IsServer() )
+      print( "GetGameResults_ParityAllowed:" + results + ", isserver: " + IsServer() )
+      return results
+   }
+
+   public GetGameResults_NoParityAllowed(): GAMERESULTS
+   {
+      let game = this
+      function func(): GAMERESULTS
+      {
+         let results = game.GetGameResults_ParityAllowed()
+         if ( results !== GAMERESULTS.RESULTS_STILL_PLAYING )
+            return results
+
+         let possessed = game.GetLivingPossessed().size()
+         let campers = game.GetLivingCampers().size()
+         if ( possessed >= campers )
+            return GAMERESULTS.RESULTS_POSSESSED_WIN
+
+         return GAMERESULTS.RESULTS_STILL_PLAYING
+      }
+
+      let results = func()
+      print( "GetGameResults_NoParityAllowed:" + results + ", isserver: " + IsServer() )
       return results
    }
 
@@ -363,6 +384,12 @@ export class Game
          }
 
          let gs = new NETVAR_GameState( this, infos, corpses, votes )
+         if ( this.votes.size() )
+         {
+            let results = GetVoteResults( this.votes )
+            if ( results.highestRecipients.size() === 1 )
+               gs.voteTargetScore = GetScore( results.highestRecipients[0] )
+         }
 
          gs.meetingType = this.meetingType
 
@@ -588,6 +615,11 @@ export class Game
             func( player, role, lastRole )
          }
       }
+
+      if ( this.IsSpectator( player ) )
+         PlayerPickupsDisabled( player )
+      else
+         PlayerPickupsEnabled( player )
 
       return playerInfo
    }
@@ -855,6 +887,7 @@ export class Game
 
       // update VOTES
       this.votes = []
+      this.highestVotedScore = gs.voteTargetScore
 
       for ( let vote of gs.votes )
       {
@@ -907,6 +940,7 @@ export function SharedGameStateInit()
    AddNetVar( "number", NETVAR_MATCHMAKING_NUMWITHYOU, 0 )
    AddNetVar( "string", NETVAR_JSON_GAMESTATE, "{}" )
    AddNetVar( "number", NETVAR_MEETINGS_CALLED, 0 )
+   AddNetVar( "number", NETVAR_SCORE, 0 ) //RandomInt( 750 ) + 250 )
    AddNetVar( "number", NETVAR_MATCHMAKING_STATUS, MATCHMAKING_STATUS.MATCHMAKING_PRACTICE )
 
    AddCooldown( COOLDOWN_NAME_KILL, COOLDOWNTIME_KILL )

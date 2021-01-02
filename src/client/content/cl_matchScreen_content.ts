@@ -5,8 +5,9 @@ import { MEETING_TYPE, ROLE } from "shared/sh_gamestate";
 import { ClonePlayerModel } from "shared/sh_onPlayerConnect";
 import { DEV_SKIP } from "shared/sh_settings";
 import { Tween, TweenCharacterParts, TweenModel } from "shared/sh_tween";
-import { GetLocalPlayer, Graph, LoadSound, SetCharacterTransparency, SetCharacterYaw, Thread } from "shared/sh_utils";
+import { GetLocalPlayer, Graph, LoadSound, RandomFloatRange, SetCharacterTransparency, SetCharacterYaw, Thread } from "shared/sh_utils";
 import { Assert } from "shared/sh_assert"
+import { GetCoinModelsForScore } from "shared/sh_coins";
 
 class File
 {
@@ -32,7 +33,7 @@ AddNetVarChangedCallback( NETVAR_MATCHMAKING_STATUS, function ()
 
    AddPlayerGuiFolderExistsCallback( function ()
    {
-      //TestDraw( 2 )
+      //TestDraw( 3 )
    } )
 
 
@@ -68,7 +69,9 @@ AddNetVarChangedCallback( NETVAR_MATCHMAKING_STATUS, function ()
                   receivedHighestVotes,
                   receivedVotes,
                   votedAndReceivedNoVotes,
-                  possessedCount )
+                  possessedCount,
+                  500
+               )
             }
             break
 
@@ -79,14 +82,15 @@ AddNetVarChangedCallback( NETVAR_MATCHMAKING_STATUS, function ()
                let possessedCount = 2
                let skipTie = false
                let receivedHighestVotes = [player]
-               DrawMatchScreen_VoteResults( skipTie, receivedHighestVotes, receivedVotes, votedAndReceivedNoVotes, possessedCount )
+               DrawMatchScreen_VoteResults( skipTie, receivedHighestVotes, receivedVotes, votedAndReceivedNoVotes, possessedCount,
+                  500 )
             }
 
             break
 
          case 6:
             {
-               DrawMatchScreen_Winners( [player, player], ROLE.ROLE_CAMPER, 1 )
+               DrawMatchScreen_Winners( [player, player], ROLE.ROLE_CAMPER, 1, 500 )
             }
       }
    }
@@ -286,9 +290,9 @@ function SortLocalPlayer( a: Player, b: Player ): boolean
    return a === file.player && b !== file.player
 }
 
-export function DrawMatchScreen_VoteResults( skipTie: boolean, receivedHighestVotes: Array<Player>, receivedVotes: Array<Player>, votedAndReceivedNoVotes: Array<Player>, possessedCount: number )
+export function DrawMatchScreen_VoteResults( skipTie: boolean, receivedHighestVotes: Array<Player>, receivedVotes: Array<Player>, votedAndReceivedNoVotes: Array<Player>, possessedCount: number, highestVotedScore: number )
 {
-   print( "DrawMatchScreen_VoteResults" )
+   print( "DrawMatchScreen_VoteResults, highest score " + highestVotedScore )
    function GetResultsText(): Array<string>
    {
       if ( skipTie )
@@ -576,34 +580,41 @@ export function DrawMatchScreen_VoteResults( skipTie: boolean, receivedHighestVo
          Tween( lowerTitle, { TextTransparency: 0 }, 0.5 )
       } )
    }
-   else if ( votedOffModel !== undefined )
+   else
    {
-      Thread(
-         function ()
-         {
-            if ( votedOffModel === undefined )
-               return
-
-            const TOTAL_TIME = 5
-            const count = 70
-            const time = TOTAL_TIME / count
-
-            for ( let i = 0; ; i++ )
+      if ( votedOffModel !== undefined )      
+      {
+         Thread(
+            function ()
             {
-               if ( done )
+               if ( votedOffModel === undefined )
                   return
-               let cFrame = ( votedOffModel.PrimaryPart as Part ).CFrame
-               let goal = new CFrame( cFrame.Position.add( new Vector3( 0, 0, 10 ) ) )
-               goal = goal.mul( CFrame.Angles( 0, 0, i * 90 ) )
-               tween = TweenModel( votedOffModel, goal, time )
-               wait( time )
+
+               Thread( function ()
+               {
+                  CoinExplosion( highestVotedScore, viewportFrame, votedOffModel as Model )
+               } )
+
+               const TOTAL_TIME = 5
+               const count = 70
+               const time = TOTAL_TIME / count
+
+               for ( let i = 0; ; i++ )
+               {
+                  if ( done )
+                     return
+                  let cFrame = ( votedOffModel.PrimaryPart as Part ).CFrame
+                  let goal = new CFrame( cFrame.Position.add( new Vector3( 0, 0, 10 ) ) )
+                  goal = goal.mul( CFrame.Angles( 0, 0, i * 90 ) ) // rotate spin away orientation
+                  tween = TweenModel( votedOffModel, goal, time )
+                  wait( time )
+               }
             }
-         }
-      )
+         )
 
-      wait( 1.0 )
+         wait( 1.0 )
+      }
    }
-
 
    const FADE_OUT = 2.0
    Tween( title, { TextTransparency: 1 }, FADE_OUT * 0.75 )
@@ -664,7 +675,7 @@ export function DrawMatchScreen_EmergencyMeeting( meetingType: MEETING_TYPE, cal
 }
 
 
-export function DrawMatchScreen_Winners( winners: Array<Player>, localRole: ROLE, startingPossessedCount: number )
+export function DrawMatchScreen_Winners( winners: Array<Player>, localRole: ROLE, startingPossessedCount: number, winnings: number )
 {
    let localWinner = false
    if ( localRole === ROLE.ROLE_SPECTATOR_CAMPER_ESCAPED )
@@ -728,6 +739,9 @@ export function DrawMatchScreen_Winners( winners: Array<Player>, localRole: ROLE
                subTitle.Text = "You defeated the imposters!"
             break
       }
+
+      lowerTitle.Text = "You earned " + winnings + " coins!"
+      Tween( lowerTitle, { TextTransparency: 0 }, FADE_IN )
 
       if ( subTitle.Text !== "" )
       {
@@ -808,4 +822,27 @@ export function DrawLevelTransition()
    Tween( baseFrame, { Transparency: 0 }, 1.0 )
 
    wait( 9999 )
+}
+
+const range = 70
+const rot = 1500
+function CoinExplosion( highestVotedScore: number, viewportFrame: ViewportFrame, votedOffModel: Model )
+{
+   let coins = GetCoinModelsForScore( highestVotedScore )
+
+   let pos = ( votedOffModel.PrimaryPart as Part ).CFrame
+   for ( let coin of coins )
+   {
+      coin.Position = pos.Position
+      coin.Orientation = new Vector3( RandomFloatRange( 0, 360 ), RandomFloatRange( 0, 360 ), RandomFloatRange( 0, 360 ) )
+      coin.RotVelocity = new Vector3( RandomFloatRange( -rot, rot ), RandomFloatRange( -rot, rot ), RandomFloatRange( -rot, rot ) )
+
+      coin.Parent = viewportFrame
+      Tween( coin,
+         {
+            Position: new Vector3( RandomFloatRange( -range, range ), RandomFloatRange( -range, range ), RandomFloatRange( -range, range ) ),
+            Orientation: new Vector3( RandomFloatRange( -rot, rot ), RandomFloatRange( -rot, rot ), RandomFloatRange( -rot, rot ) )
+         }
+         , 5 )
+   }
 }

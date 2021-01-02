@@ -1,8 +1,8 @@
-import { PhysicsService, Workspace } from "@rbxts/services"
+import { PhysicsService } from "@rbxts/services"
 import { AddCallback_OnPlayerCharacterAdded } from "../shared/sh_onPlayerConnect"
-import { ExecOnChildWhenItExists } from "../shared/sh_utils"
 
-const COL_GROUP_PLAYERS = "Players"
+export const COL_GROUP_PLAYERS = "Players"
+export const COL_GROUP_GEO_ONLY = "Geo"
 
 class File
 {
@@ -12,19 +12,21 @@ let file = new File()
 
 export function SV_CollisionGroupsSetup()
 {
-   const COL_GROUP = COL_GROUP_PLAYERS
+   PhysicsService.CreateCollisionGroup( COL_GROUP_GEO_ONLY )
+   PhysicsService.CreateCollisionGroup( COL_GROUP_PLAYERS )
 
-   PhysicsService.CreateCollisionGroup( COL_GROUP )
-   PhysicsService.CollisionGroupSetCollidable( COL_GROUP, COL_GROUP, false )
+   PhysicsService.CollisionGroupSetCollidable( COL_GROUP_GEO_ONLY, COL_GROUP_GEO_ONLY, false )
+   PhysicsService.CollisionGroupSetCollidable( COL_GROUP_GEO_ONLY, COL_GROUP_PLAYERS, false )
+   PhysicsService.CollisionGroupSetCollidable( COL_GROUP_PLAYERS, COL_GROUP_PLAYERS, false )
 
    AddCallback_OnPlayerCharacterAdded( function ( player: Player )
    {
       let character = player.Character as Model
-      SetCollisionGroupRecursive( character, COL_GROUP )
+      SetCollisionGroupRecursive( character, COL_GROUP_PLAYERS )
 
       character.DescendantAdded.Connect( function ( instance: Instance )
       {
-         SetCollisionGroup( instance, COL_GROUP )
+         SetCollisionGroup( instance, COL_GROUP_PLAYERS )
       } )
 
       character.DescendantRemoving.Connect( ResetCollisionGroup )
@@ -39,7 +41,7 @@ export function SV_CollisionGroupsSetup()
    */
 }
 
-function SetCollisionGroup( instance: Instance, name: string )
+export function SetCollisionGroup( instance: Instance, name: string )
 {
    if ( instance.IsA( 'BasePart' ) )
    {

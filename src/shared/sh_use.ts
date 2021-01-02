@@ -17,6 +17,7 @@ export enum USETARGETS
 class File
 {
    usablesByType = new Map<USETYPES, Usable>()
+   debug = false
 }
 
 export class UseResults
@@ -121,6 +122,10 @@ function RPC_FromClient_OnUse( player: Player )
    let useResults = GetUseResultsForAttempt( player )
    if ( useResults === undefined )
    {
+      file.debug = true
+      GetUseResultsForAttempt( player )
+      file.debug = false
+
       print( "no useResults" )
       return
    }
@@ -184,17 +189,22 @@ class BuildUseResults
 
 export function GetUseResultsForAttempt( player: Player ): UseResults | undefined
 {
-   //print( "GetUseResultsForAttempt " + player.Name )
+   if ( file.debug )
+      print( "GetUseResultsForAttempt " + player.Name )
    let pos = GetPosition( player )
 
    let buildUseResults: Array<BuildUseResults> = []
    let usables = GetUsables()
    for ( let usable of usables )
    {
-      //print( "test " + usable.useType + " " + usable.text )
+      if ( file.debug )
+         print( "test " + usable.useType + " " + usable.text )
+
       if ( usable.testPlayerPosToInstance !== undefined )
       {
          let targets = usable.ExecuteGetter( player ) as Array<Instance>
+         if ( file.debug )
+            print( "1 Targets: " + targets.size() )
 
          for ( let target of targets )
          {
@@ -208,10 +218,16 @@ export function GetUseResultsForAttempt( player: Player ): UseResults | undefine
 
             buildUseResults.push( new BuildUseResults( new UseResults( usable, target ), pos, GetPosition( target ) ) )
          }
+
+         if ( file.debug )
+            print( "1 buildUseResults: " + buildUseResults.size() )
       }
       else if ( usable.testPlayerToBasePart !== undefined )
       {
          let targets = usable.ExecuteGetter( player ) as Array<BasePart>
+         if ( file.debug )
+            print( "2 Targets: " + targets.size() )
+
          for ( let target of targets )
          {
             Assert( target !== undefined, "Use Target is not defined!" )
@@ -224,10 +240,16 @@ export function GetUseResultsForAttempt( player: Player ): UseResults | undefine
 
             buildUseResults.push( new BuildUseResults( new UseResults( usable, target ), pos, ( target as BasePart ).Position ) )
          }
+
+         if ( file.debug )
+            print( "2 buildUseResults: " + buildUseResults.size() )
       }
       else if ( usable.testPlayerPosToPos !== undefined )
       {
          let targets = usable.ExecuteGetter( player ) as Array<Vector3>
+         if ( file.debug )
+            print( "3 Targets: " + targets.size() )
+
          for ( let target of targets )
          {
             Assert( target !== undefined, "Use Target is not defined!" )
@@ -240,6 +262,9 @@ export function GetUseResultsForAttempt( player: Player ): UseResults | undefine
 
             buildUseResults.push( new BuildUseResults( new UseResults( usable, target ), pos, target as Vector3 ) )
          }
+
+         if ( file.debug )
+            print( "3 buildUseResults: " + buildUseResults.size() )
       }
       else
       {
@@ -248,9 +273,13 @@ export function GetUseResultsForAttempt( player: Player ): UseResults | undefine
 
       if ( usable.forceVisibleTest() )
       {
+         if ( file.debug )
+            print( "4 forcevis" )
          buildUseResults.push( new BuildUseResults( new UseResults( usable ), pos, pos ) )
       }
    }
+   if ( file.debug )
+      print( "5 buildUseResults: " + buildUseResults.size() )
 
    if ( buildUseResults.size() )
    {

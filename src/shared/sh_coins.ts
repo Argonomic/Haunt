@@ -1,121 +1,241 @@
 import { Workspace } from "@rbxts/services"
-import { IsServer, Thread, GetPosition, ExecOnChildWhenItExists, ArrayRandomize, RandomInt, RandomFloatRange } from "./sh_utils"
+import { Assert } from "./sh_assert"
+import { PICKUPS } from "./sh_gamestate"
+import { MakePartIntoPickup } from "./sh_pickups"
+import { COIN_VALUE_GEM, COIN_VALUE_GOLD, COIN_VALUE_SILVER } from "./sh_settings"
+import { GetPosition, ExecOnChildWhenItExists, RandomFloatRange, Thread } from "./sh_utils"
 
-const ROTVEL = 100
-const PUSH = 10
-const PUSH_Z = 40
-
-export class Coin
+export enum COIN_TYPE
 {
-   model: Part
-   constructor( location: Vector3 )
+   TYPE_SILVER = 0,
+   TYPE_GOLD,
+   TYPE_GEM,
+}
+
+export class CoinData
+{
+   model: Part | undefined
+   value = 0
+   scale = 1
+   color = new Color3( 0, 0, 0 )
+   coinType: COIN_TYPE
+   constructor( coinType: COIN_TYPE )
    {
-      let template = file.coinTemplate
-      if ( template === undefined )
-         throw undefined
-
-      let folder = file.folder
-      if ( folder === undefined )
-         throw undefined
-
-      this.model = template.Clone()
-      this.model.Transparency = 0
-      this.model.CanCollide = true
-      this.model.Velocity = new Vector3( RandomFloatRange( -PUSH, PUSH ), RandomFloatRange( PUSH_Z, PUSH_Z * 2 ), RandomFloatRange( -PUSH, PUSH ) )
-      this.model.RotVelocity = new Vector3( RandomFloatRange( 0, ROTVEL ), RandomFloatRange( 0, ROTVEL ), RandomFloatRange( 0, ROTVEL ) )
-      this.model.Position = location
-      this.model.Parent = folder
+      this.coinType = coinType
    }
+}
+
+type EDITOR_GameplayFolder = Folder &
+{
+   Coins: Folder
 }
 
 class File
 {
-   coinLocations: Array<Vector3> = []
-   coinTemplate: Part | undefined
+   coinTypeToData = new Map<COIN_TYPE, CoinData>()
+   coinToCoinType = new Map<Part, COIN_TYPE>()
+   allCoins: Array<Part> = []
+   coinSpawnLocations: Array<Vector3> = []
    folder: Folder | undefined
+   coinCreatedCallbacks: Array<( coin: Part ) => void> = []
 }
 let file = new File()
 
 export function SH_CoinsSetup()
 {
-   if ( IsServer() )
-   {
-      Thread( function ()
+   Thread(
+      function ()
       {
          wait( 1 )
-         for ( ; ; )
-         {
-            SpawnCoins( 75 )
-            wait( 10 )
-            break
-         }
-      } )
-   }
+         GetCoinBreakdownForScore( 2343 )
+      }
+   )
+   CreateCoinType( COIN_TYPE.TYPE_SILVER, COIN_VALUE_SILVER, 0.85, new Color3( 1, 1, 1 ) )
+   CreateCoinType( COIN_TYPE.TYPE_GOLD, COIN_VALUE_GOLD, 1.25, new Color3( 1, 1, 0 ) )
+   CreateCoinType( COIN_TYPE.TYPE_GEM, COIN_VALUE_GEM, 1.0, new Color3( 256 / 170, 0, 256 / 170 ) )
+
 
    ExecOnChildWhenItExists( Workspace, 'Coin',
       function ( child: Instance )
       {
-         file.coinTemplate = child as Part
-         file.coinTemplate.CanCollide = false
-         file.coinTemplate.Transparency = 1
+         let template = child as Part
+         template.CanCollide = false
+         template.Transparency = 1
+
+         GetCoinDataFromType( COIN_TYPE.TYPE_SILVER ).model = template
+         GetCoinDataFromType( COIN_TYPE.TYPE_GOLD ).model = template
       } )
 
-   ExecOnChildWhenItExists( Workspace, 'Coins',
+   ExecOnChildWhenItExists( Workspace, 'Gem',
       function ( child: Instance )
       {
-         let coinsFolder = child as Folder
-         file.folder = coinsFolder
-         let children = coinsFolder.GetChildren()
+         let template = child as Part
+         template.CanCollide = false
+         template.Transparency = 1
+
+         GetCoinDataFromType( COIN_TYPE.TYPE_GEM ).model = template
+      } )
+
+   ExecOnChildWhenItExists( Workspace, 'Gameplay',
+      function ( child: Instance )
+      {
+         let gameplayFolder = child as EDITOR_GameplayFolder
+         file.folder = gameplayFolder.Coins
+         let children = gameplayFolder.Coins.GetChildren()
 
          for ( let child of children )
          {
-            file.coinLocations.push( GetPosition( child ).add( new Vector3( 0, 8, 0 ) ) )
+            file.coinSpawnLocations.push( GetPosition( child ).add( new Vector3( 0, 2, 0 ) ) )
             child.Destroy()
          }
       } )
 }
 
-export function SpawnCoins( count: number ): Array<Coin>
+export function CreateCoinModel( coinData: CoinData, coinModel: Part ): Part
 {
-   let locations = file.coinLocations.concat( [] )
-   ArrayRandomize( locations )
-   let fraction = math.floor( locations.size() * 0.25 )
-   let coinsPerspot = count / fraction
-   let min = math.floor( coinsPerspot * 0.6 )
-   let max = math.floor( coinsPerspot * 1.4 )
-   if ( min < 1 )
-      min = 1
-   if ( max < 2 )
-      max = 2
+   let model = coinModel.Clone()
+   model.Transparency = 0
+   model.CanCollide = true
+   model.Anchored = false
+   model.Size = model.Size.mul( coinData.scale )
+   model.Color = coinData.color
+   return model
+}
 
-   let delta = max - min
+export function CreateCoin( location: Vector3, coinData: CoinData ): Part
+{
+   //print( "Spawn coin at " + location )
+   let folder = file.folder
+   if ( folder === undefined )
+      throw undefined
 
-   let coins: Array<Coin> = []
+   let coinModel = coinData.model
+   if ( coinModel === undefined )
+      throw undefined
+   let model = CreateCoinModel( coinData, coinModel )
+   model.Position = location
+   model.Parent = folder
 
-   for ( let i = 0; i < locations.size(); i++ )
+   file.coinToCoinType.set( model, coinData.coinType )
+   print( "coins: " + file.allCoins.size() )
+   for ( let func of file.coinCreatedCallbacks )
    {
-      if ( coins.size() >= count )
-         break
+      func( model )
+   }
 
-      let location = locations[i]
-      let spawn = min + RandomInt( delta )
+   Thread( function ()
+   {
+      wait( 0.6 ) // delay before you can pickup
+      if ( model !== undefined )
+         MakePartIntoPickup( model, PICKUPS.PICKUP_COIN )
+   } )
 
-      if ( spawn + coins.size() >= count )
-         spawn = count - coins.size()
+   return model
+}
 
-      for ( let p = 0; p < spawn; p++ )
+export function GetCoins(): Array<Part>
+{
+   if ( file.folder === undefined )
+      return []
+   return file.folder.GetChildren() as Array<Part>
+}
+
+export function GetTotalValueOfWorldCoins(): number
+{
+   let total = 0
+   for ( let pair of file.coinToCoinType )
+   {
+      let coinData = file.coinTypeToData.get( pair[1] ) as CoinData
+      total += coinData.value
+   }
+
+   return total
+}
+
+export function GetCoinType( pickup: Part ): COIN_TYPE
+{
+   Assert( file.coinToCoinType.has( pickup ), "file.coinToCoinType.has( pickup )" )
+   return file.coinToCoinType.get( pickup ) as COIN_TYPE
+}
+
+export function GetCoinSpawnLocations(): Array<Vector3>
+{
+   return file.coinSpawnLocations.concat( [] )
+}
+
+function CreateCoinType( coinType: COIN_TYPE, value: number, scale: number, color: Color3 )
+{
+   let coinData = new CoinData( coinType )
+   coinData.value = value
+   coinData.scale = scale
+   coinData.color = color
+   file.coinTypeToData.set( coinType, coinData )
+}
+
+export function GetCoinDataFromType( coinTypeIndex: COIN_TYPE ): CoinData
+{
+   Assert( file.coinTypeToData.has( coinTypeIndex ), "file.coinTypeToData.has( coinTypeIndex )" )
+   return file.coinTypeToData.get( coinTypeIndex ) as CoinData
+}
+
+export function AddCoinCreatedCallback( func: ( coin: Part ) => void )
+{
+   file.coinCreatedCallbacks.push( func )
+}
+
+export function GetCoinModelsForScore( score: number ): Array<Part>
+{
+   let breakdown = GetCoinBreakdownForScore( score )
+   let coins: Array<Part> = []
+
+   for ( let pair of breakdown )
+   {
+      let coinData = GetCoinDataFromType( pair[0] )
+      let model = coinData.model as Part
+      for ( let i = 0; i < pair[1]; i++ )
       {
-         coins.push( CreateCoin( location ) )
+         coins.push( CreateCoinModel( coinData, model ) )
       }
    }
 
    return coins
 }
 
-function CreateCoin( location: Vector3 ): Coin
+export function GetCoinBreakdownForScore( score: number ): Map<COIN_TYPE, number>
 {
-   //print( "Spawn coin at " + location )
-   let coin = new Coin( location )
-   coin.model.Size = coin.model.Size.mul( RandomFloatRange( 0.5, 1.5 ) )
-   return coin
+   const START_SCORE = score
+   let mapping = new Map<COIN_TYPE, number>()
+
+   let count = 0
+   let coinScore = 0
+
+   function MakeCoinsForType( coinData: CoinData )
+   {
+      for ( ; ; )
+      {
+         if ( coinScore < coinData.value )
+            break
+
+         count++
+         coinScore -= coinData.value
+      }
+   }
+
+   let silver = GetCoinDataFromType( COIN_TYPE.TYPE_SILVER )
+   let gold = GetCoinDataFromType( COIN_TYPE.TYPE_GOLD )
+   let gem = GetCoinDataFromType( COIN_TYPE.TYPE_GEM )
+   let coinTypes = [gem, gold]
+
+   for ( let coinData of coinTypes )
+   {
+      coinScore = math.floor( score * 0.80 )
+      score -= coinScore
+      count = 0
+      MakeCoinsForType( coinData )
+      mapping.set( coinData.coinType, count )
+      score += coinScore
+   }
+
+   mapping.set( silver.coinType, score )
+   return mapping
 }

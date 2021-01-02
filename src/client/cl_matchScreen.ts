@@ -1,10 +1,9 @@
-import { TeleportService } from "@rbxts/services";
 import { MATCHMAKING_STATUS, NETVAR_MATCHMAKING_STATUS } from "shared/sh_gamestate";
 import { AddCallback_OnPlayerCharacterAncestryChanged, SetPlayerWalkSpeed } from "shared/sh_onPlayerConnect";
 import { GetNetVar_Number } from "shared/sh_player_netvars";
 import { PLAYER_WALKSPEED } from "shared/sh_settings";
 import { Tween } from "shared/sh_tween";
-import { CloneChild, GetExistingFirstChildWithNameAndClassName, GetFirstChildWithName, GetLocalPlayer, Thread } from "shared/sh_utils";
+import { CloneChild, GetExistingFirstChildWithNameAndClassName, GetLocalPlayer, Thread } from "shared/sh_utils";
 import { Assert } from "shared/sh_assert"
 import { AddPlayerGuiFolderExistsCallback, UIORDER } from "./cl_ui";
 

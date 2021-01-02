@@ -1,6 +1,6 @@
 import { Players } from "@rbxts/services";
 import { AssignDefaultNVs } from "shared/sh_player_netvars"
-import { GetExistingFirstChildWithNameAndClassName, ExecOnChildWhenItExists, GetPlayerFromCharacter, IsServer, Thread, GetLocalPlayer, IsClient } from "./sh_utils";
+import { GetExistingFirstChildWithNameAndClassName, ExecOnChildWhenItExists, GetPlayerFromCharacter, IsServer, Thread, GetLocalPlayer, IsClient, GetFirstChildWithNameAndClassName } from "./sh_utils";
 import { Assert } from "shared/sh_assert"
 
 class File
@@ -203,4 +203,13 @@ export function SetPlayerWalkSpeed( player: Player, walkSpeed: number )
       let human = instance as Humanoid
       human.WalkSpeed = walkSpeed
    } )
+}
+
+export function GetPlayerWalkSpeed( player: Player ): number
+{
+   Assert( player.Character !== undefined, "Player does not have character yet" )
+   let character = player.Character as Model
+   let humanoid = GetFirstChildWithNameAndClassName( character, "Humanoid", 'Humanoid' ) as Humanoid
+   return humanoid.WalkSpeed
+
 }

@@ -7,6 +7,7 @@ import { GetCurrentRoom } from "server/sv_rooms"
 import { ResetCooldownTime } from "shared/sh_cooldown"
 import { SetPlayerWalkSpeed } from "shared/sh_onPlayerConnect"
 import { GetNetVar_Number, SetNetVar } from "shared/sh_player_netvars"
+import { PlayerDropsCoins } from "server/sv_coins"
 
 export function SV_UseContentSetup()
 {
@@ -92,6 +93,7 @@ export function SV_UseContentSetup()
 
          game.corpses.push( new Corpse( camper, GetPosition( camper ) ) )
          game.playerToSpawnLocation.set( camper, GetPosition( camper ) )
+         PlayerDropsCoins( camper, GetPosition( player ) )
          KillPlayer( camper )
          SendRPC( "RPC_FromServer_CancelTask", player )
 
