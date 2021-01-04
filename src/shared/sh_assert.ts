@@ -6,6 +6,7 @@ const LOCAL = RunService.IsStudio()
 class File
 {
    serverAssertCallbacks: Array<( stack: string ) => void> = []
+   asserted = false
 }
 let file = new File()
 
@@ -14,20 +15,27 @@ export function Assert( bool: boolean, msg: string )
    if ( bool )
       return
 
+   if ( file.asserted ) // first assert is only one that matters
+      return
+
+   file.asserted = true
    let stack = debug.traceback()
-   print( "\n\n\n" )
-   print( "\rASSERT FAILED: " + msg )
-   print( stack )
-   print( "\n\n\n" )
+   let output = ""
+   output += "\n\n\n"
+   output += "\rASSERT FAILED: " + msg + "\n"
+   output += stack + "\n"
+   output += "\n\n\n"
 
    //ReportEvent( "ScriptError", stack )
    if ( IsServer() )
    {
       for ( let callback of file.serverAssertCallbacks )
       {
-         callback( stack )
+         callback( output )
       }
    }
+
+   print( output )
 
    if ( LOCAL )
       assert( false, msg )

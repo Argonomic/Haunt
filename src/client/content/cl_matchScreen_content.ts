@@ -655,7 +655,7 @@ export function DrawMatchScreen_EmergencyMeeting( meetingType: MEETING_TYPE, cal
    switch ( meetingType )
    {
       case MEETING_TYPE.MEETING_EMERGENCY:
-         subTitle.Text = caller.Name + " called a meeting!"
+         subTitle.Text = caller.Name + " called an emergency meeting!"
          break
 
       case MEETING_TYPE.MEETING_REPORT:
@@ -740,7 +740,7 @@ export function DrawMatchScreen_Winners( winners: Array<Player>, localRole: ROLE
             break
       }
 
-      lowerTitle.Text = "You earned " + winnings + " coins!"
+      lowerTitle.Text = "You earned " + winnings + " HauntBux!"
       Tween( lowerTitle, { TextTransparency: 0 }, FADE_IN )
 
       if ( subTitle.Text !== "" )
@@ -797,6 +797,9 @@ export function DrawMatchScreen_Winners( winners: Array<Player>, localRole: ROLE
    const CAMERA_TIME = 1.7
    Tween( viewportFrame, { ImageTransparency: 0 }, CAMERA_TIME * 0.5 )
 
+   wait( 2343 )
+
+   /*
    wait( FADE_IN )
    wait( 2 )
 
@@ -812,6 +815,7 @@ export function DrawMatchScreen_Winners( winners: Array<Player>, localRole: ROLE
    wait( 0.75 )
 
    Tween( baseFrame, { Transparency: 1 }, 1.0 )
+   */
 }
 
 export function DrawLevelTransition()

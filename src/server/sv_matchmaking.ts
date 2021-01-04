@@ -1,5 +1,5 @@
 import { HttpService, Players, TeleportService, Workspace } from "@rbxts/services"
-import { TELEPORT_PlayerData, NETVAR_MATCHMAKING_STATUS, MATCHMAKING_STATUS, NETVAR_MATCHMAKING_NUMWITHYOU, IsPracticing, ROLE, Game, LOCAL } from "shared/sh_gamestate"
+import { TELEPORT_PlayerData, NETVAR_MATCHMAKING_STATUS, MATCHMAKING_STATUS, NETVAR_MATCHMAKING_NUMWITHYOU, ROLE, Game, LOCAL } from "shared/sh_gamestate"
 import { AddCallback_OnPlayerCharacterAdded, AddCallback_OnPlayerConnected } from "shared/sh_onPlayerConnect"
 import { GetNetVar_Number, SetNetVar } from "shared/sh_player_netvars"
 import { AddRPC } from "shared/sh_rpc"
@@ -121,8 +121,12 @@ export function SV_MatchmakingSetup()
       }
 
       let status = GetNetVar_Number( player, NETVAR_MATCHMAKING_STATUS )
-      if ( status === MATCHMAKING_STATUS.MATCHMAKING_PLAYING )
-         return
+      switch ( status )
+      {
+         case MATCHMAKING_STATUS.MATCHMAKING_PLAYING:
+         case MATCHMAKING_STATUS.MATCHMAKING_SEND_TO_RESERVEDSERVER:
+            return
+      }
 
       switch ( newStatus )
       {
@@ -259,20 +263,28 @@ export function SV_MatchmakingSetup()
          }
          else
          {
-            players = players.slice( 0, PLAYERCOUNT )
+            players = players.slice( 0, MATCHMAKE_PLAYERCOUNT_DESIRED )
 
             if ( LOCAL || IsReservedServer() )
             {
                for ( let player of players )
                {
                   SetNetVar( player, NETVAR_MATCHMAKING_STATUS, MATCHMAKING_STATUS.MATCHMAKING_PLAYING )
-                  file.practiceGame.RemovePlayer( player )
+                  Thread(
+                     function ()
+                     {
+                        // failsafe if the server fails
+                        wait( 30 )
+                        if ( player !== undefined )
+                           SetNetVar( player, NETVAR_MATCHMAKING_STATUS, MATCHMAKING_STATUS.MATCHMAKING_LFG )
+                     } )
                }
 
                print( "file.matchmakeThread creategame" )
                CreateGame( players,
-                  function () // game completed function
+                  function () 
                   {
+                     // game completed function
                      if ( !LOCAL )
                      {
                         print( "GAME IS OVER, TELEPORT PLAYERS BACK TO START PLACE" )
@@ -426,11 +438,32 @@ function GetLongestSearchTime( players: Array<Player> ): number
    return time
 }
 
+function AnyPlayerSearchingForLessTime( players: Array<Player>, time: number ): boolean
+{
+   for ( let player of players )
+   {
+      if ( !file.playerToSearchStartedTime.has( player ) )
+         continue
+      let searchTime = Workspace.DistributedGameTime - ( file.playerToSearchStartedTime.get( player ) as number )
+      if ( searchTime < time )
+         return true
+   }
+   return false
+}
+
 function GetMatchmakingMinPlayersForLongestWaitTime( players: Array<Player> ): number
 {
    if ( IsReservedServer() )
-      return math.floor( GraphCapped( Workspace.DistributedGameTime, 10, 20, MATCHMAKE_PLAYERCOUNT_DESIRED, MATCHMAKE_PLAYERCOUNT_FALLBACK ) )
+      return math.floor( GraphCapped( Workspace.DistributedGameTime, 10, 20, file.reservedServerPlayerCount, MATCHMAKE_PLAYERCOUNT_FALLBACK ) )
 
    let timer = GetLongestSearchTime( players )
-   return math.floor( GraphCapped( timer, 25, 45, MATCHMAKE_PLAYERCOUNT_DESIRED, MATCHMAKE_PLAYERCOUNT_FALLBACK ) )
+   let playerCount = math.floor( GraphCapped( timer, 25, 45, MATCHMAKE_PLAYERCOUNT_DESIRED, MATCHMAKE_PLAYERCOUNT_FALLBACK ) )
+   if ( playerCount < MATCHMAKE_PLAYERCOUNT_DESIRED )
+   {
+      // if someone just started searching, then maybe someone else is about to search too?
+      if ( AnyPlayerSearchingForLessTime( players, 6 ) )
+         return MATCHMAKE_PLAYERCOUNT_DESIRED
+   }
+
+   return playerCount
 }

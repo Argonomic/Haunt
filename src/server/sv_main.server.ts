@@ -21,6 +21,7 @@ import { SV_AbilityContentSetup } from "./content/sv_ability_content";
 import { SH_CoinsSetup } from "shared/sh_coins";
 import { SH_PickupsSetup } from "shared/sh_pickups";
 import { SV_CoinsSetup } from "./sv_coins";
+import { SV_UseSetup } from "./sv_use";
 import { SV_PersistenceSetup } from "./sv_persistence";
 import { SH_ScoreSetup } from "shared/sh_score";
 
@@ -63,6 +64,7 @@ SV_TasksContentSetup()
 SV_AbilityContentSetup()
 SV_CoinsSetup()
 SV_PersistenceSetup()
+SV_UseSetup()
 
 DoneCreatingNVs()
 

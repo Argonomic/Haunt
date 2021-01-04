@@ -2,7 +2,7 @@ import { Chat, HttpService, Players } from "@rbxts/services"
 import { AddRPC } from "shared/sh_rpc"
 import { ArrayRandomize, IsAlive, Resume, Thread, UserIDToPlayer } from "shared/sh_utils"
 import { Assert } from "shared/sh_assert"
-import { Assignment, GAME_STATE, SharedGameStateInit, NETVAR_JSON_TASKLIST, ROLE, IsPracticing, Game, GAMERESULTS, GetVoteResults, TASK_EXIT, AssignmentIsSame, TASK_RESTORE_LIGHTS, PlayerInfo } from "shared/sh_gamestate"
+import { Assignment, GAME_STATE, SharedGameStateInit, NETVAR_JSON_TASKLIST, ROLE, IsPracticing, Game, GAMERESULTS, GetVoteResults, TASK_EXIT, AssignmentIsSame, TASK_RESTORE_LIGHTS, PlayerInfo, PlayerVote } from "shared/sh_gamestate"
 import { MAX_TASKLIST_SIZE, MATCHMAKE_PLAYERCOUNT_DESIRED, MATCHMAKE_PLAYERCOUNT_FALLBACK, SPAWN_ROOM, PLAYER_WALKSPEED, TASK_VALUE } from "shared/sh_settings"
 import { SetNetVar } from "shared/sh_player_netvars"
 import { AddCallback_OnPlayerCharacterAdded, SetPlayerWalkSpeed } from "shared/sh_onPlayerConnect"
@@ -129,7 +129,6 @@ export function SV_GameStateSetup()
          game.UpdateGame()
       } )
 
-
    AddRPC( "RPC_FromClient_Skipvote", function ( player: Player )
    {
       let game = PlayerToGame( player )
@@ -171,7 +170,9 @@ function GameStateChanged( game: Game, oldGameState: GAME_STATE, gameEndFunc: Fu
 
    if ( game.GetGameState() < GAME_STATE.GAME_STATE_COMPLETE )
    {
-      if ( game.GetGameResults_NoParityAllowed() !== GAMERESULTS.RESULTS_STILL_PLAYING )
+      let gameResults = game.GetGameResults_NoParityAllowed()
+      print( "GameStateChanged, GAMERESULTS: " + gameResults )
+      if ( gameResults !== GAMERESULTS.RESULTS_STILL_PLAYING )
       {
          game.SetGameState( GAME_STATE.GAME_STATE_COMPLETE )
          return
@@ -195,50 +196,6 @@ function GameStateChanged( game: Game, oldGameState: GAME_STATE, gameEndFunc: Fu
 
       case GAME_STATE.GAME_STATE_MEETING_DISCUSS:
          game.ClearVotes()
-         break
-
-      case GAME_STATE.GAME_STATE_MEETING_VOTE:
-         {
-            let voteResults = GetVoteResults( game.GetVotes() )
-
-            game.corpses = [] // clear the corpses
-
-            let room = GetRoomByName( 'Great Room' )
-            PutPlayersInRoom( game.GetAllConnectedPlayers(), room )
-
-            game.SetGameState( GAME_STATE.GAME_STATE_PLAYING )
-
-            if ( !voteResults.skipTie && voteResults.highestRecipients.size() === 1 )
-            {
-               Thread(
-                  function ()
-                  {
-                     let highestTarget = voteResults.highestRecipients[0]
-                     wait( 8 ) // delay for vote matchscreen
-                     switch ( game.GetPlayerRole( highestTarget ) )
-                     {
-                        case ROLE.ROLE_CAMPER:
-                           game.SetPlayerRole( highestTarget, ROLE.ROLE_SPECTATOR_CAMPER )
-                           break
-
-                        case ROLE.ROLE_POSSESSED:
-                           game.SetPlayerRole( highestTarget, ROLE.ROLE_SPECTATOR_IMPOSTER )
-                           break
-                     }
-
-                     let score = GetScore( highestTarget )
-                     if ( score > 0 )
-                     {
-                        ClearScore( highestTarget )
-                        DividePointsToLivingPlayers( game, score )
-                     }
-
-                     game.UpdateGame()
-                     print( "Player " + highestTarget.Name + " was voted off" )
-                  } )
-            }
-
-         }
          break
    }
 
@@ -265,6 +222,10 @@ function GameStateChanged( game: Game, oldGameState: GAME_STATE, gameEndFunc: Fu
          }
          break
 
+      case GAME_STATE.GAME_STATE_MEETING_RESULTS:
+         HandleVoteResults( game )
+         break
+
       case GAME_STATE.GAME_STATE_COMPLETE:
          print( "Game Complete. Game results: " + game.GetGameResults_NoParityAllowed() )
          print( "Possessed: " + game.GetLivingPossessed().size() )
@@ -288,15 +249,21 @@ function GameStateChanged( game: Game, oldGameState: GAME_STATE, gameEndFunc: Fu
             SendRPC( "RPC_FromServer_CancelTask", player )
          }
 
-         // draw end
-         game.BroadcastGamestate()
-
-         wait( 8 )
-         game.SetGameState( GAME_STATE.GAME_STATE_DEAD )
+         Thread(
+            function ()
+            {
+               wait( 4 )
+               game.SetGameState( GAME_STATE.GAME_STATE_DEAD )
+            } )
          break
 
       case GAME_STATE.GAME_STATE_DEAD:
-         gameEndFunc()
+         Thread(
+            function ()
+            {
+               wait( 4 )
+               gameEndFunc()
+            } )
          break
    }
 }
@@ -435,7 +402,8 @@ function GameStateThink( game: Game )
             let votes = game.GetVotes()
             if ( remaining <= 0 || votes.size() >= count )
             {
-               game.SetGameState( GAME_STATE.GAME_STATE_PLAYING )
+               print( "SET GAME STATE GAME_STATE_MEETING_RESULTS" )
+               game.SetGameState( GAME_STATE.GAME_STATE_MEETING_RESULTS )
                return
             }
 
@@ -449,6 +417,58 @@ function GameStateThink( game: Game )
    }
 
    Assert( debugState === game.GetGameState(), "2 debugState === game.GetGameState()" )
+}
+
+function HandleVoteResults( game: Game )
+{
+   Thread(
+      function ()
+      {
+         let voteResults = GetVoteResults( game.GetVotes() )
+
+         game.corpses = [] // clear the corpses
+
+         let room = GetRoomByName( 'Great Room' )
+         PutPlayersInRoom( game.GetAllConnectedPlayers(), room )
+
+         if ( voteResults.skipTie || voteResults.highestRecipients.size() !== 1 )
+         {
+            wait( 5 )
+         }
+         else
+         {
+            let highestTarget = voteResults.highestRecipients[0]
+            wait( 8 ) // delay for vote matchscreen
+            switch ( game.GetPlayerRole( highestTarget ) )
+            {
+               case ROLE.ROLE_CAMPER:
+                  game.SetPlayerRole( highestTarget, ROLE.ROLE_SPECTATOR_CAMPER )
+                  break
+
+               case ROLE.ROLE_POSSESSED:
+                  game.SetPlayerRole( highestTarget, ROLE.ROLE_SPECTATOR_IMPOSTER )
+                  break
+            }
+
+            let score = GetScore( highestTarget )
+            if ( score > 0 )
+            {
+               ClearScore( highestTarget )
+               DividePointsToLivingPlayers( game, score )
+            }
+
+            print( "Player " + highestTarget.Name + " was voted off" )
+
+            /*
+            let gameResults = game.GetGameResults_NoParityAllowed()
+            print( "Game results GAMERESULTS: " + gameResults )
+
+            Assert( game.GetGameState() !== GAME_STATE.GAME_STATE_PLAYING, 'game.GetGameState() !== GAME_STATE.GAME_STATE_PLAYING' )
+            */
+         }
+
+         game.SetGameState( GAME_STATE.GAME_STATE_PLAYING )
+      } )
 }
 
 export function CreateGame( players: Array<Player>, gameEndFunc: Function )

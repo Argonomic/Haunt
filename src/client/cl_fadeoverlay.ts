@@ -1,9 +1,9 @@
 import { RunService, Workspace } from "@rbxts/services"
 import { Corpse, IsPracticing, TASK_RESTORE_LIGHTS, PlayerNumToGameViewable, ROLE } from "shared/sh_gamestate"
-import { AddCallback_OnPlayerCharacterAncestryChanged } from "shared/sh_onPlayerConnect"
-import { PLAYER_COLORS } from "shared/sh_settings"
+import { AddCallback_OnPlayerCharacterAdded, AddCallback_OnPlayerCharacterAncestryChanged } from "shared/sh_onPlayerConnect"
+import { PLAYER_COLORS, SPECTATOR_TRANS } from "shared/sh_settings"
 import { TweenPlayerParts } from "shared/sh_tween"
-import { GetFirstChildWithNameAndClassName, GetLocalPlayer, GraphCapped, IsAlive, SetCharacterTransparency } from "shared/sh_utils"
+import { GetFirstChildWithNameAndClassName, GetLocalPlayer, GetPosition, GraphCapped, IsAlive, SetCharacterTransparency, SetPlayerTransparency, Thread } from "shared/sh_utils"
 import { Assert } from "shared/sh_assert"
 import { GetLocalGame, GetLocalIsSpectator, GetLocalRole } from "./cl_gamestate"
 import { AddPlayerGuiFolderExistsCallback, UIORDER } from "./cl_ui"
@@ -12,13 +12,15 @@ import { AddCoinCreatedCallback, GetCoins } from "shared/sh_coins"
 import { Tween } from "shared/sh_tween";
 
 const FADE_CIRCLE = 'rbxassetid://6006022378'
-const TRANSPARENCY = 0.5
+const TRANSPARENCY = 0.333
 
 Assert( Workspace.CurrentCamera !== undefined, "Workspace has no camera" )
 class File
 {
    screenUI: ScreenGui | undefined
    camera: Camera
+
+   characterToPlayer = new Map<Model, Player>()
 
    constructor( camera: Camera )
    {
@@ -30,6 +32,25 @@ let file = new File( Workspace.CurrentCamera as Camera )
 
 export function CL_FadeOverlaySetup()
 {
+   let localPlayer = GetLocalPlayer()
+   AddCallback_OnPlayerCharacterAdded( function ( player: Player )
+   {
+      if ( player === localPlayer )
+         return
+
+      let character = player.Character as Model
+      //      Thread(
+      //         function ()
+      //         {
+      //            wait( 1 )
+      if ( character === undefined )
+         return
+      if ( player === undefined )
+         return
+      file.characterToPlayer.set( character, player )
+      //         } )
+   } )
+
    AddPlayerGuiFolderExistsCallback( function ( folder: Folder )
    {
       if ( file.screenUI !== undefined )
@@ -37,7 +58,6 @@ export function CL_FadeOverlaySetup()
          file.screenUI.Parent = folder
          return
       }
-      let localPlayer = GetLocalPlayer()
 
       let game = GetLocalGame()
 
@@ -56,18 +76,17 @@ export function CL_FadeOverlaySetup()
       fadeCircle.Parent = screenUI
       fadeCircle.Size = new UDim2( 0.25, 0, 0.25, 0 )
 
-      function CreatePlayerNum( player: Player ): TextLabel
+      function CreatePlayerNum( player: Player ): TextLabel | undefined
       {
+         let playerInfo = game.GetPlayerInfo( player )
+         if ( playerInfo.playernum < 0 )
+            return undefined
+
          let textLabel = new Instance( 'TextLabel' )
          textLabel.Parent = screenUI
-         let playerInfo = game.GetPlayerInfo( player )
-         if ( playerInfo.playernum >= 0 )
-            textLabel.TextColor3 = PLAYER_COLORS[playerInfo.playernum]
-
+         textLabel.TextColor3 = PLAYER_COLORS[playerInfo.playernum]
          textLabel.Text = PlayerNumToGameViewable( playerInfo.playernum )
-         //textLabel.Text = player.UserId + " " + playerNum
          textLabel.TextScaled = true
-         //textLabel.Font = Enum.Font.LuckiestGuy
          textLabel.Size = new UDim2( 0.1, 0, 0.1, 0 )
          textLabel.AnchorPoint = new Vector2( 0.0, 1.0 )
          textLabel.SizeConstraint = Enum.SizeConstraint.RelativeYY
@@ -75,8 +94,6 @@ export function CL_FadeOverlaySetup()
          textLabel.TextStrokeTransparency = 0
          return textLabel
       }
-
-      //      let myPlayerNum = CreatePlayerNum( localPlayer )
 
       function CreateOutsideFrames( count: number )
       {
@@ -120,6 +137,8 @@ export function CL_FadeOverlaySetup()
 
       let camera = file.camera
       let lightsLastDimmedTime = 0
+      const LIGHT_NORMAL = 30
+      const LIGHT_DIM = 9
 
       function GetLightDist(): number
       {
@@ -137,14 +156,15 @@ export function CL_FadeOverlaySetup()
          {
             lightsLastDimmedTime = Workspace.DistributedGameTime
             let delta = lightsLastDimmedTime - ClientGetAssignmentAssignedTime( 'Garage', TASK_RESTORE_LIGHTS )
-            return GraphCapped( delta, 1, 5, 30, 5 )
+            return GraphCapped( delta, 1, 5, LIGHT_NORMAL, LIGHT_DIM )
          }
 
          let delta = Workspace.DistributedGameTime - lightsLastDimmedTime
-         return GraphCapped( delta, 1, 5, 5, 30 )
+         return GraphCapped( delta, 1, 3, LIGHT_DIM, LIGHT_NORMAL )
       }
 
-      let visiblePlayersToPLabel = new Map<Player, TextLabel>()
+      let characterChildrenCount = new Map<Model, number>()
+      let visiblePlayersToLabel = new Map<Player, TextLabel>()
       let visibleCorpsesToLabel = new Map<Corpse, TextLabel>()
       let visibleCoins = new Map<Part, Boolean>()
       let knownCoins = new Map<Part, boolean>()
@@ -157,6 +177,17 @@ export function CL_FadeOverlaySetup()
 
       screenUI.Enabled = !IsPracticing( localPlayer )
 
+
+      function Hide( player: Player, character: Model )
+      {
+         // characters come in transparent
+         if ( game.IsSpectator( localPlayer ) )
+            SetPlayerTransparency( player, SPECTATOR_TRANS )
+         else
+            SetPlayerTransparency( player, 1 )
+      }
+
+      let oldGameState = -1
       RunService.RenderStepped.Connect( function ()      
       {
          if ( IsPracticing( localPlayer ) )
@@ -170,11 +201,31 @@ export function CL_FadeOverlaySetup()
          let character = localPlayer.Character
          if ( character === undefined )
             return
+
+         /*
          let head = GetFirstChildWithNameAndClassName( character, 'Head', 'Part' ) as Part
          if ( head === undefined )
             return
-
          let pos = head.Position
+         */
+         let pos = GetPosition( localPlayer )
+
+         if ( oldGameState !== game.GetGameState() )
+         {
+            for ( let other of game.GetAllPlayers() )
+            {
+               if ( other !== localPlayer )
+                  SetPlayerTransparency( other, 1 )
+            }
+
+            oldGameState = game.GetGameState()
+            for ( let pair of visiblePlayersToLabel )
+            {
+               pair[1].Destroy()
+            }
+            visiblePlayersToLabel.clear()
+         }
+
          let offset = pos.add( new Vector3( 0, 0, LIGHTDIST ) )
          let [offsetLightDistFromCenter, _1] = camera.WorldToScreenPoint( offset )
          let [screenCenter, _2] = camera.WorldToScreenPoint( pos )
@@ -186,62 +237,79 @@ export function CL_FadeOverlaySetup()
 
          let players = game.GetAllPlayers()
 
-         for ( let player of players )
+         for ( let pair of file.characterToPlayer )
          {
-            if ( player === localPlayer )
-               continue
+            let player = pair[1]
+            Assert( player !== localPlayer, "pair[1] !== localPlayer" )
+            let isVisible = false
+            let part: BasePart | undefined
+            let head: Part | undefined
+            let character = pair[0]
 
-            let withinVisibleDist = false
-            let character = player.Character
-            let partScreenCenter = new Vector3( 0, 0, 0 )
-            let hasCharacter = false
-            if ( character !== undefined )
+            let count = characterChildrenCount.get( character )
+            if ( count === undefined || count < character.GetChildren().size() )
             {
-               hasCharacter = true
-               let part = character.PrimaryPart
-               if ( part === undefined )
-                  continue
-
-               let head = GetFirstChildWithNameAndClassName( character, 'Head', 'Part' ) as Part
-               if ( head === undefined )
-                  continue
-
-               let [_partScreenCenter, _2] = camera.WorldToScreenPoint( head.Position )
-               partScreenCenter = _partScreenCenter
-               let dist = partScreenCenter.sub( screenCenter ).Magnitude
-
-               withinVisibleDist =
-                  IsAlive( player ) &&
-                  !game.IsSpectator( player ) &&
-                  dist < VISUAL_DIST
+               characterChildrenCount.set( character, character.GetChildren().size() )
+               Hide( player, character )
             }
 
-            let wasVisible = visiblePlayersToPLabel.has( player )
-            if ( withinVisibleDist === wasVisible )
+            part = character.PrimaryPart
+            if ( part !== undefined )
+               head = GetFirstChildWithNameAndClassName( character, 'Head', 'Part' ) as Part
+
+            if ( head === undefined )
             {
-               if ( withinVisibleDist )
+               Hide( player, character )
+               continue
+            }
+
+            /*
+            if ( head === undefined )
+            {
+               let elem = visiblePlayersToLabel.get( player )
+               if ( elem !== undefined )
                {
-                  let textLabel = visiblePlayersToPLabel.get( player ) as TextLabel
+                  elem.Destroy()
+                  visiblePlayersToLabel.delete( player )
+               }
+            }
+            else            
+            {
+               */
+            let [partScreenCenter, _2] = camera.WorldToScreenPoint( head.Position )
+            let dist = partScreenCenter.sub( screenCenter ).Magnitude
+
+            isVisible =
+               IsAlive( player ) &&
+               !game.IsSpectator( player ) &&
+               dist < VISUAL_DIST
+
+            let wasVisible = visiblePlayersToLabel.has( player )
+            if ( isVisible === wasVisible )
+            {
+               if ( isVisible )
+               {
+                  let textLabel = visiblePlayersToLabel.get( player ) as TextLabel
                   textLabel.Position = new UDim2( 0, partScreenCenter.X, 0, partScreenCenter.Y )
                }
 
                continue
             }
 
-            if ( withinVisibleDist )
+            if ( isVisible )
             {
-               if ( hasCharacter )
-                  TweenPlayerParts( player, FADE_IN, FADE_TIME )
+               TweenPlayerParts( player, FADE_IN, FADE_TIME, "FADE_IN" )
                let textLabel = CreatePlayerNum( player )
-               visiblePlayersToPLabel.set( player, textLabel )
+               if ( textLabel !== undefined )
+                  visiblePlayersToLabel.set( player, textLabel )
             }
             else
             {
-               if ( hasCharacter )
-                  TweenPlayerParts( player, FADE_OUT, FADE_TIME )
-               let textLabel = visiblePlayersToPLabel.get( player ) as TextLabel
-               textLabel.Destroy()
-               visiblePlayersToPLabel.delete( player )
+               TweenPlayerParts( player, FADE_OUT, FADE_TIME, "FADE_OUT" )
+               let textLabel = visiblePlayersToLabel.get( player )
+               if ( textLabel !== undefined )
+                  textLabel.Destroy()
+               visiblePlayersToLabel.delete( player )
             }
          }
 
@@ -253,24 +321,26 @@ export function CL_FadeOverlaySetup()
             let [partScreenCenter, _2] = camera.WorldToScreenPoint( corpse.pos )
             let dist = partScreenCenter.sub( screenCenter ).Magnitude
 
-            let withinVisibleDist = dist < VISUAL_DIST
+            let isVisible = dist < VISUAL_DIST
             let wasVisible = visibleCorpsesToLabel.has( corpse )
-            if ( withinVisibleDist === wasVisible )
+            if ( isVisible === wasVisible )
                continue
 
-            if ( withinVisibleDist )
+            if ( isVisible )
             {
                //TweenPlayerParts( corpse, FADE_IN, FADE_TIME )
                SetCharacterTransparency( corpse.clientModel, 0 )
                let textLabel = CreatePlayerNum( corpse.player )
-               visibleCorpsesToLabel.set( corpse, textLabel )
+               if ( textLabel !== undefined )
+                  visibleCorpsesToLabel.set( corpse, textLabel )
             }
             else
             {
                //TweenPlayerParts( corpse, FADE_OUT, FADE_TIME )
                SetCharacterTransparency( corpse.clientModel, 1 )
-               let textLabel = visibleCorpsesToLabel.get( corpse ) as TextLabel
-               textLabel.Destroy()
+               let textLabel = visibleCorpsesToLabel.get( corpse )
+               if ( textLabel !== undefined )
+                  textLabel.Destroy()
                visibleCorpsesToLabel.delete( corpse )
             }
          }
@@ -285,11 +355,11 @@ export function CL_FadeOverlaySetup()
             let coin = coins[index]
             let [partScreenCenter, _2] = camera.WorldToScreenPoint( coin.Position )
             let dist = partScreenCenter.sub( screenCenter ).Magnitude
-            let withinVisibleDist = dist < VISUAL_DIST
+            let isVisible = dist < VISUAL_DIST
             let wasVisible = visibleCoins.has( coin )
             if ( knownCoins.has( coin ) )
             {
-               if ( withinVisibleDist === wasVisible )
+               if ( isVisible === wasVisible )
                   continue
             }
             else
@@ -297,7 +367,7 @@ export function CL_FadeOverlaySetup()
                knownCoins.set( coin, true )
             }
 
-            if ( withinVisibleDist )
+            if ( isVisible )
             {
                Tween( coin, { Transparency: 0 }, COIN_FADE_TIME )
                visibleCoins.set( coin, true )

@@ -184,8 +184,8 @@ class ButtonGroup
       this.checkYes = GetFirstChildWithNameAndClassName( parent, 'check_yes', 'ImageLabel' ) as ImageLabel
       this.checkNo = GetFirstChildWithNameAndClassName( parent, 'check_no', 'ImageLabel' ) as ImageLabel
 
-      this.checkboxYes.MouseButton1Up.Connect( checkYes )
-      this.checkboxNo.MouseButton1Up.Connect(
+      this.checkboxYes.MouseButton1Click.Connect( checkYes )
+      this.checkboxNo.MouseButton1Click.Connect(
          function ()
          {
             buttonGroup.HideChecks()
@@ -217,7 +217,7 @@ class ButtonGroup
       invisiButton.BackgroundTransparency = 1
       invisiButton.BorderSizePixel = 0
       invisiButton.Text = ""
-      invisiButton.MouseButton1Up.Connect(
+      invisiButton.MouseButton1Click.Connect(
          function ()
          {
             displayChecks( buttonGroup )
@@ -277,12 +277,12 @@ class ActiveMeeting
          if ( game.GetGameState() !== GAME_STATE.GAME_STATE_MEETING_VOTE )
             return
 
-         if ( game.IsSpectator( player ) )
+         if ( game.IsSpectator( localPlayer ) )
             return
 
          for ( let vote of game.GetVotes() )
          {
-            if ( vote.voter === player )
+            if ( vote.voter === localPlayer )
                return // already voted
          }
 
@@ -291,7 +291,7 @@ class ActiveMeeting
             buttonGroup.HideChecks()
          }
 
-         switch ( game.GetPlayerRole( player ) )
+         switch ( game.GetPlayerRole( localPlayer ) )
          {
             case ROLE.ROLE_POSSESSED:
             case ROLE.ROLE_CAMPER:
@@ -320,7 +320,7 @@ class ActiveMeeting
 
       let activeMeeting = this
 
-      let player = GetLocalPlayer()
+      let localPlayer = GetLocalPlayer()
 
       for ( let i = 0; i < players.size(); i++ )
       {
@@ -400,7 +400,7 @@ class ActiveMeeting
             timeRemaining++
          let timeRemainingMsg = " (" + timeRemaining + ")"
 
-         if ( game.IsSpectator( player ) )
+         if ( game.IsSpectator( localPlayer ) )
          {
             switch ( game.GetGameState() )
             {
@@ -418,7 +418,7 @@ class ActiveMeeting
             switch ( game.GetGameState() )
             {
                case GAME_STATE.GAME_STATE_MEETING_VOTE:
-                  if ( game.DidVote( player ) )
+                  if ( !game.DidVote( localPlayer ) )
                      activeMeeting.meetingMessage.Text = "Make your vote!" + timeRemainingMsg
                   else
                      activeMeeting.meetingMessage.Text = "Waiting for votes.." + timeRemainingMsg

@@ -201,6 +201,7 @@ function CLGameStateChanged( oldGameState: number, newGameState: number )
          break
 
       case GAME_STATE.GAME_STATE_MEETING_VOTE:
+         print( "LEAVING GAME STATE GAME_STATE_MEETING_VOTE" )
          let voteResults = GetVoteResults( file.clientGame.GetVotes() )
          let voted = voteResults.voted
          let votedAndReceivedNoVotesMap = new Map<Player, boolean>()
@@ -240,7 +241,7 @@ function CLGameStateChanged( oldGameState: number, newGameState: number )
          break
    }
 
-   print( "Entering game state " + newGameState )
+   print( "Game State from  " + oldGameState + " to " + newGameState )
    // entering this game state
    switch ( newGameState )
    {

@@ -49,26 +49,8 @@ export function ReportEvent( action: string, name: string, value?: number )
    //let action = "Category-Action"
    if ( value === undefined )
       value = 1
+
+   name = name.gsub( "\n", "//" )[0]
    file.GA.ReportEvent( category, action, name, value )
 }
 
-/*
-class GoogleAnalytics
-{
-   public ReportEvent( category: string, action: string, name: string, value: number )
-   {
-
-   }
-}
-
-
-
-local GA = require( 153590792 )
-local result = GA.Init( "UA-185857526-1", config )
-
-local category = "PlaceId-"..game.PlaceId
-local action = "Category-Action"
-
-GA.ReportEvent( category, action, "none", 1 )
-GA.ReportEvent( category, action, "something", 2 )
-*/

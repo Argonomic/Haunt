@@ -369,15 +369,13 @@ export function SetPlayerTransparency( player: Player, value: number )
    if ( char === undefined )
       return
 
+   //print( "!OOO SetPlayerTransparency " + player.Name + " " + value + " parts " + char.GetChildren().size() )
+
    SetCharacterTransparency( char, value )
 }
 
 export function SetCharacterTransparency( char: Model, value: number )
 {
-   //   let player = GetPlayerFromCharacter( char )
-   //   if ( player !== undefined )
-   //      print( "!SetCharacterTransparency " + player.Name + " " + value )
-
    let head = char.FindFirstChild( "Head" )
    if ( head )
    {

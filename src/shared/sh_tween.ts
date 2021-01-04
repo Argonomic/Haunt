@@ -1,5 +1,6 @@
 import { TweenService } from "@rbxts/services"
 import { Assert } from "shared/sh_assert"
+import { GetPlayerFromCharacter } from "./sh_utils"
 
 const ENABLED = true
 
@@ -74,8 +75,12 @@ export function TweenCharacterParts( character: Model, goal: any, time: number )
    Recursive( character )
 }
 
-export function TweenPlayerParts( player: Player, goal: any, time: number )
+export function TweenPlayerParts( player: Player, goal: any, time: number, debugMsg: string )
 {
+   if ( player.Character === undefined )
+      return
+
+   //print( "OOO TweenCharacterParts " + player.Name + " " + debugMsg + " parts: " + ( player.Character as Model ).GetChildren().size() )
    TweenCharacterParts( player.Character as Model, goal, time )
 }
 

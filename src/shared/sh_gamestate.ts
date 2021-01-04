@@ -1,9 +1,9 @@
 import { HttpService, RunService, Workspace } from "@rbxts/services"
 import { AddNetVar, GetNetVar_Number, GetNetVar_String, SetNetVar } from "shared/sh_player_netvars"
 import { AddCooldown } from "./sh_cooldown"
-import { AddCallback_OnPlayerConnected, SetPlayerWalkSpeed } from "./sh_onPlayerConnect"
-import { COOLDOWNTIME_MEETING, COOLDOWNTIME_KILL, MEETING_DISCUSS_TIME, MEETING_VOTE_TIME, PLAYER_WALKSPEED, SPECTATOR_TRANS } from "./sh_settings"
-import { IsServer, IsClient, UserIDToPlayer, IsAlive, SetPlayerTransparency, GetLocalPlayer, ExecOnChildWhenItExists, Resume, Thread, RandomFloatRange, RandomInt } from "./sh_utils"
+import { SetPlayerWalkSpeed } from "./sh_onPlayerConnect"
+import { COOLDOWNTIME_MEETING, COOLDOWNTIME_KILL, MEETING_DISCUSS_TIME, MEETING_VOTE_TIME, PLAYER_WALKSPEED_SPECTATOR, PLAYER_WALKSPEED, SPECTATOR_TRANS } from "./sh_settings"
+import { IsServer, IsClient, UserIDToPlayer, IsAlive, SetPlayerTransparency, GetLocalPlayer, Resume, Thread } from "./sh_utils"
 import { Assert } from "shared/sh_assert"
 import { GiveAbility, TakeAbility } from "./sh_ability"
 import { ABILITIES } from "./content/sh_ability_content"
@@ -70,8 +70,9 @@ export enum GAME_STATE
    GAME_STATE_PLAYING, //2
    GAME_STATE_MEETING_DISCUSS, //3 
    GAME_STATE_MEETING_VOTE,//4
-   GAME_STATE_COMPLETE, //5
-   GAME_STATE_DEAD, //6
+   GAME_STATE_MEETING_RESULTS,//5
+   GAME_STATE_COMPLETE, //6
+   GAME_STATE_DEAD, //7
 }
 
 export enum MEETING_TYPE
@@ -779,7 +780,7 @@ export class Game
 
          default:
             if ( this.IsSpectator( player ) )
-               SetPlayerWalkSpeed( player, PLAYER_WALKSPEED * 1.5 )
+               SetPlayerWalkSpeed( player, PLAYER_WALKSPEED_SPECTATOR )
             else
                SetPlayerWalkSpeed( player, PLAYER_WALKSPEED )
             break

@@ -94,10 +94,10 @@ export function SV_UseContentSetup()
          game.corpses.push( new Corpse( camper, GetPosition( camper ) ) )
          game.playerToSpawnLocation.set( camper, GetPosition( camper ) )
          PlayerDropsCoins( camper, GetPosition( player ) )
+         game.SetPlayerRole( camper, ROLE.ROLE_SPECTATOR_CAMPER )
          KillPlayer( camper )
          SendRPC( "RPC_FromServer_CancelTask", player )
 
-         game.SetPlayerRole( camper, ROLE.ROLE_SPECTATOR_CAMPER )
          ClearAssignments( game, camper )
 
          game.UpdateGame()

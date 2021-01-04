@@ -1,7 +1,7 @@
 import { AddRPC } from "shared/sh_rpc"
 import { Assignment, AssignmentIsSame, NETVAR_JSON_TASKLIST } from "shared/sh_gamestate"
 import { AddNetVarChangedCallback, GetNetVar_String } from "shared/sh_player_netvars"
-import { ReleaseDraggedButton, AddCallback_MouseUp } from "client/cl_ui"
+import { ReleaseDraggedButton, AddCallback_MouseClick } from "client/cl_ui"
 import { SendRPC } from "./cl_utils"
 import { GetLocalPlayer, LoadSound, Thread } from "shared/sh_utils"
 import { Assert } from "shared/sh_assert"
@@ -217,7 +217,7 @@ export function RPC_FromServer_OnPlayerUseTask( roomName: string, taskName: stri
 
    activeTaskStatus.closeFunction = closeFunction
 
-   activeTaskStatus.closeButtonCallback = AddCallback_MouseUp( closeButton, function ()
+   activeTaskStatus.closeButtonCallback = AddCallback_MouseClick( closeButton, function ()
    {
       closeFunction()
    } )

@@ -72,7 +72,6 @@ class MatchScreenFrame
 
       let thisThread = coroutine.running()
 
-      print( "Starting matchscreen " + str )
       let player = GetLocalPlayer()
       SetPlayerWalkSpeed( player, 0 )
 
@@ -84,7 +83,6 @@ class MatchScreenFrame
                //print( "coroutine.status( thisThread ): " + str + " " + coroutine.status( thisThread ) + " " + thisThread )
                if ( coroutine.status( thisThread ) === "dead" )
                {
-                  print( "Finished matchscreen " + str )
                   Thread( function ()
                   {
                      wait( 2 ) // give the frame a chance to fade away
@@ -169,6 +167,12 @@ export function CL_MatchScreenSetup()
 
             wait( 1.0 )
 
+            if ( GetNetVar_Number( GetLocalPlayer(), NETVAR_MATCHMAKING_STATUS ) === MATCHMAKING_STATUS.MATCHMAKING_WAITING_TO_PLAY )
+            {
+               frame.TitleFrame.SubTitle.Text = "Get Ready, the game is about to start!"
+               Tween( frame.TitleFrame.SubTitle, { TextTransparency: 0 }, 1 )
+            }
+
             for ( ; ; )
             {
                if ( GetNetVar_Number( GetLocalPlayer(), NETVAR_MATCHMAKING_STATUS ) !== MATCHMAKING_STATUS.MATCHMAKING_WAITING_TO_PLAY )
@@ -179,7 +183,9 @@ export function CL_MatchScreenSetup()
             print( "CLIENT GAME STARTED" )
 
             const TIME = 2.0
-            Tween( frame, { Transparency: 1.0 }, TIME, Enum.EasingStyle.Linear, Enum.EasingDirection.Out )
+            Tween( frame.TitleFrame.SubTitle, { TextTransparency: 1.0 }, 1.0 )
+            Tween( frame, { Transparency: 1.0 }, TIME )
+
             wait( TIME )
             frame.Destroy()
          } )

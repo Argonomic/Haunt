@@ -32,7 +32,7 @@ export enum UIORDER
 
 class File
 {
-   playedBeta = false
+   playedBeta = true
    pickupSound = LoadSound( 4831091467 )
    dragOffsetX = 0
    dragOffsetY = 0
@@ -129,9 +129,9 @@ export function AddDraggedButton( button: ImageButton ): RBXScriptConnection
    } )
 }
 
-export function AddCallback_MouseUp( button: GuiButton, func: Callback ): RBXScriptConnection
+export function AddCallback_MouseClick( button: GuiButton, func: Callback ): RBXScriptConnection
 {
-   return button.MouseButton1Up.Connect( func )
+   return button.MouseButton1Click.Connect( func )
 }
 
 export function ReleaseDraggedButton()
@@ -431,7 +431,7 @@ export class ToggleButton
 
       let toggleButton = this
 
-      button.MouseButton1Up.Connect( function ()
+      button.MouseButton1Click.Connect( function ()
       {
          toggleButton.taskListOpen = !toggleButton.taskListOpen
          toggleButton.Update()
@@ -474,12 +474,12 @@ export function AddClickable( clickUI: EDITOR_ClickableUI, canClickFunc: ( () =>
    let textButton = imageButton.TextButton
    let countdown = imageButton.Countdown
 
-   textButton.MouseButton1Up.Connect( function ()
+   textButton.MouseButton1Click.Connect( function ()
    {
       onClickFunc()
    } )
 
-   imageButton.MouseButton1Up.Connect( function ()
+   imageButton.MouseButton1Click.Connect( function ()
    {
       onClickFunc()
    } )

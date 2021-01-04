@@ -1,7 +1,7 @@
 import { HttpService, RunService, UserInputService, Workspace } from "@rbxts/services"
 import { AddCaptureInputChangeCallback, AddOnTouchEndedCallback } from "client/cl_input"
 import { AddTaskSpec, AddTaskUI, TaskStatus, TASK_UI } from "client/cl_tasks"
-import { AddDraggedButton, GetDraggedButton, ReleaseDraggedButton, ElementWithinElement, AddCallback_MouseUp, MoveOverTime, ElementDist_TopLeft, UIORDER, ElementDist, ElementDistFromXY, AddPlayerGuiFolderExistsCallback } from "client/cl_ui"
+import { AddDraggedButton, GetDraggedButton, ReleaseDraggedButton, ElementWithinElement, AddCallback_MouseClick, MoveOverTime, ElementDist_TopLeft, UIORDER, ElementDist, ElementDistFromXY, AddPlayerGuiFolderExistsCallback } from "client/cl_ui"
 import { TASK_EXIT, TASK_RESTORE_LIGHTS } from "shared/sh_gamestate"
 import { Tween, TweenThenDestroy } from "shared/sh_tween"
 import { ArrayRandomize, ExecOnChildWhenItExists, GetChildren_NoFutureOffspring, GetExistingFirstChildWithNameAndClassName, LoadSound, RandomFloatRange, RandomInt, Thread } from "shared/sh_utils"
@@ -550,41 +550,44 @@ function Task_WinAtCheckers( frame: Frame, closeTaskThread: Function, status: Ta
 
       if ( kinged )
       {
-         MoveOverTime(
-            kingPiece,
-            checkerSpots[count].Position.add( new UDim2( 0, 0, -0.02, 0 ) )
-            , MOVE_TIME, function () { } )
+         if ( count < checkerSpots.size() )
+            MoveOverTime(
+               kingPiece,
+               checkerSpots[count].Position.add( new UDim2( 0, 0, -0.02, 0 ) )
+               , MOVE_TIME, function () { } )
       }
 
       file.checkerSound.Play()
-      MoveOverTime( clickChecker, checkerSpots[count].Position, MOVE_TIME,
-         function ()
-         {
-            MoveOverTime( checkerBlackLive[count], checkerBlackSpots[count].Position, MOVE_TIME,
-               function ()
+      if ( count < checkerSpots.size() )
+         MoveOverTime( clickChecker, checkerSpots[count].Position, MOVE_TIME,
+            function ()
+            {
+               if ( count < checkerBlackLive.size() )
+                  MoveOverTime( checkerBlackLive[count], checkerBlackSpots[count].Position, MOVE_TIME,
+                     function ()
+                     {
+                     }
+                  )
+
+               count++
+               if ( count === 3 )
                {
+                  kingMe.Visible = true
+                  return
                }
-            )
 
-            count++
-            if ( count === 3 )
-            {
-               kingMe.Visible = true
-               return
+               if ( count >= checkerSpots.size() )
+               {
+                  MoveOverTime( clickChecker, clickChecker.Position, MOVE_TIME,
+                     function ()
+                     {
+                        status.success = true
+                        closeTaskThread()
+                     }
+                  )
+               }
             }
-
-            if ( count >= checkerSpots.size() )
-            {
-               MoveOverTime( clickChecker, clickChecker.Position, MOVE_TIME,
-                  function ()
-                  {
-                     status.success = true
-                     closeTaskThread()
-                  }
-               )
-            }
-         }
-      )
+         )
    }
 
    let extraClickBuffer = new Instance( 'ImageButton' )
@@ -593,10 +596,10 @@ function Task_WinAtCheckers( frame: Frame, closeTaskThread: Function, status: Ta
    extraClickBuffer.AnchorPoint = new Vector2( 0.3, 0.3 )
    extraClickBuffer.BackgroundTransparency = 1.0
 
-   AddCallback_MouseUp( clickChecker, onCheckerClick )
-   AddCallback_MouseUp( extraClickBuffer, onCheckerClick )
+   AddCallback_MouseClick( clickChecker, onCheckerClick )
+   AddCallback_MouseClick( extraClickBuffer, onCheckerClick )
 
-   AddCallback_MouseUp( kingMe, function ()
+   AddCallback_MouseClick( kingMe, function ()
    {
       if ( kinged )
          return
@@ -607,7 +610,7 @@ function Task_WinAtCheckers( frame: Frame, closeTaskThread: Function, status: Ta
             kinged = true
             kingMe.Visible = false
             file.kingSound.Play()
-            AddCallback_MouseUp( kingPiece, onCheckerClick )
+            AddCallback_MouseClick( kingPiece, onCheckerClick )
 
             //kingPiece.Parent = clickChecker
             //kingPiece.Position = new UDim2( 0.01, 0, 0.2, 0 )
@@ -791,7 +794,7 @@ function Task_LightCandle( frameIn: Frame, closeTaskThread: Function, status: Ta
                file.matchboxFlameSound.Play()
                Thread( function ()
                {
-                  wait( 1.5 )
+                  wait( 0.6 )
                   let draggedButton = GetDraggedButton()
                   ReleaseDraggedButton()
                   if ( draggedButton !== undefined )

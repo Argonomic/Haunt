@@ -28,7 +28,6 @@ export function CL_PlayerSetup()
                   count++
             } )
 
-            print( "StarterGui.SetCore( 'ResetButtonCallback', false ) " + count )
             if ( count )
                return
          }
@@ -64,8 +63,8 @@ export function CL_PlayerSetup()
          }
          else
          {
-            if ( game.IsSpectator( player ) )
-               SetPlayerTransparency( player, 1 ) // need to do this here because this waits until player has a model
+            //            if ( game.IsSpectator( player ) )
+            //               SetPlayerTransparency( player, 1 ) // need to do this here because this waits until player has a model
          }
 
          wait() // otherwise fights with other color setters somewhere
@@ -77,8 +76,8 @@ export function CL_PlayerSetup()
          }
          else
          {
-            if ( game.IsSpectator( player ) )
-               SetPlayerTransparency( player, 1 ) // need to do this here because this waits until player has a model
+            //            if ( game.IsSpectator( player ) )
+            //               SetPlayerTransparency( player, 1 ) // need to do this here because this waits until player has a model
          }
       } )
    } )

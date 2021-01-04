@@ -117,7 +117,7 @@ export function CreateCoin( location: Vector3, coinData: CoinData ): Part
    model.Parent = folder
 
    file.coinToCoinType.set( model, coinData.coinType )
-   print( "coins: " + file.allCoins.size() )
+   //print( "coins: " + file.allCoins.size() )
    for ( let func of file.coinCreatedCallbacks )
    {
       func( model )

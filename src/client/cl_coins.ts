@@ -19,18 +19,21 @@ type EDITOR_CoinUI = ScreenGui &
 class File
 {
    lastKnownScore = 0
-   currentlyDisplayedGain = 0
+   currentlyPickingUp = 0
+   currentlyDisplayedScore = 0
    startPosition: UDim2 | undefined
 
    coinUI: EDITOR_CoinUI | undefined
+
+   gemSound = LoadSound( 3147769418 ) // 1369094465 )
    coinSounds: Array<Sound> = [
-      LoadSound( 4612374937 ),
-      LoadSound( 4612375051 ),
-      LoadSound( 4612374807 ),
-      //LoadSound( 607665037 ),
-      //LoadSound( 607662191 ),
-      //LoadSound( 359628148 ),
-      //LoadSound( 4612376715 ),
+      //LoadSound( 4612374937 ),
+      //LoadSound( 4612375051 ),
+      //LoadSound( 4612374807 ),
+      LoadSound( 607665037 ),
+      LoadSound( 607662191 ),
+      LoadSound( 359628148 ),
+      LoadSound( 4612376715 ),
    ]
 }
 let file = new File()
@@ -94,8 +97,32 @@ export function CL_CoinsSetup()
             if ( waittime > 0 )
                wait( waittime )
 
-            let sound = ArrayRandom( file.coinSounds ) as Sound
-            sound.Play()
+            switch ( coinType )
+            {
+               case COIN_TYPE.TYPE_GEM:
+                  {
+                     let sound = file.gemSound
+                     sound.Volume = 0.75
+                     sound.Play()
+                  }
+                  break
+
+               case COIN_TYPE.TYPE_GOLD:
+                  {
+                     let sound = ArrayRandom( file.coinSounds ) as Sound
+                     sound.Volume = 0.5
+                     sound.Play()
+                  }
+                  break
+
+               case COIN_TYPE.TYPE_SILVER:
+                  {
+                     let sound = ArrayRandom( file.coinSounds ) as Sound
+                     sound.Volume = 0.25
+                     sound.Play()
+                  }
+                  break
+            }
          } )
       } )
 
@@ -182,17 +209,18 @@ function DrawGainedPoints( score: number )
          file.coinUI.TextLabel.Text = score + ""
       else
          file.coinUI.TextLabel.Text = ""
+      file.currentlyDisplayedScore = score
       return
    }
 
    let label = file.coinUI.CenterLabel
    let gain = score - file.lastKnownScore
-   let lastGain = file.currentlyDisplayedGain
-   file.currentlyDisplayedGain = gain
+   let lastPickingUpAmount = file.currentlyPickingUp
+   file.currentlyPickingUp = gain
 
    let mainScore = file.coinUI.TextLabel
 
-   if ( gain - lastGain >= 10 )
+   if ( gain - lastPickingUpAmount >= 10 )
    {
       Thread( function ()
       {
@@ -200,11 +228,11 @@ function DrawGainedPoints( score: number )
          let endTime = startTime + 0.3
          for ( ; ; )
          {
-            let num = math.floor( GraphCapped( Workspace.DistributedGameTime, startTime, endTime, lastGain, gain ) )
+            let num = math.floor( GraphCapped( Workspace.DistributedGameTime, startTime, endTime, lastPickingUpAmount, gain ) )
             if ( num < 1 )
                num = 1
             label.Text = "+" + num
-            if ( file.currentlyDisplayedGain !== gain )
+            if ( file.currentlyPickingUp !== gain )
                return
             if ( Workspace.DistributedGameTime >= endTime )
                return
@@ -225,19 +253,19 @@ function DrawGainedPoints( score: number )
       label.Size = new UDim2( 0.25, 0, 0.25, 0 )
 
       Tween( label, { Size: new UDim2( 0.08, 0, 0.08, 0 ) }, 0.5, Enum.EasingStyle.Quad, Enum.EasingDirection.Out )
-      wait( 1.2 )
+      wait( 0.5 )
 
-      if ( file.currentlyDisplayedGain !== gain )
+      if ( file.currentlyPickingUp !== gain )
          return
 
       Tween( label, { TextTransparency: 1, TextStrokeTransparency: 1 }, 0.8, Enum.EasingStyle.Quad, Enum.EasingDirection.Out )
 
-      if ( file.currentlyDisplayedGain !== gain )
+      if ( file.currentlyPickingUp !== gain )
          return
 
       mainScore.TextColor3 = SCORE_COLOR
 
-      if ( score - lastKnownScore >= 10 )
+      if ( score - lastKnownScore > 1 )
       {
          Thread( function ()
          {
@@ -245,28 +273,39 @@ function DrawGainedPoints( score: number )
             let endTime = startTime + 0.3
             for ( ; ; )
             {
-               let num = math.floor( GraphCapped( Workspace.DistributedGameTime, startTime, endTime, lastKnownScore, score ) )
-               mainScore.Text = num + ""
+               let num = math.floor( GraphCapped( Workspace.DistributedGameTime, startTime, endTime, lastKnownScore + 1, score ) )
+               if ( num > file.currentlyDisplayedScore )
+               {
+                  file.currentlyDisplayedScore = num
+                  mainScore.Text = num + ""
+               }
                if ( Workspace.DistributedGameTime >= endTime )
                   return
                wait()
+               if ( file.currentlyPickingUp !== gain )
+                  return
             }
          } )
       }
       else
       {
-         mainScore.Text = score + ""
+         if ( score > file.currentlyDisplayedScore )
+         {
+            file.currentlyDisplayedScore = score
+            mainScore.Text = score + ""
+         }
       }
 
 
       wait( 0.5 )
 
-      if ( file.currentlyDisplayedGain !== gain )
+      if ( file.currentlyPickingUp !== gain )
          return
 
       Tween( mainScore, { TextColor3: WHITE }, 1.5 )
       file.lastKnownScore = score
-      file.currentlyDisplayedGain = 0
+
+      file.currentlyPickingUp = 0
    } )
 }
 

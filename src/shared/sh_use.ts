@@ -1,6 +1,3 @@
-import { GetPlayerCooldownTimeRemaining } from "./sh_cooldown"
-import { USE_COOLDOWNS } from "./sh_gamestate"
-import { AddRPC } from "./sh_rpc"
 import { GetPosition, IsServer, Thread } from "./sh_utils"
 import { Assert } from "shared/sh_assert"
 
@@ -18,7 +15,9 @@ class File
 {
    usablesByType = new Map<USETYPES, Usable>()
    debug = false
+   debugMsg = ""
 }
+let file = new File()
 
 export class UseResults
 {
@@ -80,14 +79,10 @@ export class Usable
    }
 }
 
-let file = new File()
-
 export function SH_UseSetup()
 {
    if ( IsServer() )
    {
-      AddRPC( "RPC_FromClient_OnUse", RPC_FromClient_OnUse )
-
       Thread(
          function ()
          {
@@ -113,38 +108,6 @@ export function SH_UseSetup()
             }
          } )
    }
-}
-
-function RPC_FromClient_OnUse( player: Player )
-{
-   print( "RPC_FromClient_OnUse " + player.Name )
-
-   let useResults = GetUseResultsForAttempt( player )
-   if ( useResults === undefined )
-   {
-      file.debug = true
-      GetUseResultsForAttempt( player )
-      file.debug = false
-
-      print( "no useResults" )
-      return
-   }
-   if ( useResults.usedThing === undefined )
-      return
-
-   if ( GetPlayerCooldownTimeRemaining( player, USE_COOLDOWNS + useResults.usable.useType ) > 0 )
-   {
-      print( "On cooldown" )
-      return
-   }
-
-   let successFunc = useResults.usable.successFunc
-   if ( successFunc === undefined )
-   {
-      print( "no success func" )
-      return
-   }
-   successFunc( player, useResults.usedThing )
 }
 
 export function AddUseType( useType: USETYPES, image: string, text: string )
@@ -186,11 +149,29 @@ class BuildUseResults
    }
 }
 
+export function GetDebugBuffer(): string
+{
+   return file.debugMsg
+}
+
+export function EnableDebug()
+{
+   file.debug = true
+}
+
+export function DisableDebug()
+{
+   file.debug = false
+}
+
 
 export function GetUseResultsForAttempt( player: Player ): UseResults | undefined
 {
    if ( file.debug )
-      print( "GetUseResultsForAttempt " + player.Name )
+   {
+      file.debugMsg = ""
+      file.debugMsg += "GetUseResultsForAttempt " + player.Name + "\n"
+   }
    let pos = GetPosition( player )
 
    let buildUseResults: Array<BuildUseResults> = []
@@ -198,13 +179,13 @@ export function GetUseResultsForAttempt( player: Player ): UseResults | undefine
    for ( let usable of usables )
    {
       if ( file.debug )
-         print( "test " + usable.useType + " " + usable.text )
+         file.debugMsg += "test " + usable.useType + " " + usable.text + "\n"
 
       if ( usable.testPlayerPosToInstance !== undefined )
       {
          let targets = usable.ExecuteGetter( player ) as Array<Instance>
          if ( file.debug )
-            print( "1 Targets: " + targets.size() )
+            file.debugMsg += "1 Targets: " + targets.size() + "\n"
 
          for ( let target of targets )
          {
@@ -220,13 +201,13 @@ export function GetUseResultsForAttempt( player: Player ): UseResults | undefine
          }
 
          if ( file.debug )
-            print( "1 buildUseResults: " + buildUseResults.size() )
+            file.debugMsg += "1 buildUseResults: " + buildUseResults.size() + "\n"
       }
       else if ( usable.testPlayerToBasePart !== undefined )
       {
          let targets = usable.ExecuteGetter( player ) as Array<BasePart>
          if ( file.debug )
-            print( "2 Targets: " + targets.size() )
+            file.debugMsg += "2 Targets: " + targets.size() + "\n"
 
          for ( let target of targets )
          {
@@ -242,13 +223,13 @@ export function GetUseResultsForAttempt( player: Player ): UseResults | undefine
          }
 
          if ( file.debug )
-            print( "2 buildUseResults: " + buildUseResults.size() )
+            file.debugMsg += "2 buildUseResults: " + buildUseResults.size() + "\n"
       }
       else if ( usable.testPlayerPosToPos !== undefined )
       {
          let targets = usable.ExecuteGetter( player ) as Array<Vector3>
          if ( file.debug )
-            print( "3 Targets: " + targets.size() )
+            file.debugMsg += "3 Targets: " + targets.size() + "\n"
 
          for ( let target of targets )
          {
@@ -264,7 +245,7 @@ export function GetUseResultsForAttempt( player: Player ): UseResults | undefine
          }
 
          if ( file.debug )
-            print( "3 buildUseResults: " + buildUseResults.size() )
+            file.debugMsg += "3 buildUseResults: " + buildUseResults.size() + "\n"
       }
       else
       {
@@ -274,12 +255,12 @@ export function GetUseResultsForAttempt( player: Player ): UseResults | undefine
       if ( usable.forceVisibleTest() )
       {
          if ( file.debug )
-            print( "4 forcevis" )
+            file.debugMsg += "4 forcevis" + "\n"
          buildUseResults.push( new BuildUseResults( new UseResults( usable ), pos, pos ) )
       }
    }
    if ( file.debug )
-      print( "5 buildUseResults: " + buildUseResults.size() )
+      file.debugMsg += "5 buildUseResults: " + buildUseResults.size() + "\n"
 
    if ( buildUseResults.size() )
    {

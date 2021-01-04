@@ -26,7 +26,7 @@ export function SV_AbilityContentSetup()
             print( "Give restore lights task" )
          }
 
-         LIGHTS_OUT_SOUND.Volume = 5
+         LIGHTS_OUT_SOUND.Volume = 0.8
          LIGHTS_OUT_SOUND.Play()
       } )
 

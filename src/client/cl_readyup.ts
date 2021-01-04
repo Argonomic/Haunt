@@ -65,12 +65,12 @@ export function CL_ReadyUpSetup()
       file.toggleButton = toggleButton
       //toggleButton.Close()
 
-      frame.checkbox_play.MouseButton1Up.Connect( function ()
+      frame.checkbox_play.MouseButton1Click.Connect( function ()
       {
          SendRPC( "RPC_FromClient_RequestChange_MatchmakingStatus", MATCHMAKING_STATUS.MATCHMAKING_LFG )
       } )
 
-      frame.checkbox_practice.MouseButton1Up.Connect( function ()
+      frame.checkbox_practice.MouseButton1Click.Connect( function ()
       {
          SendRPC( "RPC_FromClient_RequestChange_MatchmakingStatus", MATCHMAKING_STATUS.MATCHMAKING_PRACTICE )
       } )
