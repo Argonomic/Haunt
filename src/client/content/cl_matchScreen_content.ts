@@ -18,8 +18,6 @@ let file = new File()
 
 export function CL_MatchScreenContentSetup()
 {
-   print( "CL_MatchScreenContentSetup" )
-
    /*
 AddNetVarChangedCallback( NETVAR_MATCHMAKING_STATUS, function ()
 {

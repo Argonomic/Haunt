@@ -23,7 +23,10 @@ class File
    currentlyDisplayedScore = 0
    startPosition: UDim2 | undefined
 
-   coinUI: EDITOR_CoinUI | undefined
+   coinUIs: Array<EDITOR_CoinUI> = []
+   coinUI_Popup: EDITOR_CoinUI | undefined
+   coinUI_Gain: EDITOR_CoinUI | undefined
+   coinUI_Total: EDITOR_CoinUI | undefined
 
    gemSound = LoadSound( 3147769418 ) // 1369094465 )
    coinSounds: Array<Sound> = [
@@ -46,31 +49,76 @@ export function CL_CoinsSetup()
    let player = GetLocalPlayer()
    AddPlayerGuiFolderExistsCallback( function ( folder: Folder )
    {
-      if ( file.coinUI !== undefined )
+      if ( file.coinUIs.size() > 0 )
       {
-         file.coinUI.Parent = folder
+         for ( let coinUI of file.coinUIs )
+         {
+            coinUI.Parent = folder
+         }
          return
       }
 
-      file.coinUI = GetFirstChildWithNameAndClassName( folder, 'CoinUI', 'ScreenGui' ) as EDITOR_CoinUI
-      file.coinUI.TextLabel.Text = ""
-      file.coinUI.CenterLabel.TextTransparency = 1
-      file.coinUI.DisplayOrder = UIORDER.UIORDER_SCORE
-      file.coinUI.Enabled = true
-
-      file.startPosition = file.coinUI.CenterLabel.Position
+      let coinUI = GetFirstChildWithNameAndClassName( folder, 'CoinUI', 'ScreenGui' ) as EDITOR_CoinUI
+      coinUI.Enabled = true
+      file.startPosition = coinUI.CenterLabel.Position
       let score = GetScore( player )
-      if ( score > 0 )
-         DrawGainedPoints( score )
-      else
-         file.coinUI.TextLabel.Text = ""
+
+      {
+         let coinUI_Gain = coinUI.Clone()
+         coinUI_Gain.Name = 'coinUI_Gain'
+         coinUI_Gain.Parent = coinUI.Parent
+         file.coinUI_Gain = coinUI_Gain
+         file.coinUIs.push( coinUI_Gain )
+
+         coinUI_Gain.DisplayOrder = UIORDER.UIORDER_SCORE_GAIN
+         coinUI_Gain.CenterLabel.TextTransparency = 1
+         coinUI_Gain.TextLabel.Destroy()
+      }
+
+      {
+         let coinUI_Total = coinUI.Clone()
+         coinUI_Total.Name = 'coinUI_Total'
+         coinUI_Total.Parent = coinUI.Parent
+         file.coinUI_Total = coinUI_Total
+         file.coinUIs.push( coinUI_Total )
+
+         coinUI_Total.DisplayOrder = UIORDER.UIORDER_SCORE_TOTAL
+         coinUI_Total.CenterLabel.Destroy()
+
+         if ( score === 0 )
+            coinUI_Total.TextLabel.Text = ""
+      }
+
+      {
+         let coinUI_Popup = coinUI.Clone()
+         coinUI_Popup.Name = 'coinUI_Popup'
+         coinUI_Popup.Parent = coinUI.Parent
+         file.coinUI_Popup = coinUI_Popup
+         file.coinUIs.push( coinUI_Popup )
+
+         coinUI_Popup.DisplayOrder = UIORDER.UIORDER_SCORE_POPUP
+         coinUI_Popup.TextLabel.Destroy()
+         coinUI_Popup.CenterLabel.Destroy()
+
+         Thread(
+            function ()
+            {
+               if ( score > 0 )
+                  DrawGainedPoints( score )
+            } )
+      }
+
+      coinUI.Destroy()
    } )
 
    AddCallback_OnPlayerCharacterAncestryChanged(
       function ()
       {
-         if ( file.coinUI !== undefined )
-            file.coinUI.Parent = undefined
+         for ( let coinUI of file.coinUIs )
+         {
+            if ( coinUI !== undefined )
+               coinUI.Parent = undefined
+         }
       } )
 
    AddNetVarChangedCallback( NETVAR_SCORE,
@@ -150,7 +198,7 @@ function CreatePointsElem( value: number, color: Color3 ): TextLabel
 
 function DrawRisingNumberFromWorldPos( pos: Vector3, value: number, color: Color3 )
 {
-   let coinUI = file.coinUI
+   let coinUI = file.coinUI_Popup
    if ( coinUI === undefined )
       return
 
@@ -180,17 +228,12 @@ function DrawRisingNumberFromWorldPos( pos: Vector3, value: number, color: Color
       } )
 }
 
-export function ClearCoinOverlays()
+export function ClearCoinPopUps()
 {
-   if ( file.coinUI === undefined )
+   if ( file.coinUI_Popup === undefined )
       return
 
-   //let coinUI = file.coinUI.Clone()
-   //coinUI.Parent = file.coinUI.Parent
-   //file.coinUI.Destroy()
-   //file.coinUI = coinUI
-
-   let children = file.coinUI.CoinPopups.GetChildren()
+   let children = file.coinUI_Popup.CoinPopups.GetChildren()
    for ( let child of children )
    {
       child.Destroy()
@@ -199,26 +242,31 @@ export function ClearCoinOverlays()
 
 function DrawGainedPoints( score: number )
 {
-   if ( file.coinUI === undefined )
+   let coinUI_Total = file.coinUI_Total
+   if ( coinUI_Total === undefined )
+      return
+
+   let coinUI_Gain = file.coinUI_Gain
+   if ( coinUI_Gain === undefined )
       return
 
    let lastKnownScore = file.lastKnownScore
    if ( score < lastKnownScore || score === 0 )
    {
       if ( score > 0 )
-         file.coinUI.TextLabel.Text = score + ""
+         coinUI_Total.TextLabel.Text = score + ""
       else
-         file.coinUI.TextLabel.Text = ""
+         coinUI_Total.TextLabel.Text = ""
       file.currentlyDisplayedScore = score
       return
    }
 
-   let label = file.coinUI.CenterLabel
+   let label = coinUI_Gain.CenterLabel
    let gain = score - file.lastKnownScore
    let lastPickingUpAmount = file.currentlyPickingUp
    file.currentlyPickingUp = gain
 
-   let mainScore = file.coinUI.TextLabel
+   let mainScore = coinUI_Total.TextLabel
 
    if ( gain - lastPickingUpAmount >= 10 )
    {

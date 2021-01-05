@@ -23,7 +23,7 @@ export function SV_CoinsSetup()
          return true
       }
 
-   if ( LOCAL && 0 )
+   if ( LOCAL && false )
    {
       Thread(
          function ()

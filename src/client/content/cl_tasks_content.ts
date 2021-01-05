@@ -190,6 +190,7 @@ function Task_PutBooksAway( frame: Frame, closeTaskThread: Function, status: Tas
       }
    }
 
+   const TOUCH_ENABLED = UserInputService.TouchEnabled // simpler version for touch
 
    let count = 0
 
@@ -200,7 +201,11 @@ function Task_PutBooksAway( frame: Frame, closeTaskThread: Function, status: Tas
          return
 
       let dest = bookSpotDestinations.get( button ) as ImageLabel
-      if ( ElementDist_TopLeft( button, dest ) < 8 )
+      let size = frame.AbsoluteSize.X * 0.025
+      if ( TOUCH_ENABLED )
+         size *= 4
+
+      if ( ElementDist_TopLeft( button, dest ) < size )
       {
          file.bookSound.Play()
          ReleaseDraggedButton()
