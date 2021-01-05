@@ -466,6 +466,15 @@ export function LightenColor( color: Color3, scale: number ): Color3
    return new Color3( colors[0], colors[1], colors[2] )
 }
 
+export function BlendColors( color1: Color3, color2: Color3, dif: number ): Color3
+{
+   let unDif = 1.0 - dif
+   return new Color3(
+      color1.r * dif + color2.r * unDif,
+      color1.g * dif + color2.g * unDif,
+      color1.b * dif + color2.b * unDif )
+}
+
 export function ScaleColor( color: Color3, scale: number ): Color3
 {
    let colors = [color.r, color.g, color.b]
@@ -684,9 +693,4 @@ function Assert( bool: boolean, msg: string )
    print( "\n\n\n" )
 
    assert( false, msg )
-}
-
-export function IsReservedServer(): boolean
-{
-   return game.PrivateServerId !== "" && game.PrivateServerOwnerId === 0
 }

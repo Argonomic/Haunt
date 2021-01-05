@@ -5,6 +5,7 @@ import { GetChildrenWithName, GetChildren_NoFutureOffspring, GetExistingFirstChi
 import { Assert } from "shared/sh_assert"
 import { CreateCalloutTextLabel } from "./cl_callouts2d"
 import { AddPlayerGuiFolderExistsCallback, UIORDER } from "./cl_ui"
+import { Tween } from "shared/sh_tween"
 
 const SCR_FLOOR = "scr_floor"
 const SCR_FLOOR_NONAME = "scr_floor_noname"
@@ -184,20 +185,23 @@ export function CL_MinimapSetup()
       button.Text = ""
       button.MouseButton1Click.Connect( function ()
       {
+         let targetFrame
          if ( scaleHolder.scale === 2 )
          {
             scaleHolder = new ScaleHolder( 1.0, shadowBorder * 0.4 )
-            baseFrame.Position = megaFrame.Position
-            baseFrame.Size = megaFrame.Size
-            baseFrame.AnchorPoint = megaFrame.AnchorPoint
+            targetFrame = megaFrame
          }
          else
          {
             scaleHolder = new ScaleHolder( 2, shadowBorder )
-            baseFrame.Position = miniFrame.Position
-            baseFrame.Size = miniFrame.Size
-            baseFrame.AnchorPoint = miniFrame.AnchorPoint
+            targetFrame = miniFrame
          }
+
+         Tween( baseFrame, {
+            Position: targetFrame.Position,
+            Size: targetFrame.Size,
+            AnchorPoint: targetFrame.AnchorPoint
+         }, 0.25 )
       } )
 
 

@@ -1,8 +1,8 @@
 import { DataStoreService } from "@rbxts/services";
-import { LOCAL } from "shared/sh_gamestate";
+import { IsReservedServer, LOCAL } from "shared/sh_gamestate";
 import { AddCallback_OnPlayerConnected } from "shared/sh_onPlayerConnect";
 import { SetScore } from "shared/sh_score";
-import { IsReservedServer, Thread } from "shared/sh_utils";
+import { Thread } from "shared/sh_utils";
 
 const PERSISTENCE = "PERSISTENCE"
 const COINS = "_COINS"

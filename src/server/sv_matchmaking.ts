@@ -1,12 +1,12 @@
 import { HttpService, Players, TeleportService, Workspace } from "@rbxts/services"
-import { TELEPORT_PlayerData, NETVAR_MATCHMAKING_STATUS, MATCHMAKING_STATUS, NETVAR_MATCHMAKING_NUMWITHYOU, ROLE, Game, LOCAL } from "shared/sh_gamestate"
+import { TELEPORT_PlayerData, NETVAR_MATCHMAKING_STATUS, MATCHMAKING_STATUS, NETVAR_MATCHMAKING_NUMWITHYOU, ROLE, Game, LOCAL, IsReservedServer, IsPracticing } from "shared/sh_gamestate"
 import { AddCallback_OnPlayerCharacterAdded, AddCallback_OnPlayerConnected } from "shared/sh_onPlayerConnect"
 import { GetNetVar_Number, SetNetVar } from "shared/sh_player_netvars"
 import { AddRPC } from "shared/sh_rpc"
-import { MAX_FRIEND_WAIT_TIME, MATCHMAKE_PLAYERCOUNT_DESIRED, MATCHMAKE_PLAYERCOUNT_FALLBACK } from "shared/sh_settings"
-import { GraphCapped, Resume, Thread, IsReservedServer } from "shared/sh_utils"
+import { MAX_FRIEND_WAIT_TIME, MATCHMAKE_PLAYERCOUNT_DESIRED, MATCHMAKE_PLAYERCOUNT_FALLBACK, DEV_SKIP } from "shared/sh_settings"
+import { GraphCapped, Resume, Thread } from "shared/sh_utils"
 import { Assert } from "shared/sh_assert"
-import { AddPlayer, AssignAllTasks, CreateGame } from "./sv_gameState"
+import { AddPlayer, AssignAllTasks, CreateGame, PlayerToGame } from "./sv_gameState"
 import { PutPlayerInStartRoom } from "./sv_rooms"
 
 export const DATASTORE_MATCHMAKING = "datastore_matchmaking"
@@ -38,6 +38,7 @@ export function SV_MatchmakingSetup()
    {
       switch ( GetNetVar_Number( player, NETVAR_MATCHMAKING_STATUS ) )
       {
+         case MATCHMAKING_STATUS.MATCHMAKING_UNDECIDED:
          case MATCHMAKING_STATUS.MATCHMAKING_PRACTICE:
          case MATCHMAKING_STATUS.MATCHMAKING_WAITING_TO_PLAY:
             PutPlayerInStartRoom( player )
@@ -108,6 +109,13 @@ export function SV_MatchmakingSetup()
    {
       if ( IsReservedServer() )
       {
+         if ( IsPracticing( player ) )
+            return
+
+         let playersGame = PlayerToGame( player )
+         if ( !playersGame.IsSpectator( player ) )
+            return
+
          Thread( function ()
          {
             SetNetVar( player, NETVAR_MATCHMAKING_STATUS, MATCHMAKING_STATUS.MATCHMAKING_SEND_TO_LOBBY )
@@ -125,19 +133,34 @@ export function SV_MatchmakingSetup()
       {
          case MATCHMAKING_STATUS.MATCHMAKING_PLAYING:
          case MATCHMAKING_STATUS.MATCHMAKING_SEND_TO_RESERVEDSERVER:
+            // not allowed to make requests in these states
             return
       }
 
-      switch ( newStatus )
+      if ( status === newStatus )
       {
-         case MATCHMAKING_STATUS.MATCHMAKING_PRACTICE:
-            SetNetVar( player, NETVAR_MATCHMAKING_STATUS, MATCHMAKING_STATUS.MATCHMAKING_PRACTICE )
-            break
+         // toggle back to undecided
+         SetNetVar( player, NETVAR_MATCHMAKING_STATUS, MATCHMAKING_STATUS.MATCHMAKING_UNDECIDED )
+         if ( file.playerToSearchStartedTime.has( player ) )
+            file.playerToSearchStartedTime.delete( player )
+      }
+      else
+      {
+         switch ( newStatus )
+         {
+            case MATCHMAKING_STATUS.MATCHMAKING_UNDECIDED:
+            case MATCHMAKING_STATUS.MATCHMAKING_PRACTICE:
+               SetNetVar( player, NETVAR_MATCHMAKING_STATUS, newStatus )
+               if ( file.playerToSearchStartedTime.has( player ) )
+                  file.playerToSearchStartedTime.delete( player )
+               break
 
-         case MATCHMAKING_STATUS.MATCHMAKING_LFG:
-            SetNetVar( player, NETVAR_MATCHMAKING_STATUS, MATCHMAKING_STATUS.MATCHMAKING_LFG )
-            file.playerToSearchStartedTime.set( player, Workspace.DistributedGameTime )
-            break
+            case MATCHMAKING_STATUS.MATCHMAKING_LFG:
+               SetNetVar( player, NETVAR_MATCHMAKING_STATUS, newStatus )
+               if ( !file.playerToSearchStartedTime.has( player ) )
+                  file.playerToSearchStartedTime.set( player, Workspace.DistributedGameTime )
+               break
+         }
       }
 
       UpdateMatchmakingStatus_AndMatchmake()
@@ -270,14 +293,7 @@ export function SV_MatchmakingSetup()
                for ( let player of players )
                {
                   SetNetVar( player, NETVAR_MATCHMAKING_STATUS, MATCHMAKING_STATUS.MATCHMAKING_PLAYING )
-                  Thread(
-                     function ()
-                     {
-                        // failsafe if the server fails
-                        wait( 30 )
-                        if ( player !== undefined )
-                           SetNetVar( player, NETVAR_MATCHMAKING_STATUS, MATCHMAKING_STATUS.MATCHMAKING_LFG )
-                     } )
+                  file.practiceGame.RemovePlayer( player )
                }
 
                print( "file.matchmakeThread creategame" )
@@ -307,7 +323,15 @@ export function SV_MatchmakingSetup()
                   for ( let player of players )
                   {
                      SetNetVar( player, NETVAR_MATCHMAKING_STATUS, MATCHMAKING_STATUS.MATCHMAKING_SEND_TO_RESERVEDSERVER )
-                     file.practiceGame.RemovePlayer( player )
+
+                     Thread(
+                        function ()
+                        {
+                           // failsafe if the server fails
+                           wait( 30 )
+                           if ( player !== undefined && player.Character !== undefined )
+                              SetNetVar( player, NETVAR_MATCHMAKING_STATUS, MATCHMAKING_STATUS.MATCHMAKING_LFG )
+                        } )
                   }
 
                   //wait( 1 ) // allow time for fade out
@@ -458,6 +482,10 @@ function GetMatchmakingMinPlayersForLongestWaitTime( players: Array<Player> ): n
 
    let timer = GetLongestSearchTime( players )
    let playerCount = math.floor( GraphCapped( timer, 25, 45, MATCHMAKE_PLAYERCOUNT_DESIRED, MATCHMAKE_PLAYERCOUNT_FALLBACK ) )
+
+   if ( DEV_SKIP )
+      playerCount = MATCHMAKE_PLAYERCOUNT_FALLBACK
+
    if ( playerCount < MATCHMAKE_PLAYERCOUNT_DESIRED )
    {
       // if someone just started searching, then maybe someone else is about to search too?

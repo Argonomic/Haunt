@@ -3,7 +3,7 @@ import { AddNetVar, GetNetVar_Number, GetNetVar_String, SetNetVar } from "shared
 import { AddCooldown } from "./sh_cooldown"
 import { SetPlayerWalkSpeed } from "./sh_onPlayerConnect"
 import { COOLDOWNTIME_MEETING, COOLDOWNTIME_KILL, MEETING_DISCUSS_TIME, MEETING_VOTE_TIME, PLAYER_WALKSPEED_SPECTATOR, PLAYER_WALKSPEED, SPECTATOR_TRANS } from "./sh_settings"
-import { IsServer, IsClient, UserIDToPlayer, IsAlive, SetPlayerTransparency, GetLocalPlayer, Resume, Thread } from "./sh_utils"
+import { IsServer, IsClient, UserIDToPlayer, IsAlive, SetPlayerTransparency, GetLocalPlayer, Resume, Thread, ExecOnChildWhenItExists } from "./sh_utils"
 import { Assert } from "shared/sh_assert"
 import { GiveAbility, TakeAbility } from "./sh_ability"
 import { ABILITIES } from "./content/sh_ability_content"
@@ -45,7 +45,8 @@ export enum GAMERESULTS
 
 export enum MATCHMAKING_STATUS
 {
-   MATCHMAKING_PRACTICE = 0,
+   MATCHMAKING_UNDECIDED = 0,
+   MATCHMAKING_PRACTICE,
    MATCHMAKING_LFG,
    MATCHMAKING_LFG_WITH_FRIENDS,
    MATCHMAKING_WAITING_TO_PLAY,
@@ -89,6 +90,7 @@ class File
    onRoleChangeCallback: Array<( ( player: Player, role: ROLE, lastRole: ROLE ) => void )> = []
    gameStateChangedCallbacks: Array<( ( game: Game ) => void )> = []
    gameCreatedCallbacks: Array<( ( game: Game ) => void )> = []
+   isReservedServer = false
 }
 let file = new File()
 
@@ -935,14 +937,38 @@ export class Game
    }
 }
 
+export function IsReservedServer(): boolean 
+{
+   return file.isReservedServer
+}
+
 export function SharedGameStateInit()
 {
+   if ( IsServer() )
+   {
+      file.isReservedServer = game.PrivateServerId !== "" && game.PrivateServerOwnerId === 0
+      if ( file.isReservedServer )
+      {
+         let number = new Instance( 'NumberValue' )
+         number.Name = "ReservedServer"
+         number.Parent = Workspace
+      }
+   }
+   else
+   {
+      ExecOnChildWhenItExists( Workspace, 'ReservedServer',
+         function ( child: Instance )
+         {
+            file.isReservedServer = true
+         } )
+   }
+
    AddNetVar( "string", NETVAR_JSON_TASKLIST, "{}" )
    AddNetVar( "number", NETVAR_MATCHMAKING_NUMWITHYOU, 0 )
    AddNetVar( "string", NETVAR_JSON_GAMESTATE, "{}" )
    AddNetVar( "number", NETVAR_MEETINGS_CALLED, 0 )
    AddNetVar( "number", NETVAR_SCORE, 0 ) //RandomInt( 750 ) + 250 )
-   AddNetVar( "number", NETVAR_MATCHMAKING_STATUS, MATCHMAKING_STATUS.MATCHMAKING_PRACTICE )
+   AddNetVar( "number", NETVAR_MATCHMAKING_STATUS, MATCHMAKING_STATUS.MATCHMAKING_UNDECIDED )
 
    AddCooldown( COOLDOWN_NAME_KILL, COOLDOWNTIME_KILL )
    AddCooldown( COOLDOWN_NAME_MEETING, COOLDOWNTIME_MEETING )
@@ -985,6 +1011,7 @@ export function IsPracticing( player: Player ): boolean
 {
    switch ( GetNetVar_Number( player, NETVAR_MATCHMAKING_STATUS ) )
    {
+      case MATCHMAKING_STATUS.MATCHMAKING_UNDECIDED:
       case MATCHMAKING_STATUS.MATCHMAKING_PRACTICE:
       case MATCHMAKING_STATUS.MATCHMAKING_LFG:
       case MATCHMAKING_STATUS.MATCHMAKING_LFG_WITH_FRIENDS:

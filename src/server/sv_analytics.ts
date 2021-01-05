@@ -1,4 +1,5 @@
 import { AddAssertServerCallback } from "shared/sh_assert"
+import { IsReservedServer, LOCAL } from "shared/sh_gamestate"
 import { AddCallback_OnPlayerConnected } from "shared/sh_onPlayerConnect"
 import { Thread } from "shared/sh_utils"
 
@@ -45,6 +46,9 @@ export function SV_AnalyticsSetup()
 
 export function ReportEvent( action: string, name: string, value?: number )
 {
+   if ( LOCAL )
+      return
+
    let category = "PlaceId-" + game.PlaceId
    //let action = "Category-Action"
    if ( value === undefined )

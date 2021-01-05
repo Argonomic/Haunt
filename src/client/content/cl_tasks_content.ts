@@ -4,7 +4,7 @@ import { AddTaskSpec, AddTaskUI, TaskStatus, TASK_UI } from "client/cl_tasks"
 import { AddDraggedButton, GetDraggedButton, ReleaseDraggedButton, ElementWithinElement, AddCallback_MouseClick, MoveOverTime, ElementDist_TopLeft, UIORDER, ElementDist, ElementDistFromXY, AddPlayerGuiFolderExistsCallback } from "client/cl_ui"
 import { TASK_EXIT, TASK_RESTORE_LIGHTS } from "shared/sh_gamestate"
 import { Tween, TweenThenDestroy } from "shared/sh_tween"
-import { ArrayRandomize, ExecOnChildWhenItExists, GetChildren_NoFutureOffspring, GetExistingFirstChildWithNameAndClassName, LoadSound, RandomFloatRange, RandomInt, Thread } from "shared/sh_utils"
+import { ArrayRandomize, BlendColors, ExecOnChildWhenItExists, GetChildren_NoFutureOffspring, GetExistingFirstChildWithNameAndClassName, Graph, LoadSound, RandomFloatRange, RandomInt, Thread } from "shared/sh_utils"
 import { Assert } from "shared/sh_assert"
 import { AddRPC } from "shared/sh_rpc"
 import { SendRPC } from "client/cl_utils"
@@ -426,6 +426,8 @@ function Task_SweepTheFloor( frame: Frame, closeTaskThread: Function, status: Ta
             let imageLabel = webs[i]
             let touchPositions = file.touchPositions.concat( [new Vector3( inputX, inputY, 0 )] )
 
+            let removedWeb = false
+
             for ( let touchPosition of touchPositions )
             {
                if ( ElementDistFromXY( imageLabel, touchPosition.X, touchPosition.Y ) < size )
@@ -434,7 +436,11 @@ function Task_SweepTheFloor( frame: Frame, closeTaskThread: Function, status: Ta
                   webs.remove( i )
                   i--
                   count--
+                  removedWeb = true
                }
+
+               if ( removedWeb )
+                  break
             }
          }
       }
@@ -538,6 +544,30 @@ function Task_WinAtCheckers( frame: Frame, closeTaskThread: Function, status: Ta
    let kinged = false
    const MOVE_TIME = 0.25
 
+   let startTime = Workspace.DistributedGameTime
+
+   let startColor = clickChecker.ImageColor3
+   let mergeColor = new Color3( 0.85, 0.85, 0 )
+   let flicker = RunService.RenderStepped.Connect( function ()
+   {
+      if ( clickChecker === undefined )
+         return
+
+      let scale = math.sin( Workspace.DistributedGameTime * 8 )
+      scale = Graph( scale, -1, 1, 0.0, 1.0 )
+      let color = BlendColors( startColor, mergeColor, scale )
+
+      if ( kingMe.Visible && !kinged )
+      {
+         kingMe.BackgroundColor3 = color
+         clickChecker.ImageColor3 = startColor
+         return
+      }
+
+      clickChecker.ImageColor3 = color
+   } )
+
+
    function onCheckerClick()
    {
       if ( Workspace.DistributedGameTime <= moveTime )
@@ -581,6 +611,7 @@ function Task_WinAtCheckers( frame: Frame, closeTaskThread: Function, status: Ta
                   MoveOverTime( clickChecker, clickChecker.Position, MOVE_TIME,
                      function ()
                      {
+                        flicker.Disconnect()
                         status.success = true
                         closeTaskThread()
                      }
@@ -618,6 +649,10 @@ function Task_WinAtCheckers( frame: Frame, closeTaskThread: Function, status: Ta
          }
       )
    } )
+
+
+
+
 }
 
 

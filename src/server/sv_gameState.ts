@@ -41,8 +41,31 @@ export function SV_GameStateSetup()
 
          let player = file.userIdToPlayer.get( a.SpeakerUserId ) as Player
          let game = PlayerToGame( player )
-         if ( game.IsSpectator( player ) )
-            a.ShouldDeliver = false
+         if ( IsPracticing( player ) )
+         {
+            a.ShouldDeliver = true
+            return a
+         }
+
+         switch ( game.GetGameState() )
+         {
+            case GAME_STATE.GAME_STATE_PLAYING:
+               a.ShouldDeliver = false
+               break
+
+            case GAME_STATE.GAME_STATE_MEETING_DISCUSS:
+            case GAME_STATE.GAME_STATE_MEETING_VOTE:
+            case GAME_STATE.GAME_STATE_MEETING_RESULTS:
+               a.ShouldDeliver = !game.IsSpectator( player )
+               break
+
+            case GAME_STATE.GAME_STATE_UNKNOWN:
+            case GAME_STATE.GAME_STATE_PREMATCH:
+            case GAME_STATE.GAME_STATE_COMPLETE:
+            case GAME_STATE.GAME_STATE_DEAD:
+               a.ShouldDeliver = true
+               break
+         }
 
          return a
 

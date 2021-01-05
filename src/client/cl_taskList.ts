@@ -152,7 +152,6 @@ export function CL_TaskListSetup()
             file.gainedAssignmentTime.delete( pair[0] )
          }
 
-
          RefreshTaskList()
       } )
 
@@ -181,7 +180,7 @@ export function CL_TaskListSetup()
 
       let clone = taskList.Clone()
       clone.Name = clone.Name + " COPY"
-      clone.Enabled = true
+      clone.Enabled = !IsPracticing( GetLocalPlayer() )
       clone.Parent = folder
       clone.ResetOnSpawn = false
       file.existingUI = clone
@@ -310,7 +309,7 @@ export function RedrawTaskListUI()
 
    if ( IsPracticing( localPlayer ) )
    {
-      file.taskLabels[0].Text = "Practice " + drawTasks.size() + " tasks:"
+      file.taskLabels[0].Text = "Try " + drawTasks.size() + " tasks:"
       startIndex = 2
    }
    else if ( game.IsImposter( localPlayer ) )

@@ -365,6 +365,8 @@ export class ToggleButton
    private closeFrameTween: any
    private taskListOpen = true
    private rotationOffset: number
+   private transitioning = false
+   private clicked = false
 
    public IsOpen(): boolean
    {
@@ -380,6 +382,11 @@ export class ToggleButton
       this.Update()
    }
 
+   public EverClicked()
+   {
+      return this.clicked
+   }
+
    public Close()
    {
       if ( !this.IsOpen() )
@@ -389,17 +396,54 @@ export class ToggleButton
       this.Update()
    }
 
+   public SnapOpen()
+   {
+      this.taskListOpen = true
+      this.CloseTaskListOverTime( 0 )
+   }
+
+   public SnapClosed()
+   {
+      this.taskListOpen = false
+      this.CloseTaskListOverTime( 0 )
+   }
+
+   private Transition( time: number )
+   {
+      if ( time === 0 )
+         return
+      let button = this
+      Thread( function ()
+      {
+         button.transitioning = true
+         wait( time )
+         button.transitioning = false
+      } )
+   }
+
+   private OpenTaskListOverTime( time: number )
+   {
+      Tween( this.frame, this.closeFrameTween, time, Enum.EasingStyle.Quad, Enum.EasingDirection.InOut )
+      Tween( this.button, { Rotation: this.rotationOffset }, time, Enum.EasingStyle.Quad, Enum.EasingDirection.InOut )
+      this.Transition( time )
+   }
+
+   private CloseTaskListOverTime( time: number )
+   {
+      Tween( this.frame, this.openFrameTween, time, Enum.EasingStyle.Quad, Enum.EasingDirection.InOut )
+      Tween( this.button, { Rotation: this.rotationOffset + 180 }, time, Enum.EasingStyle.Quad, Enum.EasingDirection.InOut )
+      this.Transition( time )
+   }
+
    private Update()
    {
       if ( this.taskListOpen )
       {
-         Tween( this.frame, this.closeFrameTween, this.time, Enum.EasingStyle.Quad, Enum.EasingDirection.InOut )
-         Tween( this.button, { Rotation: this.rotationOffset }, this.time, Enum.EasingStyle.Quad, Enum.EasingDirection.InOut )
+         this.OpenTaskListOverTime( this.time )
       }
       else
       {
-         Tween( this.frame, this.openFrameTween, this.time, Enum.EasingStyle.Quad, Enum.EasingDirection.InOut )
-         Tween( this.button, { Rotation: this.rotationOffset + 180 }, this.time, Enum.EasingStyle.Quad, Enum.EasingDirection.InOut )
+         this.CloseTaskListOverTime( this.time )
       }
    }
 
@@ -433,8 +477,12 @@ export class ToggleButton
 
       button.MouseButton1Click.Connect( function ()
       {
+         if ( toggleButton.transitioning )
+            return
+
          toggleButton.taskListOpen = !toggleButton.taskListOpen
          toggleButton.Update()
+         toggleButton.clicked = true
       } )
    }
 }

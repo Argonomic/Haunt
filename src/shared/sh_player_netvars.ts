@@ -1,5 +1,5 @@
 import { Workspace, ReplicatedStorage, RunService } from "@rbxts/services"
-import { CreateRemoteEvent, ExecOnChildWhenItExists, GetLocalPlayer, IsClient, IsServer } from "./sh_utils"
+import { CreateRemoteEvent, ExecOnChildWhenItExists, GetLocalPlayer, IsClient, IsServer, Thread } from "./sh_utils"
 import { Assert } from "shared/sh_assert"
 
 const RESEND_HEARTBEAT_TIME = 2.0
@@ -116,6 +116,7 @@ export function SetNetVar( player: Player, name: string, value: ( number | strin
 
 export function GetNetVarValue( player: Player, name: string ): ( number | string | Vector3 )
 {
+   Assert( player !== undefined, "player !== undefined" )
    Assert( !IsClient() || player === GetLocalPlayer(), "Can't get netvar on client on not-localplayer" )
 
    Assert( file.netvars.has( player ), "tried to get netvar of player that doesn't have netvars" )
@@ -272,6 +273,21 @@ function SendVarChangeRemoteEvent( player: Player, name: string )
    {
       file.resendHeartbeatTimer = RESEND_HEARTBEAT_TIME
       file.resendHeartbeatConnection = RunService.Heartbeat.Connect( Heartbeat_ResendChanges )
+   }
+
+   // any onchange functions?
+   let callbacks = file.nameToCallback[name]
+   if ( callbacks !== undefined )
+   {
+      for ( let callback of callbacks )
+      {
+         Thread(
+            function ()
+            {
+               callback( player )
+            }
+         )
+      }
    }
 }
 
