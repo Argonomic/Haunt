@@ -1,4 +1,5 @@
 import { Workspace } from "@rbxts/services";
+import { Assert } from "shared/sh_assert";
 import { COIN_TYPE, GetCoinDataFromType } from "shared/sh_coins";
 import { AddCallback_OnPlayerCharacterAncestryChanged } from "shared/sh_onPlayerConnect";
 import { AddNetVarChangedCallback } from "shared/sh_player_netvars";
@@ -355,11 +356,4 @@ function DrawGainedPoints( score: number )
 
       file.currentlyPickingUp = 0
    } )
-}
-
-function GetStartPosition(): UDim2
-{
-   if ( file.startPosition === undefined )
-      throw undefined
-   return file.startPosition as UDim2
 }

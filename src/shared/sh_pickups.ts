@@ -62,7 +62,11 @@ export function MakePartIntoPickup( part: Part, index: PICKUPS )
    Assert( file.pickupTypesByIndex.has( index ), "file.pickupTypesByIndex.has( index )" )
 
    let parts = file.pickupsByIndex.get( index )
-   if ( parts === undefined ) throw undefined
+   if ( parts === undefined )
+   {
+      Assert( false, "MakePartIntoPickup" )
+      throw undefined
+   }
    file.partToType.set( part, index )
    parts.push( part )
 }

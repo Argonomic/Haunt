@@ -130,6 +130,7 @@ export function GetTaskUI( name: TASK_UI ): ScreenGui
    if ( file.taskUI[name] !== undefined )
       return file.taskUI[name] as ScreenGui
 
+   Assert( false, "GetTaskUI" )
    throw undefined
 }
 

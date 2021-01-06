@@ -402,5 +402,7 @@ export function ClientGetAssignmentAssignedTime( roomName: string, taskName: str
       if ( AssignmentIsSame( pair[0], roomName, taskName ) )
          return pair[1]
    }
+
+   Assert( false, "ClientGetAssignmentAssignedTime" )
    throw undefined
 }

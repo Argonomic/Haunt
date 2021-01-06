@@ -26,9 +26,8 @@ export function CL_RoomSetup()
    file.rooms = AddRoomsFromWorkspace()
 
    let startRoom = file.rooms.get( SPAWN_ROOM ) as Room
-   if ( startRoom === undefined ) throw undefined
+   Assert( startRoom !== undefined, "startRoom !== undefined" )
 
-   //AddOnUseCallback( PlayerTriesToUseCurrentRoom )
    AddCallback_OnPlayerConnected(
       function ( player: Player )
       {

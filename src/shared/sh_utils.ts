@@ -326,11 +326,17 @@ export function SetPlayerState( player: Player, setting: Enum.HumanoidStateType,
 {
    let character = player.Character
    if ( character === undefined )
+   {
+      Assert( false, "character === undefined" )
       throw undefined
+   }
 
    let human = GetInstanceChildWithName( character, "Humanoid" )
    if ( human === undefined )
-      throw undefined;
+   {
+      Assert( false, "human === undefined" )
+      throw undefined
+   }
 
    ( human as Humanoid ).SetStateEnabled( setting, value )
 }

@@ -80,13 +80,13 @@ class MatchScreenFrame
          {
             for ( ; ; )
             {
-               //print( "coroutine.status( thisThread ): " + str + " " + coroutine.status( thisThread ) + " " + thisThread )
                if ( coroutine.status( thisThread ) === "dead" )
                {
                   Thread( function ()
                   {
                      wait( 2 ) // give the frame a chance to fade away
                      baseFrame.Destroy()
+                     print( "Finished matchscreen " + str )
                   } )
 
                   if ( thisThread === file.threadQueue[0] )

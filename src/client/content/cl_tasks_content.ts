@@ -100,7 +100,6 @@ function GetStartFunc( name: string ): Function
    }
 
    Assert( false, "No func for " + name )
-
    throw undefined
 }
 
@@ -131,7 +130,6 @@ function GetTitle( name: string ): string
    }
 
    Assert( false, "No title found for " + name )
-
    throw undefined
 }
 

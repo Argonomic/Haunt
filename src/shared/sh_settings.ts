@@ -24,12 +24,12 @@ export const QUICK_START_ROOM = "Foyer"
 export const SPAWN_ROOM = "Foyer"
 export const KILL_DIST = 6.5
 export const REPORT_DIST = 5
-export const MEETING_DISCUSS_TIME = 14
 export const MEETING_VOTE_TIME = 60
 export const SPECTATOR_TRANS = 0.6
 
+export let MEETING_DISCUSS_TIME = 14
 export let COOLDOWNTIME_KILL = 45
-export let COOLDOWNTIME_SABOTAGE_LIGHTS = 45
+export let COOLDOWNTIME_SABOTAGE_LIGHTS = 70
 export let COOLDOWNTIME_MEETING = 20
 
 if ( DEV_SKIP )
@@ -37,6 +37,7 @@ if ( DEV_SKIP )
    COOLDOWNTIME_KILL = 0
    COOLDOWNTIME_SABOTAGE_LIGHTS = 4
    COOLDOWNTIME_MEETING = 0
+   MEETING_DISCUSS_TIME = 2
 }
 
 export const PLAYER_COLORS =

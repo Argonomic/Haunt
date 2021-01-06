@@ -290,7 +290,7 @@ function SortLocalPlayer( a: Player, b: Player ): boolean
 
 export function DrawMatchScreen_VoteResults( skipTie: boolean, receivedHighestVotes: Array<Player>, receivedVotes: Array<Player>, votedAndReceivedNoVotes: Array<Player>, possessedCount: number, highestVotedScore: number )
 {
-   print( "DrawMatchScreen_VoteResults, highest score " + highestVotedScore )
+   print( "DrawMatchScreen_VoteResults, highestVotedScore: " + highestVotedScore )
    function GetResultsText(): Array<string>
    {
       if ( skipTie )
@@ -300,13 +300,10 @@ export function DrawMatchScreen_VoteResults( skipTie: boolean, receivedHighestVo
          return ["No one was voted off"]
       }
 
-      if ( receivedVotes.size() === 0 || receivedHighestVotes.size() === 0 )
-         return ["No one was voted off"]
-
       if ( receivedHighestVotes.size() === 1 )
          return [receivedHighestVotes[0].Name + " was voted out!"]
 
-      throw undefined
+      return ["No one was voted off"]
    }
 
    const RESULTS_TEXT = GetResultsText()
@@ -758,12 +755,21 @@ export function DrawMatchScreen_Winners( winners: Array<Player>, localRole: ROLE
          }
       }
 
-
       if ( subTitle.Text !== "" )
       {
          Tween( subTitle, { TextTransparency: 0 }, FADE_IN )
          wait( 0.4 )
       }
+   }
+   else
+   {
+      if ( startingPossessedCount === 1 )
+         subTitle.Text = "The imposter won"
+      else
+         subTitle.Text = "The imposters won"
+
+      Tween( subTitle, { TextTransparency: 0 }, FADE_IN )
+      wait( 0.4 )
    }
 
    //let numVal = new Instance( 'Vector3Value' ) as Vector3Value

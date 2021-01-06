@@ -96,13 +96,13 @@ export function SV_GameStateSetup()
    Thread( function ()
    {
       wait( 6 )
-         let players = Players.GetPlayers()
-         for ( let player of players )
-         {
+      let players = Players.GetPlayers()
+      for ( let player of players )
+      {
          //KillPlayer( player )
-            //let game = PlayerToGame( player )
-            //ClearAssignments( game, player )
-         }
+         //let game = PlayerToGame( player )
+         //ClearAssignments( game, player )
+      }
    } )
 
    SharedGameStateInit()
@@ -581,7 +581,11 @@ function RPC_FromClient_OnPlayerFinishTask( player: Player, roomName: string, ta
             {
                let room = GetRoomByName( thisAssignment.roomName )
                let task = room.tasks.get( thisAssignment.taskName )
-               if ( task === undefined ) throw undefined
+               if ( task === undefined )
+               {
+                  Assert( false, "RPC_FromClient_OnPlayerFinishTask" )
+                  throw undefined
+               }
 
                let reward = TASK_VALUE + math.floor( ( game.roundsPassed - 1 ) * TASK_VALUE * 0.5 )
                IncrementScore( player, reward )
@@ -618,7 +622,10 @@ export function PlayerHasAssignments( player: Player, game: Game ): boolean
 {
    let assignments = game.assignments.get( player )
    if ( assignments === undefined )
+   {
+      Assert( false, "PlayerHasAssignments" )
       throw undefined
+   }
 
    return assignments.size() > 0
 }

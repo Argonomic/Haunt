@@ -122,7 +122,10 @@ export function GetNetVarValue( player: Player, name: string ): ( number | strin
    Assert( file.netvars.has( player ), "tried to get netvar of player that doesn't have netvars" )
    let netvars = file.netvars.get( player )
    if ( netvars === undefined )
+   {
+      Assert( false, "GetNetVarValue" )
       throw undefined
+   }
 
    return netvars[name].value
 }
@@ -132,7 +135,10 @@ export function GetNetVarNV( player: Player, name: string ): NV
    Assert( file.netvars.has( player ), "tried to get netvar of player that doesn't have netvars" )
    let netvars = file.netvars.get( player )
    if ( netvars === undefined )
+   {
+      Assert( false, "GetNetVarValue" )
       throw undefined
+   }
 
    return netvars[name]
 }

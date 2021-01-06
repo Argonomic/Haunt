@@ -51,7 +51,11 @@ export function GiveAbility( player: Player, ability: ABILITIES )
 {
    print( "GiveAbility " + ability + " to " + player.UserId + " isserver " + IsServer() )
    let abilities = file.playerAbilities.get( player )
-   if ( abilities === undefined ) throw undefined
+   if ( abilities === undefined )
+   {
+      Assert( false, "GiveAbility" )
+      throw undefined
+   }
 
    abilities.push( ability )
    AbilitiesChanged( player )
@@ -68,7 +72,11 @@ function AbilitiesChanged( player: Player )
 export function TakeAbility( player: Player, ability: ABILITIES )
 {
    let abilities = file.playerAbilities.get( player )
-   if ( abilities === undefined ) throw undefined
+   if ( abilities === undefined )
+   {
+      Assert( false, "TakeAbility" )
+      throw undefined
+   }
 
    let changed = false
    for ( let i = 0; i < abilities.size(); i++ )
@@ -90,7 +98,11 @@ export function HasAbility( player: Player, ability: ABILITIES ): boolean
       return false
 
    let abilities = file.playerAbilities.get( player )
-   if ( abilities === undefined ) throw undefined
+   if ( abilities === undefined )
+   {
+      Assert( false, "HasAbility" )
+      throw undefined
+   }
 
    for ( let hasAbility of abilities )
    {
@@ -118,7 +130,11 @@ export function GetAbility( abilityIndex: ABILITIES ): Ability
 {
    Assert( file.abilities.has( abilityIndex ), "file.abilities.has( abilityIndex )" )
    let ability = file.abilities.get( abilityIndex )
-   if ( ability === undefined ) throw undefined
+   if ( ability === undefined )
+   {
+      Assert( false, "GetAbility" )
+      throw undefined
+   }
    return ability
 }
 
@@ -141,7 +157,11 @@ export function AddAbilitiesChangedCallback( func: ( ( player: Player ) => void 
 
 export function GetPlayerAbilities( player: Player ): Array<ABILITIES>
 {
-   if ( !file.playerAbilities.has( player ) ) throw undefined
+   if ( !file.playerAbilities.has( player ) )
+   {
+      Assert( false, "GetPlayerAbilities" )
+      throw undefined
+   }
    let abilites = file.playerAbilities.get( player )
    if ( abilites === undefined )
    {

@@ -10,13 +10,16 @@ class File
 }
 let file = new File()
 
-export function Assert( bool: boolean, msg: string )
+export function Assert( bool: boolean, msg?: string )
 {
    if ( bool )
       return
 
    if ( file.asserted ) // first assert is only one that matters
       return
+
+   if ( msg === undefined )
+      msg = ""
 
    file.asserted = true
    let stack = debug.traceback()
@@ -39,6 +42,7 @@ export function Assert( bool: boolean, msg: string )
 
    if ( LOCAL )
       assert( false, msg )
+   throw undefined
 }
 
 export function SH_AssertSetup()

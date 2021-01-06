@@ -107,11 +107,18 @@ export function CreateCoin( location: Vector3, coinData: CoinData ): Part
    //print( "Spawn coin at " + location )
    let folder = file.folder
    if ( folder === undefined )
+   {
+      Assert( false, "CreateCoin" )
       throw undefined
+   }
 
    let coinModel = coinData.model
    if ( coinModel === undefined )
+   {
+      Assert( false, "CreateCoin" )
       throw undefined
+   }
+
    let model = CreateCoinModel( coinData, coinModel )
    model.Position = location
    model.Parent = folder

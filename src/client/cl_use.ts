@@ -21,7 +21,10 @@ let file = new File()
 export function GetUseUIForReference(): EDITOR_ClickableUI 
 {
    if ( file.useUI === undefined )
+   {
+      Assert( false, "GetUseUIForReference" )
       throw undefined
+   }
    return file.useUI
 }
 

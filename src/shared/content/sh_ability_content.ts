@@ -34,7 +34,10 @@ function RPC_FromClient_UseAbility( player: Player, ability: ABILITIES )
 
    let abilityData = GetAbility( ability )
    if ( abilityData === undefined )
+   {
+      Assert( false, "RPC_FromClient_UseAbility" )
       throw undefined
+   }
 
    if ( abilityData.serverFunc === undefined )
       return
