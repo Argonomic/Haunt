@@ -1,15 +1,14 @@
-import { IsReservedServer, NETVAR_MATCHMAKING_STATUS, MATCHMAKING_STATUS, NETVAR_MATCHMAKING_NUMWITHYOU, NETVAR_JSON_GAMESTATE, NETVAR_JSON_TASKLIST, ROLE, GAME_STATE, IsPracticing } from "shared/sh_gamestate";
+import { IsReservedServer, NETVAR_MATCHMAKING_STATUS, MATCHMAKING_STATUS, NETVAR_MATCHMAKING_NUMWITHYOU, NETVAR_JSON_GAMESTATE, NETVAR_JSON_TASKLIST, IsPracticing } from "shared/sh_gamestate";
 import { AddCallback_OnPlayerCharacterAncestryChanged } from "shared/sh_onPlayerConnect";
 import { AddNetVarChangedCallback, GetNetVar_Number } from "shared/sh_player_netvars";
 import { DEFAULT_REMIND_MATCHMAKING, DEV_READYUP } from "shared/sh_settings";
 import { GetFirstChildWithNameAndClassName, GetLocalPlayer, Thread } from "shared/sh_utils";
-import { GetLocalGame } from "./cl_gamestate";
+import { IsFromReservedServer } from "./cl_gamestate";
 import { AddPlayerGuiFolderExistsCallback, ToggleButton, UIORDER } from "./cl_ui";
 import { SendRPC } from "./cl_utils";
 import { TasksRemaining } from "./cl_taskList";
 import { AddRoomChangedCallback, GetCurrentRoom } from "./cl_rooms";
 import { SocialService } from "@rbxts/services";
-import { AddRPC } from "shared/sh_rpc";
 
 
 type Editor_ReadyUI = ScreenGui &
@@ -122,7 +121,7 @@ export function CL_ReadyUpSetup()
          Thread(
             function ()
             {
-               wait( 4.2 )
+               wait( 2.2 )
                if ( !IsReservedServer() )
                   SendRPC( "RPC_FromClient_RequestChange_MatchmakingStatus", MATCHMAKING_STATUS.MATCHMAKING_LFG )
             }
@@ -212,53 +211,8 @@ function UpdateReadyUp()
 
       let readyUI = file._readyUI
       let player = GetLocalPlayer()
-      let game = GetLocalGame()
       let status = GetNetVar_Number( player, NETVAR_MATCHMAKING_STATUS )
       let numWithYou = GetNetVar_Number( player, NETVAR_MATCHMAKING_NUMWITHYOU )
-
-      function DisplaySpectatorReturnToQueue()
-      {
-         if ( file.displayedReturnToQueue )
-            return
-         file.displayedReturnToQueue = true // don't make it keep popping out
-
-         Thread(
-            function ()
-            {
-               let toggleButton = file.toggleButton
-               if ( toggleButton === undefined )
-                  return
-
-               wait( 4 ) // for victory screen
-
-               toggleButton.SnapClosed()
-               readyUI.Frame.Check.Visible = false
-               readyUI.Enabled = true
-               readyUI.Frame.InfoFrame.Status.Text = "Spectate or leave this game?"
-               readyUI.DisplayOrder = UIORDER.UIORDER_READY_AFTER_SPECTATE // move this to the front
-
-               wait()
-               toggleButton.Open()
-            } )
-      }
-
-      if ( game.GetPlayerRole( player ) === ROLE.ROLE_SPECTATOR_CAMPER_ESCAPED )
-      {
-         DisplaySpectatorReturnToQueue()
-         return
-      }
-
-      if ( game.GetGameState() >= GAME_STATE.GAME_STATE_COMPLETE )
-      {
-         readyUI.Enabled = false
-         return
-      }
-
-      if ( game.IsSpectator( player ) )
-      {
-         DisplaySpectatorReturnToQueue()
-         return
-      }
 
       switch ( status )
       {
@@ -314,6 +268,14 @@ function UpdateReadyUp()
    } )
 }
 
+function GetRemindMatchmakingTime()
+{
+   if ( IsFromReservedServer() )
+      return 3
+
+   return DEFAULT_REMIND_MATCHMAKING
+}
+
 function RemindMatchmaking()
 {
    let localPlayer = GetLocalPlayer()
@@ -334,7 +296,7 @@ function RemindMatchmaking()
       }
 
       count++
-      if ( count >= DEFAULT_REMIND_MATCHMAKING )
+      if ( count >= GetRemindMatchmakingTime() )
          toggleButton.Open()
    }
 

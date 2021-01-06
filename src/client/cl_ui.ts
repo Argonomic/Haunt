@@ -6,6 +6,7 @@ import { Assert } from "shared/sh_assert"
 import { AddCaptureInputChangeCallback, AddOnTouchEndedCallback } from "./cl_input";
 
 const DRAGGED_ZINDEX_OFFSET = 20
+const LIVE = " Live"
 
 export type ImageButtonWithParent = ImageButton &
 {
@@ -587,4 +588,10 @@ export function AddClickable( clickUI: EDITOR_ClickableUI, canClickFunc: ( () =>
       lastResultsType = results.resultsType
    } )
    file.ancestorServices.push( service )
+}
+
+export function LiveName( elem: ScreenGui )
+{
+   Assert( elem.Name.find( LIVE ).size() === 0, "Already LiveNamed" )
+   elem.Name = elem.Name + LIVE
 }

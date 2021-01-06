@@ -1,6 +1,6 @@
 import { Chat, HttpService, Players } from "@rbxts/services"
 import { AddRPC } from "shared/sh_rpc"
-import { ArrayRandomize, IsAlive, Resume, Thread, UserIDToPlayer } from "shared/sh_utils"
+import { ArrayRandomize, IsAlive, KillPlayer, Resume, Thread, UserIDToPlayer } from "shared/sh_utils"
 import { Assert } from "shared/sh_assert"
 import { Assignment, GAME_STATE, SharedGameStateInit, NETVAR_JSON_TASKLIST, ROLE, IsPracticing, Game, GAMERESULTS, GetVoteResults, TASK_EXIT, AssignmentIsSame, TASK_RESTORE_LIGHTS, PlayerInfo, PlayerVote } from "shared/sh_gamestate"
 import { MAX_TASKLIST_SIZE, MATCHMAKE_PLAYERCOUNT_DESIRED, MATCHMAKE_PLAYERCOUNT_FALLBACK, SPAWN_ROOM, PLAYER_WALKSPEED, TASK_VALUE } from "shared/sh_settings"
@@ -96,13 +96,13 @@ export function SV_GameStateSetup()
    Thread( function ()
    {
       wait( 6 )
-      let players = Players.GetPlayers()
-      for ( let player of players )
-      {
+         let players = Players.GetPlayers()
+         for ( let player of players )
+         {
          //KillPlayer( player )
-         //let game = PlayerToGame( player )
-         //ClearAssignments( game, player )
-      }
+            //let game = PlayerToGame( player )
+            //ClearAssignments( game, player )
+         }
    } )
 
    SharedGameStateInit()
@@ -275,7 +275,7 @@ function GameStateChanged( game: Game, oldGameState: GAME_STATE, gameEndFunc: Fu
          Thread(
             function ()
             {
-               wait( 4 )
+               wait( 2 )
                game.SetGameState( GAME_STATE.GAME_STATE_DEAD )
             } )
          break
@@ -284,7 +284,7 @@ function GameStateChanged( game: Game, oldGameState: GAME_STATE, gameEndFunc: Fu
          Thread(
             function ()
             {
-               wait( 4 )
+               wait( 2 )
                gameEndFunc()
             } )
          break

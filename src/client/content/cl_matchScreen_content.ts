@@ -720,26 +720,44 @@ export function DrawMatchScreen_Winners( winners: Array<Player>, localRole: ROLE
 
    if ( localWinner )
    {
-      switch ( localRole )
+      if ( winnings > 0 )
       {
-         case ROLE.ROLE_SPECTATOR_CAMPER_ESCAPED:
-            if ( startingPossessedCount === 1 )
-               subTitle.Text = "You escaped the imposter!"
-            else
-               subTitle.Text = "You escaped the imposters!"
-            break
+         switch ( localRole )
+         {
+            case ROLE.ROLE_SPECTATOR_CAMPER_ESCAPED:
+               if ( startingPossessedCount === 1 )
+                  subTitle.Text = "You escaped the imposter!"
+               else
+                  subTitle.Text = "You escaped the imposters!"
+               break
 
-         case ROLE.ROLE_CAMPER:
-         case ROLE.ROLE_SPECTATOR_CAMPER:
-            if ( startingPossessedCount === 1 )
-               subTitle.Text = "You defeated the imposter!"
-            else
-               subTitle.Text = "You defeated the imposters!"
-            break
+            case ROLE.ROLE_CAMPER:
+            case ROLE.ROLE_SPECTATOR_CAMPER:
+               if ( startingPossessedCount === 1 )
+                  subTitle.Text = "You defeated the imposter!"
+               else
+                  subTitle.Text = "You defeated the imposters!"
+               break
+         }
+
+         lowerTitle.Text = "You earned " + winnings + " HauntBux!"
+         Tween( lowerTitle, { TextTransparency: 0 }, FADE_IN )
+      }
+      else
+      {
+         switch ( localRole )
+         {
+            case ROLE.ROLE_SPECTATOR_CAMPER_ESCAPED:
+            case ROLE.ROLE_CAMPER:
+            case ROLE.ROLE_SPECTATOR_CAMPER:
+               if ( startingPossessedCount === 1 )
+                  subTitle.Text = "They defeated the imposter!"
+               else
+                  subTitle.Text = "They defeated the imposters!"
+               break
+         }
       }
 
-      lowerTitle.Text = "You earned " + winnings + " HauntBux!"
-      Tween( lowerTitle, { TextTransparency: 0 }, FADE_IN )
 
       if ( subTitle.Text !== "" )
       {

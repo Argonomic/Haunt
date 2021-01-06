@@ -17,6 +17,7 @@ import { GetScore } from "shared/sh_score"
 class File
 {
    clientGame = new Game()
+   fromReservedServer = false
 }
 
 let file = new File()
@@ -83,8 +84,7 @@ export function CL_GameStateSetup()
       if ( data.playerCount !== undefined )
          SendRPC( 'RPC_FromClient_SetPlayerCount', data.playerCount )
 
-      if ( data.matchmaking !== undefined )
-         SendRPC( "RPC_FromClient_RequestChange_MatchmakingStatus", data.matchmaking )
+      file.fromReservedServer = data.fromReservedServer === true
    }
 
    file.clientGame.gameThread = coroutine.create(
@@ -346,4 +346,9 @@ function CreateCorpse( player: Player, pos: Vector3 ): Model | undefined
    } )
 
    return corpseCharacter
+}
+
+export function IsFromReservedServer()
+{
+   return file.fromReservedServer
 }

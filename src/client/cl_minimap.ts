@@ -4,7 +4,7 @@ import { AddCallback_OnPlayerCharacterAncestryChanged } from "shared/sh_onPlayer
 import { GetChildrenWithName, GetChildren_NoFutureOffspring, GetExistingFirstChildWithNameAndClassName, GetInstanceChildWithName, GetLocalPlayer, GetPosition, GetWorkspaceChildByName, Graph } from "shared/sh_utils"
 import { Assert } from "shared/sh_assert"
 import { CreateCalloutTextLabel } from "./cl_callouts2d"
-import { AddPlayerGuiFolderExistsCallback, UIORDER } from "./cl_ui"
+import { LiveName, AddPlayerGuiFolderExistsCallback, UIORDER } from "./cl_ui"
 import { Tween } from "shared/sh_tween"
 
 const SCR_FLOOR = "scr_floor"
@@ -97,14 +97,16 @@ export function CL_MinimapSetup()
    {
       if ( file.minimapUI !== undefined )
       {
+         let minimapUI = GetExistingFirstChildWithNameAndClassName( gui, 'Minimap', 'ScreenGui' ) as ScreenGui
+         minimapUI.Destroy()
          file.minimapUI.Parent = gui
          return
       }
 
       file.mapIcons = []
       let minimapUI = GetExistingFirstChildWithNameAndClassName( gui, 'Minimap', 'ScreenGui' ) as ScreenGui
-
       file.minimapUI = minimapUI
+      LiveName( minimapUI )
 
       let frameName = "MiniFrame"
       minimapUI.DisplayOrder = UIORDER.UIORDER_MINIMAP

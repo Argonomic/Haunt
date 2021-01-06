@@ -34,6 +34,7 @@ import { SH_CoinsSetup } from "shared/sh_coins"
 import { SH_PickupsSetup } from "shared/sh_pickups"
 import { CL_CoinsSetup } from "./cl_coins"
 import { SH_ScoreSetup } from "shared/sh_score"
+import { CL_ReturnToLobbySetup } from "./cl_returnToLobby"
 
 class File
 {
@@ -85,6 +86,7 @@ CL_MeetingSetup()
 CL_MatchScreenSetup()
 CL_MatchScreenContentSetup()
 CL_CoinsSetup()
+CL_ReturnToLobbySetup()
 SH_OnPlayerConnectSetup()
 
 file.finishedInit = true

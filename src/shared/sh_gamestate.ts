@@ -126,7 +126,7 @@ class NETVAR_Vote
 export class TELEPORT_PlayerData
 {
    playerCount: number | undefined
-   matchmaking: MATCHMAKING_STATUS | undefined
+   fromReservedServer: boolean | undefined
 }
 
 export class Assignment

@@ -42,6 +42,7 @@ export function SH_RPCSetup()
          "RPC_FromClient_OnPlayerUseFromRoom",
          "RPC_FromClient_OnUse",
          "RPC_FromClient_RequestChange_MatchmakingStatus",
+         "RPC_FromClient_RequestLobby",
          "RPC_FromClient_RestoreLighting_Fuse",
          "RPC_FromClient_SetPlayerCount",
          "RPC_FromClient_Skipvote",

@@ -105,28 +105,18 @@ export function SV_MatchmakingSetup()
          UpdateMatchmakingStatus_AndMatchmake()
       } )
 
+   if ( IsReservedServer() )
+   {
+      AddRPC( "RPC_FromClient_RequestLobby", function ( player: Player )
+      {
+         SendPlayersToLobby( [player] )
+      } )
+   }
+
    AddRPC( "RPC_FromClient_RequestChange_MatchmakingStatus", function ( player: Player, newStatus: MATCHMAKING_STATUS )
    {
       if ( IsReservedServer() )
-      {
-         if ( IsPracticing( player ) )
-            return
-
-         let playersGame = PlayerToGame( player )
-         if ( !playersGame.IsSpectator( player ) )
-            return
-
-         Thread( function ()
-         {
-            SetNetVar( player, NETVAR_MATCHMAKING_STATUS, MATCHMAKING_STATUS.MATCHMAKING_SEND_TO_LOBBY )
-            wait( 1 ) // wait for transition
-            let data = new TELEPORT_PlayerData()
-            data.matchmaking = newStatus
-            let json = HttpService.JSONEncode( data )
-            TeleportService.Teleport( game.PlaceId, player, json )
-         } )
          return
-      }
 
       let status = GetNetVar_Number( player, NETVAR_MATCHMAKING_STATUS )
       switch ( status )
@@ -262,7 +252,11 @@ export function SV_MatchmakingSetup()
                if ( Workspace.DistributedGameTime > 40 )
                {
                   print( "Matchmaking took too long, send players home" )
-                  SendPlayersToLobby()
+                  for ( ; ; )
+                  {
+                     SendPlayersToLobby( Players.GetPlayers() )
+                     wait( 4 )
+                  }
                   return
                }
 
@@ -304,7 +298,15 @@ export function SV_MatchmakingSetup()
                      if ( !LOCAL )
                      {
                         print( "GAME IS OVER, TELEPORT PLAYERS BACK TO START PLACE" )
-                        SendPlayersToLobby()
+                        Thread(
+                           function ()
+                           {
+                              for ( ; ; )
+                              {
+                                 SendPlayersToLobby( Players.GetPlayers() )
+                                 wait( 4 )
+                              }
+                           } )
                         return
                      }
                   } )
@@ -389,19 +391,21 @@ function GetPlayersWithMatchmakingStatus( status: MATCHMAKING_STATUS ): Array<Pl
    return found
 }
 
-function SendPlayersToLobby()
+function SendPlayersToLobby( players: Array<Player> )
 {
+   Assert( IsReservedServer(), "IsReservedServer()" )
    Thread( function ()
    {
-      let players = Players.GetPlayers()
       for ( let player of players )
       {
          SetNetVar( player, NETVAR_MATCHMAKING_STATUS, MATCHMAKING_STATUS.MATCHMAKING_SEND_TO_LOBBY )
       }
 
-      wait( 1 ) // For transition
+      wait( 1 ) // fade to black
+
       let data = new TELEPORT_PlayerData()
-      data.matchmaking = MATCHMAKING_STATUS.MATCHMAKING_LFG
+      data.fromReservedServer = true
+
       let json = HttpService.JSONEncode( data )
       TeleportService.TeleportPartyAsync( game.PlaceId, players, json )
    } )
