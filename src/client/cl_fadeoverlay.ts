@@ -3,16 +3,18 @@ import { Corpse, IsPracticing, TASK_RESTORE_LIGHTS, PlayerNumToGameViewable, ROL
 import { AddCallback_OnPlayerCharacterAdded, AddCallback_OnPlayerCharacterAncestryChanged } from "shared/sh_onPlayerConnect"
 import { PLAYER_COLORS, SPECTATOR_TRANS } from "shared/sh_settings"
 import { TweenPlayerParts } from "shared/sh_tween"
-import { GetFirstChildWithNameAndClassName, GetLocalPlayer, GetPosition, GraphCapped, IsAlive, SetCharacterTransparency, SetPlayerTransparency, Thread } from "shared/sh_utils"
+import { GetFirstChildWithNameAndClassName, GetLocalPlayer, GetPosition, GraphCapped, IsAlive, SetCharacterTransparency, SetPlayerTransparency } from "shared/sh_utils"
 import { Assert } from "shared/sh_assert"
 import { GetLocalGame, GetLocalIsSpectator, GetLocalRole } from "./cl_gamestate"
 import { AddPlayerGuiFolderExistsCallback, UIORDER } from "./cl_ui"
 import { ClientGetAssignmentAssignedTime, ClientHasAssignment } from "./cl_taskList"
-import { AddCoinCreatedCallback, GetCoins } from "shared/sh_coins"
+import { GetCoins } from "shared/sh_coins"
 import { Tween } from "shared/sh_tween";
+import { GetCurrentRoom } from "./cl_rooms"
 
 const FADE_CIRCLE = 'rbxassetid://6006022378'
 const TRANSPARENCY = 0.333
+const LOCAL_PLAYER = GetLocalPlayer()
 
 Assert( Workspace.CurrentCamera !== undefined, "Workspace has no camera" )
 class File
@@ -32,10 +34,9 @@ let file = new File( Workspace.CurrentCamera as Camera )
 
 export function CL_FadeOverlaySetup()
 {
-   let localPlayer = GetLocalPlayer()
    AddCallback_OnPlayerCharacterAdded( function ( player: Player )
    {
-      if ( player === localPlayer )
+      if ( player === LOCAL_PLAYER )
          return
 
       let character = player.Character as Model
@@ -175,13 +176,13 @@ export function CL_FadeOverlaySetup()
       const FADE_TIME = 0.25
       const COIN_FADE_TIME = 0.125
 
-      screenUI.Enabled = !IsPracticing( localPlayer )
+      screenUI.Enabled = !IsPracticing( LOCAL_PLAYER )
 
 
       function Hide( player: Player, character: Model )
       {
          // characters come in transparent
-         if ( game.IsSpectator( localPlayer ) )
+         if ( game.IsSpectator( LOCAL_PLAYER ) )
             SetPlayerTransparency( player, SPECTATOR_TRANS )
          else
             SetPlayerTransparency( player, 1 )
@@ -190,7 +191,7 @@ export function CL_FadeOverlaySetup()
       let oldGameState = -1
       RunService.RenderStepped.Connect( function ()      
       {
-         if ( IsPracticing( localPlayer ) )
+         if ( IsPracticing( LOCAL_PLAYER ) )
             return
 
          if ( !screenUI.Enabled )
@@ -198,7 +199,7 @@ export function CL_FadeOverlaySetup()
 
          let LIGHTDIST = GetLightDist()
 
-         let character = localPlayer.Character
+         let character = LOCAL_PLAYER.Character
          if ( character === undefined )
             return
 
@@ -208,13 +209,13 @@ export function CL_FadeOverlaySetup()
             return
          let pos = head.Position
          */
-         let pos = GetPosition( localPlayer )
+         let pos = GetPosition( LOCAL_PLAYER )
 
          if ( oldGameState !== game.GetGameState() )
          {
             for ( let other of game.GetAllPlayers() )
             {
-               if ( other !== localPlayer )
+               if ( other !== LOCAL_PLAYER )
                   SetPlayerTransparency( other, 1 )
             }
 
@@ -235,12 +236,12 @@ export function CL_FadeOverlaySetup()
          fadeCircle.Size = new UDim2( 0, dist, 0, dist )
          const VISUAL_DIST = fadeCircle.AbsoluteSize.X * 0.5
 
-         let players = game.GetAllPlayers()
+         let localPlayerRoom = GetCurrentRoom( LOCAL_PLAYER )
 
          for ( let pair of file.characterToPlayer )
          {
             let player = pair[1]
-            Assert( player !== localPlayer, "pair[1] !== localPlayer" )
+            Assert( player !== LOCAL_PLAYER, "pair[1] !== LOCAL_PLAYER" )
             let isVisible = false
             let part: BasePart | undefined
             let head: Part | undefined
@@ -263,19 +264,6 @@ export function CL_FadeOverlaySetup()
                continue
             }
 
-            /*
-            if ( head === undefined )
-            {
-               let elem = visiblePlayersToLabel.get( player )
-               if ( elem !== undefined )
-               {
-                  elem.Destroy()
-                  visiblePlayersToLabel.delete( player )
-               }
-            }
-            else            
-            {
-               */
             let [partScreenCenter, _2] = camera.WorldToScreenPoint( head.Position )
             let dist = partScreenCenter.sub( screenCenter ).Magnitude
 
@@ -290,7 +278,15 @@ export function CL_FadeOverlaySetup()
                if ( isVisible )
                {
                   let textLabel = visiblePlayersToLabel.get( player ) as TextLabel
-                  textLabel.Position = new UDim2( 0, partScreenCenter.X, 0, partScreenCenter.Y )
+                  if ( GetCurrentRoom( player ) === localPlayerRoom )
+                  {
+                     textLabel.Position = new UDim2( 0, partScreenCenter.X, 0, partScreenCenter.Y )
+                     textLabel.TextTransparency = 0
+                  }
+                  else
+                  {
+                     textLabel.TextTransparency = 1
+                  }
                }
 
                continue

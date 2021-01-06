@@ -10,6 +10,7 @@ import { TasksRemaining } from "./cl_taskList";
 import { AddRoomChangedCallback, GetCurrentRoom } from "./cl_rooms";
 import { SocialService } from "@rbxts/services";
 
+const LOCAL_PLAYER = GetLocalPlayer()
 
 type Editor_ReadyUI = ScreenGui &
 {
@@ -54,7 +55,7 @@ export function CL_ReadyUpSetup()
             if ( file.displayedReadyUp )
                return
 
-            if ( GetCurrentRoom().name !== 'Great Room' )
+            if ( GetCurrentRoom( LOCAL_PLAYER ).name !== 'Great Room' )
                return
             file.displayedReadyUp = true
             Thread( function ()

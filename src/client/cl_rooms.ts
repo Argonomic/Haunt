@@ -4,33 +4,42 @@ import { GetLocalPlayer, GetPlayerFromDescendant, GetClosest, Resume } from "sha
 import { Assert } from "shared/sh_assert"
 import { SetPlayerCameraToRoom } from "./cl_camera"
 import { ClearCoinPopUps } from "./cl_coins"
+import { AddCallback_OnPlayerConnected } from "shared/sh_onPlayerConnect"
+import { SPAWN_ROOM } from "shared/sh_settings"
+
+const LOCAL_PLAYER = GetLocalPlayer()
 
 class File
 {
    currentClientBlockers: Array<BasePart> = []
-   currentRoom: Room
+   currentRoom = new Map<Player, Room>()
    currentDoorTrigger: BasePart | undefined
-   clientCurrentDoorTrigger: BasePart | undefined
+   playerToDoorTrigger = new Map<Player, BasePart>()
    rooms = new Map<string, Room>()
    roomChangedCallbacks: Array<Function> = []
-
-   constructor( room: Room )
-   {
-      this.currentRoom = room
-   }
 }
-
-const EMPTY_ROOM = new Room()
-let file = new File( EMPTY_ROOM )
+let file = new File()
 
 export function CL_RoomSetup()
 {
-   //AddOnUseCallback( PlayerTriesToUseCurrentRoom )
-
-   AddRPC( "RPC_FromServer_SetPlayerRoom", RPC_FromServer_SetPlayerRoom )
-
    AddCallback_OnRoomSetup( "trigger_door", OnTriggerDoorSetup )
    file.rooms = AddRoomsFromWorkspace()
+
+   let startRoom = file.rooms.get( SPAWN_ROOM ) as Room
+   if ( startRoom === undefined ) throw undefined
+
+   //AddOnUseCallback( PlayerTriesToUseCurrentRoom )
+   AddCallback_OnPlayerConnected(
+      function ( player: Player )
+      {
+         let door = new Instance( 'Part' )
+         file.playerToDoorTrigger.set( player, door )
+         file.currentRoom.set( player, startRoom )
+
+         door.Destroy()
+      } )
+
+   AddRPC( "RPC_FromServer_SetPlayerRoom", RPC_FromServer_SetPlayerRoom )
 
    if ( FAST_ROOM_ITERATION )
    {
@@ -46,25 +55,15 @@ function FastRoomIteration()
    {
       wait( 0.5 )
       file.rooms = AddRoomsFromWorkspace()
-      if ( CurrentRoomExists() )
-      {
-         let room = file.rooms.get( GetCurrentRoom().name )
-         SetCurrentRoom( room as Room )
-      }
+      let room = file.rooms.get( GetCurrentRoom( LOCAL_PLAYER ).name )
+      SetCurrentRoom( LOCAL_PLAYER, room as Room )
    }
-   /*
-   for ( ; ; )
-   {
-      if ( CurrentRoomExists
-      SetCurrentRoom( file.currentRoom )
-   }
-   */
 }
 
 export function RPC_FromServer_SetPlayerRoom( name: string )
 {
    let room = GetRoom( name )
-   SetCurrentRoom( room )
+   SetCurrentRoom( LOCAL_PLAYER, room )
 }
 
 function SetBlockersFromRoom( room: Room )
@@ -77,11 +76,10 @@ function SetBlockersFromRoom( room: Room )
    file.currentClientBlockers = CreateClientBlockers( room )
 }
 
-export function GetCurrentRoom(): Room
+export function GetCurrentRoom( player: Player ): Room
 {
-   Assert( file.currentRoom !== EMPTY_ROOM, "Player room has not been set!" )
-
-   return file.currentRoom
+   Assert( file.currentRoom.get( player ) !== undefined, "file.currentRoom.get( player ) !== undefined" )
+   return file.currentRoom.get( player ) as Room
 }
 
 export function GetRooms(): Map<string, Room>
@@ -89,22 +87,19 @@ export function GetRooms(): Map<string, Room>
    return file.rooms
 }
 
-export function CurrentRoomExists(): boolean
-{
-   return file.currentRoom !== EMPTY_ROOM
-}
-
 export function AddRoomChangedCallback( func: Function )
 {
    file.roomChangedCallbacks.push( func )
 }
 
-function SetCurrentRoom( room: Room )
+function SetCurrentRoom( player: Player, room: Room )
 {
-   file.currentRoom = room
+   file.currentRoom.set( player, room )
+   if ( player !== LOCAL_PLAYER )
+      return
+
    SetPlayerCameraToRoom( room )
    SetBlockersFromRoom( room )
-   //SetTaskCalloutsFromRoom( room )
    ClearCoinPopUps()
 
    for ( let roomChangedCallback of file.roomChangedCallbacks )
@@ -115,31 +110,23 @@ function SetCurrentRoom( room: Room )
 
 function OnTriggerDoorSetup( door: BasePart, room: Room )
 {
-   let localPlayer = GetLocalPlayer()
-
    door.Touched.Connect( function ( toucher )
    {
       let player = GetPlayerFromDescendant( toucher )
       if ( player === undefined )
          return
 
-      if ( player !== localPlayer )
+      let currentDoorTrigger = file.playerToDoorTrigger.get( player ) as BasePart
+      if ( currentDoorTrigger === door )
          return
 
-      if ( file.clientCurrentDoorTrigger === door )
+      let closestDoor = GetClosest( player, [door, currentDoorTrigger] )
+      if ( closestDoor === currentDoorTrigger )
          return
 
-      if ( file.clientCurrentDoorTrigger !== undefined )
-      {
-         let closestDoor = GetClosest( player, [door, file.clientCurrentDoorTrigger] )
-         if ( closestDoor === file.clientCurrentDoorTrigger )
-            return
-      }
-
-      file.clientCurrentDoorTrigger = door
-      SetCurrentRoom( room )
+      file.playerToDoorTrigger.set( player, door )
+      SetCurrentRoom( player, room )
    } )
-
 }
 
 export function GetRoom( name: string ): Room

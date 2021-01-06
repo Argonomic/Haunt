@@ -1,7 +1,8 @@
 import { Workspace } from "@rbxts/services"
 import { BoundsXZ } from "./sh_bounds"
-import { GetChildren_NoFutureOffspring, GetFirstChildWithNameAndClassName, GetInstanceChildWithName, GetWorkspaceChildByName, IsClient } from "./sh_utils"
+import { GetChildren_NoFutureOffspring, GetFirstChildWithName, GetFirstChildWithNameAndClassName, GetInstanceChildWithName, GetWorkspaceChildByName, IsClient } from "./sh_utils"
 import { Assert } from "shared/sh_assert"
+import { IsReservedServer } from "./sh_gamestate"
 
 export const FAST_ROOM_ITERATION = false
 const DEFAULT_FIELDOFVIEW = 20
@@ -124,6 +125,13 @@ function CreateRoomFromFolder( folder: Folder ): Room
          case "usable_task":
             {
                let childPart = child as BasePart
+               let notInLobby = GetFirstChildWithName( childPart, "not_in_lobby" ) !== undefined
+               if ( notInLobby && !IsReservedServer() )
+               {
+                  childPart.Destroy()
+                  break
+               }
+
                Assert( childPart.ClassName === "Part", "usable_task should be a Part" )
 
                childPart.CanCollide = false

@@ -1,8 +1,8 @@
 import { HttpService, Workspace } from "@rbxts/services"
 import { GetTaskSpec } from "client/cl_tasks"
-import { Assignment, AssignmentIsSame, IsPracticing, NETVAR_JSON_GAMESTATE, NETVAR_JSON_TASKLIST, NETVAR_MEETINGS_CALLED, ROLE, USETYPES } from "shared/sh_gamestate"
+import { Assignment, AssignmentIsSame, IsPracticing, NETVAR_JSON_GAMESTATE, NETVAR_JSON_TASKLIST, NETVAR_MEETINGS_CALLED, USETYPES } from "shared/sh_gamestate"
 import { AddNetVarChangedCallback, GetNetVar_Number, GetNetVar_String } from "shared/sh_player_netvars"
-import { AddRoomChangedCallback, CurrentRoomExists, GetCurrentRoom, GetRooms } from "./cl_rooms"
+import { AddRoomChangedCallback, GetCurrentRoom, GetRooms } from "./cl_rooms"
 import { GetFirstChildWithName, GetLocalPlayer, Graph, Thread } from "shared/sh_utils"
 import { Assert } from "shared/sh_assert"
 import { AddCallout, ClearCallouts, InitCallouts } from "./cl_callouts2d"
@@ -15,6 +15,7 @@ import { AddCallback_OnPlayerCharacterAncestryChanged } from "shared/sh_onPlayer
 import { Tween } from "shared/sh_tween"
 
 const CALLOUTS_NAME = "TASKLIST_CALLOUTS"
+const LOCAL_PLAYER = GetLocalPlayer()
 
 type EDITOR_ScreenUIWithFrame = ScreenGui &
 {
@@ -83,11 +84,8 @@ export function CL_TaskListSetup()
    GetUsableByType( USETYPES.USETYPE_TASK ).DefineGetter(
       function ( player: Player ): Array<BasePart>
       {
-         if ( !CurrentRoomExists() )
-            return []
-
          let parts: Array<BasePart> = []
-         let room = GetCurrentRoom()
+         let room = GetCurrentRoom( LOCAL_PLAYER )
 
          for ( let assignment of file.assignments )
          {
@@ -114,12 +112,10 @@ export function CL_TaskListSetup()
          if ( GetLocalIsSpectator() )
             return []
 
-         if ( !CurrentRoomExists() )
-            return []
          if ( GetNetVar_Number( player, NETVAR_MEETINGS_CALLED ) > 0 )
             return []
 
-         let room = GetCurrentRoom()
+         let room = GetCurrentRoom( LOCAL_PLAYER )
          if ( room.meetingTrigger !== undefined )
             return [room.meetingTrigger]
 
@@ -372,12 +368,9 @@ function RecreateTaskListMapIcons()
 
 function RecreateTaskListCallouts2d()
 {
-   if ( !CurrentRoomExists() )
-      return
-
    ClearCallouts( CALLOUTS_NAME )
 
-   let room: Room = GetCurrentRoom()
+   let room: Room = GetCurrentRoom( LOCAL_PLAYER )
 
    for ( let assignment of file.assignments )
    {

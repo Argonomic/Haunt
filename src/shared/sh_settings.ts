@@ -1,6 +1,6 @@
 import { RunService } from "@rbxts/services"
 
-let LOCAL = RunService.IsStudio()
+const LOCAL = RunService.IsStudio()
 export const DEV_SKIP = LOCAL && true
 export const DEV_READYUP = LOCAL && DEV_SKIP
 
