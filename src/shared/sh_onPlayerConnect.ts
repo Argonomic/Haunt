@@ -41,7 +41,7 @@ export function AddCallback_OnPlayerCharacterAncestryChanged( func: () => void )
 {
    let localPlayer = GetLocalPlayer()
    Assert( IsClient(), "Client only" )
-   AddCallback_OnPlayerCharacterAdded(
+   file.onPlayerCharacterAdded.push(
       function ( player: Player )
       {
          if ( player !== localPlayer )

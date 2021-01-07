@@ -553,6 +553,9 @@ export function UpdateMeeting( game: Game, lastGameState: GAME_STATE )
    if ( meetingCaller === undefined )
       return
 
+   if ( lastGameState === GAME_STATE.GAME_STATE_SUDDEN_DEATH )
+      return
+
    let activeMeeting = file.activeMeeting
 
    if ( lastGameState === GAME_STATE.GAME_STATE_PLAYING )

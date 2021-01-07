@@ -35,6 +35,7 @@ import { SH_PickupsSetup } from "shared/sh_pickups"
 import { CL_CoinsSetup } from "./cl_coins"
 import { SH_ScoreSetup } from "shared/sh_score"
 import { CL_ReturnToLobbySetup } from "./cl_returnToLobby"
+import { CL_SuddenDeathSetup } from "./cl_suddenDeath"
 
 class File
 {
@@ -87,6 +88,7 @@ CL_MatchScreenSetup()
 CL_MatchScreenContentSetup()
 CL_CoinsSetup()
 CL_ReturnToLobbySetup()
+CL_SuddenDeathSetup()
 SH_OnPlayerConnectSetup()
 
 file.finishedInit = true

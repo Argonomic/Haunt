@@ -488,7 +488,11 @@ function GetMatchmakingMinPlayersForLongestWaitTime( players: Array<Player> ): n
    let playerCount = math.floor( GraphCapped( timer, 25, 45, MATCHMAKE_PLAYERCOUNT_DESIRED, MATCHMAKE_PLAYERCOUNT_FALLBACK ) )
 
    if ( DEV_SKIP )
-      playerCount = MATCHMAKE_PLAYERCOUNT_FALLBACK
+   {
+      if ( AnyPlayerSearchingForLessTime( players, 3 ) )
+         return MATCHMAKE_PLAYERCOUNT_DESIRED
+      return MATCHMAKE_PLAYERCOUNT_FALLBACK
+   }
 
    if ( playerCount < MATCHMAKE_PLAYERCOUNT_DESIRED )
    {

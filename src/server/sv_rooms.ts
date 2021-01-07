@@ -1,13 +1,13 @@
 import { Room, AddRoomsFromWorkspace, RoomAndTask, AddCallback_OnRoomSetup } from "shared/sh_rooms"
 import { ArrayRandomize, GetPlayerFromDescendant, RandomFloatRange, SetPlayerYaw, Thread } from "shared/sh_utils"
-import { QUICK_START_ROOM } from "shared/sh_settings"
+import { SPAWN_ROOM } from "shared/sh_settings"
 import { SendRPC } from "./sv_utils"
 import { AddCallback_OnPlayerConnected } from "shared/sh_onPlayerConnect"
 import { Assert } from "shared/sh_assert"
+import { HttpService, Players } from "@rbxts/services"
 
 class File
 {
-   dev_startRoomName: string = QUICK_START_ROOM
    rooms = new Map<string, Room>()
    touchingDoorTriggers = new Map<Player, Array<BasePart>>()
    triggerToRoom = new Map<BasePart, Room>()
@@ -140,6 +140,8 @@ export function GetRoomSpawnLocations( room: Room, count: number ): Array<Vector
 
 export function PutPlayersInRoom( players: Array<Player>, room: Room )
 {
+   TellClientsAboutPlayersInRoom( players, room )
+
    let startpoints = room.startPoints.concat()
    ArrayRandomize( startpoints )
 
@@ -164,11 +166,22 @@ export function PutPlayersInRoom( players: Array<Player>, room: Room )
       }
 
       SetPlayerYaw( player, RandomFloatRange( 90 - offset, 90 + offset ) )
-      //part.CFrame = part.CFrame.mul( CFrame.Angles( math.rad( 0 ), math.rad( yaw ), math.rad( 0 ) ) )
-
-      print( "Put player " + player.Name + " in room " + room.name )
       file.currentRoom.set( player, room )
-      PutPlayerCameraInRoom( player, room )
+   }
+}
+
+export function TellClientsAboutPlayersInRoom( players: Array<Player>, room: Room )
+{
+   let jsonPlayers: Array<number> = []
+   for ( let player of players )
+   {
+      jsonPlayers.push( player.UserId )
+   }
+   let json = HttpService.JSONEncode( jsonPlayers )
+
+   for ( let player of Players.GetPlayers() )
+   {
+      SendRPC( "RPC_FromServer_PutPlayersInRoom", player, json, room.name )
    }
 }
 
@@ -177,14 +190,9 @@ export function SetPlayerCurrentRoom( player: Player, room: Room )
    file.currentRoom.set( player, room )
 }
 
-export function PutPlayerCameraInRoom( player: Player, room: Room )
-{
-   SendRPC( "RPC_FromServer_SetPlayerRoom", player, room.name )
-}
-
 export function PutPlayerInStartRoom( player: Player )
 {
-   let room = GetRoomByName( file.dev_startRoomName )
+   let room = GetRoomByName( SPAWN_ROOM )
    Thread( function ()
    {
       wait() // because hey, otherwise the game tries to set the player position somewhere

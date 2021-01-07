@@ -4,15 +4,16 @@ import { AddCallback_OnPlayerCharacterAdded } from "shared/sh_onPlayerConnect"
 import { AddNetVarChangedCallback } from "shared/sh_player_netvars"
 import { SetTimeDelta } from "shared/sh_time"
 import { GetUsableByType } from "shared/sh_use"
-import { GetFirstChildWithName, GetLocalPlayer, RandomFloatRange, RecursiveOnChildren, Resume, SetCharacterTransparency, WaitThread } from "shared/sh_utils"
+import { GetFirstChildWithName, GetLocalPlayer, RandomFloatRange, RecursiveOnChildren, Resume, SetCharacterTransparency, Thread, WaitThread } from "shared/sh_utils"
 import { Assert } from "shared/sh_assert"
 import { UpdateMeeting } from "./cl_meeting"
 import { CancelAnyOpenTask } from "./cl_tasks"
 import { AddPlayerUseDisabledCallback } from "./cl_use"
 import { SendRPC } from "./cl_utils"
-import { DrawMatchScreen_EmergencyMeeting, DrawMatchScreen_Intro, DrawMatchScreen_VoteResults, DrawMatchScreen_Winners } from "./content/cl_matchScreen_content"
+import { DrawMatchScreen_EmergencyMeeting, DrawMatchScreen_GameOver, DrawMatchScreen_Intro, DrawMatchScreen_VoteResults, DrawMatchScreen_Winners } from "./content/cl_matchScreen_content"
 import { GetScore } from "shared/sh_score"
 
+const LOCAL_PLAYER = GetLocalPlayer()
 
 class File
 {
@@ -69,6 +70,7 @@ export function CL_GameStateSetup()
       {
          case GAME_STATE.GAME_STATE_PREMATCH:
          case GAME_STATE.GAME_STATE_PLAYING:
+         case GAME_STATE.GAME_STATE_SUDDEN_DEATH:
             return false
       }
       return true
@@ -126,6 +128,9 @@ export function CL_GameStateSetup()
       function ( player: Player ): Array<Vector3>
       {
          if ( file.clientGame.IsSpectator( player ) )
+            return []
+
+         if ( file.clientGame.GetGameState() === GAME_STATE.GAME_STATE_SUDDEN_DEATH )
             return []
 
          let positions: Array<Vector3> = []
@@ -222,7 +227,7 @@ function CLGameStateChanged( oldGameState: number, newGameState: number )
             votedAndReceivedNoVotes.push( pair[0] )
          }
 
-         WaitThread( function ()
+         Thread( function ()
          {
             DrawMatchScreen_VoteResults(
                voteResults.skipTie,
@@ -237,7 +242,9 @@ function CLGameStateChanged( oldGameState: number, newGameState: number )
          break
 
       case GAME_STATE.GAME_STATE_PLAYING:
-         CancelAnyOpenTask()
+      case GAME_STATE.GAME_STATE_SUDDEN_DEATH:
+         if ( newGameState !== GAME_STATE.GAME_STATE_SUDDEN_DEATH )
+            CancelAnyOpenTask()
          break
    }
 
@@ -263,39 +270,41 @@ function CLGameStateChanged( oldGameState: number, newGameState: number )
       case GAME_STATE.GAME_STATE_COMPLETE:
 
          let score = GetScore( GetLocalPlayer() )
+         let game = file.clientGame
 
-         print( "Game is over, local role is " + GetLocalRole() )
+         let playerInfos = game.GetAllPlayerInfo()
+
+         print( "CLIENT GAME IS OVER, local role is " + GetLocalRole() )
          if ( GetLocalRole() === ROLE.ROLE_SPECTATOR_CAMPER_ESCAPED )
          {
             WaitThread( function ()
             {
-               let possessed = file.clientGame.GetPossessed()
-               DrawMatchScreen_Winners( possessed, GetLocalRole(), file.clientGame.startingPossessedCount, score )
+               DrawMatchScreen_Winners( [LOCAL_PLAYER], GetLocalRole(), game.startingPossessedCount, score, playerInfos )
             } )
             return
          }
-         let gameResults = file.clientGame.GetGameResults_NoParityAllowed()
 
+         let gameResults = game.GetGameResults_NoParityAllowed()
          switch ( gameResults )
          {
             case GAMERESULTS.RESULTS_CAMPERS_WIN:
-
                WaitThread( function ()
                {
-                  let campers = file.clientGame.GetCampers()
-                  DrawMatchScreen_Winners( campers, GetLocalRole(), file.clientGame.startingPossessedCount, score )
+                  DrawMatchScreen_Winners( game.GetLivingCampers(), GetLocalRole(), game.startingPossessedCount, score, playerInfos )
                } )
                break
 
             case GAMERESULTS.RESULTS_POSSESSED_WIN:
                WaitThread( function ()
                {
-                  let possessed = file.clientGame.GetPossessed()
-                  DrawMatchScreen_Winners( possessed, GetLocalRole(), file.clientGame.startingPossessedCount, score )
+                  DrawMatchScreen_Winners( game.GetLivingPossessed(), GetLocalRole(), game.startingPossessedCount, score, playerInfos )
                } )
                break
-
          }
+
+      case GAME_STATE.GAME_STATE_DEAD:
+         DrawMatchScreen_GameOver()
+         break
    }
 }
 

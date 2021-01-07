@@ -1,6 +1,6 @@
 import { HttpService, Workspace } from "@rbxts/services"
 import { GetTaskSpec } from "client/cl_tasks"
-import { Assignment, AssignmentIsSame, IsPracticing, NETVAR_JSON_GAMESTATE, NETVAR_JSON_TASKLIST, NETVAR_MEETINGS_CALLED, USETYPES } from "shared/sh_gamestate"
+import { Assignment, AssignmentIsSame, GAME_STATE, IsPracticing, NETVAR_JSON_GAMESTATE, NETVAR_JSON_TASKLIST, NETVAR_MEETINGS_CALLED, USETYPES } from "shared/sh_gamestate"
 import { AddNetVarChangedCallback, GetNetVar_Number, GetNetVar_String } from "shared/sh_player_netvars"
 import { AddRoomChangedCallback, GetCurrentRoom, GetRooms } from "./cl_rooms"
 import { GetFirstChildWithName, GetLocalPlayer, Graph, Thread } from "shared/sh_utils"
@@ -54,6 +54,8 @@ function RefreshTaskList()
    if ( file.existingUI === undefined )
       return
 
+   file.existingUI.Enabled = !IsPracticing( LOCAL_PLAYER )
+
    let frame = GetMinimapReferencesFrame()
    if ( frame !== undefined )
    {
@@ -103,6 +105,7 @@ export function CL_TaskListSetup()
       } )
 
 
+   let game = GetLocalGame()
    GetUsableByType( USETYPES.USETYPE_MEETING ).DefineGetter(
       function ( player: Player ): Array<BasePart>
       {
@@ -113,6 +116,9 @@ export function CL_TaskListSetup()
             return []
 
          if ( GetNetVar_Number( player, NETVAR_MEETINGS_CALLED ) > 0 )
+            return []
+
+         if ( game.GetGameState() === GAME_STATE.GAME_STATE_SUDDEN_DEATH )
             return []
 
          let room = GetCurrentRoom( LOCAL_PLAYER )
@@ -176,7 +182,7 @@ export function CL_TaskListSetup()
 
       let clone = taskList.Clone()
       clone.Name = clone.Name + " COPY"
-      clone.Enabled = !IsPracticing( GetLocalPlayer() )
+      clone.Enabled = false
       clone.Parent = folder
       clone.ResetOnSpawn = false
       file.existingUI = clone

@@ -1,11 +1,12 @@
 import { AddRPC } from "shared/sh_rpc"
 import { AddCallback_OnRoomSetup, CreateClientBlockers, Room, AddRoomsFromWorkspace, FAST_ROOM_ITERATION } from "shared/sh_rooms"
-import { GetLocalPlayer, GetPlayerFromDescendant, GetClosest, Resume } from "shared/sh_utils"
+import { GetLocalPlayer, GetPlayerFromDescendant, GetClosest, Resume, UserIDToPlayer } from "shared/sh_utils"
 import { Assert } from "shared/sh_assert"
 import { SetPlayerCameraToRoom } from "./cl_camera"
 import { ClearCoinPopUps } from "./cl_coins"
 import { AddCallback_OnPlayerConnected } from "shared/sh_onPlayerConnect"
 import { SPAWN_ROOM } from "shared/sh_settings"
+import { HttpService, Players } from "@rbxts/services"
 
 const LOCAL_PLAYER = GetLocalPlayer()
 
@@ -38,7 +39,20 @@ export function CL_RoomSetup()
          door.Destroy()
       } )
 
-   AddRPC( "RPC_FromServer_SetPlayerRoom", RPC_FromServer_SetPlayerRoom )
+   AddRPC( "RPC_FromServer_PutPlayersInRoom",
+      function ( jsonPlayers: string, name: string )
+      {
+         let userIDToPlayer = UserIDToPlayer()
+         let playerUserIDs = HttpService.JSONDecode( jsonPlayers ) as Array<number>
+
+         let room = GetRoom( name )
+         for ( let userId of playerUserIDs )
+         {
+            let player = userIDToPlayer.get( userId ) as Player
+            Assert( player !== undefined, "player !== undefined" )
+            SetCurrentRoom( player, room )
+         }
+      } )
 
    if ( FAST_ROOM_ITERATION )
    {
@@ -57,12 +71,6 @@ function FastRoomIteration()
       let room = file.rooms.get( GetCurrentRoom( LOCAL_PLAYER ).name )
       SetCurrentRoom( LOCAL_PLAYER, room as Room )
    }
-}
-
-export function RPC_FromServer_SetPlayerRoom( name: string )
-{
-   let room = GetRoom( name )
-   SetCurrentRoom( LOCAL_PLAYER, room )
 }
 
 function SetBlockersFromRoom( room: Room )

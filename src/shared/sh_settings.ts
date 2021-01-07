@@ -20,11 +20,11 @@ export const TASK_VALUE = 10
 export const PLAYER_WALKSPEED = 16 * 1.0
 export const PLAYER_WALKSPEED_SPECTATOR = 16 * 1.333
 export const MAX_TASKLIST_SIZE = 7
-export const QUICK_START_ROOM = "Foyer"
 export const SPAWN_ROOM = "Foyer"
 export const KILL_DIST = 6.5
 export const REPORT_DIST = 5
 export const MEETING_VOTE_TIME = 60
+export const SUDDEN_DEATH_TIME = 90
 export const SPECTATOR_TRANS = 0.6
 
 export let MEETING_DISCUSS_TIME = 14

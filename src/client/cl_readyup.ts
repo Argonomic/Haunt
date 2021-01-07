@@ -247,9 +247,9 @@ function UpdateReadyUp()
             readyUI.Frame.Check.Visible = true
             readyUI.Frame.Check.Position = readyUI.Frame.checkbox_play.Position
             if ( numWithYou === 1 )
-               readyUI.Frame.InfoFrame.Status.Text = "Waiting for " + numWithYou + " friend to Ready Up"
+               readyUI.Frame.InfoFrame.Status.Text = "Giving 1 friend a chance to Ready Up"
             else
-               readyUI.Frame.InfoFrame.Status.Text = "Waiting for " + numWithYou + " friends to Ready Up"
+               readyUI.Frame.InfoFrame.Status.Text = "Giving " + numWithYou + " friends a chance to Ready Up"
             readyUI.Enabled = true
             break
 

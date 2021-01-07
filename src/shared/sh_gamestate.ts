@@ -2,7 +2,7 @@ import { HttpService, RunService, Workspace } from "@rbxts/services"
 import { AddNetVar, GetNetVar_Number, GetNetVar_String, SetNetVar } from "shared/sh_player_netvars"
 import { AddCooldown } from "./sh_cooldown"
 import { SetPlayerWalkSpeed } from "./sh_onPlayerConnect"
-import { COOLDOWNTIME_MEETING, COOLDOWNTIME_KILL, MEETING_DISCUSS_TIME, MEETING_VOTE_TIME, PLAYER_WALKSPEED_SPECTATOR, PLAYER_WALKSPEED, SPECTATOR_TRANS } from "./sh_settings"
+import { COOLDOWNTIME_MEETING, COOLDOWNTIME_KILL, MEETING_DISCUSS_TIME, MEETING_VOTE_TIME, PLAYER_WALKSPEED_SPECTATOR, PLAYER_WALKSPEED, SPECTATOR_TRANS, SUDDEN_DEATH_TIME } from "./sh_settings"
 import { IsServer, IsClient, UserIDToPlayer, IsAlive, SetPlayerTransparency, GetLocalPlayer, Resume, Thread, ExecOnChildWhenItExists } from "./sh_utils"
 import { Assert } from "shared/sh_assert"
 import { GiveAbility, TakeAbility } from "./sh_ability"
@@ -39,6 +39,7 @@ export enum GAMERESULTS
 {
    RESULTS_STILL_PLAYING = 0,
    RESULTS_NO_WINNER,
+   RESULTS_SUDDEN_DEATH,
    RESULTS_POSSESSED_WIN,
    RESULTS_CAMPERS_WIN,
 }
@@ -69,11 +70,12 @@ export enum GAME_STATE
    GAME_STATE_UNKNOWN = 0,
    GAME_STATE_PREMATCH, // 1
    GAME_STATE_PLAYING, //2
-   GAME_STATE_MEETING_DISCUSS, //3 
+   GAME_STATE_MEETING_DISCUSS, //3
    GAME_STATE_MEETING_VOTE,//4
    GAME_STATE_MEETING_RESULTS,//5
-   GAME_STATE_COMPLETE, //6
-   GAME_STATE_DEAD, //7
+   GAME_STATE_SUDDEN_DEATH, //6
+   GAME_STATE_COMPLETE, //7
+   GAME_STATE_DEAD, //8
 }
 
 export enum MEETING_TYPE
@@ -288,8 +290,12 @@ export class Game
          if ( campers === 0 )
             return GAMERESULTS.RESULTS_POSSESSED_WIN
 
+         if ( possessed >= campers )
+            return GAMERESULTS.RESULTS_SUDDEN_DEATH
+
          return GAMERESULTS.RESULTS_STILL_PLAYING
       }
+
       let results = func()
       print( "GetGameResults_ParityAllowed:" + results + ", isserver: " + IsServer() )
       return results
@@ -301,15 +307,9 @@ export class Game
       function func(): GAMERESULTS
       {
          let results = game.GetGameResults_ParityAllowed()
-         if ( results !== GAMERESULTS.RESULTS_STILL_PLAYING )
-            return results
-
-         let possessed = game.GetLivingPossessed().size()
-         let campers = game.GetLivingCampers().size()
-         if ( possessed >= campers )
+         if ( results === GAMERESULTS.RESULTS_SUDDEN_DEATH )
             return GAMERESULTS.RESULTS_POSSESSED_WIN
-
-         return GAMERESULTS.RESULTS_STILL_PLAYING
+         return results
       }
 
       let results = func()
@@ -485,6 +485,16 @@ export class Game
       return players
    }
 
+   public GetAllPlayerInfo(): Array<PlayerInfo>
+   {
+      let playerInfos: Array<PlayerInfo> = []
+      for ( let pair of this.playerToInfo )
+      {
+         playerInfos.push( pair[1] )
+      }
+      return playerInfos
+   }
+
    public GetPlayerInfo( player: Player ): PlayerInfo
    {
       Assert( this.playerToInfo.has( player ), "Unknown player " + player.Name )
@@ -525,6 +535,10 @@ export class Game
 
          case GAME_STATE.GAME_STATE_MEETING_VOTE:
             timeRemaining = MEETING_VOTE_TIME
+            break
+
+         case GAME_STATE.GAME_STATE_SUDDEN_DEATH:
+            timeRemaining = SUDDEN_DEATH_TIME
             break
       }
 
@@ -852,31 +866,30 @@ export class Game
 
       // update CORPSES
       {
-         let hasCorpse = new Map<Player, boolean>()
+         let currentCorpses = new Map<number, boolean>()
          for ( let corpse of this.corpses )
          {
-            hasCorpse.set( corpse.player, true )
+            currentCorpses.set( corpse.player.UserId, true )
          }
 
-         let sentCorpse = new Map<Player, boolean>()
+         let sentCorpse = new Map<number, boolean>()
          for ( let corpseInfo of gs.corpses )
          {
+            sentCorpse.set( corpseInfo.userId, true )
+            if ( currentCorpses.has( corpseInfo.userId ) )
+               continue
+
+            // can't draw the player if the got off the server too fast
             let player = userIdToPlayer.get( corpseInfo.userId )
-            if ( player === undefined )
-               continue
-            sentCorpse.set( player, true )
-
-            if ( hasCorpse.has( player ) )
-               continue
-
-            this.corpses.push( new Corpse( player, new Vector3( corpseInfo.X, corpseInfo.Y, corpseInfo.Z ) ) )
+            if ( player !== undefined )
+               this.corpses.push( new Corpse( player, new Vector3( corpseInfo.X, corpseInfo.Y, corpseInfo.Z ) ) )
          }
 
          // remove corpses that are no longer sent
          for ( let i = 0; i < this.corpses.size(); i++ )
          {
             let corpse = this.corpses[i]
-            if ( sentCorpse.has( corpse.player ) )
+            if ( sentCorpse.has( corpse.player.UserId ) )
                continue
 
             let clientModel = corpse.clientModel

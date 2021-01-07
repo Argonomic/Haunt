@@ -53,8 +53,8 @@ export function SH_RPCSetup()
          "RPC_FromServer_GavePoints",
          "RPC_FromServer_OnPlayerUseTask",
          "RPC_FromServer_PickupCoin",
+         "RPC_FromServer_PutPlayersInRoom",
          "RPC_FromServer_RestoreLighting_Fuse",
-         "RPC_FromServer_SetPlayerRoom",
       ]
 
    for ( let rpc of rpcs )

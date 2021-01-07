@@ -3,11 +3,11 @@ import { AddRPC } from "shared/sh_rpc"
 import { ArrayRandomize, IsAlive, KillPlayer, Resume, Thread, UserIDToPlayer } from "shared/sh_utils"
 import { Assert } from "shared/sh_assert"
 import { Assignment, GAME_STATE, SharedGameStateInit, NETVAR_JSON_TASKLIST, ROLE, IsPracticing, Game, GAMERESULTS, GetVoteResults, TASK_EXIT, AssignmentIsSame, TASK_RESTORE_LIGHTS, PlayerInfo, PlayerVote } from "shared/sh_gamestate"
-import { MAX_TASKLIST_SIZE, MATCHMAKE_PLAYERCOUNT_DESIRED, MATCHMAKE_PLAYERCOUNT_FALLBACK, SPAWN_ROOM, PLAYER_WALKSPEED, TASK_VALUE } from "shared/sh_settings"
+import { MAX_TASKLIST_SIZE, MATCHMAKE_PLAYERCOUNT_DESIRED, MATCHMAKE_PLAYERCOUNT_FALLBACK, SPAWN_ROOM, PLAYER_WALKSPEED, TASK_VALUE, DEV_SKIP } from "shared/sh_settings"
 import { SetNetVar } from "shared/sh_player_netvars"
 import { AddCallback_OnPlayerCharacterAdded, SetPlayerWalkSpeed } from "shared/sh_onPlayerConnect"
 import { SendRPC } from "./sv_utils"
-import { GetAllRoomsAndTasks, GetCurrentRoom, GetRoomByName, PutPlayerCameraInRoom, PutPlayersInRoom } from "./sv_rooms"
+import { GetAllRoomsAndTasks, GetCurrentRoom, GetRoomByName, PutPlayersInRoom, TellClientsAboutPlayersInRoom } from "./sv_rooms"
 import { ResetAllCooldownTimes, ResetCooldownTime } from "shared/sh_cooldown"
 import { COOLDOWN_SABOTAGE_LIGHTS } from "shared/content/sh_ability_content"
 import { PickupsDisable, PickupsEnable } from "shared/sh_pickups"
@@ -50,6 +50,7 @@ export function SV_GameStateSetup()
          switch ( game.GetGameState() )
          {
             case GAME_STATE.GAME_STATE_PLAYING:
+            case GAME_STATE.GAME_STATE_SUDDEN_DEATH:
                a.ShouldDeliver = false
                break
 
@@ -135,10 +136,11 @@ export function SV_GameStateSetup()
          for ( let i = 0; i < 5; i++ ) 
          {
             part.CFrame = new CFrame( spawnPos )
-            let room = GetCurrentRoom( player )
-            PutPlayerCameraInRoom( player, room )
             wait()
          }
+
+         let room = GetCurrentRoom( player )
+         TellClientsAboutPlayersInRoom( [player], room )
       } )
    } )
 
@@ -191,16 +193,6 @@ function GameStateChanged( game: Game, oldGameState: GAME_STATE, gameEndFunc: Fu
       }
    }
 
-   if ( game.GetGameState() < GAME_STATE.GAME_STATE_COMPLETE )
-   {
-      let gameResults = game.GetGameResults_NoParityAllowed()
-      print( "GameStateChanged, GAMERESULTS: " + gameResults )
-      if ( gameResults !== GAMERESULTS.RESULTS_STILL_PLAYING )
-      {
-         game.SetGameState( GAME_STATE.GAME_STATE_COMPLETE )
-         return
-      }
-   }
 
    // leaving this game state
    switch ( oldGameState )
@@ -228,6 +220,21 @@ function GameStateChanged( game: Game, oldGameState: GAME_STATE, gameEndFunc: Fu
    switch ( game.GetGameState() )
    {
       case GAME_STATE.GAME_STATE_PLAYING:
+      case GAME_STATE.GAME_STATE_MEETING_DISCUSS:
+      case GAME_STATE.GAME_STATE_MEETING_VOTE:
+      case GAME_STATE.GAME_STATE_MEETING_RESULTS:
+         let gameResults = game.GetGameResults_NoParityAllowed()
+         print( "GameStateChanged, GAMERESULTS: " + gameResults )
+         if ( gameResults !== GAMERESULTS.RESULTS_STILL_PLAYING )
+         {
+            game.SetGameState( GAME_STATE.GAME_STATE_COMPLETE )
+            return
+         }
+   }
+
+   switch ( game.GetGameState() )
+   {
+      case GAME_STATE.GAME_STATE_PLAYING:
          let livingCampers = game.GetLivingCampers().size()
          if ( game.previouslyLivingCampers === 0 || game.previouslyLivingCampers > livingCampers )
          {
@@ -243,6 +250,10 @@ function GameStateChanged( game: Game, oldGameState: GAME_STATE, gameEndFunc: Fu
          {
             ResetAllCooldownTimes( player )
          }
+         break
+
+      case GAME_STATE.GAME_STATE_SUDDEN_DEATH:
+         PickupsEnable()
          break
 
       case GAME_STATE.GAME_STATE_MEETING_RESULTS:
@@ -334,7 +345,23 @@ function GameStateThink( game: Game )
          break
 
       case GAME_STATE.GAME_STATE_PLAYING:
-         if ( game.GetGameResults_ParityAllowed() !== GAMERESULTS.RESULTS_STILL_PLAYING )
+         switch ( game.GetGameResults_ParityAllowed() )
+         {
+            case GAMERESULTS.RESULTS_STILL_PLAYING:
+               break
+
+            case GAMERESULTS.RESULTS_SUDDEN_DEATH:
+               game.SetGameState( GAME_STATE.GAME_STATE_SUDDEN_DEATH )
+               return
+
+            default:
+               game.SetGameState( GAME_STATE.GAME_STATE_COMPLETE )
+               return
+         }
+         break
+
+      case GAME_STATE.GAME_STATE_SUDDEN_DEATH:
+         if ( game.GetGameResults_ParityAllowed() !== GAMERESULTS.RESULTS_SUDDEN_DEATH )
          {
             game.SetGameState( GAME_STATE.GAME_STATE_COMPLETE )
             return
@@ -342,7 +369,7 @@ function GameStateThink( game: Game )
          break
    }
 
-   Assert( debugState === game.GetGameState(), "1 debugState === game.GetGameState()" )
+   Assert( debugState === game.GetGameState(), "Did not RETURN after SETGAMESTATE" )
 
    switch ( game.GetGameState() )
    {
@@ -437,6 +464,23 @@ function GameStateThink( game: Game )
             } )
          }
          break
+
+      case GAME_STATE.GAME_STATE_SUDDEN_DEATH:
+         {
+            let remaining = game.GetTimeRemainingForState()
+            if ( remaining <= 0 )
+            {
+               game.SetGameState( GAME_STATE.GAME_STATE_COMPLETE )
+               return
+            }
+
+            Thread( function ()
+            {
+               wait( remaining )
+               game.UpdateGame()
+            } )
+         }
+         break
    }
 
    Assert( debugState === game.GetGameState(), "2 debugState === game.GetGameState()" )
@@ -481,13 +525,6 @@ function HandleVoteResults( game: Game )
             }
 
             print( "Player " + highestTarget.Name + " was voted off" )
-
-            /*
-            let gameResults = game.GetGameResults_NoParityAllowed()
-            print( "Game results GAMERESULTS: " + gameResults )
-
-            Assert( game.GetGameState() !== GAME_STATE.GAME_STATE_PLAYING, 'game.GetGameState() !== GAME_STATE.GAME_STATE_PLAYING' )
-            */
          }
 
          game.SetGameState( GAME_STATE.GAME_STATE_PLAYING )
@@ -609,7 +646,7 @@ function RPC_FromClient_OnPlayerFinishTask( player: Player, roomName: string, ta
                return
          }
 
-         let assignment = new Assignment( "Foyer", TASK_EXIT )
+         let assignment = new Assignment( SPAWN_ROOM, TASK_EXIT )
          assignments.push( assignment )
       }
       ExitAssignment()
@@ -721,6 +758,12 @@ export function AssignTasks( player: Player, game: Game )
 
       if ( assignments.size() >= MAX_TASKLIST_SIZE )
          break
+
+      if ( DEV_SKIP )
+      {
+         if ( assignments.size() )
+            break
+      }
    }
 
    game.assignments.set( player, assignments )

@@ -1,7 +1,7 @@
 import { Workspace } from "@rbxts/services";
 import { WaitForMatchScreenFrame } from "client/cl_matchScreen";
 import { AddPlayerGuiFolderExistsCallback } from "client/cl_ui";
-import { MEETING_TYPE, ROLE } from "shared/sh_gamestate";
+import { MEETING_TYPE, PlayerInfo, ROLE } from "shared/sh_gamestate";
 import { ClonePlayerModel } from "shared/sh_onPlayerConnect";
 import { DEV_SKIP } from "shared/sh_settings";
 import { Tween, TweenCharacterParts, TweenModel } from "shared/sh_tween";
@@ -9,9 +9,10 @@ import { GetLocalPlayer, Graph, LoadSound, RandomFloatRange, SetCharacterTranspa
 import { Assert } from "shared/sh_assert"
 import { GetCoinModelsForScore } from "shared/sh_coins";
 
+const LOCAL_PLAYER = GetLocalPlayer()
+
 class File
 {
-   player: Player = GetLocalPlayer()
    meetingSound = LoadSound( 1846987125 ) //2899745945 ) //4544797741 )//
 }
 let file = new File()
@@ -88,7 +89,7 @@ AddNetVarChangedCallback( NETVAR_MATCHMAKING_STATUS, function ()
 
          case 6:
             {
-               DrawMatchScreen_Winners( [player, player], ROLE.ROLE_CAMPER, 1, 500 )
+               //DrawMatchScreen_Winners( [player, player], ROLE.ROLE_CAMPER, 1, 500 )
             }
       }
    }
@@ -108,7 +109,7 @@ export function DrawMatchScreen_Intro( possessed: Array<Player>, campers: Array<
    {
       for ( let player of possessed )
       {
-         if ( file.player === player )
+         if ( LOCAL_PLAYER === player )
          {
             foundLocalPossessed = true
             break
@@ -117,7 +118,7 @@ export function DrawMatchScreen_Intro( possessed: Array<Player>, campers: Array<
       Assert( foundLocalPossessed, "DrawMatchScreen_Intro had possessed players but local player is not possessed" )
    }
 
-   let matchScreenFrame = WaitForMatchScreenFrame( "Intro" )
+   let matchScreenFrame = WaitForMatchScreenFrame( "MATCHSCREEN_INTRO" )
    let baseFrame = matchScreenFrame.baseFrame
    Tween( baseFrame, { Transparency: 0 }, 1.0 )
 
@@ -180,7 +181,7 @@ export function DrawMatchScreen_Intro( possessed: Array<Player>, campers: Array<
          } )
    }
 
-   let basePos = new Vector3( 0, 0, 0 )// GetPosition( file.player )
+   let basePos = new Vector3( 0, 0, 0 )// GetPosition( LOCAL_PLAYER )
    let camPosVec = new Vector3( 0, 1, -6 )
 
 
@@ -285,7 +286,7 @@ export function DrawMatchScreen_Intro( possessed: Array<Player>, campers: Array<
 
 function SortLocalPlayer( a: Player, b: Player ): boolean
 {
-   return a === file.player && b !== file.player
+   return a === LOCAL_PLAYER && b !== LOCAL_PLAYER
 }
 
 export function DrawMatchScreen_VoteResults( skipTie: boolean, receivedHighestVotes: Array<Player>, receivedVotes: Array<Player>, votedAndReceivedNoVotes: Array<Player>, possessedCount: number, highestVotedScore: number )
@@ -308,7 +309,7 @@ export function DrawMatchScreen_VoteResults( skipTie: boolean, receivedHighestVo
 
    const RESULTS_TEXT = GetResultsText()
 
-   let matchScreenFrame = WaitForMatchScreenFrame( "VoteResults" )
+   let matchScreenFrame = WaitForMatchScreenFrame( "MATCHSCREEN_VOTERESULTS" )
    let baseFrame = matchScreenFrame.baseFrame
    Tween( baseFrame, { Transparency: 0 }, 1.0 )
 
@@ -636,7 +637,7 @@ export function DrawMatchScreen_EmergencyMeeting( meetingType: MEETING_TYPE, cal
 {
    file.meetingSound.Play()
 
-   let matchScreenFrame = WaitForMatchScreenFrame( "EmergencyMeeting" )
+   let matchScreenFrame = WaitForMatchScreenFrame( "MATCHSCREEN_EMERGENCYMEETING" )
    let baseFrame = matchScreenFrame.baseFrame
    let title = matchScreenFrame.title
    let subTitle = matchScreenFrame.subTitle
@@ -670,26 +671,41 @@ export function DrawMatchScreen_EmergencyMeeting( meetingType: MEETING_TYPE, cal
 }
 
 
-export function DrawMatchScreen_Winners( winners: Array<Player>, localRole: ROLE, startingPossessedCount: number, winnings: number )
+export function DrawMatchScreen_Winners( winners: Array<Player>, localRole: ROLE, startingPossessedCount: number, winnings: number, playerInfos: Array<PlayerInfo> )
 {
+   Assert( winners.size() > 0, "winners.size() > 0" )
+   let winnersByUserid = new Map<number, boolean>()
    let localWinner = false
-   if ( localRole === ROLE.ROLE_SPECTATOR_CAMPER_ESCAPED )
+   for ( let player of winners )
    {
-      localWinner = true
-   }
-   else
-   {
-      for ( let player of winners )
+      winnersByUserid.set( player.UserId, true )
+      if ( LOCAL_PLAYER === player )
       {
-         if ( file.player === player )
-         {
-            localWinner = true
-            break
-         }
+         localWinner = true
+         break
       }
    }
 
-   let matchScreenFrame = WaitForMatchScreenFrame( "Winners" )
+   let localImposter = false
+   let impostersWin = false
+   for ( let playerInfo of playerInfos )
+   {
+      switch ( playerInfo.role )
+      {
+         case ROLE.ROLE_POSSESSED:
+         case ROLE.ROLE_SPECTATOR_IMPOSTER:
+            if ( playerInfo._userid === LOCAL_PLAYER.UserId )
+               localImposter = true
+
+            if ( winnersByUserid.has( playerInfo._userid ) )
+               impostersWin = true
+            break
+      }
+   }
+
+   print( "** localWinner:" + localWinner + " localImposter:" + localImposter + " impostersWin:" + impostersWin )
+
+   let matchScreenFrame = WaitForMatchScreenFrame( "MATCHSCREEN_WINNERS" )
    let baseFrame = matchScreenFrame.baseFrame
    Tween( baseFrame, { Transparency: 0 }, 1.0 )
 
@@ -715,9 +731,9 @@ export function DrawMatchScreen_Winners( winners: Array<Player>, localRole: ROLE
    Tween( title, { TextTransparency: 0 }, FADE_IN )
    wait( 0.5 )
 
-   if ( localWinner )
+   if ( !impostersWin )
    {
-      if ( winnings > 0 )
+      if ( localWinner )
       {
          switch ( localRole )
          {
@@ -728,8 +744,8 @@ export function DrawMatchScreen_Winners( winners: Array<Player>, localRole: ROLE
                   subTitle.Text = "You escaped the imposters!"
                break
 
-            case ROLE.ROLE_CAMPER:
-            case ROLE.ROLE_SPECTATOR_CAMPER:
+
+            default:
                if ( startingPossessedCount === 1 )
                   subTitle.Text = "You defeated the imposter!"
                else
@@ -737,48 +753,29 @@ export function DrawMatchScreen_Winners( winners: Array<Player>, localRole: ROLE
                break
          }
 
-         lowerTitle.Text = "You earned " + winnings + " HauntBux!"
-         Tween( lowerTitle, { TextTransparency: 0 }, FADE_IN )
-      }
-      else
-      {
-         switch ( localRole )
+         if ( winnings > 0 )
          {
-            case ROLE.ROLE_SPECTATOR_CAMPER_ESCAPED:
-            case ROLE.ROLE_CAMPER:
-            case ROLE.ROLE_SPECTATOR_CAMPER:
-               if ( startingPossessedCount === 1 )
-                  subTitle.Text = "They defeated the imposter!"
-               else
-                  subTitle.Text = "They defeated the imposters!"
-               break
+            lowerTitle.Text = "You earned " + winnings + " HauntBux!"
+            Tween( lowerTitle, { TextTransparency: 0 }, FADE_IN )
+         }
+
+         if ( subTitle.Text !== "" )
+         {
+            Tween( subTitle, { TextTransparency: 0 }, FADE_IN )
+            wait( 0.4 )
          }
       }
-
-      if ( subTitle.Text !== "" )
+      else if ( !localImposter )
       {
+         if ( startingPossessedCount === 1 )
+            subTitle.Text = "They defeated the imposter!"
+         else
+            subTitle.Text = "They defeated the imposters!"
+
          Tween( subTitle, { TextTransparency: 0 }, FADE_IN )
          wait( 0.4 )
       }
    }
-   else
-   {
-      if ( startingPossessedCount === 1 )
-         subTitle.Text = "The imposter won"
-      else
-         subTitle.Text = "The imposters won"
-
-      Tween( subTitle, { TextTransparency: 0 }, FADE_IN )
-      wait( 0.4 )
-   }
-
-   //let numVal = new Instance( 'Vector3Value' ) as Vector3Value
-   //numVal.Parent = viewportCamera
-   //numVal.Value = camPosVec
-   // For rapid iteration
-   //RunService.RenderStepped.Connect(
-   //   SetCamera
-   //)
 
    let vecEnd2 = new Vector3( 0, 0, 0 )
    let vecStart2 = vecEnd2.add( new Vector3( 0, 1, -6 ) )
@@ -871,4 +868,16 @@ function CoinExplosion( highestVotedScore: number, viewportFrame: ViewportFrame,
          }
          , 5 )
    }
+}
+
+export function DrawMatchScreen_GameOver()
+{
+   let matchScreenFrame = WaitForMatchScreenFrame( "MATCHSCREEN_GAMEOVER" )
+   let baseFrame = matchScreenFrame.baseFrame
+   Tween( baseFrame, { Transparency: 0 }, 1.0 )
+
+   let title = matchScreenFrame.title
+   title.Text = "Game Over"
+   Tween( title, { TextTransparency: 0 }, 2 )
+   wait( 123123 )
 }

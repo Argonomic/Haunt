@@ -19,6 +19,9 @@ export function SV_UseContentSetup()
          if ( !UsableGameState( game ) )
             return []
 
+         if ( game.GetGameState() === GAME_STATE.GAME_STATE_SUDDEN_DEATH )
+            return []
+
          // are we near a corpse?
          let corpseUsables: Array<Vector3> = []
          for ( let corpse of game.corpses )
@@ -175,6 +178,9 @@ export function SV_UseContentSetup()
             if ( !UsableGameState( game ) )
                return []
 
+            if ( game.GetGameState() === GAME_STATE.GAME_STATE_SUDDEN_DEATH )
+               return []
+
             if ( game.IsSpectator( player ) )
                return []
 
@@ -211,6 +217,7 @@ function UsableGameState( game: Game ): boolean
    {
       case GAME_STATE.GAME_STATE_PREMATCH:
       case GAME_STATE.GAME_STATE_PLAYING:
+      case GAME_STATE.GAME_STATE_SUDDEN_DEATH:
          return true
    }
    return false
