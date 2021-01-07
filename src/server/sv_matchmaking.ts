@@ -18,7 +18,7 @@ class File
    reservedServerPlayerCount = 10
    reservedServingTryingToMatchmake = false
    playerTimeInQueue = new Map<Player, number>()
-   matchmakeThread = Thread( function () { wait( 9999 ) } )
+   matchmakeThread: Function | undefined
 
    lobbyUpToDate = true
 
@@ -163,9 +163,16 @@ function MatchmakingLoop()
    for ( ; ; )
    {
       if ( !ContinueMatchmaking() )
-         return
+         break
    }
+
+   for ( ; ; )
+   {
+      coroutine.yield()
+   }
+
 }
+
 /*
 print( "\n" )
 let allPlayers = Players.GetPlayers()
@@ -339,7 +346,8 @@ function StartGame( players: Array<Player> )
       file.practiceGame.RemovePlayer( player )
    }
 
-   print( "file.matchmakeThread creategame" )
+   print( "StartGame with " + players.size() + " players" )
+
    CreateGame( players,
       function () 
       {
@@ -515,11 +523,10 @@ function TimeInQueue( player: Player ): number
 
 function UpdateMatchmakingStatus_AndMatchmake()
 {
-   if ( coroutine.status( file.matchmakeThread ) === "dead" )
+   if ( file.matchmakeThread === undefined )
       return
 
-   if ( coroutine.running() !== file.matchmakeThread )
-      Resume( file.matchmakeThread )
+   file.matchmakeThread()
 }
 
 function GetLowestMatchmakingTime( players: Array<Player> ): number

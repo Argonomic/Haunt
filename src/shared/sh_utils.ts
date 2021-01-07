@@ -303,11 +303,11 @@ export function CreateRemoteEvent( name: string ): RemoteEvent
    return remoteEvent
 }
 
-export function Thread( func: Function ): thread
+export function Thread( func: Function ): Function
 {
-   let result = coroutine.create( func )
-   Resume( result )
-   return result
+   let newFunc = coroutine.wrap( func )
+   newFunc()
+   return newFunc
 }
 
 export function WaitThread( func: Function )

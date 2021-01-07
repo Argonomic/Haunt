@@ -49,7 +49,6 @@ export function CreateAbility( abilityIndex: ABILITIES, name: string, icon: stri
 
 export function GiveAbility( player: Player, ability: ABILITIES )
 {
-   print( "GiveAbility " + ability + " to " + player.UserId + " isserver " + IsServer() )
    let abilities = file.playerAbilities.get( player )
    if ( abilities === undefined )
    {
