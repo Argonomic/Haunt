@@ -1,12 +1,12 @@
 import { HttpService, Players, TeleportService, Workspace } from "@rbxts/services"
-import { TELEPORT_PlayerData, NETVAR_MATCHMAKING_STATUS, MATCHMAKING_STATUS, NETVAR_MATCHMAKING_NUMWITHYOU, ROLE, Game, LOCAL, IsReservedServer, IsPracticing } from "shared/sh_gamestate"
+import { TELEPORT_PlayerData, NETVAR_MATCHMAKING_STATUS, MATCHMAKING_STATUS, NETVAR_MATCHMAKING_NUMWITHYOU, ROLE, Game, LOCAL, IsReservedServer } from "shared/sh_gamestate"
 import { AddCallback_OnPlayerCharacterAdded, AddCallback_OnPlayerConnected } from "shared/sh_onPlayerConnect"
 import { GetNetVar_Number, SetNetVar } from "shared/sh_player_netvars"
 import { AddRPC } from "shared/sh_rpc"
 import { MAX_FRIEND_WAIT_TIME, MATCHMAKE_PLAYERCOUNT_DESIRED, MATCHMAKE_PLAYERCOUNT_FALLBACK, DEV_SKIP } from "shared/sh_settings"
 import { GraphCapped, Resume, Thread } from "shared/sh_utils"
 import { Assert } from "shared/sh_assert"
-import { AddPlayer, AssignAllTasks, CreateGame, PlayerToGame } from "./sv_gameState"
+import { AddPlayer, AssignAllTasks, CreateGame } from "./sv_gameState"
 import { PutPlayerInStartRoom } from "./sv_rooms"
 
 export const DATASTORE_MATCHMAKING = "datastore_matchmaking"
@@ -16,10 +16,10 @@ class File
    practiceGame = new Game()
    reservedServerPlayerCount = 10
    reservedServingTryingToMatchmake = false
-   playerToSearchStartedTime = new Map<Player, number>()
+   playerTimeInQueue = new Map<Player, number>()
    matchmakeThread = Thread( function () { wait( 9999 ) } )
 
-   isFriends = new Map<Player, Map<Player, boolean>>()
+   friendsMap = new Map<Player, Map<Player, boolean>>()
 }
 
 let file = new File()
@@ -48,32 +48,28 @@ export function SV_MatchmakingSetup()
 
    AddCallback_OnPlayerConnected( function ( player: Player )
    {
-      print( "AddCallback_OnPlayerConnected " + player.UserId )
       Thread( function ()
       {
          let friends = new Map<Player, boolean>()
+         file.friendsMap.set( player, friends )
+
          let players = Players.GetPlayers()
          for ( let other of players )
          {
             if ( other === player )
                continue
 
-            if ( player.IsFriendsWith( other.UserId ) )
-            {
-               friends.set( other, true )
-               if ( !file.isFriends.has( other ) )
-               {
-                  print( "Other: " + other.UserId + " " + other.Character )
-                  Assert( false, "file.isFriends.has( other )" )
-               }
+            if ( !player.IsFriendsWith( other.UserId ) )
+               continue
 
-               let otherFriends = file.isFriends.get( other ) as Map<Player, boolean>
-               otherFriends.set( player, true )
-               file.isFriends.set( other, otherFriends )
-            }
+            friends.set( other, true )
+
+            let otherFriends = file.friendsMap.get( other ) as Map<Player, boolean>
+            if ( otherFriends === undefined )
+               otherFriends = new Map<Player, boolean>()
+            otherFriends.set( player, true )
+            file.friendsMap.set( other, otherFriends )
          }
-         file.isFriends.set( player, friends )
-         print( "file.isFriends.set " + player.UserId )
       } )
 
       if ( IsReservedServer() )
@@ -89,9 +85,9 @@ export function SV_MatchmakingSetup()
    Players.PlayerRemoving.Connect(
       function ( player: Player )
       {
-         print( "file.isFriends.delete " + player.UserId )
-         file.isFriends.delete( player )
-         for ( let pair of file.isFriends )
+         print( "file.friendsMap.delete " + player.UserId )
+         file.friendsMap.delete( player )
+         for ( let pair of file.friendsMap )
          {
             if ( pair[1].has( player ) )
                pair[1].delete( player )
@@ -131,8 +127,8 @@ export function SV_MatchmakingSetup()
       {
          // toggle back to undecided
          SetNetVar( player, NETVAR_MATCHMAKING_STATUS, MATCHMAKING_STATUS.MATCHMAKING_UNDECIDED )
-         if ( file.playerToSearchStartedTime.has( player ) )
-            file.playerToSearchStartedTime.delete( player )
+         if ( file.playerTimeInQueue.has( player ) )
+            file.playerTimeInQueue.delete( player )
       }
       else
       {
@@ -141,14 +137,14 @@ export function SV_MatchmakingSetup()
             case MATCHMAKING_STATUS.MATCHMAKING_UNDECIDED:
             case MATCHMAKING_STATUS.MATCHMAKING_PRACTICE:
                SetNetVar( player, NETVAR_MATCHMAKING_STATUS, newStatus )
-               if ( file.playerToSearchStartedTime.has( player ) )
-                  file.playerToSearchStartedTime.delete( player )
+               if ( file.playerTimeInQueue.has( player ) )
+                  file.playerTimeInQueue.delete( player )
                break
 
             case MATCHMAKING_STATUS.MATCHMAKING_LFG:
                SetNetVar( player, NETVAR_MATCHMAKING_STATUS, newStatus )
-               if ( !file.playerToSearchStartedTime.has( player ) )
-                  file.playerToSearchStartedTime.set( player, Workspace.DistributedGameTime )
+               if ( !file.playerTimeInQueue.has( player ) )
+                  file.playerTimeInQueue.set( player, Workspace.DistributedGameTime )
                break
          }
       }
@@ -169,43 +165,46 @@ export function SV_MatchmakingSetup()
          }
          print( "\n" )
          */
-         let practicePlayers = GetPlayersWithMatchmakingStatus( MATCHMAKING_STATUS.MATCHMAKING_PRACTICE )
+         let unqueud: Array<Player> = []
+         unqueud = unqueud.concat( GetPlayersWithMatchmakingStatus( MATCHMAKING_STATUS.MATCHMAKING_UNDECIDED ) )
+         unqueud = unqueud.concat( GetPlayersWithMatchmakingStatus( MATCHMAKING_STATUS.MATCHMAKING_PRACTICE ) )
 
          let lfgPlayersFriends = GetPlayersWithMatchmakingStatus( MATCHMAKING_STATUS.MATCHMAKING_LFG_WITH_FRIENDS )
          for ( let i = 0; i < lfgPlayersFriends.size(); i++ )
          {
             let player = lfgPlayersFriends[i]
-            if ( TimeInQueue( player ) <= MAX_FRIEND_WAIT_TIME )
+            let friendCount = TotalFriends( unqueud, player )
+            let timeInQueue = TimeInQueue( player )
+            //print( "1 " + player.Name + " friendcount:" + friendCount + " timeInQueue:" + math.floor( timeInQueue ) )
+            if ( timeInQueue > MAX_FRIEND_WAIT_TIME || friendCount === 0 )
             {
-               let practicingFriends = GetFriendCount( practicePlayers, player )
+               SetNetVar( player, NETVAR_MATCHMAKING_STATUS, MATCHMAKING_STATUS.MATCHMAKING_LFG )
+               lfgPlayersFriends.remove( i )
+               i--
 
-               if ( GetNetVar_Number( player, NETVAR_MATCHMAKING_NUMWITHYOU ) !== practicingFriends )
-                  SetNetVar( player, NETVAR_MATCHMAKING_NUMWITHYOU, practicingFriends )
-
-               if ( practicingFriends !== 0 )
-                  continue
+               if ( !file.playerTimeInQueue.has( player ) )
+                  file.playerTimeInQueue.set( player, Workspace.DistributedGameTime )
+               continue
             }
 
-            SetNetVar( player, NETVAR_MATCHMAKING_STATUS, MATCHMAKING_STATUS.MATCHMAKING_LFG )
-            lfgPlayersFriends.remove( i )
-            i--
-
-            if ( !file.playerToSearchStartedTime.has( player ) )
-               file.playerToSearchStartedTime.set( player, Workspace.DistributedGameTime )
+            if ( GetNetVar_Number( player, NETVAR_MATCHMAKING_NUMWITHYOU ) !== friendCount )
+               SetNetVar( player, NETVAR_MATCHMAKING_NUMWITHYOU, friendCount )
          }
 
          let lfgPlayers = GetPlayersWithMatchmakingStatus( MATCHMAKING_STATUS.MATCHMAKING_LFG )
          for ( let i = 0; i < lfgPlayers.size(); i++ )
          {
             let player = lfgPlayers[i]
-            if ( TimeInQueue( player ) > MAX_FRIEND_WAIT_TIME )
+            let friendCount = TotalFriends( unqueud, player )
+            let timeInQueue = TimeInQueue( player )
+            //print( "2 " + player.Name + " friendcount:" + friendCount + " timeInQueue:" + math.floor( timeInQueue ) )
+            if ( timeInQueue > MAX_FRIEND_WAIT_TIME )
                continue
 
-            let practicingFriends = GetFriendCount( practicePlayers, player )
-            if ( practicingFriends === 0 )
+            if ( friendCount === 0 )
                continue
 
-            SetNetVar( player, NETVAR_MATCHMAKING_NUMWITHYOU, practicingFriends )
+            SetNetVar( player, NETVAR_MATCHMAKING_NUMWITHYOU, friendCount )
             SetNetVar( player, NETVAR_MATCHMAKING_STATUS, MATCHMAKING_STATUS.MATCHMAKING_LFG_WITH_FRIENDS )
             lfgPlayers.remove( i )
             lfgPlayersFriends.push( player )
@@ -223,9 +222,9 @@ export function SV_MatchmakingSetup()
 
             let friends = GetFriends( lfgPlayers, player )
             let lowestTime = GetLowestMatchmakingTime( friends )
-            let myTime = file.playerToSearchStartedTime.get( player ) as number
+            let myTime = file.playerTimeInQueue.get( player ) as number
             if ( lowestTime < myTime )
-               file.playerToSearchStartedTime.set( player, lowestTime + 0.01 )// let original matchmaker have priority 
+               file.playerTimeInQueue.set( player, lowestTime + 0.01 )// let original matchmaker have priority 
          }
 
          let players: Array<Player> = []
@@ -269,10 +268,11 @@ export function SV_MatchmakingSetup()
                   GetPlayersWithMatchmakingStatus( MATCHMAKING_STATUS.MATCHMAKING_LFG_WITH_FRIENDS ).size()
                )
                {
-                  wait( 1.8 )
+                  wait( 3.0 )
                }
                else
                {
+                  file.practiceGame.BroadcastGamestate()
                   print( "file.matchmakeThread yield" )
                   coroutine.yield()
                }
@@ -349,34 +349,25 @@ export function SV_MatchmakingSetup()
                } )
             }
          }
-
-         file.practiceGame.BroadcastGamestate()
       }
    } )
 }
 
-function GetFriendCount( practicePlayers: Array<Player>, player: Player ): number
+function TotalFriends( players: Array<Player>, player: Player ): number
 {
-   let practicingFriends = 0
-   for ( let other of practicePlayers )
-   {
-      if ( !IsFriends( player, other ) )
-         continue
-      practicingFriends++
-   }
-   return practicingFriends
+   return GetFriends( players, player ).size()
 }
 
-function GetFriends( practicePlayers: Array<Player>, player: Player ): Array<Player>
+function GetFriends( players: Array<Player>, player: Player ): Array<Player>
 {
-   let practicingFriends: Array<Player> = []
-   for ( let other of practicePlayers )
+   let friends: Array<Player> = []
+   for ( let other of players )
    {
       if ( !IsFriends( player, other ) )
          continue
-      practicingFriends.push( other )
+      friends.push( other )
    }
-   return practicingFriends
+   return friends
 }
 
 function GetPlayersWithMatchmakingStatus( status: MATCHMAKING_STATUS ): Array<Player>
@@ -413,15 +404,19 @@ function SendPlayersToLobby( players: Array<Player> )
 
 function IsFriends( player1: Player, player2: Player ): boolean
 {
-   let friends = file.isFriends.get( player1 ) as Map<Player, boolean>
-   return friends.has( player2 )
+   let friendsMap = file.friendsMap.get( player1 )
+   if ( friendsMap === undefined )
+   {
+      Assert( false, "IsFriends player1:" + player1 + " player2:" + player2 )
+      throw undefined
+   }
+   return friendsMap.has( player2 )
 }
-
 
 function TimeInQueue( player: Player ): number
 {
-   Assert( file.playerToSearchStartedTime.has( player ), "file.playerToSearchStartedTime.has( player )" )
-   return Workspace.DistributedGameTime - ( file.playerToSearchStartedTime.get( player ) as number )
+   Assert( file.playerTimeInQueue.has( player ), "file.playerTimeInQueue.has( player )" )
+   return Workspace.DistributedGameTime - ( file.playerTimeInQueue.get( player ) as number )
 }
 
 function UpdateMatchmakingStatus_AndMatchmake()
@@ -438,9 +433,9 @@ function GetLowestMatchmakingTime( players: Array<Player> ): number
    let time = Workspace.DistributedGameTime
    for ( let player of players )
    {
-      if ( !file.playerToSearchStartedTime.has( player ) )
+      if ( !file.playerTimeInQueue.has( player ) )
          continue
-      let playerTime = file.playerToSearchStartedTime.get( player ) as number
+      let playerTime = file.playerTimeInQueue.get( player ) as number
       if ( playerTime < time )
          time = playerTime
    }
@@ -449,7 +444,7 @@ function GetLowestMatchmakingTime( players: Array<Player> ): number
 
 function SortByMatchmakeTime( a: Player, b: Player )
 {
-   return ( file.playerToSearchStartedTime.get( a ) as number ) < ( file.playerToSearchStartedTime.get( b ) as number )
+   return ( file.playerTimeInQueue.get( a ) as number ) < ( file.playerTimeInQueue.get( b ) as number )
 }
 
 function GetLongestSearchTime( players: Array<Player> ): number
@@ -457,9 +452,9 @@ function GetLongestSearchTime( players: Array<Player> ): number
    let time = 0
    for ( let player of players )
    {
-      if ( !file.playerToSearchStartedTime.has( player ) )
+      if ( !file.playerTimeInQueue.has( player ) )
          continue
-      let searchTime = Workspace.DistributedGameTime - ( file.playerToSearchStartedTime.get( player ) as number )
+      let searchTime = Workspace.DistributedGameTime - ( file.playerTimeInQueue.get( player ) as number )
       if ( searchTime > time )
          time = searchTime
    }
@@ -470,9 +465,9 @@ function AnyPlayerSearchingForLessTime( players: Array<Player>, time: number ): 
 {
    for ( let player of players )
    {
-      if ( !file.playerToSearchStartedTime.has( player ) )
+      if ( !file.playerTimeInQueue.has( player ) )
          continue
-      let searchTime = Workspace.DistributedGameTime - ( file.playerToSearchStartedTime.get( player ) as number )
+      let searchTime = Workspace.DistributedGameTime - ( file.playerTimeInQueue.get( player ) as number )
       if ( searchTime < time )
          return true
    }
