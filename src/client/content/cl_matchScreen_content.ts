@@ -1,9 +1,9 @@
 import { Workspace } from "@rbxts/services";
 import { WaitForMatchScreenFrame } from "client/cl_matchScreen";
 import { AddPlayerGuiFolderExistsCallback } from "client/cl_ui";
-import { MEETING_TYPE, PlayerInfo, ROLE } from "shared/sh_gamestate";
+import { IsImpostorRole, IsSpectatorRole, MEETING_TYPE, PlayerInfo, ROLE } from "shared/sh_gamestate";
 import { ClonePlayerModel } from "shared/sh_onPlayerConnect";
-import { DEV_SKIP } from "shared/sh_settings";
+import { DEV_SKIP, SPECTATOR_TRANS } from "shared/sh_settings";
 import { Tween, TweenCharacterParts, TweenModel } from "shared/sh_tween";
 import { GetLocalPlayer, Graph, LoadSound, RandomFloatRange, SetCharacterTransparency, SetCharacterYaw, Thread } from "shared/sh_utils";
 import { Assert } from "shared/sh_assert"
@@ -28,11 +28,14 @@ AddNetVarChangedCallback( NETVAR_MATCHMAKING_STATUS, function ()
 } )
    */
 
-   let player = GetLocalPlayer()
-
    AddPlayerGuiFolderExistsCallback( function ()
    {
-      //TestDraw( 3 )
+      Thread(
+         function ()
+         {
+            wait( 3 )
+            //TestDraw( 4 )
+         } )
    } )
 
 
@@ -45,9 +48,9 @@ AddNetVarChangedCallback( NETVAR_MATCHMAKING_STATUS, function ()
                let players: Array<Player> = []
                for ( let i = 0; i < 10; i++ )
                {
-                  players.push( GetLocalPlayer() )
+                  players.push( LOCAL_PLAYER )
                }
-               DrawMatchScreen_Intro( [], players, 2 )
+               DrawMatchScreen_Intro( [LOCAL_PLAYER, LOCAL_PLAYER], players, 2 )
             }
             break
 
@@ -61,7 +64,7 @@ AddNetVarChangedCallback( NETVAR_MATCHMAKING_STATUS, function ()
                let skipTie = true
                let receivedHighestVotes: Array<Player> = []
                let receivedVotes: Array<Player> = []
-               let votedAndReceivedNoVotes = [player, player, player]
+               let votedAndReceivedNoVotes = [LOCAL_PLAYER, LOCAL_PLAYER, LOCAL_PLAYER]
                let possessedCount = 1
                DrawMatchScreen_VoteResults(
                   skipTie,
@@ -76,16 +79,34 @@ AddNetVarChangedCallback( NETVAR_MATCHMAKING_STATUS, function ()
 
          case 3:
             {
-               let receivedVotes = [player, player, player, player, player]
-               let votedAndReceivedNoVotes: Array<Player> = [player, player]
+               let receivedVotes = [LOCAL_PLAYER, LOCAL_PLAYER, LOCAL_PLAYER, LOCAL_PLAYER, LOCAL_PLAYER]
+               let votedAndReceivedNoVotes: Array<Player> = [LOCAL_PLAYER, LOCAL_PLAYER]
                let possessedCount = 2
                let skipTie = false
-               let receivedHighestVotes = [player]
+               let receivedHighestVotes = [LOCAL_PLAYER]
                DrawMatchScreen_VoteResults( skipTie, receivedHighestVotes, receivedVotes, votedAndReceivedNoVotes, possessedCount,
                   500 )
             }
 
             break
+
+         case 4:
+            {
+               let playerInfos: Array<PlayerInfo> = []
+               for ( let i = 0; i < 4; i++ )
+               {
+                  let playerInfo = new PlayerInfo( LOCAL_PLAYER, ROLE.ROLE_CAMPER )
+                  playerInfos.push( playerInfo )
+                  if ( i > 2 )
+                     playerInfo.role = ROLE.ROLE_SPECTATOR_CAMPER
+               }
+               DrawMatchScreen_Victory( playerInfos, false, true, true, 350 )
+            }
+
+         case 5:
+            {
+               DrawMatchScreen_Escaped( new PlayerInfo( LOCAL_PLAYER, ROLE.ROLE_CAMPER ), 302 )
+            }
 
          case 6:
             {
@@ -181,96 +202,38 @@ export function DrawMatchScreen_Intro( possessed: Array<Player>, campers: Array<
          } )
    }
 
-   let basePos = new Vector3( 0, 0, 0 )// GetPosition( LOCAL_PLAYER )
-   let camPosVec = new Vector3( 0, 1, -6 )
-
-
-   let numVal = new Instance( 'Vector3Value' ) as Vector3Value
-   numVal.Parent = viewportCamera
-   numVal.Value = camPosVec
-
    // For rapid iteration
    //RunService.RenderStepped.Connect(
    //   SetCamera
    //)
-   let vecEnd1 = basePos.add( new Vector3( 0, 0, 120 ) )
-   let vecStart1 = basePos.add( numVal.Value.add( new Vector3( 0, 8, 0 ) ).mul( 1.3 ) )
-   viewportCamera.CFrame = new CFrame( vecStart1, vecEnd1 )
 
 
-   let count = 0
-   let odd = true
-   const dist = 3.0
-   let allPlayers = possessed.concat( campers )
 
-   allPlayers.sort( SortLocalPlayer )
-
-   let clonedCampers: Array<Model> = []
-   for ( let i = 0; i < allPlayers.size(); i++ )
    {
-      let player = allPlayers[i]
-      let offsetCount = count
-      let yaw = -15 * offsetCount
-      let offset = new Vector3( dist, 0, 0 ).mul( offsetCount )
-      let multiplier = 1
-      if ( odd )
+      let allPlayers = possessed.concat( campers )
+      allPlayers.sort( SortLocalPlayer )
+      let lineup = CreatePlayerLineup( allPlayers, viewportFrame )
+      let lineupCamera = new AnimateLineup( viewportFrame, viewportCamera )
+
+      if ( foundLocalPossessed )
       {
-         multiplier = -1
-         count++
-      }
-      odd = !odd
-
-      offset = offset.mul( multiplier )
-      offset = offset.add( new Vector3( 0, 0, offsetCount * 1.5 ) ) // depth
-      //offset = offset.add( new Vector3( dist * -0.5, 0, 0.0 ) ) // left
-      yaw *= multiplier
-
-      let clonedModel = ClonePlayerModel( player ) as Model
-      clonedModel.Parent = viewportFrame
-      clonedModel.SetPrimaryPartCFrame( new CFrame( basePos.add( offset ) ) )
-
-      if ( i >= possessed.size() )
-         clonedCampers.push( clonedModel )
-
-      SetCharacterYaw( clonedModel, yaw )
-      SetCharacterTransparency( clonedModel, 0 )
-   }
-
-   const CAMERA_TIME = 3.2
-   Tween( viewportFrame, { ImageTransparency: 0 }, CAMERA_TIME * 0.5 )
-
-   //wait( 3 )
-   let vecEnd2 = basePos
-   let vecStart2 = basePos.add( numVal.Value )
-   Tween( viewportCamera, { CFrame: new CFrame( vecStart2, vecEnd2 ) }, CAMERA_TIME, Enum.EasingStyle.Exponential, Enum.EasingDirection.Out )
-
-   if ( foundLocalPossessed )
-   {
-      Thread(
-         function ()
-         {
-            wait( 1.6 )
-            let goal = { Transparency: 1 }
-            for ( let model of clonedCampers )
+         Thread(
+            function ()
             {
-               TweenCharacterParts( model, goal, 1.0 )
-            }
-         } )
+               wait( 1.6 )
+               let goal = { Transparency: 1 }
+               let camperModels = lineup.slice( possessed.size() )
+               for ( let model of camperModels )
+               {
+                  TweenCharacterParts( model, goal, 1.0 )
+               }
+            } )
+      }
+
+      wait( FADE_IN + 2 )
+
+      lineupCamera.DollyThrough()
    }
-
-   wait( FADE_IN )
-
-   {
-      if ( !debugIt )
-         wait( 2 )
-   }
-
-   let delta = vecEnd2.sub( vecStart2 )
-   delta = delta.add( new Vector3( 0, 2, 0 ) )
-   delta = delta.mul( 2 )
-   vecStart2 = vecStart2.add( delta )
-   vecEnd2 = vecEnd2.add( delta )
-   Tween( viewportCamera, { CFrame: new CFrame( vecStart2, vecEnd2 ) }, 2.0, Enum.EasingStyle.Quint, Enum.EasingDirection.In )
 
    if ( debugIt )
       wait( 2343 )
@@ -670,42 +633,9 @@ export function DrawMatchScreen_EmergencyMeeting( meetingType: MEETING_TYPE, cal
    Tween( baseFrame, { Transparency: 1 }, 1.0 )
 }
 
-
-export function DrawMatchScreen_Winners( winners: Array<Player>, localRole: ROLE, startingPossessedCount: number, winnings: number, playerInfos: Array<PlayerInfo> )
+export function DrawMatchScreen_Victory( playerInfos: Array<PlayerInfo>, impostersWin: boolean, myWinningTeam: boolean, mySurvived: boolean, myWinnings: number )
 {
-   Assert( winners.size() > 0, "winners.size() > 0" )
-   let winnersByUserid = new Map<number, boolean>()
-   let localWinner = false
-   for ( let player of winners )
-   {
-      winnersByUserid.set( player.UserId, true )
-      if ( LOCAL_PLAYER === player )
-      {
-         localWinner = true
-         break
-      }
-   }
-
-   let localImposter = false
-   let impostersWin = false
-   for ( let playerInfo of playerInfos )
-   {
-      switch ( playerInfo.role )
-      {
-         case ROLE.ROLE_POSSESSED:
-         case ROLE.ROLE_SPECTATOR_IMPOSTER:
-            if ( playerInfo._userid === LOCAL_PLAYER.UserId )
-               localImposter = true
-
-            if ( winnersByUserid.has( playerInfo._userid ) )
-               impostersWin = true
-            break
-      }
-   }
-
-   print( "** localWinner:" + localWinner + " localImposter:" + localImposter + " impostersWin:" + impostersWin )
-
-   let matchScreenFrame = WaitForMatchScreenFrame( "MATCHSCREEN_WINNERS" )
+   let matchScreenFrame = WaitForMatchScreenFrame( "MATCHSCREEN_VICTORY" )
    let baseFrame = matchScreenFrame.baseFrame
    Tween( baseFrame, { Transparency: 0 }, 1.0 )
 
@@ -715,131 +645,122 @@ export function DrawMatchScreen_Winners( winners: Array<Player>, localRole: ROLE
    let viewportFrame = matchScreenFrame.viewportFrame
    let viewportCamera = matchScreenFrame.viewportCamera
 
-   if ( localWinner )
-      title.Text = "Victory"
-   else
-      title.Text = "Defeat"
-
    title.TextTransparency = 1
    subTitle.TextTransparency = 1
    lowerTitle.TextTransparency = 1
    viewportFrame.ImageTransparency = 1
 
+   if ( myWinningTeam )
+      title.Text = "Victory"
+   else
+      title.Text = "Defeat"
+
+   if ( mySurvived )
+      subTitle.Text = "You survived"
+   else
+      subTitle.Text = "You did not survive"
+
+   lowerTitle.Text = "You earned " + myWinnings + " HauntBux!"
+
+
    const FADE_IN = 2
 
    wait( 0.8 )
    Tween( title, { TextTransparency: 0 }, FADE_IN )
-   wait( 0.5 )
 
-   if ( !impostersWin )
+
+   let playerToPlayerInfo = new Map<Player, PlayerInfo>()
+   let campers: Array<Player> = []
+   let imposters: Array<Player> = []
+
+   for ( let playerInfo of playerInfos )
    {
-      if ( localWinner )
-      {
-         switch ( localRole )
-         {
-            case ROLE.ROLE_SPECTATOR_CAMPER_ESCAPED:
-               if ( startingPossessedCount === 1 )
-                  subTitle.Text = "You escaped the imposter!"
-               else
-                  subTitle.Text = "You escaped the imposters!"
-               break
-
-
-            default:
-               if ( startingPossessedCount === 1 )
-                  subTitle.Text = "You defeated the imposter!"
-               else
-                  subTitle.Text = "You defeated the imposters!"
-               break
-         }
-
-         if ( winnings > 0 )
-         {
-            lowerTitle.Text = "You earned " + winnings + " HauntBux!"
-            Tween( lowerTitle, { TextTransparency: 0 }, FADE_IN )
-         }
-
-         if ( subTitle.Text !== "" )
-         {
-            Tween( subTitle, { TextTransparency: 0 }, FADE_IN )
-            wait( 0.4 )
-         }
-      }
-      else if ( !localImposter )
-      {
-         if ( startingPossessedCount === 1 )
-            subTitle.Text = "They defeated the imposter!"
-         else
-            subTitle.Text = "They defeated the imposters!"
-
-         Tween( subTitle, { TextTransparency: 0 }, FADE_IN )
-         wait( 0.4 )
-      }
+      playerToPlayerInfo.set( playerInfo.player, playerInfo )
+      if ( IsImpostorRole( playerInfo.role ) )
+         imposters.push( playerInfo.player )
+      else
+         campers.push( playerInfo.player )
    }
 
-   let vecEnd2 = new Vector3( 0, 0, 0 )
-   let vecStart2 = vecEnd2.add( new Vector3( 0, 1, -6 ) )
-   viewportCamera.CFrame = new CFrame( vecStart2, vecEnd2 )
+   let lineupTeam
+   if ( impostersWin )
+      lineupTeam = imposters
+   else
+      lineupTeam = campers
 
-   let count = 0
-   let odd = true
-   const dist = 3.0
-   winners.sort( SortLocalPlayer )
+   let lineup = CreatePlayerLineup( lineupTeam, viewportFrame )
 
-   for ( let i = 0; i < winners.size(); i++ )
+   for ( let i = 0; i < lineupTeam.size(); i++ )
    {
-      let player = winners[i]
-      let offsetCount = count
-      let yaw = -15 * offsetCount
-      let offset = new Vector3( dist, 0, 0 ).mul( offsetCount )
-      let multiplier = 1
-      if ( odd )
-      {
-         multiplier = -1
-         count++
-      }
-      odd = !odd
-
-      offset = offset.mul( multiplier )
-      offset = offset.add( new Vector3( 0, 0, offsetCount * 1.5 ) ) // depth
-      //offset = offset.add( new Vector3( dist * -0.5, 0, 0.0 ) ) // left
-      yaw *= multiplier
-
-      let clonedModel = ClonePlayerModel( player ) as Model
-      clonedModel.Parent = viewportFrame
-      clonedModel.SetPrimaryPartCFrame( new CFrame( offset ) )
-
-      SetCharacterYaw( clonedModel, yaw )
-      SetCharacterTransparency( clonedModel, 0 )
+      let playerInfo = playerToPlayerInfo.get( lineupTeam[i] ) as PlayerInfo
+      if ( IsSpectatorRole( playerInfo.role ) )
+         SetCharacterTransparency( lineup[i], SPECTATOR_TRANS )
    }
 
-   const CAMERA_TIME = 1.7
-   Tween( viewportFrame, { ImageTransparency: 0 }, CAMERA_TIME * 0.5 )
+   let animLineup = new AnimateLineup( viewportFrame, viewportCamera )
+   animLineup.WaitArrive()
 
-   wait( 2343 )
+   Tween( subTitle, { TextTransparency: 0 }, FADE_IN )
+   wait( 0.4 )
 
-   /*
-   wait( FADE_IN )
-   wait( 2 )
+   if ( myWinnings > 0 )
+   {
+      wait( 1 )
+      Tween( lowerTitle, { TextTransparency: 0 }, FADE_IN )
+   }
 
-   if ( !localWinner )
-      wait( 2343 )
+   wait( 9999 )
+}
+
+
+export function DrawMatchScreen_Escaped( playerInfo: PlayerInfo, myWinnings: number )
+{
+   let matchScreenFrame = WaitForMatchScreenFrame( "MATCHSCREEN_ESCAPED" )
+   let baseFrame = matchScreenFrame.baseFrame
+   Tween( baseFrame, { Transparency: 0 }, 1.0 )
+
+   let title = matchScreenFrame.title
+   let subTitle = matchScreenFrame.subTitle
+   let viewportFrame = matchScreenFrame.viewportFrame
+   let viewportCamera = matchScreenFrame.viewportCamera
+
+   title.TextTransparency = 1
+   subTitle.TextTransparency = 1
+   viewportFrame.ImageTransparency = 1
+
+   title.Text = "Congratulations"
+   subTitle.Text = "You escaped with " + myWinnings + " HauntBux!"
+
+   const FADE_IN = 2
+
+   wait( 0.8 )
+   Tween( title, { TextTransparency: 0 }, FADE_IN )
+
+   wait( 0.8 )
+
+   CreatePlayerLineup( [playerInfo.player], viewportFrame )
+
+   let animLineup = new AnimateLineup( viewportFrame, viewportCamera )
+   animLineup.WaitArrive()
+
+   Tween( subTitle, { TextTransparency: 0 }, FADE_IN )
+
+   wait( 4 )
 
    const FADE_OUT = 2.0
    Tween( title, { TextTransparency: 1 }, FADE_OUT * 0.75 )
    Tween( subTitle, { TextTransparency: 1 }, FADE_OUT * 0.75 )
-   Tween( lowerTitle, { TextTransparency: 1 }, FADE_OUT * 0.75 )
    wait( 1.0 )
    Tween( viewportFrame, { ImageTransparency: 1 }, 0.75 )
    wait( 0.75 )
 
    Tween( baseFrame, { Transparency: 1 }, 1.0 )
-   */
+
 }
 
 export function DrawLevelTransition()
 {
-   let matchScreenFrame = WaitForMatchScreenFrame( "LevelTransition" )
+   let matchScreenFrame = WaitForMatchScreenFrame( "MATCHSCREEN_LEVELTRANSITION" )
    let baseFrame = matchScreenFrame.baseFrame
    baseFrame.Transparency = 1
    Tween( baseFrame, { Transparency: 0 }, 1.0 )
@@ -881,3 +802,94 @@ export function DrawMatchScreen_GameOver()
    Tween( title, { TextTransparency: 0 }, 2 )
    wait( 123123 )
 }
+
+function CreatePlayerLineup( allPlayers: Array<Player>, viewportFrame: ViewportFrame ): Array<Model>
+{
+   let clonedCampers: Array<Model> = []
+   let count = 0
+   let odd = true
+   const dist = 3.0
+
+   // draw these players
+   for ( let i = 0; i < allPlayers.size(); i++ )
+   {
+      let player = allPlayers[i]
+      let offsetCount = count
+      let yaw = -15 * offsetCount
+      let offset = new Vector3( dist, 0, 0 ).mul( offsetCount )
+      let multiplier = 1
+      if ( odd )
+      {
+         multiplier = -1
+         count++
+      }
+      odd = !odd
+
+      offset = offset.mul( multiplier )
+      offset = offset.add( new Vector3( 0, 0, offsetCount * 1.5 ) ) // depth
+      //offset = offset.add( new Vector3( dist * -0.5, 0, 0.0 ) ) // left
+      yaw *= multiplier
+
+      let clonedModel = ClonePlayerModel( player ) as Model
+      clonedModel.Parent = viewportFrame
+      clonedModel.SetPrimaryPartCFrame( new CFrame( offset ) )
+
+      clonedCampers.push( clonedModel )
+
+      SetCharacterYaw( clonedModel, yaw )
+      SetCharacterTransparency( clonedModel, 0 )
+   }
+   return clonedCampers
+}
+
+class AnimateLineup
+{
+   viewportFrame: ViewportFrame
+   viewportCamera: Camera
+   numVal: Vector3Value
+   vecEnd1: Vector3
+   vecStart1: Vector3
+   vecStart2: Vector3
+   private CAMERA_TIME = 3.2
+
+   constructor( viewportFrame: ViewportFrame, viewportCamera: Camera )
+   {
+      this.viewportFrame = viewportFrame
+      this.viewportCamera = viewportCamera
+
+      let numVal = new Instance( 'Vector3Value' ) as Vector3Value
+      this.numVal = numVal
+      numVal.Parent = viewportCamera
+      numVal.Value = new Vector3( 0, 1, -6 )
+
+      let vecEnd1 = new Vector3( 0, 0, 120 )
+      this.vecEnd1 = vecEnd1
+      let vecStart1 = numVal.Value.add( new Vector3( 0, 8, 0 ) ).mul( 1.3 )
+      this.vecStart1 = vecStart1
+      viewportCamera.CFrame = new CFrame( vecStart1, vecEnd1 )
+
+      Tween( viewportFrame, { ImageTransparency: 0 }, this.CAMERA_TIME * 0.5 )
+
+      let vecStart2 = numVal.Value
+      this.vecStart2 = vecStart2
+      Tween( viewportCamera, { CFrame: new CFrame( vecStart2, new Vector3( 0, 0, 0 ) ) }, this.CAMERA_TIME, Enum.EasingStyle.Exponential, Enum.EasingDirection.Out )
+   }
+
+   public WaitArrive()
+   {
+      wait( this.CAMERA_TIME )
+   }
+
+   public DollyThrough()
+   {
+      // zoom through
+      let vecEnd2 = new Vector3( 0, 0, 0 )
+      let delta = vecEnd2.sub( this.vecStart2 )
+      delta = delta.add( new Vector3( 0, 2, 0 ) )
+      delta = delta.mul( 2 )
+      this.vecStart2 = this.vecStart2.add( delta )
+      vecEnd2 = vecEnd2.add( delta )
+      Tween( this.viewportCamera, { CFrame: new CFrame( this.vecStart2, vecEnd2 ) }, 2.0, Enum.EasingStyle.Quint, Enum.EasingDirection.In )
+   }
+}
+

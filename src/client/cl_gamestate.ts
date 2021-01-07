@@ -1,5 +1,5 @@
 import { HttpService, TeleportService, Workspace } from "@rbxts/services"
-import { ROLE, Game, NETVAR_JSON_GAMESTATE, USETYPES, GAME_STATE, GetVoteResults, GAMERESULTS, MEETING_TYPE, TELEPORT_PlayerData } from "shared/sh_gamestate"
+import { ROLE, Game, NETVAR_JSON_GAMESTATE, USETYPES, GAME_STATE, GetVoteResults, GAMERESULTS, MEETING_TYPE, TELEPORT_PlayerData, IsCamperRole, IsImpostorRole, AddRoleChangeCallback } from "shared/sh_gamestate"
 import { AddCallback_OnPlayerCharacterAdded } from "shared/sh_onPlayerConnect"
 import { AddNetVarChangedCallback } from "shared/sh_player_netvars"
 import { SetTimeDelta } from "shared/sh_time"
@@ -10,7 +10,7 @@ import { UpdateMeeting } from "./cl_meeting"
 import { CancelAnyOpenTask } from "./cl_tasks"
 import { AddPlayerUseDisabledCallback } from "./cl_use"
 import { SendRPC } from "./cl_utils"
-import { DrawMatchScreen_EmergencyMeeting, DrawMatchScreen_GameOver, DrawMatchScreen_Intro, DrawMatchScreen_VoteResults, DrawMatchScreen_Winners } from "./content/cl_matchScreen_content"
+import { DrawMatchScreen_EmergencyMeeting, DrawMatchScreen_Escaped, DrawMatchScreen_GameOver, DrawMatchScreen_Intro, DrawMatchScreen_Victory, DrawMatchScreen_VoteResults } from "./content/cl_matchScreen_content"
 import { GetScore } from "shared/sh_score"
 
 const LOCAL_PLAYER = GetLocalPlayer()
@@ -63,6 +63,24 @@ function GameThread( game: Game )
 
 export function CL_GameStateSetup()
 {
+   AddRoleChangeCallback(
+      function ( player: Player, role: ROLE, lastRole: ROLE )
+      {
+         if ( player !== LOCAL_PLAYER )
+            return
+
+         if ( role !== ROLE.ROLE_SPECTATOR_CAMPER_ESCAPED )
+            return
+
+         Thread(
+            function ()
+            {
+               let score = GetScore( LOCAL_PLAYER )
+               DrawMatchScreen_Escaped( file.clientGame.GetPlayerInfo( LOCAL_PLAYER ), score )
+            } )
+
+      } )
+
    AddPlayerUseDisabledCallback( function ()
    {
       let gameState = GetLocalGame().GetGameState()
@@ -279,25 +297,40 @@ function CLGameStateChanged( oldGameState: number, newGameState: number )
          {
             WaitThread( function ()
             {
-               DrawMatchScreen_Winners( [LOCAL_PLAYER], GetLocalRole(), game.startingPossessedCount, score, playerInfos )
+               let playerInfo = game.GetPlayerInfo( LOCAL_PLAYER )
+               DrawMatchScreen_Escaped( playerInfo, score )
             } )
             return
          }
 
          let gameResults = game.GetGameResults_NoParityAllowed()
+         let mySurvived = false
+         switch ( GetLocalRole() )
+         {
+            case ROLE.ROLE_CAMPER:
+            case ROLE.ROLE_POSSESSED:
+            case ROLE.ROLE_SPECTATOR_CAMPER_ESCAPED:
+               mySurvived = true
+               break
+         }
+
          switch ( gameResults )
          {
             case GAMERESULTS.RESULTS_CAMPERS_WIN:
                WaitThread( function ()
                {
-                  DrawMatchScreen_Winners( game.GetLivingCampers(), GetLocalRole(), game.startingPossessedCount, score, playerInfos )
+                  let impostersWin = false
+                  let myWinningTeam = IsCamperRole( GetLocalRole() )
+                  DrawMatchScreen_Victory( playerInfos, impostersWin, myWinningTeam, mySurvived, score )
                } )
                break
 
             case GAMERESULTS.RESULTS_POSSESSED_WIN:
                WaitThread( function ()
                {
-                  DrawMatchScreen_Winners( game.GetLivingPossessed(), GetLocalRole(), game.startingPossessedCount, score, playerInfos )
+                  let impostersWin = true
+                  let myWinningTeam = IsImpostorRole( GetLocalRole() )
+                  DrawMatchScreen_Victory( playerInfos, impostersWin, myWinningTeam, mySurvived, score )
                } )
                break
          }

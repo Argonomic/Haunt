@@ -1,6 +1,5 @@
 import { TweenService } from "@rbxts/services"
 import { Assert } from "shared/sh_assert"
-import { GetPlayerFromCharacter } from "./sh_utils"
 
 const ENABLED = true
 

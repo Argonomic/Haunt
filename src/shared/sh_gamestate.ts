@@ -61,7 +61,7 @@ export enum ROLE
    ROLE_CAMPER = 0,
    ROLE_POSSESSED,
    ROLE_SPECTATOR_CAMPER,
-   ROLE_SPECTATOR_IMPOSTER,
+   ROLE_SPECTATOR_IMPOSTOR,
    ROLE_SPECTATOR_CAMPER_ESCAPED,
 }
 
@@ -340,26 +340,25 @@ export class Game
             votes.push( new NETVAR_Vote( vote.voter.UserId, result.UserId ) )
       }
 
-      function RevealImposters( game: Game, player: Player ): boolean
+      function RevealImpostors( game: Game, player: Player ): boolean
       {
          if ( game.GetGameState() === GAME_STATE.GAME_STATE_COMPLETE )
             return true
-         if ( game.IsImposter( player ) )
+         if ( game.IsImpostor( player ) )
             return true
 
          return false
       }
 
-      let revealedImposter = false
+      let revealedImpostor = false
       for ( let player of this.GetAllPlayers() )
       {
          // tell the campers about everyone, but mask the possessed
          let infos: Array<NETVAR_GamePlayerInfo> = []
-         let exitedGame = this.CompletedExitTask( player )
 
-         if ( RevealImposters( this, player ) || exitedGame )
+         if ( RevealImpostors( this, player ) )
          {
-            revealedImposter = true
+            revealedImpostor = true
             // full game info
             for ( let pair of this.playerToInfo )
             {
@@ -377,7 +376,7 @@ export class Game
                      role = ROLE.ROLE_CAMPER
                      break
 
-                  case ROLE.ROLE_SPECTATOR_IMPOSTER:
+                  case ROLE.ROLE_SPECTATOR_IMPOSTOR:
                      role = ROLE.ROLE_SPECTATOR_CAMPER
                      break
                }
@@ -406,17 +405,10 @@ export class Game
          else
             gs.meetingBodyUserId = undefined
 
-         if ( exitedGame )
-         {
-            print( player.Name + " exited the game" )
-            gs.currentGameState = GAME_STATE.GAME_STATE_COMPLETE
-            gs.gsChangedTime = Workspace.DistributedGameTime
-         }
-
          let json = HttpService.JSONEncode( gs )
          SetNetVar( player, NETVAR_JSON_GAMESTATE, json )
       }
-      Assert( revealedImposter || this.GetGameState() === GAME_STATE.GAME_STATE_PREMATCH, "Didn't reveal imposter" )
+      Assert( revealedImpostor || this.GetGameState() === GAME_STATE.GAME_STATE_PREMATCH, "Didn't reveal imposter" )
    }
 
    public SetGameState( state: GAME_STATE )
@@ -615,7 +607,7 @@ export class Game
       {
          if ( role === ROLE.ROLE_SPECTATOR_CAMPER )
             Assert( this.GetPlayerRole( player ) === ROLE.ROLE_CAMPER, "Bad role assignment" )
-         else if ( role === ROLE.ROLE_SPECTATOR_IMPOSTER )
+         else if ( role === ROLE.ROLE_SPECTATOR_IMPOSTOR )
             Assert( this.GetPlayerRole( player ) === ROLE.ROLE_POSSESSED, "Bad role assignment" )
       }
 
@@ -683,12 +675,12 @@ export class Game
 
    public GetPossessed(): Array<Player>
    {
-      return this.GetPlayersOfRole( ROLE.ROLE_POSSESSED ).concat( this.GetPlayersOfRole( ROLE.ROLE_SPECTATOR_IMPOSTER ) )
+      return this.GetPlayersOfRole( ROLE.ROLE_POSSESSED ).concat( this.GetPlayersOfRole( ROLE.ROLE_SPECTATOR_IMPOSTOR ) )
    }
 
    public GetSpectators(): Array<Player>
    {
-      return this.GetPlayersOfRole( ROLE.ROLE_SPECTATOR_CAMPER ).concat( this.GetPlayersOfRole( ROLE.ROLE_SPECTATOR_IMPOSTER ) )
+      return this.GetPlayersOfRole( ROLE.ROLE_SPECTATOR_CAMPER ).concat( this.GetPlayersOfRole( ROLE.ROLE_SPECTATOR_IMPOSTOR ) )
    }
 
    public GetPlayersOfRole( role: ROLE ): Array<Player>
@@ -718,15 +710,7 @@ export class Game
 
    public IsSpectator( player: Player ): boolean
    {
-      switch ( this.GetPlayerRole( player ) )
-      {
-         case ROLE.ROLE_SPECTATOR_CAMPER:
-         case ROLE.ROLE_SPECTATOR_IMPOSTER:
-         case ROLE.ROLE_SPECTATOR_CAMPER_ESCAPED:
-            return true
-      }
-
-      return false
+      return IsSpectatorRole( this.GetPlayerRole( player ) )
    }
 
    public IsCamper( player: Player ): boolean
@@ -741,9 +725,9 @@ export class Game
       return false
    }
 
-   public IsImposter( player: Player ): boolean
+   public IsImpostor( player: Player ): boolean
    {
-      return IsImposterRole( this.GetPlayerRole( player ) )
+      return IsImpostorRole( this.GetPlayerRole( player ) )
    }
 
    public GetPlayerRole( player: Player ): ROLE
@@ -989,15 +973,15 @@ export function SharedGameStateInit()
    AddRoleChangeCallback(
       function ( player: Player, role: ROLE, lastRole: ROLE )
       {
-         if ( IsImposterRole( role ) )
+         if ( IsImpostorRole( role ) )
          {
-            if ( !IsImposterRole( lastRole ) )
+            if ( !IsImpostorRole( lastRole ) )
             {
                // became an imposter
                GiveAbility( player, ABILITIES.ABILITY_SABOTAGE_LIGHTS )
             }
          }
-         else if ( IsImposterRole( lastRole ) )
+         else if ( IsImpostorRole( lastRole ) )
          {
             // became not an imposter
             TakeAbility( player, ABILITIES.ABILITY_SABOTAGE_LIGHTS )
@@ -1122,12 +1106,25 @@ export function AddRoleChangeCallback( func: ( player: Player, role: ROLE, lastR
    file.onRoleChangeCallback.push( func )
 }
 
-export function IsImposterRole( role: ROLE ): boolean
+export function IsImpostorRole( role: ROLE ): boolean
 {
    switch ( role )
    {
-      case ROLE.ROLE_SPECTATOR_IMPOSTER:
+      case ROLE.ROLE_SPECTATOR_IMPOSTOR:
       case ROLE.ROLE_POSSESSED:
+         return true
+   }
+
+   return false
+}
+
+export function IsCamperRole( role: ROLE ): boolean
+{
+   switch ( role )
+   {
+      case ROLE.ROLE_CAMPER:
+      case ROLE.ROLE_SPECTATOR_CAMPER:
+      case ROLE.ROLE_SPECTATOR_CAMPER_ESCAPED:
          return true
    }
 
@@ -1142,4 +1139,17 @@ export function AddGameStateChangedCallback( func: ( game: Game ) => void )
 export function AddGameCreatedCallback( func: ( game: Game ) => void )
 {
    file.gameCreatedCallbacks.push( func )
+}
+
+export function IsSpectatorRole( role: ROLE ): boolean
+{
+   switch ( role )
+   {
+      case ROLE.ROLE_SPECTATOR_CAMPER:
+      case ROLE.ROLE_SPECTATOR_IMPOSTOR:
+      case ROLE.ROLE_SPECTATOR_CAMPER_ESCAPED:
+         return true
+   }
+
+   return false
 }

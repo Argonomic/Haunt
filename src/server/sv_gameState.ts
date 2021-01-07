@@ -513,7 +513,7 @@ function HandleVoteResults( game: Game )
                   break
 
                case ROLE.ROLE_POSSESSED:
-                  game.SetPlayerRole( highestTarget, ROLE.ROLE_SPECTATOR_IMPOSTER )
+                  game.SetPlayerRole( highestTarget, ROLE.ROLE_SPECTATOR_IMPOSTOR )
                   break
             }
 

@@ -68,7 +68,7 @@ export function SV_UseContentSetup()
          if ( game.IsSpectator( player ) )
             return []
 
-         if ( !game.IsImposter( player ) )
+         if ( !game.IsImpostor( player ) )
             return []
 
          let campers = game.GetLivingCampers()

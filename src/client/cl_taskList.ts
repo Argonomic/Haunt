@@ -314,7 +314,7 @@ export function RedrawTaskListUI()
       file.taskLabels[0].Text = "Try " + drawTasks.size() + " tasks:"
       startIndex = 2
    }
-   else if ( game.IsImposter( localPlayer ) )
+   else if ( game.IsImpostor( localPlayer ) )
    {
       file.taskLabels[0].Text = "Kill the innocent before they"
       file.taskLabels[1].Text = "complete their tasks and escape"
@@ -323,7 +323,7 @@ export function RedrawTaskListUI()
    else
    {
       file.taskLabels[0].Text = "Complete your tasks while avoiding"
-      file.taskLabels[1].Text = "any Imposters, then escape."
+      file.taskLabels[1].Text = "any Impostors, then escape."
       file.taskLabels[2].Text = drawTasks.size() + " Tasks Remaining:"
       startIndex = 4
    }
