@@ -1,10 +1,12 @@
 import { RunService } from "@rbxts/services"
-
 const LOCAL = RunService.IsStudio()
+
 export const DEV_SKIP = LOCAL && true
 export const DEV_READYUP = LOCAL && DEV_SKIP
 
+
 // MATCHMAKING
+export const MATCHMAKE_SERVER_VERSION = 1
 export const MATCHMAKE_PLAYERCOUNT_FALLBACK = 4
 export const MATCHMAKE_PLAYERCOUNT_DESIRED = 10
 export const MAX_FRIEND_WAIT_TIME = 20

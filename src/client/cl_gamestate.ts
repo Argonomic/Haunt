@@ -136,6 +136,21 @@ export function CL_GameStateSetup()
       if ( data.playerCount !== undefined )
          SendRPC( 'RPC_FromClient_SetPlayerCount', data.playerCount )
 
+      if ( data.sendMeBackToLobby === true )
+      {
+         Thread(
+            function ()
+            {
+               for ( ; ; )
+               {
+                  wait( 3 )
+
+                  // click the heels
+                  SendRPC( 'RPC_FromClient_RequestLobby' )
+               }
+            } )
+      }
+
       file.fromReservedServer = data.fromReservedServer === true
    }
 
