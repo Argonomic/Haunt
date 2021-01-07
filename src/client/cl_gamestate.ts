@@ -1,7 +1,7 @@
 import { HttpService, TeleportService, Workspace } from "@rbxts/services"
-import { ROLE, Game, NETVAR_JSON_GAMESTATE, USETYPES, GAME_STATE, GetVoteResults, GAMERESULTS, MEETING_TYPE, TELEPORT_PlayerData, IsCamperRole, IsImpostorRole, AddRoleChangeCallback } from "shared/sh_gamestate"
+import { ROLE, Game, NETVAR_JSON_GAMESTATE, USETYPES, GAME_STATE, GetVoteResults, GAMERESULTS, MEETING_TYPE, TELEPORT_PlayerData, IsCamperRole, IsImpostorRole, AddRoleChangeCallback, Assignment, AssignmentIsSame, NETVAR_JSON_ASSIGNMENTS } from "shared/sh_gamestate"
 import { AddCallback_OnPlayerCharacterAdded } from "shared/sh_onPlayerConnect"
-import { AddNetVarChangedCallback } from "shared/sh_player_netvars"
+import { AddNetVarChangedCallback, GetNetVar_String } from "shared/sh_player_netvars"
 import { SetTimeDelta } from "shared/sh_time"
 import { GetUsableByType } from "shared/sh_use"
 import { GetFirstChildWithName, GetLocalPlayer, RandomFloatRange, RecursiveOnChildren, Resume, SetCharacterTransparency, Thread, WaitThread } from "shared/sh_utils"
@@ -19,6 +19,9 @@ class File
 {
    clientGame = new Game()
    fromReservedServer = false
+
+   localAssignments: Array<Assignment> = []
+   gainedAssignmentTime = new Map<Assignment, number>()
 }
 
 let file = new File()
@@ -63,6 +66,35 @@ function GameThread( game: Game )
 
 export function CL_GameStateSetup()
 {
+   AddNetVarChangedCallback( NETVAR_JSON_ASSIGNMENTS,
+      function ()
+      {
+         let json = GetNetVar_String( LOCAL_PLAYER, NETVAR_JSON_ASSIGNMENTS )
+         let assignments = HttpService.JSONDecode( json ) as Array<Assignment>
+         file.localAssignments = assignments
+         let lostAssignments = new Map<Assignment, boolean>()
+         for ( let pair of file.gainedAssignmentTime )
+         {
+            lostAssignments.set( pair[0], true )
+         }
+
+         for ( let assignment of assignments )
+         {
+            if ( lostAssignments.has( assignment ) )
+               lostAssignments.delete( assignment )
+
+            if ( !file.gainedAssignmentTime.has( assignment ) )
+               file.gainedAssignmentTime.set( assignment, Workspace.DistributedGameTime )
+         }
+
+         for ( let pair of lostAssignments )
+         {
+            // remove assignments we don't have anymore
+            file.gainedAssignmentTime.delete( pair[0] )
+         }
+      } )
+
+
    AddRoleChangeCallback(
       function ( player: Player, role: ROLE, lastRole: ROLE )
       {
@@ -287,23 +319,11 @@ function CLGameStateChanged( oldGameState: number, newGameState: number )
 
       case GAME_STATE.GAME_STATE_COMPLETE:
 
-         let score = GetScore( GetLocalPlayer() )
          let game = file.clientGame
-
          let playerInfos = game.GetAllPlayerInfo()
-
-         print( "CLIENT GAME IS OVER, local role is " + GetLocalRole() )
-         if ( GetLocalRole() === ROLE.ROLE_SPECTATOR_CAMPER_ESCAPED )
-         {
-            WaitThread( function ()
-            {
-               let playerInfo = game.GetPlayerInfo( LOCAL_PLAYER )
-               DrawMatchScreen_Escaped( playerInfo, score )
-            } )
-            return
-         }
-
          let gameResults = game.GetGameResults_NoParityAllowed()
+
+         let score = GetScore( GetLocalPlayer() )
          let mySurvived = false
          switch ( GetLocalRole() )
          {
@@ -393,4 +413,32 @@ function CreateCorpse( player: Player, pos: Vector3 ): Model | undefined
 export function IsFromReservedServer()
 {
    return file.fromReservedServer
+}
+
+
+export function GetLocalAssignments(): Array<Assignment>
+{
+   return file.localAssignments
+}
+
+export function ClientHasAssignment( roomName: string, taskName: string ): boolean
+{
+   for ( let assignment of GetLocalAssignments() )
+   {
+      if ( AssignmentIsSame( assignment, roomName, taskName ) )
+         return true
+   }
+   return false
+}
+
+export function ClientGetAssignmentAssignedTime( roomName: string, taskName: string ): number
+{
+   for ( let pair of file.gainedAssignmentTime )
+   {
+      if ( AssignmentIsSame( pair[0], roomName, taskName ) )
+         return pair[1]
+   }
+
+   Assert( false, "ClientGetAssignmentAssignedTime" )
+   throw undefined
 }

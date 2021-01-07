@@ -1,5 +1,5 @@
 import { AddRPC } from "shared/sh_rpc"
-import { Assignment, AssignmentIsSame, NETVAR_JSON_TASKLIST } from "shared/sh_gamestate"
+import { Assignment, AssignmentIsSame, NETVAR_JSON_ASSIGNMENTS } from "shared/sh_gamestate"
 import { AddNetVarChangedCallback, GetNetVar_String } from "shared/sh_player_netvars"
 import { ReleaseDraggedButton, AddCallback_MouseClick } from "client/cl_ui"
 import { SendRPC } from "./cl_utils"
@@ -86,7 +86,7 @@ export function CL_TasksSetup()
       return HasActiveTask()
    } )
 
-   AddNetVarChangedCallback( NETVAR_JSON_TASKLIST,
+   AddNetVarChangedCallback( NETVAR_JSON_ASSIGNMENTS,
       function ()
       {
          if ( !HasActiveTask() )
@@ -95,7 +95,7 @@ export function CL_TasksSetup()
          if ( activeTaskStatus === undefined )
             return
 
-         let json = GetNetVar_String( GetLocalPlayer(), NETVAR_JSON_TASKLIST )
+         let json = GetNetVar_String( GetLocalPlayer(), NETVAR_JSON_ASSIGNMENTS )
          let assignments = HttpService.JSONDecode( json ) as Array<Assignment>
          for ( let assignment of assignments )
          {

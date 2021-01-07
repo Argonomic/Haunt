@@ -2,7 +2,7 @@ import { Chat, HttpService, Players } from "@rbxts/services"
 import { AddRPC } from "shared/sh_rpc"
 import { ArrayRandomize, IsAlive, KillPlayer, Resume, Thread, UserIDToPlayer } from "shared/sh_utils"
 import { Assert } from "shared/sh_assert"
-import { Assignment, GAME_STATE, SharedGameStateInit, NETVAR_JSON_TASKLIST, ROLE, IsPracticing, Game, GAMERESULTS, GetVoteResults, TASK_EXIT, AssignmentIsSame, TASK_RESTORE_LIGHTS, PlayerInfo, PlayerVote } from "shared/sh_gamestate"
+import { Assignment, GAME_STATE, SharedGameStateInit, NETVAR_JSON_ASSIGNMENTS, ROLE, IsPracticing, Game, GAMERESULTS, GetVoteResults, TASK_EXIT, AssignmentIsSame, TASK_RESTORE_LIGHTS, PlayerInfo, PlayerVote } from "shared/sh_gamestate"
 import { MAX_TASKLIST_SIZE, MATCHMAKE_PLAYERCOUNT_DESIRED, MATCHMAKE_PLAYERCOUNT_FALLBACK, SPAWN_ROOM, PLAYER_WALKSPEED, TASK_VALUE, DEV_SKIP } from "shared/sh_settings"
 import { SetNetVar } from "shared/sh_player_netvars"
 import { AddCallback_OnPlayerCharacterAdded, SetPlayerWalkSpeed } from "shared/sh_onPlayerConnect"
@@ -261,17 +261,10 @@ function GameStateChanged( game: Game, oldGameState: GAME_STATE, gameEndFunc: Fu
          break
 
       case GAME_STATE.GAME_STATE_COMPLETE:
-         print( "Game Complete. Game results: " + game.GetGameResults_NoParityAllowed() )
+         let gameResults = game.GetGameResults_NoParityAllowed()
+         print( "Game Complete. Game results: " + gameResults )
          print( "Possessed: " + game.GetLivingPossessed().size() )
          print( "Campers: " + game.GetLivingCampers().size() )
-
-         let points = GetTotalValueOfWorldCoins()
-         DividePointsToLivingPlayers( game, points )
-         for ( let player of game.GetLivingPlayers() )
-         {
-            let score = GetScore( player )
-            GivePersistentPoints( player, score )
-         }
 
          for ( let player of game.GetAllPlayers() )
          {
@@ -283,10 +276,44 @@ function GameStateChanged( game: Game, oldGameState: GAME_STATE, gameEndFunc: Fu
             SendRPC( "RPC_FromServer_CancelTask", player )
          }
 
+         {
+            switch ( gameResults ) 
+            {
+               case GAMERESULTS.RESULTS_POSSESSED_WIN:
+                  {
+                     let players = game.GetLivingCampers()
+                     for ( let player of players )
+                     {
+                        PlayerBecomesSpectatorAndDistributesTheirScoreToLivingPlayers( player, game )
+                     }
+                  }
+                  break
+
+               case GAMERESULTS.RESULTS_CAMPERS_WIN:
+                  {
+                     let players = game.GetLivingPossessed()
+                     for ( let player of players )
+                     {
+                        PlayerBecomesSpectatorAndDistributesTheirScoreToLivingPlayers( player, game )
+                     }
+                  }
+                  break
+            }
+
+            DistributePointsToPlayers( game.GetLivingPlayers(), GetTotalValueOfWorldCoins() )
+
+            for ( let player of game.GetLivingPlayers() )
+            {
+               let score = GetScore( player )
+               GivePersistentPoints( player, score )
+            }
+         }
+
+
          Thread(
             function ()
             {
-               wait( 2 )
+               wait( 4 )
                game.SetGameState( GAME_STATE.GAME_STATE_DEAD )
             } )
          break
@@ -295,7 +322,7 @@ function GameStateChanged( game: Game, oldGameState: GAME_STATE, gameEndFunc: Fu
          Thread(
             function ()
             {
-               wait( 2 )
+               wait( 4 )
                gameEndFunc()
             } )
          break
@@ -506,23 +533,7 @@ function HandleVoteResults( game: Game )
          {
             let highestTarget = voteResults.highestRecipients[0]
             wait( 8 ) // delay for vote matchscreen
-            switch ( game.GetPlayerRole( highestTarget ) )
-            {
-               case ROLE.ROLE_CAMPER:
-                  game.SetPlayerRole( highestTarget, ROLE.ROLE_SPECTATOR_CAMPER )
-                  break
-
-               case ROLE.ROLE_POSSESSED:
-                  game.SetPlayerRole( highestTarget, ROLE.ROLE_SPECTATOR_IMPOSTOR )
-                  break
-            }
-
-            let score = GetScore( highestTarget )
-            if ( score > 0 )
-            {
-               ClearScore( highestTarget )
-               DividePointsToLivingPlayers( game, score )
-            }
+            PlayerBecomesSpectatorAndDistributesTheirScoreToLivingPlayers( highestTarget, game )
 
             print( "Player " + highestTarget.Name + " was voted off" )
          }
@@ -631,7 +642,7 @@ function RPC_FromClient_OnPlayerFinishTask( player: Player, roomName: string, ta
             break
       }
 
-      function ExitAssignment()
+      function TryGainExitAssignment()
       {
          for ( let assignment of assignments )
          {
@@ -649,7 +660,7 @@ function RPC_FromClient_OnPlayerFinishTask( player: Player, roomName: string, ta
          let assignment = new Assignment( SPAWN_ROOM, TASK_EXIT )
          assignments.push( assignment )
       }
-      ExitAssignment()
+      TryGainExitAssignment()
    }
 
    UpdateTasklistNetvar( player, assignments )
@@ -803,7 +814,7 @@ export function UpdateTasklistNetvar( player: Player, assignments: Array<Assignm
       return
 
    let encode = HttpService.JSONEncode( assignments )
-   SetNetVar( player, NETVAR_JSON_TASKLIST, encode )
+   SetNetVar( player, NETVAR_JSON_ASSIGNMENTS, encode )
 }
 
 export function ClearAssignments( game: Game, player: Player )
@@ -818,15 +829,35 @@ export function AddPlayer( game: Game, player: Player, role: ROLE ): PlayerInfo
    return game.AddPlayer( player, role )
 }
 
-function DividePointsToLivingPlayers( game: Game, score: number )
+function DistributePointsToPlayers( players: Array<Player>, score: number )
 {
-   let livingPlayers = game.GetLivingPlayers()
-   let scorePerPlayer = math.floor( score / livingPlayers.size() )
+   let scorePerPlayer = math.floor( score / players.size() )
    if ( scorePerPlayer < 1 )
       scorePerPlayer = 1
 
-   for ( let player of livingPlayers )
+   for ( let player of players )
    {
       IncrementScore( player, scorePerPlayer )
+   }
+}
+
+function PlayerBecomesSpectatorAndDistributesTheirScoreToLivingPlayers( player: Player, game: Game )
+{
+   switch ( game.GetPlayerRole( player ) )
+   {
+      case ROLE.ROLE_CAMPER:
+         game.SetPlayerRole( player, ROLE.ROLE_SPECTATOR_CAMPER )
+         break
+
+      case ROLE.ROLE_POSSESSED:
+         game.SetPlayerRole( player, ROLE.ROLE_SPECTATOR_IMPOSTOR )
+         break
+   }
+
+   let score = GetScore( player )
+   if ( score > 0 )
+   {
+      ClearScore( player )
+      DistributePointsToPlayers( game.GetLivingPlayers(), score )
    }
 }

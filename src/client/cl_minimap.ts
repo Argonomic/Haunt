@@ -3,8 +3,7 @@ import { BoundsXZ, GetBoundsXZ } from "shared/sh_bounds"
 import { AddCallback_OnPlayerCharacterAncestryChanged } from "shared/sh_onPlayerConnect"
 import { GetChildrenWithName, GetChildren_NoFutureOffspring, GetExistingFirstChildWithNameAndClassName, GetInstanceChildWithName, GetLocalPlayer, GetPosition, GetWorkspaceChildByName, Graph } from "shared/sh_utils"
 import { Assert } from "shared/sh_assert"
-import { CreateCalloutTextLabel } from "./cl_callouts2d"
-import { LiveName, AddPlayerGuiFolderExistsCallback, UIORDER } from "./cl_ui"
+import { LiveName, AddPlayerGuiFolderExistsCallback, UIORDER, CreateCalloutStyleTextLabel } from "./cl_ui"
 import { Tween } from "shared/sh_tween"
 
 const SCR_FLOOR = "scr_floor"
@@ -373,7 +372,7 @@ export function AddMapIcon( position: Vector3 )
    if ( file.minimapUI === undefined )
       return
 
-   let textLabel = CreateCalloutTextLabel()
+   let textLabel = CreateCalloutStyleTextLabel()
    textLabel.AnchorPoint = new Vector2( 0.5, 0 )
    textLabel.Name = "MapIcon"
    textLabel.ZIndex = ZINDEX_CALLOUT

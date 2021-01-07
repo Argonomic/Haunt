@@ -3,7 +3,7 @@ import { Assert } from "./sh_assert"
 import { PICKUPS } from "./sh_gamestate"
 import { MakePartIntoPickup } from "./sh_pickups"
 import { COIN_VALUE_GEM, COIN_VALUE_GOLD, COIN_VALUE_SILVER } from "./sh_settings"
-import { GetPosition, ExecOnChildWhenItExists, RandomFloatRange, Thread } from "./sh_utils"
+import { GetPosition, ExecOnChildWhenItExists, Thread } from "./sh_utils"
 
 export enum COIN_TYPE
 {

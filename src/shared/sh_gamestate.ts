@@ -12,7 +12,7 @@ import { GetScore, NETVAR_SCORE } from "./sh_score"
 
 export const LOCAL = RunService.IsStudio()
 
-export const NETVAR_JSON_TASKLIST = "JS_TL"
+export const NETVAR_JSON_ASSIGNMENTS = "JS_TL"
 export const NETVAR_MATCHMAKING_STATUS = "MMS"
 export const NETVAR_MATCHMAKING_NUMWITHYOU = "N_WY"
 export const NETVAR_JSON_GAMESTATE = "E_GS"
@@ -342,7 +342,7 @@ export class Game
 
       function RevealImpostors( game: Game, player: Player ): boolean
       {
-         if ( game.GetGameState() === GAME_STATE.GAME_STATE_COMPLETE )
+         if ( game.GetGameState() >= GAME_STATE.GAME_STATE_COMPLETE )
             return true
          if ( game.IsImpostor( player ) )
             return true
@@ -960,7 +960,7 @@ export function SharedGameStateInit()
          } )
    }
 
-   AddNetVar( "string", NETVAR_JSON_TASKLIST, "{}" )
+   AddNetVar( "string", NETVAR_JSON_ASSIGNMENTS, "{}" )
    AddNetVar( "number", NETVAR_MATCHMAKING_NUMWITHYOU, 0 )
    AddNetVar( "string", NETVAR_JSON_GAMESTATE, "{}" )
    AddNetVar( "number", NETVAR_MEETINGS_CALLED, 0 )

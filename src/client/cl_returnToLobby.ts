@@ -36,7 +36,7 @@ export function CL_ReturnToLobbySetup()
 
       let ReturnToLobbyUI = GetFirstChildWithNameAndClassName( gui, 'ReturnToLobbyUI', 'ScreenGui' ) as Editor_ReturnToLobbyUI
       ReturnToLobbyUI.Enabled = false
-      ReturnToLobbyUI.DisplayOrder = UIORDER.UIORDER_READY_AFTER_SPECTATE
+      ReturnToLobbyUI.DisplayOrder = UIORDER.UIORDER_RETURN_TO_LOBBY
 
       file.returnToLobbyUI = ReturnToLobbyUI
 
@@ -81,6 +81,8 @@ export function CL_ReturnToLobbySetup()
             function ()
             {
                wait() // after it actually state
+
+               wait( 4 )
                if ( game.GetPlayerRole( player ) === ROLE.ROLE_SPECTATOR_CAMPER_ESCAPED )
                {
                   DisplayReturnToLobby()

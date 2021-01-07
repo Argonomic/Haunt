@@ -1,20 +1,17 @@
-import { HttpService, Workspace } from "@rbxts/services"
 import { GetTaskSpec } from "client/cl_tasks"
-import { Assignment, AssignmentIsSame, GAME_STATE, IsPracticing, NETVAR_JSON_GAMESTATE, NETVAR_JSON_TASKLIST, NETVAR_MEETINGS_CALLED, USETYPES } from "shared/sh_gamestate"
-import { AddNetVarChangedCallback, GetNetVar_Number, GetNetVar_String } from "shared/sh_player_netvars"
-import { AddRoomChangedCallback, GetCurrentRoom, GetRooms } from "./cl_rooms"
+import { GAME_STATE, IsPracticing, NETVAR_JSON_GAMESTATE, NETVAR_JSON_ASSIGNMENTS, NETVAR_MEETINGS_CALLED, USETYPES } from "shared/sh_gamestate"
+import { AddNetVarChangedCallback, GetNetVar_Number } from "shared/sh_player_netvars"
+import { GetCurrentRoom } from "./cl_rooms"
 import { GetFirstChildWithName, GetLocalPlayer, Graph, Thread } from "shared/sh_utils"
 import { Assert } from "shared/sh_assert"
-import { AddCallout, ClearCallouts, InitCallouts } from "./cl_callouts2d"
-import { Room, Task } from "shared/sh_rooms"
-import { AddMapIcon, ClearMinimapIcons, GetMinimapReferencesFrame } from "./cl_minimap"
+import { Task } from "shared/sh_rooms"
+import { GetMinimapReferencesFrame } from "./cl_minimap"
 import { AddPlayerGuiFolderExistsCallback, ToggleButton, UIORDER } from "./cl_ui"
 import { GetUsableByType } from "shared/sh_use"
-import { GetLocalGame, GetLocalIsSpectator } from "./cl_gamestate"
+import { GetLocalAssignments, GetLocalGame, GetLocalIsSpectator } from "./cl_gamestate"
 import { AddCallback_OnPlayerCharacterAncestryChanged } from "shared/sh_onPlayerConnect"
 import { Tween } from "shared/sh_tween"
 
-const CALLOUTS_NAME = "TASKLIST_CALLOUTS"
 const LOCAL_PLAYER = GetLocalPlayer()
 
 type EDITOR_ScreenUIWithFrame = ScreenGui &
@@ -27,19 +24,18 @@ type EDITOR_ScreenUIWithFrame = ScreenGui &
 
 class File
 {
-   assignments: Array<Assignment> = []
-   lastAssignmentCount = 0
    existingUI: EDITOR_ScreenUIWithFrame | undefined
    taskLabels: Array<TextLabel> = []
    toggleButton: ToggleButton | undefined
    framePosition = new UDim2( 0, 0, 0, 0 )
-   gainedAssignmentTime = new Map<Assignment, number>()
+
+   lastAssignmentCount = 0
 }
 
 export function TasksRemaining(): number
 {
    let count = 0
-   for ( let assignment of file.assignments )
+   for ( let assignment of GetLocalAssignments() )
    {
       if ( assignment.status === 0 )
          count++
@@ -63,9 +59,7 @@ function RefreshTaskList()
       file.existingUI.Frame.Position = file.framePosition
    }
 
-   let json = GetNetVar_String( GetLocalPlayer(), NETVAR_JSON_TASKLIST )
-   let assignments = HttpService.JSONDecode( json ) as Array<Assignment>
-   file.assignments = assignments
+   let assignments = GetLocalAssignments()
 
    if ( file.lastAssignmentCount !== assignments.size() )
    {
@@ -79,17 +73,13 @@ function RefreshTaskList()
 
 export function CL_TaskListSetup()
 {
-   InitCallouts( CALLOUTS_NAME )
-
-   AddRoomChangedCallback( RecreateTaskListCallouts2d )
-
    GetUsableByType( USETYPES.USETYPE_TASK ).DefineGetter(
       function ( player: Player ): Array<BasePart>
       {
          let parts: Array<BasePart> = []
          let room = GetCurrentRoom( LOCAL_PLAYER )
 
-         for ( let assignment of file.assignments )
+         for ( let assignment of GetLocalAssignments() )
          {
             if ( assignment.roomName !== room.name )
                continue
@@ -128,33 +118,15 @@ export function CL_TaskListSetup()
          return []
       } )
 
-   AddNetVarChangedCallback( NETVAR_JSON_TASKLIST,
+   AddNetVarChangedCallback( NETVAR_JSON_ASSIGNMENTS,
       function ()
       {
-         let json = GetNetVar_String( GetLocalPlayer(), NETVAR_JSON_TASKLIST )
-         let assignments = HttpService.JSONDecode( json ) as Array<Assignment>
-         let lostAssignments = new Map<Assignment, boolean>()
-         for ( let pair of file.gainedAssignmentTime )
-         {
-            lostAssignments.set( pair[0], true )
-         }
-
-         for ( let assignment of assignments )
-         {
-            if ( lostAssignments.has( assignment ) )
-               lostAssignments.delete( assignment )
-
-            if ( !file.gainedAssignmentTime.has( assignment ) )
-               file.gainedAssignmentTime.set( assignment, Workspace.DistributedGameTime )
-         }
-
-         for ( let pair of lostAssignments )
-         {
-            // remove assignments we don't have anymore
-            file.gainedAssignmentTime.delete( pair[0] )
-         }
-
-         RefreshTaskList()
+         Thread(
+            function ()
+            {
+               wait() // for actions elsewhere
+               RefreshTaskList()
+            } )
       } )
 
    AddNetVarChangedCallback( NETVAR_JSON_GAMESTATE,
@@ -222,8 +194,6 @@ export function CL_TaskListSetup()
       baseLabel.Destroy()
 
       RefreshTaskList()
-      RecreateTaskListCallouts2d()
-      RecreateTaskListMapIcons()
    } )
 
    AddCallback_OnPlayerCharacterAncestryChanged(
@@ -242,7 +212,7 @@ export function RedrawTaskListUI()
       return
 
    let count = 0
-   for ( let assignment of file.assignments )
+   for ( let assignment of GetLocalAssignments() )
    {
       if ( assignment.status === 0 )
          count++
@@ -279,7 +249,7 @@ export function RedrawTaskListUI()
    }
 
    let drawTasks = new Map<string, DrawTask>()
-   for ( let assignment of file.assignments )
+   for ( let assignment of GetLocalAssignments() )
    {
       if ( !drawTasks.has( assignment.taskName ) )
       {
@@ -291,7 +261,7 @@ export function RedrawTaskListUI()
       }
    }
 
-   for ( let assignment of file.assignments )
+   for ( let assignment of GetLocalAssignments() )
    {
       let drawTask = drawTasks.get( assignment.taskName ) as DrawTask
       drawTask.total++
@@ -345,70 +315,4 @@ export function RedrawTaskListUI()
       if ( index >= file.taskLabels.size() )
          break
    }
-
-   RecreateTaskListCallouts2d()
-   RecreateTaskListMapIcons()
-}
-
-
-function RecreateTaskListMapIcons()
-{
-   ClearMinimapIcons()
-   let rooms = GetRooms()
-
-   for ( let assignment of file.assignments )
-   {
-      if ( assignment.status !== 0 )
-         continue
-
-      Assert( rooms.has( assignment.roomName ), "No known room " + assignment.roomName )
-
-      let room = rooms.get( assignment.roomName ) as Room
-
-      Assert( room.tasks.has( assignment.taskName ), "Room " + room.name + " has no task " + assignment.taskName )
-      let task = room.tasks.get( assignment.taskName ) as Task
-
-      AddMapIcon( task.volume.Position )
-   }
-}
-
-function RecreateTaskListCallouts2d()
-{
-   ClearCallouts( CALLOUTS_NAME )
-
-   let room: Room = GetCurrentRoom( LOCAL_PLAYER )
-
-   for ( let assignment of file.assignments )
-   {
-      if ( assignment.roomName !== room.name )
-         continue
-      if ( assignment.status !== 0 )
-         continue
-
-      Assert( room.tasks.has( assignment.taskName ), "Room " + room.name + " has no task " + assignment.taskName )
-      let task = room.tasks.get( assignment.taskName ) as Task
-      AddCallout( CALLOUTS_NAME, task.volume.Position )
-   }
-}
-
-export function ClientHasAssignment( roomName: string, taskName: string ): boolean
-{
-   for ( let assignment of file.assignments )
-   {
-      if ( AssignmentIsSame( assignment, roomName, taskName ) )
-         return true
-   }
-   return false
-}
-
-export function ClientGetAssignmentAssignedTime( roomName: string, taskName: string ): number
-{
-   for ( let pair of file.gainedAssignmentTime )
-   {
-      if ( AssignmentIsSame( pair[0], roomName, taskName ) )
-         return pair[1]
-   }
-
-   Assert( false, "ClientGetAssignmentAssignedTime" )
-   throw undefined
 }

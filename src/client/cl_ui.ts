@@ -1,7 +1,7 @@
-import { RunService, Workspace } from "@rbxts/services";
+import { RunService } from "@rbxts/services";
 import { AddCallback_OnPlayerCharacterAdded, AddCallback_OnPlayerCharacterAncestryChanged, APlayerHasConnected } from "shared/sh_onPlayerConnect";
 import { Tween } from "shared/sh_tween";
-import { ExecOnChildWhenItExists, GetFirstChildWithName, GetLocalPlayer, Graph, LoadSound, Thread } from "shared/sh_utils";
+import { ExecOnChildWhenItExists, GetFirstChildWithName, Graph, LoadSound, Thread } from "shared/sh_utils";
 import { Assert } from "shared/sh_assert"
 import { AddCaptureInputChangeCallback, AddOnTouchEndedCallback } from "./cl_input";
 
@@ -22,14 +22,14 @@ export enum UIORDER
    UIORDER_SCORE_TOTAL,
    UIORDER_USEBUTTON,
    UIORDER_TASKLIST,
+   UIORDER_SUDDEN_DEATH,
    UIORDER_TASKS,
    UIORDER_MEETING,
    UIORDER_READY,
-   UIORDER_SUDDEN_DEATH,
+   UIORDER_RETURN_TO_LOBBY,
 
    UIORDER_MATCHSCREEN,
    UIORDER_SCORE_GAIN,
-   UIORDER_READY_AFTER_SPECTATE,
 
    UIORDER_CHAT,
    UIORDER_LAST,
@@ -596,3 +596,19 @@ export function LiveName( elem: ScreenGui )
    Assert( elem.Name.find( LIVE ).size() === 0, "Already LiveNamed" )
    elem.Name = elem.Name + LIVE
 }
+
+export function CreateCalloutStyleTextLabel(): TextLabel
+{
+   let textLabel = new Instance( "TextLabel" )
+   textLabel.AnchorPoint = new Vector2( 0.5, 0.5 )
+   textLabel.Size = new UDim2( 0.05, 0, 0.1, 0 )
+   textLabel.TextScaled = true
+   textLabel.Text = "!"
+   textLabel.BorderSizePixel = 0
+   textLabel.BackgroundTransparency = 1.0
+   textLabel.Font = Enum.Font.LuckiestGuy
+   textLabel.TextColor3 = new Color3( 1, 1, 0.25 )
+   textLabel.TextStrokeTransparency = 0.0
+   return textLabel
+}
+

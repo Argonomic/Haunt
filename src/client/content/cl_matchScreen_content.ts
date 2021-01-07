@@ -1,7 +1,7 @@
 import { Workspace } from "@rbxts/services";
 import { WaitForMatchScreenFrame } from "client/cl_matchScreen";
 import { AddPlayerGuiFolderExistsCallback } from "client/cl_ui";
-import { IsImpostorRole, IsSpectatorRole, MEETING_TYPE, PlayerInfo, ROLE } from "shared/sh_gamestate";
+import { IsImpostorRole, IsSpectatorRole, LOCAL, MEETING_TYPE, PlayerInfo, ROLE } from "shared/sh_gamestate";
 import { ClonePlayerModel } from "shared/sh_onPlayerConnect";
 import { DEV_SKIP, SPECTATOR_TRANS } from "shared/sh_settings";
 import { Tween, TweenCharacterParts, TweenModel } from "shared/sh_tween";
@@ -28,16 +28,21 @@ AddNetVarChangedCallback( NETVAR_MATCHMAKING_STATUS, function ()
 } )
    */
 
-   AddPlayerGuiFolderExistsCallback( function ()
+   if ( LOCAL )
    {
-      Thread(
-         function ()
-         {
-            wait( 3 )
-            //TestDraw( 4 )
-         } )
-   } )
-
+      AddPlayerGuiFolderExistsCallback( function ()
+      {
+         Thread(
+            function ()
+            {
+               //for ( ; ; )
+               //{
+               //   wait( 3 )
+               //   TestDraw( 1 )
+               //}
+            } )
+      } )
+   }
 
    function TestDraw( num: number )
    {
@@ -55,7 +60,7 @@ AddNetVarChangedCallback( NETVAR_MATCHMAKING_STATUS, function ()
             break
 
          case 1:
-            //DrawMatchScreen_EmergencyMeeting()
+            DrawMatchScreen_EmergencyMeeting( MEETING_TYPE.MEETING_EMERGENCY, LOCAL_PLAYER, undefined )
             break
 
          case 2:
@@ -245,6 +250,11 @@ export function DrawMatchScreen_Intro( possessed: Array<Player>, campers: Array<
    Tween( viewportFrame, { ImageTransparency: 1 }, 1.5 )
    wait( 0.75 )
    Tween( baseFrame, { Transparency: 1 }, 1.0 )
+}
+
+function SortLocalPlayerInfo( a: PlayerInfo, b: PlayerInfo ): boolean
+{
+   return a.player === LOCAL_PLAYER && b.player !== LOCAL_PLAYER
 }
 
 function SortLocalPlayer( a: Player, b: Player ): boolean
@@ -635,6 +645,8 @@ export function DrawMatchScreen_EmergencyMeeting( meetingType: MEETING_TYPE, cal
 
 export function DrawMatchScreen_Victory( playerInfos: Array<PlayerInfo>, impostersWin: boolean, myWinningTeam: boolean, mySurvived: boolean, myWinnings: number )
 {
+   print( "DrawMatchScreen_Victory playerInfos:" + playerInfos.size() + " impostersWin:" + impostersWin + " myWinningTeam:" + myWinningTeam + " mySurvived:" + mySurvived + " myWinnings:" + myWinnings )
+
    let matchScreenFrame = WaitForMatchScreenFrame( "MATCHSCREEN_VICTORY" )
    let baseFrame = matchScreenFrame.baseFrame
    Tween( baseFrame, { Transparency: 0 }, 1.0 )
@@ -668,37 +680,62 @@ export function DrawMatchScreen_Victory( playerInfos: Array<PlayerInfo>, imposte
    wait( 0.8 )
    Tween( title, { TextTransparency: 0 }, FADE_IN )
 
+   playerInfos.sort( SortLocalPlayerInfo )
 
-   let playerToPlayerInfo = new Map<Player, PlayerInfo>()
    let campers: Array<Player> = []
    let imposters: Array<Player> = []
+   let camperPlayerInfos: Array<PlayerInfo> = []
+   let imposterPlayerInfos: Array<PlayerInfo> = []
 
-   for ( let playerInfo of playerInfos )
+   for ( let i = 0; i < playerInfos.size(); i++ )
    {
-      playerToPlayerInfo.set( playerInfo.player, playerInfo )
+      let playerInfo = playerInfos[i]
+
       if ( IsImpostorRole( playerInfo.role ) )
+      {
          imposters.push( playerInfo.player )
+         imposterPlayerInfos.push( playerInfo )
+      }
       else
+      {
          campers.push( playerInfo.player )
+         camperPlayerInfos.push( playerInfo )
+      }
    }
 
    let lineupTeam
+   let lineupPlayerInfos
    if ( impostersWin )
+   {
       lineupTeam = imposters
+      lineupPlayerInfos = imposterPlayerInfos
+   }
    else
+   {
       lineupTeam = campers
+      lineupPlayerInfos = camperPlayerInfos
+   }
 
    let lineup = CreatePlayerLineup( lineupTeam, viewportFrame )
+   print( "\nCreatePlayerLineup: " + lineup.size() )
 
-   for ( let i = 0; i < lineupTeam.size(); i++ )
+   for ( let i = 0; i < lineupPlayerInfos.size(); i++ )
    {
-      let playerInfo = playerToPlayerInfo.get( lineupTeam[i] ) as PlayerInfo
-      if ( IsSpectatorRole( playerInfo.role ) )
-         SetCharacterTransparency( lineup[i], SPECTATOR_TRANS )
+      let playerInfo = lineupPlayerInfos[i]
+      print( "Player " + i + " role " + playerInfo.role )
+
+      switch ( playerInfo.role )
+      {
+         case ROLE.ROLE_SPECTATOR_CAMPER:
+         case ROLE.ROLE_SPECTATOR_IMPOSTOR:
+            SetCharacterTransparency( lineup[i], SPECTATOR_TRANS )
+            break
+      }
+      // escaper did not see any players in an imposter wins sudden death
    }
 
    let animLineup = new AnimateLineup( viewportFrame, viewportCamera )
-   animLineup.WaitArrive()
+   wait( animLineup.GetArriveTime() )
 
    Tween( subTitle, { TextTransparency: 0 }, FADE_IN )
    wait( 0.4 )
@@ -736,16 +773,14 @@ export function DrawMatchScreen_Escaped( playerInfo: PlayerInfo, myWinnings: num
    wait( 0.8 )
    Tween( title, { TextTransparency: 0 }, FADE_IN )
 
-   wait( 0.8 )
-
    CreatePlayerLineup( [playerInfo.player], viewportFrame )
 
    let animLineup = new AnimateLineup( viewportFrame, viewportCamera )
-   animLineup.WaitArrive()
+   wait( animLineup.GetArriveTime() * 0.4 )
 
    Tween( subTitle, { TextTransparency: 0 }, FADE_IN )
 
-   wait( 4 )
+   wait( 2.25 )
 
    const FADE_OUT = 2.0
    Tween( title, { TextTransparency: 1 }, FADE_OUT * 0.75 )
@@ -805,7 +840,7 @@ export function DrawMatchScreen_GameOver()
 
 function CreatePlayerLineup( allPlayers: Array<Player>, viewportFrame: ViewportFrame ): Array<Model>
 {
-   let clonedCampers: Array<Model> = []
+   let cloneModels: Array<Model> = []
    let count = 0
    let odd = true
    const dist = 3.0
@@ -831,15 +866,14 @@ function CreatePlayerLineup( allPlayers: Array<Player>, viewportFrame: ViewportF
       yaw *= multiplier
 
       let clonedModel = ClonePlayerModel( player ) as Model
+      cloneModels.push( clonedModel )
+
       clonedModel.Parent = viewportFrame
       clonedModel.SetPrimaryPartCFrame( new CFrame( offset ) )
-
-      clonedCampers.push( clonedModel )
-
       SetCharacterYaw( clonedModel, yaw )
       SetCharacterTransparency( clonedModel, 0 )
    }
-   return clonedCampers
+   return cloneModels
 }
 
 class AnimateLineup
@@ -875,9 +909,9 @@ class AnimateLineup
       Tween( viewportCamera, { CFrame: new CFrame( vecStart2, new Vector3( 0, 0, 0 ) ) }, this.CAMERA_TIME, Enum.EasingStyle.Exponential, Enum.EasingDirection.Out )
    }
 
-   public WaitArrive()
+   public GetArriveTime(): number
    {
-      wait( this.CAMERA_TIME )
+      return this.CAMERA_TIME
    }
 
    public DollyThrough()

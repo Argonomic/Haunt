@@ -1,4 +1,4 @@
-import { IsReservedServer, NETVAR_MATCHMAKING_STATUS, MATCHMAKING_STATUS, NETVAR_MATCHMAKING_NUMWITHYOU, NETVAR_JSON_GAMESTATE, NETVAR_JSON_TASKLIST, IsPracticing } from "shared/sh_gamestate";
+import { IsReservedServer, NETVAR_MATCHMAKING_STATUS, MATCHMAKING_STATUS, NETVAR_MATCHMAKING_NUMWITHYOU, NETVAR_JSON_GAMESTATE, NETVAR_JSON_ASSIGNMENTS, IsPracticing } from "shared/sh_gamestate";
 import { AddCallback_OnPlayerCharacterAncestryChanged } from "shared/sh_onPlayerConnect";
 import { AddNetVarChangedCallback, GetNetVar_Number } from "shared/sh_player_netvars";
 import { DEFAULT_REMIND_MATCHMAKING, DEV_READYUP } from "shared/sh_settings";
@@ -161,7 +161,7 @@ export function CL_ReadyUpSetup()
             } )
       } )
 
-   AddNetVarChangedCallback( NETVAR_JSON_TASKLIST,
+   AddNetVarChangedCallback( NETVAR_JSON_ASSIGNMENTS,
       function ()
       {
          Thread(
