@@ -117,7 +117,6 @@ function RedrawAssignmentCallouts()
 
    let room: Room = GetCurrentRoom( LOCAL_PLAYER )
    let assignments = GetLocalAssignments()
-   print( "assignments: " + assignments.size() )
 
    for ( let assignment of assignments )
    {

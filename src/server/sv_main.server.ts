@@ -24,6 +24,7 @@ import { SV_CoinsSetup } from "./sv_coins";
 import { SV_UseSetup } from "./sv_use";
 import { SV_PersistenceSetup } from "./sv_persistence";
 import { SH_ScoreSetup } from "shared/sh_score";
+import { SH_TeleportSetup } from "shared/sh_teleport";
 
 class File
 {
@@ -54,6 +55,7 @@ SH_AssertSetup()
 SH_PickupsSetup()
 SH_CoinsSetup()
 SH_ScoreSetup()
+SH_TeleportSetup()
 
 SV_CollisionGroupsSetup()
 SV_RoomsSetup()
@@ -70,7 +72,4 @@ DoneCreatingNVs()
 
 SV_MatchmakingSetup()
 
-
 file.finishedInit = true
-
-print( "Server Version 4" )

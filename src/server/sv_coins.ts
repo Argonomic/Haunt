@@ -4,7 +4,7 @@ import { CreatePickupType } from "shared/sh_pickups"
 import { ClearScore, GetScore, IncrementScore } from "shared/sh_score"
 import { ArrayRandomize, GetPosition, RandomFloatRange, RandomInt, Thread, VectorNormalize } from "shared/sh_utils"
 import { COL_GROUP_GEO_ONLY, SetCollisionGroup } from "./sv_collisionGroups"
-import { SendRPC } from "./sv_utils"
+import { SV_SendRPC } from "shared/sh_rpc"
 
 const ROTVEL = 50
 const SPAWN_PUSH = 10
@@ -17,7 +17,7 @@ export function SV_CoinsSetup()
       function ( player: Player, pickup: Part ): boolean
       {
          let coinType = GetCoinType( pickup )
-         SendRPC( "RPC_FromServer_PickupCoin", player, pickup.Position, coinType )
+         SV_SendRPC( "RPC_FromServer_PickupCoin", player, pickup.Position, coinType )
          let coinData = GetCoinDataFromType( coinType )
          IncrementScore( player, coinData.value )
          return true
@@ -39,7 +39,7 @@ export function SpawnRandomCoins( count: number ): Array<Part>
 {
    let locations = GetCoinSpawnLocations()
    ArrayRandomize( locations )
-   let fraction = math.floor( locations.size() * 0.30 )
+   let fraction = math.floor( locations.size() * 0.40 )
    let coinsPerspot = count / fraction
    let min = math.floor( coinsPerspot * 0.6 )
    let max = math.floor( coinsPerspot * 1.4 )
@@ -56,7 +56,7 @@ export function SpawnRandomCoins( count: number ): Array<Part>
    let gold = GetCoinDataFromType( COIN_TYPE.TYPE_GOLD )
 
    let goldIndices = new Map<number, boolean>()
-   let goldCount = count * 0.05
+   let goldCount = count * 0.025
    for ( let i = 0; i < goldCount; i++ )
    {
       for ( ; ; )

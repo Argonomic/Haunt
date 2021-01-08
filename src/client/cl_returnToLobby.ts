@@ -2,9 +2,9 @@ import { GetFirstChildWithNameAndClassName, GetLocalPlayer, Thread } from "share
 import { GetLocalGame } from "./cl_gamestate";
 import { ROLE, NETVAR_JSON_GAMESTATE } from "shared/sh_gamestate";
 import { AddPlayerGuiFolderExistsCallback, ToggleButton, UIORDER } from "./cl_ui";
-import { SendRPC } from "./cl_utils";
 import { AddNetVarChangedCallback } from "shared/sh_player_netvars";
 import { AddCallback_OnPlayerCharacterAncestryChanged } from "shared/sh_onPlayerConnect";
+import { CL_SendRPC } from "shared/sh_rpc";
 
 type Editor_ReturnToLobbyUI = ScreenGui &
 {
@@ -59,7 +59,7 @@ export function CL_ReturnToLobbySetup()
 
       frame.LeaveMatch.MouseButton1Click.Connect( function ()
       {
-         SendRPC( "RPC_FromClient_RequestLobby" )
+         CL_SendRPC( "RPC_FromClient_RequestLobby" )
       } )
 
    } )

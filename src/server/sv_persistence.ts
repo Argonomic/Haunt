@@ -1,4 +1,4 @@
-import { DataStoreService } from "@rbxts/services";
+import { DataStoreService, Workspace } from "@rbxts/services";
 import { IsReservedServer, LOCAL } from "shared/sh_gamestate";
 import { AddCallback_OnPlayerConnected } from "shared/sh_onPlayerConnect";
 import { SetScore } from "shared/sh_score";
@@ -10,12 +10,16 @@ const COINS = "_COINS"
 
 const GLOBAL_PERSISTENCE = "GLOBAL_PERSISTENCE"
 const GP_SERVER_VERSION = "GP_SERVER_VERSION"
+const CHECK_UPTODATE_TIME = 60
 
 class File
 {
    playerToDS = new Map<Player, GlobalDataStore>()
    globalPersistence: GlobalDataStore | undefined
    serverVersion = -1
+   cachedServerVersion = -1
+
+   nextServerVersionCheckTime = Workspace.DistributedGameTime + CHECK_UPTODATE_TIME
 }
 let file = new File()
 
@@ -46,24 +50,66 @@ export function SV_PersistenceSetup()
             } )
       } )
 
-   pcall(
+   Thread(
       function ()
       {
-         file.globalPersistence = DataStoreService.GetDataStore( GLOBAL_PERSISTENCE )
-         let serverVersion = file.globalPersistence.GetAsync( GP_SERVER_VERSION )
-         if ( typeOf( serverVersion ) === 'number' )
-         {
-            file.serverVersion = serverVersion as number
-            if ( file.serverVersion < MATCHMAKE_SERVER_VERSION ) 
+         pcall(
+            function ()
             {
-               file.serverVersion = MATCHMAKE_SERVER_VERSION
-               file.globalPersistence.SetAsync( GP_SERVER_VERSION, MATCHMAKE_SERVER_VERSION )
-            }
-         }
-         else
-         {
-            file.globalPersistence.SetAsync( GP_SERVER_VERSION, MATCHMAKE_SERVER_VERSION )
-         }
+               file.globalPersistence = DataStoreService.GetDataStore( GLOBAL_PERSISTENCE )
+               let serverVersion = file.globalPersistence.GetAsync( GP_SERVER_VERSION )
+               if ( typeOf( serverVersion ) === 'number' )
+               {
+                  file.serverVersion = serverVersion as number
+                  if ( file.serverVersion < MATCHMAKE_SERVER_VERSION ) 
+                  {
+                     file.serverVersion = MATCHMAKE_SERVER_VERSION
+                     file.globalPersistence.SetAsync( GP_SERVER_VERSION, MATCHMAKE_SERVER_VERSION )
+                  }
+                  file.cachedServerVersion = file.serverVersion
+                  print( "SERVER VERSION IS " + file.serverVersion )
+               }
+               else
+               {
+                  file.globalPersistence.SetAsync( GP_SERVER_VERSION, MATCHMAKE_SERVER_VERSION )
+               }
+            } )
+      } )
+}
+
+export function IncrementServerVersion()
+{
+   if ( LOCAL )
+      return
+
+   file.nextServerVersionCheckTime = 0
+   print( "\nIncrementServerVersion" )
+
+   Thread(
+      function ()
+      {
+         if ( !LobbyUpToDate() )
+            return
+
+         if ( file.serverVersion === -1 )
+            return
+
+         if ( file.globalPersistence === undefined )
+            return
+
+         print( "Incrementing server version" )
+         file.globalPersistence.UpdateAsync( GP_SERVER_VERSION,
+            function ( oldValue: unknown | undefined )
+            {
+               print( "Old value was " + oldValue )
+               if ( typeOf( oldValue ) === 'number' )
+                  return ( oldValue as number ) + 1
+
+               return file.serverVersion + 1
+            } )
+
+         print( "...done!\n" )
+         file.nextServerVersionCheckTime = 0
       } )
 }
 
@@ -73,16 +119,21 @@ export function LobbyUpToDate(): boolean
       return true
    if ( file.globalPersistence === undefined )
       return true
-   if ( file.serverVersion === undefined )
+   if ( file.serverVersion === -1 )
       return true
    if ( IsReservedServer() )
       return true
 
-   let serverVersion = file.globalPersistence.GetAsync( GP_SERVER_VERSION )
-   if ( typeOf( serverVersion ) !== 'number' )
-      return true
+   if ( Workspace.DistributedGameTime >= file.nextServerVersionCheckTime )
+   {
+      file.nextServerVersionCheckTime = Workspace.DistributedGameTime + CHECK_UPTODATE_TIME
 
-   return ( serverVersion as number ) === file.serverVersion
+      let serverVersion = file.globalPersistence.GetAsync( GP_SERVER_VERSION )
+      if ( typeOf( serverVersion ) === 'number' )
+         file.cachedServerVersion = ( serverVersion as number )
+   }
+
+   return file.cachedServerVersion === file.serverVersion
 }
 
 function GetPlayerKey( player: Player )

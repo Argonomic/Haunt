@@ -1,7 +1,7 @@
 import { Room, AddRoomsFromWorkspace, RoomAndTask, AddCallback_OnRoomSetup } from "shared/sh_rooms"
 import { ArrayRandomize, GetPlayerFromDescendant, RandomFloatRange, SetPlayerYaw, Thread } from "shared/sh_utils"
 import { SPAWN_ROOM } from "shared/sh_settings"
-import { SendRPC } from "./sv_utils"
+import { SV_SendRPC } from "shared/sh_rpc"
 import { AddCallback_OnPlayerConnected } from "shared/sh_onPlayerConnect"
 import { Assert } from "shared/sh_assert"
 import { HttpService, Players } from "@rbxts/services"
@@ -181,7 +181,7 @@ export function TellClientsAboutPlayersInRoom( players: Array<Player>, room: Roo
 
    for ( let player of Players.GetPlayers() )
    {
-      SendRPC( "RPC_FromServer_PutPlayersInRoom", player, json, room.name )
+      SV_SendRPC( "RPC_FromServer_PutPlayersInRoom", player, json, room.name )
    }
 }
 

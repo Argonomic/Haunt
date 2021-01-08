@@ -125,13 +125,6 @@ class NETVAR_Vote
    }
 }
 
-export class TELEPORT_PlayerData
-{
-   playerCount: number | undefined
-   fromReservedServer: boolean | undefined
-   sendMeBackToLobby: boolean | undefined
-}
-
 export class Assignment
 {
    roomName: string

@@ -1,14 +1,15 @@
 import { HttpService, Players, TeleportService, Workspace } from "@rbxts/services"
-import { TELEPORT_PlayerData, NETVAR_MATCHMAKING_STATUS, MATCHMAKING_STATUS, NETVAR_MATCHMAKING_NUMWITHYOU, ROLE, Game, LOCAL, IsReservedServer } from "shared/sh_gamestate"
+import { NETVAR_MATCHMAKING_STATUS, MATCHMAKING_STATUS, NETVAR_MATCHMAKING_NUMWITHYOU, ROLE, Game, LOCAL, IsReservedServer } from "shared/sh_gamestate"
 import { AddCallback_OnPlayerCharacterAdded, AddCallback_OnPlayerConnected } from "shared/sh_onPlayerConnect"
 import { GetNetVar_Number, SetNetVar } from "shared/sh_player_netvars"
 import { AddRPC } from "shared/sh_rpc"
-import { MAX_FRIEND_WAIT_TIME, MATCHMAKE_PLAYERCOUNT_DESIRED, MATCHMAKE_PLAYERCOUNT_FALLBACK, DEV_SKIP } from "shared/sh_settings"
-import { GraphCapped, Resume, Thread } from "shared/sh_utils"
+import { MAX_FRIEND_WAIT_TIME, MATCHMAKE_PLAYERCOUNT_DESIRED, MATCHMAKE_PLAYERCOUNT_FALLBACK, DEV_SKIP, ADMINS } from "shared/sh_settings"
+import { ArrayFind, GraphCapped, Thread } from "shared/sh_utils"
 import { Assert } from "shared/sh_assert"
 import { AddPlayer, AssignAllTasks, CreateGame } from "./sv_gameState"
 import { PutPlayerInStartRoom } from "./sv_rooms"
-import { LobbyUpToDate } from "./sv_persistence"
+import { IncrementServerVersion, LobbyUpToDate } from "./sv_persistence"
+import { TELEPORT_PlayerData } from "shared/sh_teleport"
 
 export const DATASTORE_MATCHMAKING = "datastore_matchmaking"
 
@@ -36,6 +37,23 @@ export function SV_MatchmakingSetup()
          file.reservedServerPlayerCount = num
       } )
    }
+
+   AddRPC( "RPC_FromClient_AdminClick", function ( player: Player )
+   {
+      if ( ArrayFind( ADMINS, player.Name ) === undefined )
+         return
+
+      IncrementServerVersion()
+      Thread(
+         function ()
+         {
+            for ( let i = 0; i < 5; i++ )
+            {
+               wait( 1 )
+               UpdateMatchmakingStatus_AndMatchmake()
+            }
+         } )
+   } )
 
    AddCallback_OnPlayerCharacterAdded( function ( player: Player )
    {
@@ -88,7 +106,6 @@ export function SV_MatchmakingSetup()
    Players.PlayerRemoving.Connect(
       function ( player: Player )
       {
-         print( "file.friendsMap.delete " + player.UserId )
          file.friendsMap.delete( player )
          for ( let pair of file.friendsMap )
          {
@@ -310,7 +327,6 @@ function SendMatchmadePlayersToNewReserveServer( players: Array<Player> )
 {
    Thread( function ()
    {
-      print( "file.matchmakeThread send to reserved" )
       for ( let player of players )
       {
          SetNetVar( player, NETVAR_MATCHMAKING_STATUS, MATCHMAKING_STATUS.MATCHMAKING_SEND_TO_RESERVEDSERVER )
@@ -405,6 +421,8 @@ function WaitUntilTimeToTryAgain()
 
 function RoundTripPlayersToLobby()
 {
+   print( "RoundTripPlayersToLobby" )
+
    Thread( function ()
    {
       let sendPlayers: Array<Player> = []
@@ -422,6 +440,7 @@ function RoundTripPlayersToLobby()
 
       if ( sendPlayers.size() )
       {
+         print( "Sending " + sendPlayers.size() + " players to reserved server with sendMeBackToLobby" )
          let code = TeleportService.ReserveServer( game.PlaceId )
          let data = new TELEPORT_PlayerData()
          data.sendMeBackToLobby = true
@@ -465,6 +484,8 @@ function GetFriends( players: Array<Player>, player: Player ): Array<Player>
    let friends: Array<Player> = []
    for ( let other of players )
    {
+      if ( other === player )
+         continue
       if ( !IsFriends( player, other ) )
          continue
       friends.push( other )
@@ -506,10 +527,11 @@ function SendPlayersToLobby( players: Array<Player> )
 
 function IsFriends( player1: Player, player2: Player ): boolean
 {
+   Assert( player1 !== player2, "player1 !== player2" )
    let friendsMap = file.friendsMap.get( player1 )
    if ( friendsMap === undefined )
    {
-      Assert( false, "IsFriends player1:" + player1 + " player2:" + player2 )
+      Assert( false, "friendsMap is undefined for between " + player1 + " and " + player2 )
       throw undefined
    }
    return friendsMap.has( player2 )
@@ -523,10 +545,8 @@ function TimeInQueue( player: Player ): number
 
 function UpdateMatchmakingStatus_AndMatchmake()
 {
-   if ( file.matchmakeThread === undefined )
-      return
-
-   file.matchmakeThread()
+   if ( file.matchmakeThread !== undefined )
+      file.matchmakeThread()
 }
 
 function GetLowestMatchmakingTime( players: Array<Player> ): number

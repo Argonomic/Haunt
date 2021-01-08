@@ -1,5 +1,5 @@
-import { HttpService, TeleportService, Workspace } from "@rbxts/services"
-import { ROLE, Game, NETVAR_JSON_GAMESTATE, USETYPES, GAME_STATE, GetVoteResults, GAMERESULTS, MEETING_TYPE, TELEPORT_PlayerData, IsCamperRole, IsImpostorRole, AddRoleChangeCallback, Assignment, AssignmentIsSame, NETVAR_JSON_ASSIGNMENTS } from "shared/sh_gamestate"
+import { HttpService, Workspace } from "@rbxts/services"
+import { ROLE, Game, NETVAR_JSON_GAMESTATE, USETYPES, GAME_STATE, GetVoteResults, GAMERESULTS, MEETING_TYPE, IsCamperRole, IsImpostorRole, AddRoleChangeCallback, Assignment, AssignmentIsSame, NETVAR_JSON_ASSIGNMENTS } from "shared/sh_gamestate"
 import { AddCallback_OnPlayerCharacterAdded } from "shared/sh_onPlayerConnect"
 import { AddNetVarChangedCallback, GetNetVar_String } from "shared/sh_player_netvars"
 import { SetTimeDelta } from "shared/sh_time"
@@ -9,7 +9,6 @@ import { Assert } from "shared/sh_assert"
 import { UpdateMeeting } from "./cl_meeting"
 import { CancelAnyOpenTask } from "./cl_tasks"
 import { AddPlayerUseDisabledCallback } from "./cl_use"
-import { SendRPC } from "./cl_utils"
 import { DrawMatchScreen_EmergencyMeeting, DrawMatchScreen_Escaped, DrawMatchScreen_GameOver, DrawMatchScreen_Intro, DrawMatchScreen_Victory, DrawMatchScreen_VoteResults } from "./content/cl_matchScreen_content"
 import { GetScore } from "shared/sh_score"
 
@@ -18,7 +17,6 @@ const LOCAL_PLAYER = GetLocalPlayer()
 class File
 {
    clientGame = new Game()
-   fromReservedServer = false
 
    localAssignments: Array<Assignment> = []
    gainedAssignmentTime = new Map<Assignment, number>()
@@ -125,34 +123,6 @@ export function CL_GameStateSetup()
       }
       return true
    } )
-
-   let playerData = TeleportService.GetLocalPlayerTeleportData()
-   if ( playerData !== undefined )
-   {
-      // data packaged with our teleport from previous server
-      Assert( typeOf( playerData ) === 'string', "typeOf( playerData ) === 'string'" )
-      let jsonString = playerData as string
-      let data = HttpService.JSONDecode( jsonString ) as TELEPORT_PlayerData
-      if ( data.playerCount !== undefined )
-         SendRPC( 'RPC_FromClient_SetPlayerCount', data.playerCount )
-
-      if ( data.sendMeBackToLobby === true )
-      {
-         Thread(
-            function ()
-            {
-               for ( ; ; )
-               {
-                  wait( 3 )
-
-                  // click the heels
-                  SendRPC( 'RPC_FromClient_RequestLobby' )
-               }
-            } )
-      }
-
-      file.fromReservedServer = data.fromReservedServer === true
-   }
 
    file.clientGame.gameThread = coroutine.create(
       function ()
@@ -424,12 +394,6 @@ function CreateCorpse( player: Player, pos: Vector3 ): Model | undefined
 
    return corpseCharacter
 }
-
-export function IsFromReservedServer()
-{
-   return file.fromReservedServer
-}
-
 
 export function GetLocalAssignments(): Array<Assignment>
 {

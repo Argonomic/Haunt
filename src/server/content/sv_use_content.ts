@@ -2,7 +2,7 @@ import { GetHumanoid, GetPosition, IsAlive, KillPlayer } from "shared/sh_utils"
 import { GAME_STATE, ROLE, IsPracticing, Corpse, USETYPES, COOLDOWN_NAME_KILL, MEETING_TYPE, NETVAR_MEETINGS_CALLED, Game } from "shared/sh_gamestate"
 import { GetUsableByType, USABLETYPES } from "shared/sh_use"
 import { PlayerHasUnfinishedAssignment, PlayerToGame, ClearAssignments, PlayerHasAssignments } from "server/sv_gameState"
-import { SendRPC } from "server/sv_utils"
+import { SV_SendRPC } from "shared/sh_rpc"
 import { GetCurrentRoom } from "server/sv_rooms"
 import { ResetCooldownTime } from "shared/sh_cooldown"
 import { SetPlayerWalkSpeed } from "shared/sh_onPlayerConnect"
@@ -99,7 +99,7 @@ export function SV_UseContentSetup()
          PlayerDropsCoins( camper, GetPosition( player ) )
          game.SetPlayerRole( camper, ROLE.ROLE_SPECTATOR_CAMPER )
          KillPlayer( camper )
-         SendRPC( "RPC_FromServer_CancelTask", player )
+         SV_SendRPC( "RPC_FromServer_CancelTask", player )
 
          ClearAssignments( game, camper )
 
@@ -157,7 +157,7 @@ export function SV_UseContentSetup()
                continue
 
             SetPlayerWalkSpeed( player, 0 )
-            SendRPC( "RPC_FromServer_OnPlayerUseTask", player, room.name, pair[0] )
+            SV_SendRPC( "RPC_FromServer_OnPlayerUseTask", player, room.name, pair[0] )
             break
          }
       }

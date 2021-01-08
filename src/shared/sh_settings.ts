@@ -56,3 +56,4 @@ export const PLAYER_COLORS =
       new Color3( 135 / 256, 135 / 256, 135 / 256 ), // gray
    ]
 
+export const ADMINS = ["Argonomic", "ArgonomicDev"]

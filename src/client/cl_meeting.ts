@@ -6,7 +6,7 @@ import { Tween } from "shared/sh_tween";
 import { GetColor, GetFirstChildWithName, GetFirstChildWithNameAndClassName, GetLocalPlayer, LightenColor, SetCharacterTransparency, Thread, SetCharacterYaw } from "shared/sh_utils";
 import { Assert } from "shared/sh_assert"
 import { AddPlayerGuiFolderExistsCallback, UIORDER } from "./cl_ui";
-import { SendRPC } from "./cl_utils";
+import { CL_SendRPC } from "shared/sh_rpc";
 
 class File
 {
@@ -306,7 +306,7 @@ class ActiveMeeting
 
          function ()
          {
-            SendRPC( "RPC_FromClient_Skipvote" )
+            CL_SendRPC( "RPC_FromClient_Skipvote" )
          },
       )
       allButtonGroups.push( skipButtonGroup )
@@ -336,7 +336,7 @@ class ActiveMeeting
 
             function ()
             {
-               SendRPC( "RPC_FromClient_Vote", player.UserId )
+               CL_SendRPC( "RPC_FromClient_Vote", player.UserId )
             },
          )
          allButtonGroups.push( playerButtonGroup.buttonGroup )

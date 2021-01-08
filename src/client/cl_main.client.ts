@@ -36,6 +36,8 @@ import { CL_CoinsSetup } from "./cl_coins"
 import { SH_ScoreSetup } from "shared/sh_score"
 import { CL_ReturnToLobbySetup } from "./cl_returnToLobby"
 import { CL_SuddenDeathSetup } from "./cl_suddenDeath"
+import { CL_AdminSetup } from "./cl_admin"
+import { SH_TeleportSetup } from "../shared/sh_teleport"
 
 class File
 {
@@ -62,6 +64,7 @@ SH_AssertSetup()
 SH_PickupsSetup()
 SH_CoinsSetup()
 SH_ScoreSetup()
+SH_TeleportSetup()
 SharedGameStateInit()
 
 CL_RoomSetup()
@@ -89,6 +92,7 @@ CL_MatchScreenContentSetup()
 CL_CoinsSetup()
 CL_ReturnToLobbySetup()
 CL_SuddenDeathSetup()
+CL_AdminSetup()
 SH_OnPlayerConnectSetup()
 
 file.finishedInit = true

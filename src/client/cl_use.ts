@@ -6,7 +6,7 @@ import { GetUseResultsForAttempt } from "shared/sh_use"
 import { GetFirstChildWithName, GetLocalPlayer, IsAlive } from "shared/sh_utils"
 import { Assert } from "shared/sh_assert"
 import { AddClickable, AddPlayerGuiFolderExistsCallback, UIClickResults, EDITOR_ClickableUI, UI_CLICK_RESULTS_TYPE } from "./cl_ui"
-import { SendRPC } from "./cl_utils"
+import { CL_SendRPC } from "shared/sh_rpc"
 
 
 class File
@@ -79,7 +79,7 @@ export function CL_UseSetup()
          if ( GetRenderedCooldownTimeRemaining( player, USE_COOLDOWNS + useResults.usable.useType ) > 0 )
             return
 
-         SendRPC( "RPC_FromClient_OnUse" )
+         CL_SendRPC( "RPC_FromClient_OnUse" )
       }
 
       let lastUseType: undefined | number
@@ -143,7 +143,7 @@ function DFSDFDFd( useUI: ScreenGui )
       if ( GetPlayerCooldownTimeRemaining( player, USE_COOLDOWNS + useResults.usable.useType ) > 0 )
          return
 
-      SendRPC( "RPC_FromClient_OnUse" )
+      CL_SendRPC( "RPC_FromClient_OnUse" )
    } )
 
    imageButton.MouseButton1Up.Connect( function ()
@@ -155,7 +155,7 @@ function DFSDFDFd( useUI: ScreenGui )
       if ( GetPlayerCooldownTimeRemaining( player, USE_COOLDOWNS + useResults.usable.useType ) > 0 )
          return
 
-      SendRPC( "RPC_FromClient_OnUse" )
+      CL_SendRPC( "RPC_FromClient_OnUse" )
    } )
 
    function CanUse(): boolean

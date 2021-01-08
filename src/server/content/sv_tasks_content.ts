@@ -1,6 +1,6 @@
 import { HttpService } from "@rbxts/services";
 import { PlayerHasAssignments, PlayerToGame, RemoveAssignment } from "server/sv_gameState";
-import { SendRPC } from "server/sv_utils";
+import { SV_SendRPC } from "shared/sh_rpc"
 import { ABILITIES, COOLDOWN_SABOTAGE_LIGHTS } from "shared/content/sh_ability_content";
 import { HasAbility } from "shared/sh_ability";
 import { ResetCooldownTime } from "shared/sh_cooldown";
@@ -58,7 +58,7 @@ function SendFusePositionsToClients( game: Game )
    let fuseArrayJson = HttpService.JSONEncode( fuses.fuses )
    for ( let player of game.GetAllPlayers() )
    {
-      SendRPC( "RPC_FromServer_RestoreLighting_Fuse", player, fuseArrayJson )
+      SV_SendRPC( "RPC_FromServer_RestoreLighting_Fuse", player, fuseArrayJson )
    }
 }
 

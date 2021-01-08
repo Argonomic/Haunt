@@ -3,12 +3,12 @@ import { AddCallback_OnPlayerCharacterAncestryChanged } from "shared/sh_onPlayer
 import { AddNetVarChangedCallback, GetNetVar_Number } from "shared/sh_player_netvars";
 import { DEFAULT_REMIND_MATCHMAKING, DEV_READYUP } from "shared/sh_settings";
 import { GetFirstChildWithNameAndClassName, GetLocalPlayer, Thread } from "shared/sh_utils";
-import { IsFromReservedServer } from "./cl_gamestate";
 import { AddPlayerGuiFolderExistsCallback, ToggleButton, UIORDER } from "./cl_ui";
-import { SendRPC } from "./cl_utils";
 import { TasksRemaining } from "./cl_taskList";
 import { AddRoomChangedCallback, GetCurrentRoom } from "./cl_rooms";
 import { SocialService } from "@rbxts/services";
+import { IsFromReservedServer } from "../shared/sh_teleport";
+import { CL_SendRPC } from "shared/sh_rpc";
 
 const LOCAL_PLAYER = GetLocalPlayer()
 
@@ -100,12 +100,12 @@ export function CL_ReadyUpSetup()
 
       frame.checkbox_play.MouseButton1Click.Connect( function ()
       {
-         SendRPC( "RPC_FromClient_RequestChange_MatchmakingStatus", MATCHMAKING_STATUS.MATCHMAKING_LFG )
+         CL_SendRPC( "RPC_FromClient_RequestChange_MatchmakingStatus", MATCHMAKING_STATUS.MATCHMAKING_LFG )
       } )
 
       frame.checkbox_practice.MouseButton1Click.Connect( function ()
       {
-         SendRPC( "RPC_FromClient_RequestChange_MatchmakingStatus", MATCHMAKING_STATUS.MATCHMAKING_PRACTICE )
+         CL_SendRPC( "RPC_FromClient_RequestChange_MatchmakingStatus", MATCHMAKING_STATUS.MATCHMAKING_PRACTICE )
       } )
 
       frame.FriendsButton.MouseButton1Click.Connect( function ()
@@ -124,7 +124,7 @@ export function CL_ReadyUpSetup()
             {
                wait( 2.2 )
                if ( !IsReservedServer() )
-                  SendRPC( "RPC_FromClient_RequestChange_MatchmakingStatus", MATCHMAKING_STATUS.MATCHMAKING_LFG )
+                  CL_SendRPC( "RPC_FromClient_RequestChange_MatchmakingStatus", MATCHMAKING_STATUS.MATCHMAKING_LFG )
             }
          )
       }

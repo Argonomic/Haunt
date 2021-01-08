@@ -267,6 +267,16 @@ export function Graph( x: number, x1: number, x2: number, y1: number, y2: number
    return y1 + slope * ( x - x1 )
 }
 
+export function ArrayFind( arr: Array<unknown>, val: unknown ): number | undefined
+{
+   for ( let i = 0; i < arr.size(); i++ )
+   {
+      if ( arr[i] === val )
+         return i
+   }
+   return undefined
+}
+
 export function ArrayRandom( tbl: Array<unknown> )
 {
    let p = RandomInt( tbl.size() )

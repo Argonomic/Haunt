@@ -6,6 +6,7 @@ import { Tween } from "shared/sh_tween";
 import { CloneChild, GetExistingFirstChildWithNameAndClassName, GetLocalPlayer, Thread } from "shared/sh_utils";
 import { Assert } from "shared/sh_assert"
 import { AddPlayerGuiFolderExistsCallback, UIORDER } from "./cl_ui";
+import { SendMeBackToLobby } from "../shared/sh_teleport";
 
 class File
 {
@@ -134,8 +135,6 @@ export function CL_MatchScreenSetup()
    file.matchScreenUI.IgnoreGuiInset = true
    file.matchScreenUI.DisplayOrder = UIORDER.UIORDER_MATCHSCREEN
 
-   //TeleportService.SetTeleportGui( file.matchScreenUI )
-
    AddPlayerGuiFolderExistsCallback(
       function ( folder: Folder )
       {
@@ -169,8 +168,17 @@ export function CL_MatchScreenSetup()
 
             if ( GetNetVar_Number( GetLocalPlayer(), NETVAR_MATCHMAKING_STATUS ) === MATCHMAKING_STATUS.MATCHMAKING_WAITING_TO_PLAY )
             {
-               frame.TitleFrame.SubTitle.Text = "Get Ready, the game is about to start!"
-               Tween( frame.TitleFrame.SubTitle, { TextTransparency: 0 }, 1 )
+               if ( SendMeBackToLobby() )
+               {
+                  frame.TitleFrame.SubTitle.Text = "Updating Lobby, hold tight!"
+                  Tween( frame.TitleFrame.SubTitle, { TextTransparency: 0 }, 0.5 )
+                  return
+               }
+               else
+               {
+                  frame.TitleFrame.SubTitle.Text = "The game starts soon!"
+                  Tween( frame.TitleFrame.SubTitle, { TextTransparency: 0 }, 2.5 )
+               }
             }
 
             for ( ; ; )

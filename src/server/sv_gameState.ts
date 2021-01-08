@@ -6,7 +6,7 @@ import { Assignment, GAME_STATE, SharedGameStateInit, NETVAR_JSON_ASSIGNMENTS, R
 import { MAX_TASKLIST_SIZE, MATCHMAKE_PLAYERCOUNT_DESIRED, MATCHMAKE_PLAYERCOUNT_FALLBACK, SPAWN_ROOM, PLAYER_WALKSPEED, TASK_VALUE, DEV_SKIP } from "shared/sh_settings"
 import { SetNetVar } from "shared/sh_player_netvars"
 import { AddCallback_OnPlayerCharacterAdded, SetPlayerWalkSpeed } from "shared/sh_onPlayerConnect"
-import { SendRPC } from "./sv_utils"
+import { SV_SendRPC } from "shared/sh_rpc"
 import { GetAllRoomsAndTasks, GetCurrentRoom, GetRoomByName, PutPlayersInRoom, TellClientsAboutPlayersInRoom } from "./sv_rooms"
 import { ResetAllCooldownTimes, ResetCooldownTime } from "shared/sh_cooldown"
 import { COOLDOWN_SABOTAGE_LIGHTS } from "shared/content/sh_ability_content"
@@ -238,7 +238,7 @@ function GameStateChanged( game: Game, oldGameState: GAME_STATE, gameEndFunc: Fu
          let livingCampers = game.GetLivingCampers().size()
          if ( game.previouslyLivingCampers === 0 || game.previouslyLivingCampers > livingCampers )
          {
-            SpawnRandomCoins( 100 + game.roundsPassed * 50 )
+            SpawnRandomCoins( 60 + game.roundsPassed * 60 )
 
             game.previouslyLivingCampers = livingCampers
             game.roundsPassed++
@@ -273,7 +273,7 @@ function GameStateChanged( game: Game, oldGameState: GAME_STATE, gameEndFunc: Fu
                continue
 
             //KillPlayer( player )
-            SendRPC( "RPC_FromServer_CancelTask", player )
+            SV_SendRPC( "RPC_FromServer_CancelTask", player )
          }
 
          {
@@ -448,7 +448,7 @@ function GameStateThink( game: Game )
          for ( let i = 0; i < players.size(); i++ )
          {
             let player = players[i]
-            SendRPC( "RPC_FromServer_CancelTask", player )
+            SV_SendRPC( "RPC_FromServer_CancelTask", player )
          }
 
          game.SetGameState( GAME_STATE.GAME_STATE_PLAYING )
@@ -637,7 +637,7 @@ function RPC_FromClient_OnPlayerFinishTask( player: Player, roomName: string, ta
 
                let reward = TASK_VALUE + math.floor( ( game.roundsPassed - 1 ) * TASK_VALUE * 0.5 )
                IncrementScore( player, reward )
-               SendRPC( "RPC_FromServer_GavePoints", player, task.volume.Position, reward )
+               SV_SendRPC( "RPC_FromServer_GavePoints", player, task.volume.Position, reward )
             }
             break
       }

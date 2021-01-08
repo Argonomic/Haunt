@@ -38,6 +38,7 @@ export function SH_RPCSetup()
 {
    let rpcs =
       [
+         "RPC_FromClient_AdminClick",
          "RPC_FromClient_OnPlayerFinishTask",
          "RPC_FromClient_OnPlayerUseFromRoom",
          "RPC_FromClient_OnUse",
@@ -71,3 +72,36 @@ export function GetRPCRemoteEvent( name: string ): RemoteEvent
    return file.remoteEvents[name]
 }
 
+
+export function SV_SendRPC( name: string, player: Player, ...args: Array<unknown> ): void
+{
+   Assert( IsServer(), "SV_SendRPC from client" )
+   let remoteEvent = GetRPCRemoteEvent( name )
+   if ( args.size() === 0 )
+      remoteEvent.FireClient( player, args )
+   else if ( args.size() === 1 )
+      remoteEvent.FireClient( player, args[0] )
+   else if ( args.size() === 2 )
+      remoteEvent.FireClient( player, args[0], args[1] )
+   else if ( args.size() === 3 )
+      remoteEvent.FireClient( player, args[0], args[1], args[2] )
+   else
+      Assert( false, "Need more parameters" )
+}
+
+export function CL_SendRPC( name: string, ...args: Array<unknown> ): void
+{
+   Assert( !IsServer(), "CL_SendRPC from server" )
+   print( "Client SendPRC " + name + " " + args )
+   let remoteEvent = GetRPCRemoteEvent( name )
+   if ( args.size() === 0 )
+      remoteEvent.FireServer( args )
+   else if ( args.size() === 1 )
+      remoteEvent.FireServer( args[0] )
+   else if ( args.size() === 2 )
+      remoteEvent.FireServer( args[0], args[1] )
+   else if ( args.size() === 3 )
+      remoteEvent.FireServer( args[0], args[1], args[2] )
+   else
+      Assert( false, "Need more parameters" )
+}
