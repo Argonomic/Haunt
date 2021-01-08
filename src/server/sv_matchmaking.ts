@@ -453,7 +453,7 @@ function RoundTripPlayersToLobby()
             for ( let player of sendPlayers )
             {
                if ( player.Character !== undefined )
-                  player.Kick()
+                  player.Kick( "Updating Lobby, please rejoin" )
             }
          } )
       }

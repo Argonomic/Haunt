@@ -298,7 +298,10 @@ function RemindMatchmaking()
 
       count++
       if ( count >= GetRemindMatchmakingTime() )
+      {
          toggleButton.Open()
+         count = 0
+      }
    }
 
 
