@@ -40,6 +40,7 @@ export function SH_RPCSetup()
       [
          "RPC_FromClient_AdminClick",
          "RPC_FromClient_OnPlayerFinishTask",
+         "RPC_FromClient_NotWaitingFor",
          "RPC_FromClient_OnPlayerUseFromRoom",
          "RPC_FromClient_OnUse",
          "RPC_FromClient_RequestChange_MatchmakingStatus",
@@ -47,6 +48,7 @@ export function SH_RPCSetup()
          "RPC_FromClient_RestoreLighting_Fuse",
          "RPC_FromClient_SetPlayerCount",
          "RPC_FromClient_Skipvote",
+         "RPC_FromClient_UpdateTeleportData",
          "RPC_FromClient_UseAbility",
          "RPC_FromClient_Vote",
          "RPC_FromServer_CancelTask",
@@ -89,9 +91,9 @@ export function SV_SendRPC( name: string, player: Player, ...args: Array<unknown
       Assert( false, "Need more parameters" )
 }
 
-export function CL_SendRPC( name: string, ...args: Array<unknown> ): void
+export function SendRPC_Client( name: string, ...args: Array<unknown> ): void
 {
-   Assert( !IsServer(), "CL_SendRPC from server" )
+   Assert( !IsServer(), "SendRPC_Client from server" )
    print( "Client SendPRC " + name + " " + args )
    let remoteEvent = GetRPCRemoteEvent( name )
    if ( args.size() === 0 )

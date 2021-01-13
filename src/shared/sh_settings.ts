@@ -1,16 +1,18 @@
 import { RunService } from "@rbxts/services"
 const LOCAL = RunService.IsStudio()
 
-export const DEV_SKIP = LOCAL && true
-export const DEV_READYUP = LOCAL && DEV_SKIP
-
+export const DEV_SKIP = LOCAL && false
+export const DEV_SKIP_NPE = LOCAL && true
+export const DEV_SKIP_MMTIME = LOCAL && true
 
 // MATCHMAKING
 export const MATCHMAKE_SERVER_VERSION = 1
-export const MATCHMAKE_PLAYERCOUNT_FALLBACK = 4
-export const MATCHMAKE_PLAYERCOUNT_DESIRED = 10
+export const MATCHMAKE_PLAYERCOUNT_MAX = 4 // 10
+export const MATCHMAKE_PLAYERCOUNT_FALLBACK_DEVSKIP = 4 // 5
+export const MATCHMAKE_PLAYERCOUNT_FALLBACK = 4 // 7 // min players to start outside mm
 export const MAX_FRIEND_WAIT_TIME = 20
 export const DEFAULT_REMIND_MATCHMAKING = 60
+export const MATCHMAKING_COUNTDOWN_SERVERTIME = 5
 
 // POINTS
 export const COIN_VALUE_SILVER = 1
@@ -19,7 +21,7 @@ export const COIN_VALUE_GEM = 50
 export const TASK_VALUE = 10
 
 // IN GAME
-export const PLAYER_WALKSPEED = 16 * 1.0
+export const PLAYER_WALKSPEED = 16 * 2.5
 export const PLAYER_WALKSPEED_SPECTATOR = 16 * 1.333
 export const MAX_TASKLIST_SIZE = 7
 export const SPAWN_ROOM = "Foyer"

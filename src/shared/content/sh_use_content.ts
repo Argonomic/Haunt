@@ -1,4 +1,5 @@
-import { USETYPES } from "shared/sh_gamestate";
+import { GAME_STATE, IsMatchmaking, Match, NETVAR_MEETINGS_CALLED, USETYPES } from "shared/sh_gamestate";
+import { GetNetVar_Number } from "shared/sh_player_netvars";
 import { KILL_DIST, REPORT_DIST } from "shared/sh_settings";
 import { AddUseType } from "shared/sh_use";
 import { GetPosition, PlayerTouchesPart } from "shared/sh_utils";
@@ -40,4 +41,35 @@ export function SH_UseContentSetup()
       {
          return PlayerTouchesPart( player, target )
       }
+}
+
+export function CanCallMeeting( match: Match, player: Player ): boolean
+{
+   if ( !UsableGameState( match ) )
+      return false
+
+   if ( IsMatchmaking( player ) )
+      return false
+
+   if ( GetNetVar_Number( player, NETVAR_MEETINGS_CALLED ) > 0 )
+      return false
+
+   if ( match.winOnlybyEscaping )
+      return false
+
+   if ( match.IsSpectator( player ) )
+      return false
+
+   return true
+}
+
+export function UsableGameState( match: Match ): boolean
+{
+   switch ( match.GetGameState() )
+   {
+      case GAME_STATE.GAME_STATE_PLAYING:
+      case GAME_STATE.GAME_STATE_SUDDEN_DEATH:
+         return true
+   }
+   return false
 }

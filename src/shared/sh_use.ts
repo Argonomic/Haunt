@@ -1,7 +1,9 @@
-import { GetPosition, IsServer, Thread } from "./sh_utils"
+import { GetPosition, IsClient, IsServer, Thread } from "./sh_utils"
 import { Assert } from "shared/sh_assert"
 
 type USETYPES = number
+
+const DEBUG = false
 
 export enum USETARGETS
 {
@@ -14,7 +16,7 @@ export enum USETARGETS
 class File
 {
    usablesByType = new Map<USETYPES, Usable>()
-   debug = false
+   debug = DEBUG
    debugMsg = ""
 }
 let file = new File()
@@ -161,7 +163,7 @@ export function EnableDebug()
 
 export function DisableDebug()
 {
-   file.debug = false
+   file.debug = DEBUG
 }
 
 

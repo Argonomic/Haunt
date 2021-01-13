@@ -6,7 +6,7 @@ import { GetUseResultsForAttempt } from "shared/sh_use"
 import { GetFirstChildWithName, GetLocalPlayer, IsAlive } from "shared/sh_utils"
 import { Assert } from "shared/sh_assert"
 import { AddClickable, AddPlayerGuiFolderExistsCallback, UIClickResults, EDITOR_ClickableUI, UI_CLICK_RESULTS_TYPE } from "./cl_ui"
-import { CL_SendRPC } from "shared/sh_rpc"
+import { SendRPC_Client } from "shared/sh_rpc"
 
 
 class File
@@ -79,7 +79,7 @@ export function CL_UseSetup()
          if ( GetRenderedCooldownTimeRemaining( player, USE_COOLDOWNS + useResults.usable.useType ) > 0 )
             return
 
-         CL_SendRPC( "RPC_FromClient_OnUse" )
+         SendRPC_Client( "RPC_FromClient_OnUse" )
       }
 
       let lastUseType: undefined | number
@@ -120,122 +120,3 @@ export function CL_UseSetup()
       } )
 }
 
-
-
-/*
-function DFSDFDFd( useUI: ScreenGui )
-{
-   useUI.DisplayOrder = UIORDER.UIORDER_USEBUTTON
-
-   let imageButton = GetFirstChildWithName( useUI, 'ImageButton' ) as ImageButton
-   let textButton = GetFirstChildWithName( imageButton, "TextButton" ) as TextButton
-   Assert( textButton !== undefined, "Couldn't find TextLabel" )
-   let countdown = GetFirstChildWithName( imageButton, "Countdown" ) as TextLabel
-
-   let player = GetLocalPlayer()
-
-   textButton.MouseButton1Up.Connect( function ()
-   {
-      let useResults = GetUseResultsForAttempt( player )
-      if ( useResults === undefined )
-         return
-
-      if ( GetPlayerCooldownTimeRemaining( player, USE_COOLDOWNS + useResults.usable.useType ) > 0 )
-         return
-
-      CL_SendRPC( "RPC_FromClient_OnUse" )
-   } )
-
-   imageButton.MouseButton1Up.Connect( function ()
-   {
-      let useResults = GetUseResultsForAttempt( player )
-      if ( useResults === undefined )
-         return
-
-      if ( GetPlayerCooldownTimeRemaining( player, USE_COOLDOWNS + useResults.usable.useType ) > 0 )
-         return
-
-      CL_SendRPC( "RPC_FromClient_OnUse" )
-   } )
-
-   function CanUse(): boolean
-   {
-      if ( !IsAlive( player ) )
-         return false
-
-      if ( Workspace.DistributedGameTime < file.debounceTime )
-         return false
-
-      for ( let callback of file.playerUseDisabledCallback )
-      {
-         if ( callback() )
-            return false
-      }
-
-      return true
-   }
-
-   useUI.Enabled = false
-   let lastUseResults: UseResults | undefined
-
-   const COLOR_GRAY = new Color3( 0.5, 0.5, 0.5 )
-   const COLOR_WHITE = new Color3( 1.0, 1.0, 1.0 )
-
-   RunService.RenderStepped.Connect( function ()
-   {
-      if ( !CanUse() )
-      {
-         if ( useUI.Enabled )
-            useUI.Enabled = false
-
-         return
-      }
-
-      let newUseResults = GetUseResultsForAttempt( player )
-      if ( newUseResults !== lastUseResults )
-      {
-         lastUseResults = newUseResults
-         if ( newUseResults === undefined )
-         {
-            useUI.Enabled = false
-            return
-         }
-
-         imageButton.Image = newUseResults.usable.image
-         textButton.Text = newUseResults.usable.text
-         useUI.Enabled = true
-
-         let cooldownRemaining = GetPlayerCooldownTimeRemaining( player, USE_COOLDOWNS + newUseResults.usable.useType )
-         if ( cooldownRemaining > 0 )
-            cooldownRemaining++ // add one because otherwise 0.5 is not drawn, but can't use.
-
-         cooldownRemaining = math.floor( cooldownRemaining );
-         if ( cooldownRemaining > 0 || newUseResults.usedThing === undefined )
-         {
-            if ( cooldownRemaining > 0 )
-            {
-               countdown.Text = cooldownRemaining + ""
-               countdown.Visible = true
-            }
-            else
-            {
-               countdown.Visible = false
-            }
-
-            imageButton.ImageTransparency = 0.5
-            textButton.TextTransparency = 0.5
-            textButton.TextColor3 = COLOR_GRAY
-         }
-         else
-         {
-            countdown.Visible = false
-            imageButton.ImageTransparency = 0
-            textButton.TextTransparency = 0
-            textButton.TextColor3 = COLOR_WHITE
-         }
-      }
-   } )
-
-}
-
-*/

@@ -95,7 +95,7 @@ UserInputService.TouchStarted.Connect(
 
 
 /*
-local UserInputService = game:GetService("UserInputService")
+local UserInputService = match:GetService("UserInputService")
 
 -- The parent of this script (a ScreenGui)
 local touchScreenGui = script.Parent

@@ -1,22 +1,28 @@
 import { HttpService, RunService, Workspace } from "@rbxts/services"
-import { AddNetVar, GetNetVar_Number, GetNetVar_String, SetNetVar } from "shared/sh_player_netvars"
+import { AddNetVar, GetNetVar_Number, GetNetVar_String, ResetNetVar, SetNetVar } from "shared/sh_player_netvars"
 import { AddCooldown } from "./sh_cooldown"
 import { SetPlayerWalkSpeed } from "./sh_onPlayerConnect"
-import { COOLDOWNTIME_MEETING, COOLDOWNTIME_KILL, MEETING_DISCUSS_TIME, MEETING_VOTE_TIME, PLAYER_WALKSPEED_SPECTATOR, PLAYER_WALKSPEED, SPECTATOR_TRANS, SUDDEN_DEATH_TIME } from "./sh_settings"
-import { IsServer, IsClient, UserIDToPlayer, IsAlive, SetPlayerTransparency, GetLocalPlayer, Resume, Thread, ExecOnChildWhenItExists } from "./sh_utils"
+import { COOLDOWNTIME_MEETING, COOLDOWNTIME_KILL, MEETING_DISCUSS_TIME, MEETING_VOTE_TIME, PLAYER_WALKSPEED_SPECTATOR, PLAYER_WALKSPEED, SPECTATOR_TRANS, SUDDEN_DEATH_TIME, DEV_SKIP, MATCHMAKE_PLAYERCOUNT_FALLBACK_DEVSKIP, MATCHMAKE_PLAYERCOUNT_FALLBACK } from "./sh_settings"
+import { IsServer, IsClient, UserIDToPlayer, IsAlive, SetPlayerTransparency, GetLocalPlayer, Resume, Thread } from "./sh_utils"
 import { Assert } from "shared/sh_assert"
 import { GiveAbility, TakeAbility } from "./sh_ability"
 import { ABILITIES } from "./content/sh_ability_content"
 import { PlayerPickupsDisabled, PlayerPickupsEnabled } from "./sh_pickups"
-import { GetScore, NETVAR_SCORE } from "./sh_score"
+import { GetMatchScore, NETVAR_LAST_STASHED, NETVAR_SCORE, NETVAR_STASH } from "./sh_score"
+import { GetDeltaTime } from "./sh_time"
 
-export const LOCAL = RunService.IsStudio()
+
+const LOCAL = RunService.IsStudio()
+const LOCAL_PLAYER = GetLocalPlayer()
 
 export const NETVAR_JSON_ASSIGNMENTS = "JS_TL"
-export const NETVAR_MATCHMAKING_STATUS = "MMS"
-export const NETVAR_MATCHMAKING_NUMWITHYOU = "N_WY"
-export const NETVAR_JSON_GAMESTATE = "E_GS"
+export const NETVAR_JSON_GAMESTATE = "JS_GS"
 export const NETVAR_MEETINGS_CALLED = "N_MC"
+
+export const NETVAR_MATCHMAKING_STATUS = "MM_S"
+export const NETVAR_RENDERONLY_MATCHMAKING_NUMINFO = "MM_N"
+export const NETVAR_MATCHMAKING_PLACE_IN_LINE = "MM_L"
+export const NETVAR_JSON_TELEPORTDATA = "JS_TD"
 
 export enum PICKUPS
 {
@@ -46,11 +52,11 @@ export enum GAMERESULTS
 
 export enum MATCHMAKING_STATUS
 {
-   MATCHMAKING_UNDECIDED = 0,
-   MATCHMAKING_PRACTICE,
+   MATCHMAKING_CONNECTING,
    MATCHMAKING_LFG,
-   MATCHMAKING_LFG_WITH_FRIENDS,
-   MATCHMAKING_WAITING_TO_PLAY,
+   MATCHMAKING_FOUND_GROUP,
+   MATCHMAKING_COUNTDOWN,
+   MATCHMAKING_WAITING_FOR_RESERVEDSERVER_TO_START,
    MATCHMAKING_PLAYING,
    MATCHMAKING_SEND_TO_RESERVEDSERVER,
    MATCHMAKING_SEND_TO_LOBBY,
@@ -67,15 +73,14 @@ export enum ROLE
 
 export enum GAME_STATE
 {
-   GAME_STATE_UNKNOWN = 0,
-   GAME_STATE_PREMATCH, // 1
-   GAME_STATE_PLAYING, //2
-   GAME_STATE_MEETING_DISCUSS, //3
-   GAME_STATE_MEETING_VOTE,//4
-   GAME_STATE_MEETING_RESULTS,//5
-   GAME_STATE_SUDDEN_DEATH, //6
-   GAME_STATE_COMPLETE, //7
-   GAME_STATE_DEAD, //8
+   GAME_STATE_INIT = 0,
+   GAME_STATE_PLAYING, //1
+   GAME_STATE_MEETING_DISCUSS, //2
+   GAME_STATE_MEETING_VOTE,//3
+   GAME_STATE_MEETING_RESULTS,//4
+   GAME_STATE_SUDDEN_DEATH, //5
+   GAME_STATE_COMPLETE, //6
+   GAME_STATE_DEAD, //7
 }
 
 export enum MEETING_TYPE
@@ -84,15 +89,27 @@ export enum MEETING_TYPE
    MEETING_REPORT = 1
 }
 
+export type EDITOR_GameplayFolder = Folder &
+{
+   Coins: Folder
+   Rooms: Folder &
+   {
+      BaseFolderObject: Folder
+   }
+   DynamicArt: Folder &
+   {
+      scr_real_matches_only: Folder
+   }
+}
+
 export let TASK_EXIT = "task_exit"
 export let TASK_RESTORE_LIGHTS = "task_restore_lights"
 
 class File
 {
    onRoleChangeCallback: Array<( ( player: Player, role: ROLE, lastRole: ROLE ) => void )> = []
-   gameStateChangedCallbacks: Array<( ( game: Game ) => void )> = []
-   gameCreatedCallbacks: Array<( ( game: Game ) => void )> = []
-   isReservedServer = false
+   gameStateChangedCallbacks: Array<( ( match: Match ) => void )> = []
+   gameCreatedCallbacks: Array<( ( match: Match ) => void )> = []
 }
 let file = new File()
 
@@ -141,7 +158,7 @@ export class Assignment
 class NETVAR_GameState
 {
    playerInfos: Array<NETVAR_GamePlayerInfo>
-   currentGameState: GAME_STATE
+   gameState: GAME_STATE
    gsChangedTime: number
    corpses: Array<NETVAR_Corpse>
    votes: Array<NETVAR_Vote>
@@ -149,18 +166,18 @@ class NETVAR_GameState
    meetingCallerUserId: number | undefined
    meetingType: MEETING_TYPE | undefined
    meetingBodyUserId: number | undefined
-   serverTime: number
    startingPossessedCount: number
+   winOnlybyEscaping: boolean
 
-   constructor( game: Game, playerInfos: Array<NETVAR_GamePlayerInfo>, corpses: Array<NETVAR_Corpse>, votes: Array<NETVAR_Vote> )
+   constructor( match: Match, playerInfos: Array<NETVAR_GamePlayerInfo>, corpses: Array<NETVAR_Corpse>, votes: Array<NETVAR_Vote> )
    {
-      this.currentGameState = game.GetGameState()
-      this.gsChangedTime = game.GetGameStateChangedTime()
+      this.gameState = match.GetGameState()
+      this.gsChangedTime = match.GetGameStateChangedTime()
       this.playerInfos = playerInfos
       this.corpses = corpses
       this.votes = votes
-      this.serverTime = Workspace.DistributedGameTime
-      this.startingPossessedCount = game.startingPossessedCount
+      this.startingPossessedCount = match.startingPossessedCount
+      this.winOnlybyEscaping = match.winOnlybyEscaping
    }
 }
 
@@ -221,17 +238,17 @@ export class PlayerVote
    }
 }
 
-export class Game
+export class Match
 {
    constructor()
    {
-      let game = this
+      let match = this
       for ( let func of file.gameCreatedCallbacks )
       {
          Thread(
             function ()
             {
-               func( game )
+               func( match )
             } )
       }
    }
@@ -256,11 +273,13 @@ export class Game
    startingPossessedCount = 0
    highestVotedScore = 0
 
+   winOnlybyEscaping = false
+
    //   coins: Array<Coin> = []
 
    public UpdateGame() 
    {
-      // if the server or client has a gamethread that yields until game update, this resumes it
+      // if the server or client has a gamethread that yields until match update, this resumes it
       if ( this.gameThread === undefined )
          return
 
@@ -269,11 +288,20 @@ export class Game
 
    public GetGameResults_ParityAllowed(): GAMERESULTS
    {
-      let game = this
+      let match = this
+
       function func(): GAMERESULTS
       {
-         let possessed = game.GetLivingPossessed().size()
-         let campers = game.GetLivingCampers().size()
+         let campers = match.GetLivingCampers().size()
+         if ( match.winOnlybyEscaping )
+         {
+            if ( campers > 0 )
+               return GAMERESULTS.RESULTS_STILL_PLAYING
+            return GAMERESULTS.RESULTS_CAMPERS_WIN
+         }
+
+         let possessed = match.GetLivingPossessed().size()
+
          if ( possessed === 0 )
          {
             if ( campers === 0 )
@@ -297,10 +325,10 @@ export class Game
 
    public GetGameResults_NoParityAllowed(): GAMERESULTS
    {
-      let game = this
+      let match = this
       function func(): GAMERESULTS
       {
-         let results = game.GetGameResults_ParityAllowed()
+         let results = match.GetGameResults_ParityAllowed()
          if ( results === GAMERESULTS.RESULTS_SUDDEN_DEATH )
             return GAMERESULTS.RESULTS_POSSESSED_WIN
          return results
@@ -311,11 +339,10 @@ export class Game
       return results
    }
 
-
    public BroadcastGamestate()
    {
       Assert( IsServer(), "Server only" )
-      print( "\nBroadcasting game state: " + this.GetGameState() )
+      print( "\nBroadcasting match state: " + this.GetGameState() )
 
       // these things are common/consistent to all players
       let corpses: Array<NETVAR_Corpse> = []
@@ -334,11 +361,11 @@ export class Game
             votes.push( new NETVAR_Vote( vote.voter.UserId, result.UserId ) )
       }
 
-      function RevealImpostors( game: Game, player: Player ): boolean
+      function RevealImpostors( match: Match, player: Player ): boolean
       {
-         if ( game.GetGameState() >= GAME_STATE.GAME_STATE_COMPLETE )
+         if ( match.GetGameState() >= GAME_STATE.GAME_STATE_COMPLETE )
             return true
-         if ( game.IsImpostor( player ) )
+         if ( match.IsImpostor( player ) )
             return true
 
          return false
@@ -353,7 +380,7 @@ export class Game
          if ( RevealImpostors( this, player ) )
          {
             revealedImpostor = true
-            // full game info
+            // full match info
             for ( let pair of this.playerToInfo )
             {
                infos.push( new NETVAR_GamePlayerInfo( pair[0], pair[1].role, pair[1].playernum ) )
@@ -384,7 +411,7 @@ export class Game
          {
             let results = GetVoteResults( this.votes )
             if ( results.highestRecipients.size() === 1 )
-               gs.voteTargetScore = GetScore( results.highestRecipients[0] )
+               gs.voteTargetScore = GetMatchScore( results.highestRecipients[0] )
          }
 
          gs.meetingType = this.meetingType
@@ -402,22 +429,27 @@ export class Game
          let json = HttpService.JSONEncode( gs )
          SetNetVar( player, NETVAR_JSON_GAMESTATE, json )
       }
-      Assert( revealedImpostor || this.GetGameState() === GAME_STATE.GAME_STATE_PREMATCH, "Didn't reveal imposter" )
+
+      //print( "revealedImpostor: " + revealedImpostor )
+      //print( "this.winOnlybyEscaping: " + this.winOnlybyEscaping )
+      //print( "Bool: " + ( revealedImpostor || this.winOnlybyEscaping ) )
+
+      Assert( revealedImpostor || this.winOnlybyEscaping, "Didn't reveal imposter" )
    }
 
    public SetGameState( state: GAME_STATE )
    {
-      let game = this
+      let match = this
       Assert( IsServer(), "Server only" )
-      print( "Set Game State " + state + ", Time since last change: " + math.floor( ( Workspace.DistributedGameTime - this._gameStateChangedTime ) ) )
+      print( "Set Match State " + state + ", Time since last change: " + math.floor( ( Workspace.DistributedGameTime - this._gameStateChangedTime ) ) )
 
-      Assert( state >= GAME_STATE.GAME_STATE_COMPLETE || this.currentGameState < GAME_STATE.GAME_STATE_COMPLETE, "Illegal game state setting. Tried to set state " + state + ", but game state was " + this.currentGameState )
+      Assert( state >= GAME_STATE.GAME_STATE_COMPLETE || this.gameState < GAME_STATE.GAME_STATE_COMPLETE, "Illegal match state setting. Tried to set state " + state + ", but match state was " + this.gameState )
 
       this._gameStateChangedTime = Workspace.DistributedGameTime
-      this.currentGameState = state
+      this.gameState = state
 
       let thread = this.gameThread
-      Assert( thread !== undefined, "No game thread!" )
+      Assert( thread !== undefined, "No match thread!" )
       if ( thread === coroutine.running() )
          return
 
@@ -440,7 +472,7 @@ export class Game
          Thread(
             function ()
             {
-               func( game )
+               func( match )
             } )
       }
    }
@@ -493,7 +525,7 @@ export class Game
 
    public RemovePlayer( player: Player )
    {
-      Assert( this.playerToInfo.has( player ), "Player is not in game" )
+      Assert( this.playerToInfo.has( player ), "Player is not in match" )
       this.playerToInfo.delete( player )
    }
 
@@ -504,7 +536,7 @@ export class Game
    //    SHARED
    // 
    //////////////////////////////////////////////////////
-   private currentGameState: GAME_STATE = GAME_STATE.GAME_STATE_PREMATCH
+   private gameState: GAME_STATE = GAME_STATE.GAME_STATE_INIT
    private _gameStateChangedTime = 0
    private playerToInfo = new Map<Player, PlayerInfo>()
    private votes: Array<PlayerVote> = []
@@ -513,7 +545,7 @@ export class Game
    public GetTimeRemainingForState(): number
    {
       let timeRemaining = 0
-      switch ( this.currentGameState )
+      switch ( this.gameState )
       {
          case GAME_STATE.GAME_STATE_MEETING_DISCUSS:
             timeRemaining = MEETING_DISCUSS_TIME
@@ -584,7 +616,7 @@ export class Game
       if ( voteUserID !== undefined )
       {
          let userIdToPlayer = UserIDToPlayer()
-         Assert( userIdToPlayer.has( voteUserID ), "VoteuserID " + voteUserID + "  does not exist in game, userIdToPlayer size " + userIdToPlayer.size() )
+         Assert( userIdToPlayer.has( voteUserID ), "VoteuserID " + voteUserID + "  does not exist in match, userIdToPlayer size " + userIdToPlayer.size() )
          let target = userIdToPlayer.get( voteUserID ) as Player
          voteTarget = target
       }
@@ -605,8 +637,7 @@ export class Game
             Assert( this.GetPlayerRole( player ) === ROLE.ROLE_POSSESSED, "Bad role assignment" )
       }
 
-
-      Assert( this.playerToInfo.has( player ), "SetPlayerRole: Game does not have " + player.Name )
+      Assert( this.playerToInfo.has( player ), "SetPlayerRole: Match does not have " + player.Name )
       let playerInfo = this.playerToInfo.get( player ) as PlayerInfo
       playerInfo.role = role
       this.playerToInfo.set( player, playerInfo )
@@ -690,10 +721,20 @@ export class Game
 
    public AddPlayer( player: Player, role: ROLE ): PlayerInfo
    {
-      Assert( !this.playerToInfo.has( player ), "Game already has " + player.Name )
+      //AssignDefaultNVs( player )
+      if ( IsServer() )
+      {
+         ResetNetVar( player, NETVAR_JSON_ASSIGNMENTS )
+         ResetNetVar( player, NETVAR_JSON_GAMESTATE )
+         ResetNetVar( player, NETVAR_MEETINGS_CALLED )
+         ResetNetVar( player, NETVAR_SCORE )
+      }
+
+      Assert( !this.playerToInfo.has( player ), "Match already has " + player.Name )
       let playerInfo = new PlayerInfo( player, role )
-      //print( "AddPlayer " + player.UserId + " with role " + role )
       this.playerToInfo.set( player, playerInfo )
+
+      this.SetPlayerRole( player, role )
 
       let character = player.Character
       if ( character !== undefined )
@@ -726,13 +767,13 @@ export class Game
 
    public GetPlayerRole( player: Player ): ROLE
    {
-      Assert( this.playerToInfo.has( player ), "GetPlayerRole: Game does not have " + player.Name )
+      Assert( this.playerToInfo.has( player ), "GetPlayerRole: Match does not have " + player.Name )
       return ( this.playerToInfo.get( player ) as PlayerInfo ).role
    }
 
    public GetGameState()
    {
-      return this.currentGameState
+      return this.gameState
    }
 
    public GetVotes()
@@ -786,19 +827,20 @@ export class Game
    //    CLIENT   ONLY
    // 
    //////////////////////////////////////////////////////
-   public NetvarToGamestate_ReturnServerTimeDelta(): number
+   public NetvarToGamestate()
    {
       //print( "\nNetvarToGamestate_ReturnServerTimeDelta()" )
       Assert( IsClient(), "Client only" )
-      let localPlayer = GetLocalPlayer()
-      let json = GetNetVar_String( localPlayer, NETVAR_JSON_GAMESTATE )
+      let json = GetNetVar_String( LOCAL_PLAYER, NETVAR_JSON_GAMESTATE )
+      Assert( json.size() > 0 )
+
       let gs = HttpService.JSONDecode( json ) as NETVAR_GameState
       let userIdToPlayer = UserIDToPlayer()
-      this.currentGameState = gs.currentGameState
+      this.gameState = gs.gameState
 
-      let deltaTime = Workspace.DistributedGameTime - gs.serverTime
-      this._gameStateChangedTime = gs.gsChangedTime + deltaTime // DistributedGameTime varies from player to player
+      this._gameStateChangedTime = gs.gsChangedTime + GetDeltaTime()
       this.startingPossessedCount = gs.startingPossessedCount
+      this.winOnlybyEscaping = gs.winOnlybyEscaping
 
       // update PLAYERS
       {
@@ -822,16 +864,15 @@ export class Game
 
             if ( playerInfo !== undefined )
                playerInfo.playernum = gsPlayerInfo.playernum
-            Assert( ( ( this.playerToInfo.get( player ) as PlayerInfo ).playernum === playerInfo.playernum ) && playerInfo.playernum >= 0, "( this.playerToInfo.get( player ) as PlayerInfo ).playernum === playerInfo.playernum ) && playerInfo.playernum >= 0" )
          }
 
-         let localSpectator = this.IsSpectator( localPlayer )
+         let localSpectator = this.IsSpectator( LOCAL_PLAYER )
 
          for ( let player of this.GetAllPlayers() )
          {
             if ( this.IsSpectator( player ) )
             {
-               if ( player === localPlayer )
+               if ( player === LOCAL_PLAYER )
                   SetPlayerTransparency( player, SPECTATOR_TRANS )
                else if ( localSpectator ) // spectators see spectators
                   SetPlayerTransparency( player, SPECTATOR_TRANS )
@@ -923,43 +964,20 @@ export class Game
          let meetingBody = userIdToPlayer.get( gs.meetingBodyUserId )
          this.meetingBody = meetingBody
       }
-
-      return deltaTime
    }
 }
 
-export function IsReservedServer(): boolean 
+export function SH_GameStateSetup()
 {
-   return file.isReservedServer
-}
-
-export function SharedGameStateInit()
-{
-   if ( IsServer() )
-   {
-      file.isReservedServer = game.PrivateServerId !== "" && game.PrivateServerOwnerId === 0
-      if ( file.isReservedServer )
-      {
-         let number = new Instance( 'NumberValue' )
-         number.Name = "ReservedServer"
-         number.Parent = Workspace
-      }
-   }
-   else
-   {
-      ExecOnChildWhenItExists( Workspace, 'ReservedServer',
-         function ( child: Instance )
-         {
-            file.isReservedServer = true
-         } )
-   }
-
    AddNetVar( "string", NETVAR_JSON_ASSIGNMENTS, "{}" )
-   AddNetVar( "number", NETVAR_MATCHMAKING_NUMWITHYOU, 0 )
-   AddNetVar( "string", NETVAR_JSON_GAMESTATE, "{}" )
+   AddNetVar( "number", NETVAR_RENDERONLY_MATCHMAKING_NUMINFO, 0 )
+   AddNetVar( "number", NETVAR_MATCHMAKING_PLACE_IN_LINE, -1 )
+   AddNetVar( "string", NETVAR_JSON_GAMESTATE, "" )
    AddNetVar( "number", NETVAR_MEETINGS_CALLED, 0 )
-   AddNetVar( "number", NETVAR_SCORE, 0 ) //RandomInt( 750 ) + 250 )
-   AddNetVar( "number", NETVAR_MATCHMAKING_STATUS, MATCHMAKING_STATUS.MATCHMAKING_UNDECIDED )
+   AddNetVar( "number", NETVAR_SCORE, 0 )
+   AddNetVar( "number", NETVAR_STASH, 0 )
+   AddNetVar( "number", NETVAR_LAST_STASHED, 0 )
+   AddNetVar( "number", NETVAR_MATCHMAKING_STATUS, MATCHMAKING_STATUS.MATCHMAKING_CONNECTING )
 
    AddCooldown( COOLDOWN_NAME_KILL, COOLDOWNTIME_KILL )
    AddCooldown( COOLDOWN_NAME_MEETING, COOLDOWNTIME_MEETING )
@@ -998,21 +1016,26 @@ export function SharedGameStateInit()
 
 }
 
-export function IsPracticing( player: Player ): boolean
+export function IsMatchmaking( player: Player ): boolean
 {
-   switch ( GetNetVar_Number( player, NETVAR_MATCHMAKING_STATUS ) )
+   let status = GetNetVar_Number( player, NETVAR_MATCHMAKING_STATUS )
+   switch ( status )
    {
-      case MATCHMAKING_STATUS.MATCHMAKING_UNDECIDED:
-      case MATCHMAKING_STATUS.MATCHMAKING_PRACTICE:
+      case MATCHMAKING_STATUS.MATCHMAKING_CONNECTING:
       case MATCHMAKING_STATUS.MATCHMAKING_LFG:
-      case MATCHMAKING_STATUS.MATCHMAKING_LFG_WITH_FRIENDS:
-      case MATCHMAKING_STATUS.MATCHMAKING_WAITING_TO_PLAY:
+      case MATCHMAKING_STATUS.MATCHMAKING_FOUND_GROUP:
+      case MATCHMAKING_STATUS.MATCHMAKING_COUNTDOWN:
+      case MATCHMAKING_STATUS.MATCHMAKING_WAITING_FOR_RESERVEDSERVER_TO_START:
       case MATCHMAKING_STATUS.MATCHMAKING_SEND_TO_RESERVEDSERVER:
       case MATCHMAKING_STATUS.MATCHMAKING_SEND_TO_LOBBY:
          return true
+
+      case MATCHMAKING_STATUS.MATCHMAKING_PLAYING:
+         return false
    }
 
-   return false
+   Assert( false, "IsMatchmaking bad netvar status " + status )
+   throw undefined
 }
 
 export function PlayerNumToGameViewable( playerNum: number ): string
@@ -1125,12 +1148,12 @@ export function IsCamperRole( role: ROLE ): boolean
    return false
 }
 
-export function AddGameStateChangedCallback( func: ( game: Game ) => void )
+export function AddGameStateChangedCallback( func: ( match: Match ) => void )
 {
    file.gameStateChangedCallbacks.push( func )
 }
 
-export function AddGameCreatedCallback( func: ( game: Game ) => void )
+export function AddGameCreatedCallback( func: ( match: Match ) => void )
 {
    file.gameCreatedCallbacks.push( func )
 }
@@ -1147,3 +1170,12 @@ export function IsSpectatorRole( role: ROLE ): boolean
 
    return false
 }
+
+export function GetFallbackPlayerCount(): number
+{
+   if ( DEV_SKIP )
+      return MATCHMAKE_PLAYERCOUNT_FALLBACK_DEVSKIP
+   return MATCHMAKE_PLAYERCOUNT_FALLBACK
+}
+
+

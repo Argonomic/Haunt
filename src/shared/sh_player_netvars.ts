@@ -67,12 +67,27 @@ export function AssignDefaultNVs( player: Player )
    file.netvars.set( player, playersNVs )
 }
 
+export function ResetNetVar( player: Player, nvName: string )
+{
+   Assert( file.NVsDefined, "NVs should be defined by now" )
+
+   let defaultNV = file.defaultNVs.get( nvName )
+   if ( defaultNV === undefined )
+   {
+      Assert( false, "No NV named " + nvName )
+      throw undefined
+   }
+
+   SetNetVar( player, nvName, defaultNV.value )
+}
+
 
 export function AddNetVar( nvType: NVTypeNames, name: string, value: ( number | string | Vector3 ) )
 {
    Assert( !file.NVsDefined, "Can't define NVs after this period" )
    Assert( file.defaultNVs.get( name ) === undefined, "Tried to create the same netvar twice" )
    Assert( file.nameToType[name] === undefined, "Tried to reuse netvar name " + name )
+   Assert( nvType === typeOf( value ), "nvType === typeOf( value )" )
 
    file.nameToType[name] = nvType
    let nvNumber = new NV()

@@ -24,7 +24,11 @@ import { SV_CoinsSetup } from "./sv_coins";
 import { SV_UseSetup } from "./sv_use";
 import { SV_PersistenceSetup } from "./sv_persistence";
 import { SH_ScoreSetup } from "shared/sh_score";
-import { SH_TeleportSetup } from "shared/sh_teleport";
+import { SH_MatchmakingSetup } from "shared/sh_matchmaking";
+import { SH_FriendsSetup } from "shared/sh_friends";
+import { SH_GameStateSetup } from "shared/sh_gamestate";
+import { SH_ReservedServerSetup } from "shared/sh_reservedServer";
+import { SV_ScoreSetup } from "./sv_score";
 
 class File
 {
@@ -44,7 +48,6 @@ SetServer()
 
 SH_RPCSetup()
 SH_PlayerNetVarsSetup()
-SH_OnPlayerConnectSetup()
 SH_UseSetup()
 SH_UseContentSetup()
 SH_AbilitySetup()
@@ -55,7 +58,10 @@ SH_AssertSetup()
 SH_PickupsSetup()
 SH_CoinsSetup()
 SH_ScoreSetup()
-SH_TeleportSetup()
+SH_FriendsSetup()
+SH_GameStateSetup()
+SH_MatchmakingSetup()
+SH_ReservedServerSetup()
 
 SV_CollisionGroupsSetup()
 SV_RoomsSetup()
@@ -67,8 +73,10 @@ SV_AbilityContentSetup()
 SV_CoinsSetup()
 SV_PersistenceSetup()
 SV_UseSetup()
+SV_ScoreSetup()
 
 DoneCreatingNVs()
+SH_OnPlayerConnectSetup()
 
 SV_MatchmakingSetup()
 

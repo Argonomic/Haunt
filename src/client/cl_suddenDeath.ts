@@ -1,6 +1,6 @@
 import { RunService } from "@rbxts/services";
 import { Assert } from "shared/sh_assert";
-import { GAME_STATE, NETVAR_JSON_GAMESTATE } from "shared/sh_gamestate";
+import { Match, GAME_STATE, NETVAR_JSON_GAMESTATE } from "shared/sh_gamestate";
 import { AddCallback_OnPlayerCharacterAncestryChanged } from "shared/sh_onPlayerConnect";
 import { AddNetVarChangedCallback } from "shared/sh_player_netvars";
 import { Tween } from "shared/sh_tween";
@@ -54,7 +54,6 @@ export function CL_SuddenDeathSetup()
       let wasSuddenDeath = false
       let originalSize = suddenDeathUI.Frame.Size
 
-      let game = GetLocalGame()
       AddNetVarChangedCallback( NETVAR_JSON_GAMESTATE,
          function ()
          {
@@ -62,17 +61,22 @@ export function CL_SuddenDeathSetup()
                function ()
                {
                   wait() // after it actually state
-                  let isSuddenDeath = game.GetGameState() === GAME_STATE.GAME_STATE_SUDDEN_DEATH
-                  suddenDeathUI.Enabled = isSuddenDeath
-
                   if ( connect !== undefined )
                   {
                      connect.Disconnect()
                      connect = undefined
                   }
 
-                  if ( !isSuddenDeath )
-                     return
+                  let match: Match
+                  {
+                     let _game = GetLocalGame()
+                     let isSuddenDeath = _game !== undefined && _game.GetGameState() === GAME_STATE.GAME_STATE_SUDDEN_DEATH
+                     suddenDeathUI.Enabled = isSuddenDeath
+
+                     if ( !isSuddenDeath )
+                        return
+                     match = _game as Match
+                  }
 
                   if ( !wasSuddenDeath )
                   {
@@ -87,10 +91,10 @@ export function CL_SuddenDeathSetup()
                   connect = RunService.RenderStepped.Connect(
                      function ()
                      {
-                        if ( game.GetGameState() !== GAME_STATE.GAME_STATE_SUDDEN_DEATH )
+                        if ( match.GetGameState() !== GAME_STATE.GAME_STATE_SUDDEN_DEATH )
                            return
 
-                        let time = game.GetTimeRemainingForState()
+                        let time = match.GetTimeRemainingForState()
                         if ( time > 0 )
                            time = math.floor( time + 1 )
 

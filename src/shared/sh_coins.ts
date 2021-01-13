@@ -1,9 +1,9 @@
 import { Workspace } from "@rbxts/services"
 import { Assert } from "./sh_assert"
-import { PICKUPS } from "./sh_gamestate"
+import { EDITOR_GameplayFolder, PICKUPS } from "./sh_gamestate"
 import { MakePartIntoPickup } from "./sh_pickups"
 import { COIN_VALUE_GEM, COIN_VALUE_GOLD, COIN_VALUE_SILVER } from "./sh_settings"
-import { GetPosition, ExecOnChildWhenItExists, Thread } from "./sh_utils"
+import { GetPosition, ExecOnChildWhenItExists, Thread, IsServer } from "./sh_utils"
 
 export enum COIN_TYPE
 {
@@ -25,18 +25,14 @@ export class CoinData
    }
 }
 
-type EDITOR_GameplayFolder = Folder &
-{
-   Coins: Folder
-}
-
 class File
 {
    coinTypeToData = new Map<COIN_TYPE, CoinData>()
    coinToCoinType = new Map<Part, COIN_TYPE>()
    allCoins: Array<Part> = []
    coinSpawnLocations: Array<Vector3> = []
-   folder: Folder | undefined
+   spawnFolder: Folder | undefined
+   runtimeCoinsFolder: Folder | undefined
    coinCreatedCallbacks: Array<( coin: Part ) => void> = []
 }
 let file = new File()
@@ -54,6 +50,22 @@ export function SH_CoinsSetup()
    CreateCoinType( COIN_TYPE.TYPE_GOLD, COIN_VALUE_GOLD, 1.25, new Color3( 1, 1, 0 ) )
    CreateCoinType( COIN_TYPE.TYPE_GEM, COIN_VALUE_GEM, 1.0, new Color3( 256 / 170, 0, 256 / 170 ) )
 
+   const RUNTIME_COINS = "Runtime Coins"
+   if ( IsServer() )
+   {
+      let folder = new Instance( 'Folder' )
+      folder.Parent = Workspace
+      folder.Name = RUNTIME_COINS
+      file.runtimeCoinsFolder = folder
+   }
+   else
+   {
+      ExecOnChildWhenItExists( Workspace, RUNTIME_COINS,
+         function ( folder: Folder )
+         {
+            file.runtimeCoinsFolder = folder
+         } )
+   }
 
    ExecOnChildWhenItExists( Workspace, 'Coin',
       function ( child: Instance )
@@ -80,7 +92,7 @@ export function SH_CoinsSetup()
       function ( child: Instance )
       {
          let gameplayFolder = child as EDITOR_GameplayFolder
-         file.folder = gameplayFolder.Coins
+         file.spawnFolder = gameplayFolder.Coins
          let children = gameplayFolder.Coins.GetChildren()
 
          for ( let child of children )
@@ -94,7 +106,7 @@ export function SH_CoinsSetup()
 export function CreateCoinModel( coinData: CoinData, coinModel: Part ): Part
 {
    let model = coinModel.Clone()
-   model.Transparency = 0
+   model.Transparency = 1 // visibility is handled on client
    model.CanCollide = true
    model.Anchored = false
    model.Size = model.Size.mul( coinData.scale )
@@ -104,8 +116,7 @@ export function CreateCoinModel( coinData: CoinData, coinModel: Part ): Part
 
 export function CreateCoin( location: Vector3, coinData: CoinData ): Part
 {
-   //print( "Spawn coin at " + location )
-   let folder = file.folder
+   let folder = file.runtimeCoinsFolder
    if ( folder === undefined )
    {
       Assert( false, "CreateCoin" )
@@ -130,6 +141,7 @@ export function CreateCoin( location: Vector3, coinData: CoinData ): Part
       func( model )
    }
 
+
    Thread( function ()
    {
       wait( 0.6 ) // delay before you can pickup
@@ -142,9 +154,13 @@ export function CreateCoin( location: Vector3, coinData: CoinData ): Part
 
 export function GetCoins(): Array<Part>
 {
-   if ( file.folder === undefined )
-      return []
-   return file.folder.GetChildren() as Array<Part>
+   if ( file.runtimeCoinsFolder === undefined )
+   {
+      Assert( false, "file.folder === undefined" )
+      throw undefined
+   }
+
+   return file.runtimeCoinsFolder.GetChildren() as Array<Part>
 }
 
 export function GetTotalValueOfWorldCoins(): number
@@ -168,6 +184,11 @@ export function GetCoinType( pickup: Part ): COIN_TYPE
 export function GetCoinSpawnLocations(): Array<Vector3>
 {
    return file.coinSpawnLocations.concat( [] )
+}
+
+export function DeleteCoin( coin: Part )
+{
+   file.coinToCoinType.delete( coin )
 }
 
 function CreateCoinType( coinType: COIN_TYPE, value: number, scale: number, color: Color3 )

@@ -1,14 +1,15 @@
-import { Workspace } from "@rbxts/services";
+import { RunService, Workspace } from "@rbxts/services";
 import { WaitForMatchScreenFrame } from "client/cl_matchScreen";
 import { AddPlayerGuiFolderExistsCallback } from "client/cl_ui";
-import { IsImpostorRole, IsSpectatorRole, LOCAL, MEETING_TYPE, PlayerInfo, ROLE } from "shared/sh_gamestate";
-import { ClonePlayerModel } from "shared/sh_onPlayerConnect";
-import { DEV_SKIP, SPECTATOR_TRANS } from "shared/sh_settings";
+import { IsImpostorRole, MEETING_TYPE, PlayerInfo, ROLE } from "shared/sh_gamestate";
+import { ClonePlayerModel, ClonePlayerModels } from "shared/sh_onPlayerConnect";
+import { SPECTATOR_TRANS } from "shared/sh_settings";
 import { Tween, TweenCharacterParts, TweenModel } from "shared/sh_tween";
 import { GetLocalPlayer, Graph, LoadSound, RandomFloatRange, SetCharacterTransparency, SetCharacterYaw, Thread } from "shared/sh_utils";
 import { Assert } from "shared/sh_assert"
 import { GetCoinModelsForScore } from "shared/sh_coins";
 
+const LOCAL = RunService.IsStudio()
 const LOCAL_PLAYER = GetLocalPlayer()
 
 class File
@@ -55,7 +56,7 @@ AddNetVarChangedCallback( NETVAR_MATCHMAKING_STATUS, function ()
                {
                   players.push( LOCAL_PLAYER )
                }
-               DrawMatchScreen_Intro( [LOCAL_PLAYER, LOCAL_PLAYER], players, 2 )
+               //DrawMatchScreen_Intro( [LOCAL_PLAYER, LOCAL_PLAYER], players, 2 )
             }
             break
 
@@ -122,28 +123,8 @@ AddNetVarChangedCallback( NETVAR_MATCHMAKING_STATUS, function ()
 
 }
 
-export function DrawMatchScreen_Intro( possessed: Array<Player>, campers: Array<Player>, possessedCount: number )
+export function DrawMatchScreen_Intro( foundLocalPossessed: boolean, possessedCount: number, lineup: Array<Model> )
 {
-   if ( DEV_SKIP )
-   {
-      wait( 3 )
-      return
-   }
-
-   let foundLocalPossessed = false
-   if ( possessed.size() )
-   {
-      for ( let player of possessed )
-      {
-         if ( LOCAL_PLAYER === player )
-         {
-            foundLocalPossessed = true
-            break
-         }
-      }
-      Assert( foundLocalPossessed, "DrawMatchScreen_Intro had possessed players but local player is not possessed" )
-   }
-
    let matchScreenFrame = WaitForMatchScreenFrame( "MATCHSCREEN_INTRO" )
    let baseFrame = matchScreenFrame.baseFrame
    Tween( baseFrame, { Transparency: 0 }, 1.0 )
@@ -167,7 +148,9 @@ export function DrawMatchScreen_Intro( possessed: Array<Player>, campers: Array<
    }
 
    let imposterText: string
-   if ( possessedCount === 1 )
+   if ( possessedCount === 0 )
+      imposterText = ""
+   else if ( possessedCount === 1 )
       imposterText = "There is 1 imposter"
    else
       imposterText = "There are " + possessedCount + " imposters"
@@ -215,9 +198,7 @@ export function DrawMatchScreen_Intro( possessed: Array<Player>, campers: Array<
 
 
    {
-      let allPlayers = possessed.concat( campers )
-      allPlayers.sort( SortLocalPlayer )
-      let lineup = CreatePlayerLineup( allPlayers, viewportFrame )
+      ArrangeModelsInLineup( lineup, viewportFrame )
       let lineupCamera = new AnimateLineup( viewportFrame, viewportCamera )
 
       if ( foundLocalPossessed )
@@ -227,7 +208,7 @@ export function DrawMatchScreen_Intro( possessed: Array<Player>, campers: Array<
             {
                wait( 1.6 )
                let goal = { Transparency: 1 }
-               let camperModels = lineup.slice( possessed.size() )
+               let camperModels = lineup.slice( possessedCount )
                for ( let model of camperModels )
                {
                   TweenCharacterParts( model, goal, 1.0 )
@@ -255,11 +236,6 @@ export function DrawMatchScreen_Intro( possessed: Array<Player>, campers: Array<
 function SortLocalPlayerInfo( a: PlayerInfo, b: PlayerInfo ): boolean
 {
    return a.player === LOCAL_PLAYER && b.player !== LOCAL_PLAYER
-}
-
-function SortLocalPlayer( a: Player, b: Player ): boolean
-{
-   return a === LOCAL_PLAYER && b !== LOCAL_PLAYER
 }
 
 export function DrawMatchScreen_VoteResults( skipTie: boolean, receivedHighestVotes: Array<Player>, receivedVotes: Array<Player>, votedAndReceivedNoVotes: Array<Player>, possessedCount: number, highestVotedScore: number )
@@ -672,7 +648,7 @@ export function DrawMatchScreen_Victory( playerInfos: Array<PlayerInfo>, imposte
    else
       subTitle.Text = "You did not survive"
 
-   lowerTitle.Text = "You earned " + myWinnings + " HauntBux!"
+   lowerTitle.Text = myWinnings + " HauntBux added to your stash"
 
 
    const FADE_IN = 2
@@ -682,41 +658,45 @@ export function DrawMatchScreen_Victory( playerInfos: Array<PlayerInfo>, imposte
 
    playerInfos.sort( SortLocalPlayerInfo )
 
-   let campers: Array<Player> = []
-   let imposters: Array<Player> = []
-   let camperPlayerInfos: Array<PlayerInfo> = []
-   let imposterPlayerInfos: Array<PlayerInfo> = []
+   let lineupTeam
+   let lineupPlayerInfos
 
-   for ( let i = 0; i < playerInfos.size(); i++ )
    {
-      let playerInfo = playerInfos[i]
+      let campers: Array<Player> = []
+      let imposters: Array<Player> = []
+      let camperPlayerInfos: Array<PlayerInfo> = []
+      let imposterPlayerInfos: Array<PlayerInfo> = []
 
-      if ( IsImpostorRole( playerInfo.role ) )
+      for ( let i = 0; i < playerInfos.size(); i++ )
       {
-         imposters.push( playerInfo.player )
-         imposterPlayerInfos.push( playerInfo )
+         let playerInfo = playerInfos[i]
+
+         if ( IsImpostorRole( playerInfo.role ) )
+         {
+            imposters.push( playerInfo.player )
+            imposterPlayerInfos.push( playerInfo )
+         }
+         else
+         {
+            campers.push( playerInfo.player )
+            camperPlayerInfos.push( playerInfo )
+         }
+      }
+
+      if ( impostersWin )
+      {
+         lineupTeam = imposters
+         lineupPlayerInfos = imposterPlayerInfos
       }
       else
       {
-         campers.push( playerInfo.player )
-         camperPlayerInfos.push( playerInfo )
+         lineupTeam = campers
+         lineupPlayerInfos = camperPlayerInfos
       }
    }
 
-   let lineupTeam
-   let lineupPlayerInfos
-   if ( impostersWin )
-   {
-      lineupTeam = imposters
-      lineupPlayerInfos = imposterPlayerInfos
-   }
-   else
-   {
-      lineupTeam = campers
-      lineupPlayerInfos = camperPlayerInfos
-   }
-
-   let lineup = CreatePlayerLineup( lineupTeam, viewportFrame )
+   let lineup = ClonePlayerModels( lineupTeam )
+   ArrangeModelsInLineup( lineup, viewportFrame )
    print( "\nCreatePlayerLineup: " + lineup.size() )
 
    for ( let i = 0; i < lineupPlayerInfos.size(); i++ )
@@ -758,33 +738,40 @@ export function DrawMatchScreen_Escaped( playerInfo: PlayerInfo, myWinnings: num
 
    let title = matchScreenFrame.title
    let subTitle = matchScreenFrame.subTitle
+   let lowerTitle = matchScreenFrame.lowerTitle
    let viewportFrame = matchScreenFrame.viewportFrame
    let viewportCamera = matchScreenFrame.viewportCamera
 
    title.TextTransparency = 1
    subTitle.TextTransparency = 1
+   lowerTitle.TextTransparency = 1
    viewportFrame.ImageTransparency = 1
 
    title.Text = "Congratulations"
-   subTitle.Text = "You escaped with " + myWinnings + " HauntBux!"
+   subTitle.Text = "You escaped"
+   lowerTitle.Text = myWinnings + " HauntBux added to your stash"
 
    const FADE_IN = 2
 
    wait( 0.8 )
    Tween( title, { TextTransparency: 0 }, FADE_IN )
 
-   CreatePlayerLineup( [playerInfo.player], viewportFrame )
+   let lineup = ClonePlayerModels( [playerInfo.player] )
+   ArrangeModelsInLineup( lineup, viewportFrame )
 
    let animLineup = new AnimateLineup( viewportFrame, viewportCamera )
    wait( animLineup.GetArriveTime() * 0.4 )
 
    Tween( subTitle, { TextTransparency: 0 }, FADE_IN )
+   wait( 0.5 )
+   Tween( lowerTitle, { TextTransparency: 0 }, FADE_IN )
 
    wait( 2.25 )
 
    const FADE_OUT = 2.0
    Tween( title, { TextTransparency: 1 }, FADE_OUT * 0.75 )
    Tween( subTitle, { TextTransparency: 1 }, FADE_OUT * 0.75 )
+   Tween( lowerTitle, { TextTransparency: 1 }, FADE_OUT * 0.75 )
    wait( 1.0 )
    Tween( viewportFrame, { ImageTransparency: 1 }, 0.75 )
    wait( 0.75 )
@@ -838,17 +825,15 @@ export function DrawMatchScreen_GameOver()
    wait( 123123 )
 }
 
-function CreatePlayerLineup( allPlayers: Array<Player>, viewportFrame: ViewportFrame ): Array<Model>
+function ArrangeModelsInLineup( cloneModels: Array<Model>, viewportFrame: ViewportFrame )
 {
-   let cloneModels: Array<Model> = []
    let count = 0
    let odd = true
    const dist = 3.0
 
    // draw these players
-   for ( let i = 0; i < allPlayers.size(); i++ )
+   for ( let i = 0; i < cloneModels.size(); i++ )
    {
-      let player = allPlayers[i]
       let offsetCount = count
       let yaw = -15 * offsetCount
       let offset = new Vector3( dist, 0, 0 ).mul( offsetCount )
@@ -865,15 +850,12 @@ function CreatePlayerLineup( allPlayers: Array<Player>, viewportFrame: ViewportF
       //offset = offset.add( new Vector3( dist * -0.5, 0, 0.0 ) ) // left
       yaw *= multiplier
 
-      let clonedModel = ClonePlayerModel( player ) as Model
-      cloneModels.push( clonedModel )
-
+      let clonedModel = cloneModels[i]
       clonedModel.Parent = viewportFrame
       clonedModel.SetPrimaryPartCFrame( new CFrame( offset ) )
       SetCharacterYaw( clonedModel, yaw )
       SetCharacterTransparency( clonedModel, 0 )
    }
-   return cloneModels
 }
 
 class AnimateLineup

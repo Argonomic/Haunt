@@ -4,7 +4,9 @@ import { ROLE, NETVAR_JSON_GAMESTATE } from "shared/sh_gamestate";
 import { AddPlayerGuiFolderExistsCallback, ToggleButton, UIORDER } from "./cl_ui";
 import { AddNetVarChangedCallback } from "shared/sh_player_netvars";
 import { AddCallback_OnPlayerCharacterAncestryChanged } from "shared/sh_onPlayerConnect";
-import { CL_SendRPC } from "shared/sh_rpc";
+import { SendRPC_Client } from "shared/sh_rpc";
+
+const LOCAL_PLAYER = GetLocalPlayer()
 
 type Editor_ReturnToLobbyUI = ScreenGui &
 {
@@ -59,7 +61,7 @@ export function CL_ReturnToLobbySetup()
 
       frame.LeaveMatch.MouseButton1Click.Connect( function ()
       {
-         CL_SendRPC( "RPC_FromClient_RequestLobby" )
+         SendRPC_Client( "RPC_FromClient_RequestLobby" )
       } )
 
    } )
@@ -71,9 +73,6 @@ export function CL_ReturnToLobbySetup()
             file.returnToLobbyUI.Parent = undefined
       } )
 
-   let game = GetLocalGame()
-   let player = GetLocalPlayer()
-
    AddNetVarChangedCallback( NETVAR_JSON_GAMESTATE,
       function ()
       {
@@ -83,13 +82,17 @@ export function CL_ReturnToLobbySetup()
                wait() // after it actually state
 
                wait( 4 )
-               if ( game.GetPlayerRole( player ) === ROLE.ROLE_SPECTATOR_CAMPER_ESCAPED )
+               let match = GetLocalGame()
+               if ( match === undefined )
+                  return
+
+               if ( match.GetPlayerRole( LOCAL_PLAYER ) === ROLE.ROLE_SPECTATOR_CAMPER_ESCAPED )
                {
                   DisplayReturnToLobby()
                   return
                }
 
-               if ( game.IsSpectator( player ) )
+               if ( match.IsSpectator( LOCAL_PLAYER ) )
                {
                   DisplayReturnToLobby()
                   return

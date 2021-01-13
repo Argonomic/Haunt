@@ -18,6 +18,8 @@ export function Assert( bool: boolean, msg?: string )
    if ( file.asserted ) // first assert is only one that matters
       return
 
+   let isServer = IsServer()
+
    if ( msg === undefined )
       msg = ""
 

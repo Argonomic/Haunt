@@ -1,11 +1,14 @@
-import { GetCoinSpawnLocations, GetCoinType, CreateCoin, COIN_TYPE, GetCoinDataFromType, CoinData, GetCoinBreakdownForScore } from "shared/sh_coins"
-import { LOCAL, PICKUPS } from "shared/sh_gamestate"
+import { GetCoinSpawnLocations, GetCoinType, CreateCoin, COIN_TYPE, GetCoinDataFromType, CoinData, GetCoinBreakdownForScore, DeleteCoin } from "shared/sh_coins"
+import { PICKUPS } from "shared/sh_gamestate"
 import { CreatePickupType } from "shared/sh_pickups"
-import { ClearScore, GetScore, IncrementScore } from "shared/sh_score"
+import { GetMatchScore } from "shared/sh_score"
 import { ArrayRandomize, GetPosition, RandomFloatRange, RandomInt, Thread, VectorNormalize } from "shared/sh_utils"
 import { COL_GROUP_GEO_ONLY, SetCollisionGroup } from "./sv_collisionGroups"
 import { SV_SendRPC } from "shared/sh_rpc"
+import { RunService } from "@rbxts/services"
+import { ClearMatchScore, IncrementMatchScore } from "./sv_score"
 
+const LOCAL = RunService.IsStudio()
 const ROTVEL = 50
 const SPAWN_PUSH = 10
 const PUSH_Z = 40
@@ -19,7 +22,8 @@ export function SV_CoinsSetup()
          let coinType = GetCoinType( pickup )
          SV_SendRPC( "RPC_FromServer_PickupCoin", player, pickup.Position, coinType )
          let coinData = GetCoinDataFromType( coinType )
-         IncrementScore( player, coinData.value )
+         IncrementMatchScore( player, coinData.value )
+         DeleteCoin( pickup )
          return true
       }
 
@@ -108,8 +112,8 @@ const PUSH = 25
 export function PlayerDropsCoins( player: Player, offsetPos: Vector3 )
 {
    let playerPos = GetPosition( player )
-   let score = GetScore( player )
-   ClearScore( player )
+   let score = GetMatchScore( player )
+   ClearMatchScore( player )
    CreateCoinExplosion( score, playerPos, offsetPos )
 }
 
@@ -122,6 +126,7 @@ export function CreateCoinExplosion( score: number, playerPos: Vector3, offsetPo
    vec = vec.add( new Vector3( 0, 1.8, 0 ) )
    vec = VectorNormalize( vec )
    vec = vec.mul( 50 )
+   vec = vec.add( new Vector3( RandomFloatRange( -30, 30 ), 0, RandomFloatRange( -30, 30 ) ) )
 
    let breakdown = GetCoinBreakdownForScore( score )
 

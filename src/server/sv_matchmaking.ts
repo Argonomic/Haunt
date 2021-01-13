@@ -1,125 +1,92 @@
-import { HttpService, Players, TeleportService, Workspace } from "@rbxts/services"
-import { NETVAR_MATCHMAKING_STATUS, MATCHMAKING_STATUS, NETVAR_MATCHMAKING_NUMWITHYOU, ROLE, Game, LOCAL, IsReservedServer } from "shared/sh_gamestate"
-import { AddCallback_OnPlayerCharacterAdded, AddCallback_OnPlayerConnected } from "shared/sh_onPlayerConnect"
-import { GetNetVar_Number, SetNetVar } from "shared/sh_player_netvars"
+import { Players, RunService, Workspace } from "@rbxts/services"
+import { NETVAR_MATCHMAKING_STATUS, MATCHMAKING_STATUS, GetFallbackPlayerCount, NETVAR_RENDERONLY_MATCHMAKING_NUMINFO, NETVAR_JSON_GAMESTATE } from "shared/sh_gamestate"
+import { ResetNetVar, GetNetVar_Number, SetNetVar } from "shared/sh_player_netvars"
 import { AddRPC } from "shared/sh_rpc"
-import { MAX_FRIEND_WAIT_TIME, MATCHMAKE_PLAYERCOUNT_DESIRED, MATCHMAKE_PLAYERCOUNT_FALLBACK, DEV_SKIP, ADMINS } from "shared/sh_settings"
-import { ArrayFind, GraphCapped, Thread } from "shared/sh_utils"
+import { ADMINS, DEV_SKIP_NPE, MATCHMAKE_PLAYERCOUNT_MAX, MATCHMAKING_COUNTDOWN_SERVERTIME } from "shared/sh_settings"
+import { ArrayFind, GraphCapped, PlayerExists, Thread } from "shared/sh_utils"
 import { Assert } from "shared/sh_assert"
-import { AddPlayer, AssignAllTasks, CreateGame } from "./sv_gameState"
+import { CreateGame, CreateNPE, PPRS_COMPLETED_NPE } from "./sv_gameState"
 import { PutPlayerInStartRoom } from "./sv_rooms"
-import { IncrementServerVersion, LobbyUpToDate } from "./sv_persistence"
-import { TELEPORT_PlayerData } from "shared/sh_teleport"
+import { GetPlayerPersistence_Boolean, GetPlayerPersistence_Number, IncrementServerVersion, LobbyUpToDate, SetPlayerPersistence } from "./sv_persistence"
+import { SendPlayersToLobby, ServerAttemptToMatchPlayers, TeleportPlayers_ToLobbyUpdate, TeleportPlayers_ToNewReservedServer } from "shared/sh_matchmaking"
+import { PlayerPickupsEnabled } from "shared/sh_pickups"
+import { IsReservedServer } from "shared/sh_reservedServer"
+import { NETVAR_SCORE, PPRS_PREMATCH_COINS } from "shared/sh_score"
+import { AddCallback_OnPlayerCharacterAdded, AddCallback_OnPlayerConnected } from "shared/sh_onPlayerConnect"
 
 export const DATASTORE_MATCHMAKING = "datastore_matchmaking"
+const LOCAL = RunService.IsStudio()
 
 class File
 {
-   practiceGame = new Game()
-   reservedServerPlayerCount = 10
-   reservedServingTryingToMatchmake = false
-   playerTimeInQueue = new Map<Player, number>()
-   matchmakeThread: Function | undefined
-
    lobbyUpToDate = true
-
-   friendsMap = new Map<Player, Map<Player, boolean>>()
 }
 
 let file = new File()
 
 export function SV_MatchmakingSetup()
 {
-   if ( IsReservedServer() )
-   {
-      AddRPC( 'RPC_FromClient_SetPlayerCount', function ( player: Player, num: number )
-      {
-         file.reservedServerPlayerCount = num
-      } )
-   }
-
    AddRPC( "RPC_FromClient_AdminClick", function ( player: Player )
    {
       if ( ArrayFind( ADMINS, player.Name ) === undefined )
          return
 
       IncrementServerVersion()
-      Thread(
-         function ()
-         {
-            for ( let i = 0; i < 5; i++ )
-            {
-               wait( 1 )
-               UpdateMatchmakingStatus_AndMatchmake()
-            }
-         } )
    } )
+
+   if ( IsReservedServer() )
+   {
+      AddCallback_OnPlayerConnected( function ( player: Player )
+      {
+         let coins = GetPlayerPersistence_Number( player, PPRS_PREMATCH_COINS, 0 )
+         SetPlayerPersistence( player, PPRS_PREMATCH_COINS, 0 )
+         SetNetVar( player, NETVAR_SCORE, coins )
+      } )
+   }
 
    AddCallback_OnPlayerCharacterAdded( function ( player: Player )
    {
-      switch ( GetNetVar_Number( player, NETVAR_MATCHMAKING_STATUS ) )
+      let status = GetNetVar_Number( player, NETVAR_MATCHMAKING_STATUS )
+      switch ( status )
       {
-         case MATCHMAKING_STATUS.MATCHMAKING_UNDECIDED:
-         case MATCHMAKING_STATUS.MATCHMAKING_PRACTICE:
-         case MATCHMAKING_STATUS.MATCHMAKING_WAITING_TO_PLAY:
-            PutPlayerInStartRoom( player )
+         case MATCHMAKING_STATUS.MATCHMAKING_CONNECTING:
+            if ( IsReservedServer() )
+            {
+               SetNetVar( player, NETVAR_MATCHMAKING_STATUS, MATCHMAKING_STATUS.MATCHMAKING_WAITING_FOR_RESERVEDSERVER_TO_START )
+            }
+            else
+            {
+               let completedNPE = GetPlayerPersistence_Boolean( player, PPRS_COMPLETED_NPE, DEV_SKIP_NPE )
+               print( player.Name + " completedNPE: " + completedNPE )
+               if ( !completedNPE )
+               {
+                  Thread(
+                     function ()
+                     {
+                        //Countdown( player )
+                        //wait( MATCHMAKING_COUNTDOWN_SERVERTIME )
+                        wait( 2 )
+                        StartNPE( player )
+                     } )
+               }
+               else
+               {
+                  SetNetVar( player, NETVAR_MATCHMAKING_STATUS, MATCHMAKING_STATUS.MATCHMAKING_LFG )
+               }
+            }
             break
       }
-   } )
 
-   AddCallback_OnPlayerConnected( function ( player: Player )
-   {
-      Thread( function ()
+      switch ( status )
       {
-         let friends = new Map<Player, boolean>()
-         file.friendsMap.set( player, friends )
+         case MATCHMAKING_STATUS.MATCHMAKING_PLAYING:
+            return
 
-         let players = Players.GetPlayers()
-         for ( let other of players )
-         {
-            if ( other === player )
-               continue
-
-            if ( !player.IsFriendsWith( other.UserId ) )
-               continue
-
-            friends.set( other, true )
-
-            let otherFriends = file.friendsMap.get( other ) as Map<Player, boolean>
-            if ( otherFriends === undefined )
-               otherFriends = new Map<Player, boolean>()
-            otherFriends.set( player, true )
-            file.friendsMap.set( other, otherFriends )
-         }
-      } )
-
-      if ( IsReservedServer() )
-         SetNetVar( player, NETVAR_MATCHMAKING_STATUS, MATCHMAKING_STATUS.MATCHMAKING_WAITING_TO_PLAY )
-
-      let playerInfo = AddPlayer( file.practiceGame, player, ROLE.ROLE_CAMPER )
-      playerInfo.playernum = 0 // Needs to be set to something, but doesn't really matter for practice
-      AssignAllTasks( player, file.practiceGame )
-      file.practiceGame.BroadcastGamestate()
-      UpdateMatchmakingStatus_AndMatchmake()
+         default:
+            PutPlayerInStartRoom( player )
+            return
+      }
    } )
-
-   Players.PlayerRemoving.Connect(
-      function ( player: Player )
-      {
-         file.friendsMap.delete( player )
-         for ( let pair of file.friendsMap )
-         {
-            if ( pair[1].has( player ) )
-               pair[1].delete( player )
-         }
-
-         if ( file.practiceGame.HasPlayer( player ) )
-         {
-            file.practiceGame.RemovePlayer( player )
-            file.practiceGame.BroadcastGamestate()
-         }
-         UpdateMatchmakingStatus_AndMatchmake()
-      } )
 
    if ( IsReservedServer() )
    {
@@ -134,8 +101,8 @@ export function SV_MatchmakingSetup()
       if ( IsReservedServer() )
          return
 
-      let status = GetNetVar_Number( player, NETVAR_MATCHMAKING_STATUS )
-      switch ( status )
+      let currentStatus = GetNetVar_Number( player, NETVAR_MATCHMAKING_STATUS )
+      switch ( currentStatus )
       {
          case MATCHMAKING_STATUS.MATCHMAKING_PLAYING:
          case MATCHMAKING_STATUS.MATCHMAKING_SEND_TO_RESERVEDSERVER:
@@ -143,193 +110,198 @@ export function SV_MatchmakingSetup()
             return
       }
 
-      if ( status === newStatus )
-      {
-         // toggle back to undecided
-         SetNetVar( player, NETVAR_MATCHMAKING_STATUS, MATCHMAKING_STATUS.MATCHMAKING_UNDECIDED )
-         if ( file.playerTimeInQueue.has( player ) )
-            file.playerTimeInQueue.delete( player )
-      }
-      else
-      {
-         switch ( newStatus )
-         {
-            case MATCHMAKING_STATUS.MATCHMAKING_UNDECIDED:
-            case MATCHMAKING_STATUS.MATCHMAKING_PRACTICE:
-               SetNetVar( player, NETVAR_MATCHMAKING_STATUS, newStatus )
-               if ( file.playerTimeInQueue.has( player ) )
-                  file.playerTimeInQueue.delete( player )
-               break
-
-            case MATCHMAKING_STATUS.MATCHMAKING_LFG:
-               SetNetVar( player, NETVAR_MATCHMAKING_STATUS, newStatus )
-               if ( !file.playerTimeInQueue.has( player ) )
-                  file.playerTimeInQueue.set( player, Workspace.DistributedGameTime )
-               break
-         }
-      }
-
-      UpdateMatchmakingStatus_AndMatchmake()
+      if ( currentStatus !== newStatus )
+         SetNetVar( player, NETVAR_MATCHMAKING_STATUS, newStatus )
    } )
 
-   file.matchmakeThread = Thread( MatchmakingLoop )
-}
-
-function MatchmakingLoop()
-{
-   for ( ; ; )
-   {
-      if ( !ContinueMatchmaking() )
-         break
-   }
-
-   for ( ; ; )
-   {
-      coroutine.yield()
-   }
-
-}
-
-/*
-print( "\n" )
-let allPlayers = Players.GetPlayers()
-for ( let player of allPlayers )
-{
-print( player.UserId + " " + ( GetNetVar_Number( player, NETVAR_MATCHMAKING_STATUS ) as number ) )
-}
-print( "\n" )
-*/
-
-class TryToMatchmake
-{
-   PLAYERCOUNT: number
-   players: Array<Player>
-   constructor()
-   {
-      let unqueud: Array<Player> = []
-      unqueud = unqueud.concat( GetPlayersWithMatchmakingStatus( MATCHMAKING_STATUS.MATCHMAKING_UNDECIDED ) )
-      unqueud = unqueud.concat( GetPlayersWithMatchmakingStatus( MATCHMAKING_STATUS.MATCHMAKING_PRACTICE ) )
-
-      let lfgPlayersFriends = GetPlayersWithMatchmakingStatus( MATCHMAKING_STATUS.MATCHMAKING_LFG_WITH_FRIENDS )
-      for ( let i = 0; i < lfgPlayersFriends.size(); i++ )
+   Thread(
+      function ()
       {
-         let player = lfgPlayersFriends[i]
-         let friendCount = TotalFriends( unqueud, player )
-         let timeInQueue = TimeInQueue( player )
-         //print( "1 " + player.Name + " friendcount:" + friendCount + " timeInQueue:" + math.floor( timeInQueue ) )
-         if ( timeInQueue > MAX_FRIEND_WAIT_TIME || friendCount === 0 )
+         for ( ; ; )
          {
-            SetNetVar( player, NETVAR_MATCHMAKING_STATUS, MATCHMAKING_STATUS.MATCHMAKING_LFG )
-            lfgPlayersFriends.remove( i )
-            i--
-
-            if ( !file.playerTimeInQueue.has( player ) )
-               file.playerTimeInQueue.set( player, Workspace.DistributedGameTime )
-            continue
+            //print( "TRY AGAIN" )
+            if ( !ContinueMatchmaking() )
+            {
+               //print( "FINISHED MATCHMAKING" )
+               return
+            }
+            wait( 0.5 )
          }
+      } )
+}
 
-         if ( GetNetVar_Number( player, NETVAR_MATCHMAKING_NUMWITHYOU ) !== friendCount )
-            SetNetVar( player, NETVAR_MATCHMAKING_NUMWITHYOU, friendCount )
-      }
+function TryToMatchmake( status: MATCHMAKING_STATUS, count: number ): Array<Player> | undefined
+{
+   count = math.floor( count )
 
-      let lfgPlayers = GetPlayersWithMatchmakingStatus( MATCHMAKING_STATUS.MATCHMAKING_LFG )
-      for ( let i = 0; i < lfgPlayers.size(); i++ )
+   let players = GetPlayersWithMatchmakingStatus( status )
+   players = players.filter( function ( player )
+   {
+      return player.Character !== undefined
+   } )
+
+   if ( players.size() < count )
+      return undefined
+
+   return ServerAttemptToMatchPlayers( players, count )
+}
+
+function ContinueMatchmaking(): boolean
+{
+   if ( IsReservedServer() )
+      return ReservedServer_ContinueMatchmaking()
+
+   if ( LOCAL )
+   {
+      const MIN_TIME = 15
+      const MAX_TIME = 20
+
       {
-         let player = lfgPlayers[i]
-         let friendCount = TotalFriends( unqueud, player )
-         let timeInQueue = TimeInQueue( player )
-         //print( "2 " + player.Name + " friendcount:" + friendCount + " timeInQueue:" + math.floor( timeInQueue ) )
-         if ( timeInQueue > MAX_FRIEND_WAIT_TIME )
-            continue
+         const playerCount = GraphCapped( Workspace.DistributedGameTime, MIN_TIME, MAX_TIME, MATCHMAKE_PLAYERCOUNT_MAX, GetFallbackPlayerCount() )
 
-         if ( friendCount === 0 )
-            continue
+         //print( "i: " + MATCHMAKE_PLAYERCOUNT_MAX )
+         //print( "playerCount: " + playerCount )
 
-         SetNetVar( player, NETVAR_MATCHMAKING_NUMWITHYOU, friendCount )
-         SetNetVar( player, NETVAR_MATCHMAKING_STATUS, MATCHMAKING_STATUS.MATCHMAKING_LFG_WITH_FRIENDS )
-         lfgPlayers.remove( i )
-         lfgPlayersFriends.push( player )
-         i--
+         for ( let i = MATCHMAKE_PLAYERCOUNT_MAX; i >= playerCount; i-- )
+         {
+            let players = TryToMatchmake( MATCHMAKING_STATUS.MATCHMAKING_LFG, i )
+            if ( players !== undefined )
+            {
+               //print( "Success!" )
+               MatchmakingCountdownThen( players, StartGame )
+            }
+            else
+            {
+               //print( "Failure!" )
+            }
+         }
       }
 
-      const PLAYERCOUNT = GetMatchmakingMinPlayersForLongestWaitTime( lfgPlayers )
-      if ( !LOCAL )
-         print( "MM LFG:" + lfgPlayers.size() + ", LFGWF:" + lfgPlayersFriends.size() + ", looking for " + PLAYERCOUNT + " players" )
+      return true
+   }
 
-      let waitingForPlayerCount = PLAYERCOUNT - lfgPlayers.size()
-      for ( let player of lfgPlayers )
-      {
-         SetNetVar( player, NETVAR_MATCHMAKING_NUMWITHYOU, waitingForPlayerCount )
+   Thread( LobbyUpToDateCheck_mayClearServer )
 
-         let friends = GetFriends( lfgPlayers, player )
-         let lowestTime = GetLowestMatchmakingTime( friends )
-         let myTime = file.playerTimeInQueue.get( player ) as number
-         if ( lowestTime < myTime )
-            file.playerTimeInQueue.set( player, lowestTime + 0.01 )// let original matchmaker have priority 
-      }
+   // live lobbies need to be up to date or they refresh
+   if ( !file.lobbyUpToDate )
+      return false
 
-      let players: Array<Player> = []
-      if ( IsReservedServer() )
-      {
-         players = GetPlayersWithMatchmakingStatus( MATCHMAKING_STATUS.MATCHMAKING_WAITING_TO_PLAY )
-      }
-      else
-      {
-         players = GetPlayersWithMatchmakingStatus( MATCHMAKING_STATUS.MATCHMAKING_LFG )
-         players.sort( SortByMatchmakeTime )
-      }
+   let players = TryToMatchmake( MATCHMAKING_STATUS.MATCHMAKING_LFG, MATCHMAKE_PLAYERCOUNT_MAX )
 
+   if ( players !== undefined )
+      MatchmakingCountdownThen( players, SendMatchmadePlayersToNewReservedServer )
+
+   return true
+}
+
+function ReservedServer_ContinueMatchmaking(): boolean
+{
+   {
+      let players = Players.GetPlayers()
       players = players.filter( function ( player )
       {
          return player.Character !== undefined
       } )
 
-      this.PLAYERCOUNT = PLAYERCOUNT
-      this.players = players
-   }
-}
-
-function ContinueMatchmaking(): boolean
-{
-   // live lobbies need to be up to date or they refresh
-   if ( !LOCAL && !IsReservedServer() )
-   {
-      if ( !file.lobbyUpToDate )
+      if ( players.size() === MATCHMAKE_PLAYERCOUNT_MAX )
+      {
+         StartGame( players )
          return false
-
-      Thread( LobbyUpToDateCheck_mayClearServer )
+      }
    }
 
-   let mm = new TryToMatchmake()
-   let players = mm.players
-   const PLAYERCOUNT = mm.PLAYERCOUNT
+   const MIN_TIME = 5
+   const MAX_TIME = 7
 
-   if ( players.size() < PLAYERCOUNT )
-   {
-      // not enough players to matchmake yet
-      WaitUntilTimeToTryAgain()
+   if ( Workspace.DistributedGameTime < MIN_TIME - 1 )
       return true
-   }
 
-   players = players.slice( 0, MATCHMAKE_PLAYERCOUNT_DESIRED )
-
-   if ( LOCAL || IsReservedServer() )
    {
-      StartGame( players )
-      return false
+      const playerCount = GraphCapped( Workspace.DistributedGameTime, MIN_TIME, MAX_TIME, MATCHMAKE_PLAYERCOUNT_MAX, GetFallbackPlayerCount() )
+      for ( let i = MATCHMAKE_PLAYERCOUNT_MAX; i >= playerCount; i-- )
+      {
+         let players = Players.GetPlayers()
+         players = players.filter( function ( player )
+         {
+            return player.Character !== undefined
+         } )
+
+         if ( players.size() === i )
+         {
+            StartGame( players )
+            return false
+         }
+      }
    }
 
-   SendMatchmadePlayersToNewReserveServer( players )
-   return true
+   if ( Workspace.DistributedGameTime < MAX_TIME + 1 )
+      return true
+
+   // took too long to try to start
+   SendPlayersToLobby( Players.GetPlayers() )
+
+   return false
 }
 
-function SendMatchmadePlayersToNewReserveServer( players: Array<Player> )
+function MatchmakingCountdownThen( players: Array<Player>, successFunc: ( players: Array<Player> ) => void )
+{
+   function FilterPlayers()
+   {
+      players = players.filter( function ( player )
+      {
+         if ( player.Character === undefined )
+            return false
+
+         if ( GetNetVar_Number( player, NETVAR_MATCHMAKING_STATUS ) !== MATCHMAKING_STATUS.MATCHMAKING_COUNTDOWN )
+            return false
+
+         return true
+      } )
+   }
+
+   Thread(
+      function ()
+      {
+         for ( let player of players )
+         {
+            Countdown( player )
+         }
+
+         let startingCount = players.size()
+         let endTime = Workspace.DistributedGameTime + MATCHMAKING_COUNTDOWN_SERVERTIME
+
+         for ( ; ; )
+         {
+            wait( 1 )
+            FilterPlayers()
+            if ( players.size() < startingCount )
+               break
+            if ( Workspace.DistributedGameTime >= endTime )
+               break
+         }
+
+         if ( players.size() === startingCount )
+         {
+            successFunc( players )
+            return
+         }
+
+         // lost a player, back to LFG
+         for ( let player of players )
+         {
+            SetNetVar( player, NETVAR_MATCHMAKING_STATUS, MATCHMAKING_STATUS.MATCHMAKING_LFG )
+         }
+      } )
+}
+
+function SendMatchmadePlayersToNewReservedServer( players: Array<Player> )
 {
    Thread( function ()
    {
       for ( let player of players )
       {
          SetNetVar( player, NETVAR_MATCHMAKING_STATUS, MATCHMAKING_STATUS.MATCHMAKING_SEND_TO_RESERVEDSERVER )
+         SetPlayerPersistence( player, PPRS_PREMATCH_COINS, GetNetVar_Number( player, NETVAR_SCORE ) )
 
          Thread(
             function ()
@@ -345,12 +317,7 @@ function SendMatchmadePlayersToNewReserveServer( players: Array<Player> )
 
       Assert( !LOCAL, "Should not be reserving servers from local" )
       print( "Teleporting players to reserved server" )
-      let code = TeleportService.ReserveServer( game.PlaceId )
-
-      let data = new TELEPORT_PlayerData()
-      data.playerCount = players.size()
-      let json = HttpService.JSONEncode( data )
-      TeleportService.TeleportToPrivateServer( game.PlaceId, code[0], players, "none", json )
+      TeleportPlayers_ToNewReservedServer( players )
    } )
 }
 
@@ -359,16 +326,23 @@ function StartGame( players: Array<Player> )
    for ( let player of players )
    {
       SetNetVar( player, NETVAR_MATCHMAKING_STATUS, MATCHMAKING_STATUS.MATCHMAKING_PLAYING )
-      file.practiceGame.RemovePlayer( player )
    }
 
    print( "StartGame with " + players.size() + " players" )
 
    CreateGame( players,
-      function () 
+
+      // match completed function
+      function ()
       {
-         // game completed function
-         if ( !LOCAL )
+         for ( let player of players )
+         {
+            if ( PlayerExists( player ) )
+               PlayerPickupsEnabled( player )
+         }
+
+         // clear out the server
+         if ( IsReservedServer() )
          {
             print( "GAME IS OVER, TELEPORT PLAYERS BACK TO START PLACE" )
             Thread(
@@ -385,38 +359,25 @@ function StartGame( players: Array<Player> )
       } )
 }
 
-function WaitUntilTimeToTryAgain()
+function StartNPE( player: Player )
 {
-   if ( IsReservedServer() )
-   {
-      if ( Workspace.DistributedGameTime > 40 )
-      {
-         print( "Matchmaking took too long, send players home" )
-         for ( ; ; )
-         {
-            SendPlayersToLobby( Players.GetPlayers() )
-            wait( 4 )
-         }
-      }
+   print( "StartNPE for " + player.Name )
 
-      wait( 1 )
-   }
-   else
-   {
-      if (
-         GetPlayersWithMatchmakingStatus( MATCHMAKING_STATUS.MATCHMAKING_LFG ).size() ||
-         GetPlayersWithMatchmakingStatus( MATCHMAKING_STATUS.MATCHMAKING_LFG_WITH_FRIENDS ).size()
-      )
+   SetNetVar( player, NETVAR_MATCHMAKING_STATUS, MATCHMAKING_STATUS.MATCHMAKING_PLAYING )
+   CreateNPE( player,
+      function () 
       {
-         wait( 3.0 )
-      }
-      else
-      {
-         file.practiceGame.BroadcastGamestate()
-         print( "file.matchmakeThread yield" )
-         coroutine.yield()
-      }
-   }
+         if ( !PlayerExists( player ) )
+            return
+
+         // match completed function
+         print( player.Name + " has completed NPE" )
+         SetPlayerPersistence( player, PPRS_COMPLETED_NPE, true )
+         ResetNetVar( player, NETVAR_JSON_GAMESTATE )
+         SetNetVar( player, NETVAR_MATCHMAKING_STATUS, MATCHMAKING_STATUS.MATCHMAKING_LFG )
+         PlayerPickupsEnabled( player )
+         return
+      } )
 }
 
 function RoundTripPlayersToLobby()
@@ -426,12 +387,16 @@ function RoundTripPlayersToLobby()
    Thread( function ()
    {
       let sendPlayers: Array<Player> = []
+
       {
          let players = Players.GetPlayers()
          for ( let player of players )
          {
             if ( GetNetVar_Number( player, NETVAR_MATCHMAKING_STATUS ) === MATCHMAKING_STATUS.MATCHMAKING_SEND_TO_RESERVEDSERVER )
+            {
+               TeleportPlayers_ToLobbyUpdate( [player] )
                continue
+            }
 
             sendPlayers.push( player )
             SetNetVar( player, NETVAR_MATCHMAKING_STATUS, MATCHMAKING_STATUS.MATCHMAKING_SEND_TO_RESERVEDSERVER )
@@ -441,22 +406,19 @@ function RoundTripPlayersToLobby()
       if ( sendPlayers.size() )
       {
          print( "Sending " + sendPlayers.size() + " players to reserved server with sendMeBackToLobby" )
-         let code = TeleportService.ReserveServer( game.PlaceId )
-         let data = new TELEPORT_PlayerData()
-         data.sendMeBackToLobby = true
 
-         let json = HttpService.JSONEncode( data )
-         TeleportService.TeleportToPrivateServer( game.PlaceId, code[0], sendPlayers, "none", json )
-         Thread( function ()
-         {
-            wait( 5 )
-            for ( let player of sendPlayers )
-            {
-               if ( player.Character !== undefined )
-                  player.Kick( "Updating Lobby, please rejoin" )
-            }
-         } )
+         TeleportPlayers_ToLobbyUpdate( sendPlayers )
       }
+
+      Thread( function ()
+      {
+         wait( 5 )
+         for ( let player of sendPlayers )
+         {
+            if ( player.Character !== undefined )
+               player.Kick( "Updating Lobby, please rejoin" )
+         }
+      } )
    } )
 }
 
@@ -474,25 +436,6 @@ function LobbyUpToDateCheck_mayClearServer()
    }
 }
 
-function TotalFriends( players: Array<Player>, player: Player ): number
-{
-   return GetFriends( players, player ).size()
-}
-
-function GetFriends( players: Array<Player>, player: Player ): Array<Player>
-{
-   let friends: Array<Player> = []
-   for ( let other of players )
-   {
-      if ( other === player )
-         continue
-      if ( !IsFriends( player, other ) )
-         continue
-      friends.push( other )
-   }
-   return friends
-}
-
 function GetPlayersWithMatchmakingStatus( status: MATCHMAKING_STATUS ): Array<Player>
 {
    let found: Array<Player> = []
@@ -505,118 +448,8 @@ function GetPlayersWithMatchmakingStatus( status: MATCHMAKING_STATUS ): Array<Pl
    return found
 }
 
-function SendPlayersToLobby( players: Array<Player> )
+function Countdown( player: Player )
 {
-   Assert( IsReservedServer(), "IsReservedServer()" )
-   Thread( function ()
-   {
-      for ( let player of players )
-      {
-         SetNetVar( player, NETVAR_MATCHMAKING_STATUS, MATCHMAKING_STATUS.MATCHMAKING_SEND_TO_LOBBY )
-      }
-
-      wait( 1 ) // fade to black
-
-      let data = new TELEPORT_PlayerData()
-      data.fromReservedServer = true
-
-      let json = HttpService.JSONEncode( data )
-      TeleportService.TeleportPartyAsync( game.PlaceId, players, json )
-   } )
+   SetNetVar( player, NETVAR_RENDERONLY_MATCHMAKING_NUMINFO, MATCHMAKING_COUNTDOWN_SERVERTIME )
+   SetNetVar( player, NETVAR_MATCHMAKING_STATUS, MATCHMAKING_STATUS.MATCHMAKING_COUNTDOWN )
 }
-
-function IsFriends( player1: Player, player2: Player ): boolean
-{
-   Assert( player1 !== player2, "player1 !== player2" )
-   let friendsMap = file.friendsMap.get( player1 )
-   if ( friendsMap === undefined )
-   {
-      Assert( false, "friendsMap is undefined for between " + player1 + " and " + player2 )
-      throw undefined
-   }
-   return friendsMap.has( player2 )
-}
-
-function TimeInQueue( player: Player ): number
-{
-   Assert( file.playerTimeInQueue.has( player ), "file.playerTimeInQueue.has( player )" )
-   return Workspace.DistributedGameTime - ( file.playerTimeInQueue.get( player ) as number )
-}
-
-function UpdateMatchmakingStatus_AndMatchmake()
-{
-   if ( file.matchmakeThread !== undefined )
-      file.matchmakeThread()
-}
-
-function GetLowestMatchmakingTime( players: Array<Player> ): number
-{
-   let time = Workspace.DistributedGameTime
-   for ( let player of players )
-   {
-      if ( !file.playerTimeInQueue.has( player ) )
-         continue
-      let playerTime = file.playerTimeInQueue.get( player ) as number
-      if ( playerTime < time )
-         time = playerTime
-   }
-   return time
-}
-
-function SortByMatchmakeTime( a: Player, b: Player )
-{
-   return ( file.playerTimeInQueue.get( a ) as number ) < ( file.playerTimeInQueue.get( b ) as number )
-}
-
-function GetLongestSearchTime( players: Array<Player> ): number
-{
-   let time = 0
-   for ( let player of players )
-   {
-      if ( !file.playerTimeInQueue.has( player ) )
-         continue
-      let searchTime = Workspace.DistributedGameTime - ( file.playerTimeInQueue.get( player ) as number )
-      if ( searchTime > time )
-         time = searchTime
-   }
-   return time
-}
-
-function AnyPlayerSearchingForLessTime( players: Array<Player>, time: number ): boolean
-{
-   for ( let player of players )
-   {
-      if ( !file.playerTimeInQueue.has( player ) )
-         continue
-      let searchTime = Workspace.DistributedGameTime - ( file.playerTimeInQueue.get( player ) as number )
-      if ( searchTime < time )
-         return true
-   }
-   return false
-}
-
-function GetMatchmakingMinPlayersForLongestWaitTime( players: Array<Player> ): number
-{
-   if ( IsReservedServer() )
-      return math.floor( GraphCapped( Workspace.DistributedGameTime, 10, 20, file.reservedServerPlayerCount, MATCHMAKE_PLAYERCOUNT_FALLBACK ) )
-
-   let timer = GetLongestSearchTime( players )
-   let playerCount = math.floor( GraphCapped( timer, 25, 45, MATCHMAKE_PLAYERCOUNT_DESIRED, MATCHMAKE_PLAYERCOUNT_FALLBACK ) )
-
-   if ( DEV_SKIP )
-   {
-      if ( AnyPlayerSearchingForLessTime( players, 3 ) )
-         return MATCHMAKE_PLAYERCOUNT_DESIRED
-      return MATCHMAKE_PLAYERCOUNT_FALLBACK
-   }
-
-   if ( playerCount < MATCHMAKE_PLAYERCOUNT_DESIRED )
-   {
-      // if someone just started searching, then maybe someone else is about to search too?
-      if ( AnyPlayerSearchingForLessTime( players, 6 ) )
-         return MATCHMAKE_PLAYERCOUNT_DESIRED
-   }
-
-   return playerCount
-}
-

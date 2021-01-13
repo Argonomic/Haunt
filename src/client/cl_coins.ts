@@ -4,25 +4,27 @@ import { COIN_TYPE, GetCoinDataFromType } from "shared/sh_coins";
 import { AddCallback_OnPlayerCharacterAncestryChanged } from "shared/sh_onPlayerConnect";
 import { AddNetVarChangedCallback } from "shared/sh_player_netvars";
 import { AddRPC } from "shared/sh_rpc";
-import { GetScore, NETVAR_SCORE } from "shared/sh_score";
+import { GetMatchScore, GetStashScore, NETVAR_SCORE, NETVAR_STASH } from "shared/sh_score";
 import { Tween } from "shared/sh_tween";
 import { Thread, GetFirstChildWithNameAndClassName, Graph, GetLocalPlayer, LoadSound, ArrayRandom, RandomFloatRange, GraphCapped } from "shared/sh_utils";
 import { AddPlayerGuiFolderExistsCallback, UIORDER } from "./cl_ui";
 
+const LOCAL_PLAYER = GetLocalPlayer()
 
 type EDITOR_CoinUI = ScreenGui &
 {
-   TextLabel: TextLabel
+   MatchTotal: TextLabel
+   StashTotal: TextLabel
    CenterLabel: TextLabel
    CoinPopups: Folder
 }
 
 class File
 {
-   lastKnownScore = 0
-   currentlyPickingUp = 0
-   currentlyDisplayedScore = 0
+   tweenCount = new Map<TextLabel, number>()
+
    startPosition: UDim2 | undefined
+   lastKnownScore = 0
 
    coinUIs: Array<EDITOR_CoinUI> = []
    coinUI_Popup: EDITOR_CoinUI | undefined
@@ -47,7 +49,6 @@ const WHITE = new Color3( 1, 1, 1 )
 
 export function CL_CoinsSetup()
 {
-   let player = GetLocalPlayer()
    AddPlayerGuiFolderExistsCallback( function ( folder: Folder )
    {
       if ( file.coinUIs.size() > 0 )
@@ -62,7 +63,6 @@ export function CL_CoinsSetup()
       let coinUI = GetFirstChildWithNameAndClassName( folder, 'CoinUI', 'ScreenGui' ) as EDITOR_CoinUI
       coinUI.Enabled = true
       file.startPosition = coinUI.CenterLabel.Position
-      let score = GetScore( player )
 
       {
          let coinUI_Gain = coinUI.Clone()
@@ -73,7 +73,8 @@ export function CL_CoinsSetup()
 
          coinUI_Gain.DisplayOrder = UIORDER.UIORDER_SCORE_GAIN
          coinUI_Gain.CenterLabel.TextTransparency = 1
-         coinUI_Gain.TextLabel.Destroy()
+         coinUI_Gain.MatchTotal.Destroy()
+         coinUI_Gain.StashTotal.Destroy()
       }
 
       {
@@ -86,8 +87,17 @@ export function CL_CoinsSetup()
          coinUI_Total.DisplayOrder = UIORDER.UIORDER_SCORE_TOTAL
          coinUI_Total.CenterLabel.Destroy()
 
+         let score = GetMatchScore( LOCAL_PLAYER )
          if ( score === 0 )
-            coinUI_Total.TextLabel.Text = ""
+            coinUI_Total.MatchTotal.Text = ""
+         else
+            coinUI_Total.MatchTotal.Text = score + ""
+
+         let stash = GetStashScore( LOCAL_PLAYER )
+         if ( stash === 0 )
+            coinUI_Total.StashTotal.Text = ""
+         else
+            coinUI_Total.StashTotal.Text = stash + ""
       }
 
       {
@@ -98,15 +108,9 @@ export function CL_CoinsSetup()
          file.coinUIs.push( coinUI_Popup )
 
          coinUI_Popup.DisplayOrder = UIORDER.UIORDER_SCORE_POPUP
-         coinUI_Popup.TextLabel.Destroy()
+         coinUI_Popup.MatchTotal.Destroy()
+         coinUI_Popup.StashTotal.Destroy()
          coinUI_Popup.CenterLabel.Destroy()
-
-         Thread(
-            function ()
-            {
-               if ( score > 0 )
-                  DrawGainedPoints( score )
-            } )
       }
 
       coinUI.Destroy()
@@ -122,16 +126,8 @@ export function CL_CoinsSetup()
          }
       } )
 
-   AddNetVarChangedCallback( NETVAR_SCORE,
-      function ()
-      {
-         let score = GetScore( player )
-         Thread(
-            function ()
-            {
-               DrawGainedPoints( score )
-            } )
-      } )
+   AddNetVarChangedCallback( NETVAR_SCORE, UpdateDisplay )
+   AddNetVarChangedCallback( NETVAR_STASH, UpdateDisplay )
 
    AddRPC( "RPC_FromServer_PickupCoin",
       function ( pos: Vector3, coinType: COIN_TYPE )
@@ -241,7 +237,74 @@ export function ClearCoinPopUps()
    }
 }
 
-function DrawGainedPoints( score: number )
+function TweenTextNumber( elem: TextLabel, target: number, preFunc?: () => void, modifierFunc?: ( elem: TextLabel, num: number ) => void )
+{
+   let text = elem.Text
+   text = text.gsub( "+", "" )[0]
+
+   let _startNumber = tonumber( text )
+   if ( _startNumber === undefined )
+      _startNumber = 0
+   let startNumber = _startNumber as number
+   if ( startNumber === target )
+      return
+
+   Thread( function ()
+   {
+      if ( !file.tweenCount.has( elem ) )
+         file.tweenCount.set( elem, 0 )
+
+      let tweenCount = file.tweenCount.get( elem ) as number
+      tweenCount++
+      file.tweenCount.set( elem, tweenCount )
+
+      if ( preFunc )
+         preFunc()
+
+      if ( file.tweenCount.get( elem ) as number !== tweenCount )
+         return
+
+      let startTime = Workspace.DistributedGameTime
+      let time = Graph( math.abs( ( math.abs( target - startNumber ) ) ), 0, 50, 0, 0.3 )
+      if ( time < 0.2 )
+         time = 0.2
+      let endTime = startTime + time
+
+      for ( ; ; )
+      {
+         let newTweenCount = file.tweenCount.get( elem ) as number
+         if ( newTweenCount !== tweenCount ) // new tween interrupts
+            return
+
+         let num = math.floor( GraphCapped( Workspace.DistributedGameTime, startTime, endTime, startNumber, target ) )
+         //print( "Tween num " + num )
+
+         if ( num === 0 )
+            elem.Text = ""
+         else
+            elem.Text = num + ""
+
+         if ( modifierFunc )
+            modifierFunc( elem, num )
+
+         if ( Workspace.DistributedGameTime >= endTime )
+            return
+         wait()
+      }
+   } )
+}
+
+function GetElemScore( elem: TextLabel ): number
+{
+   let text = elem.Text
+   text = text.gsub( "+", "" )[0]
+   let value = tonumber( text )
+   if ( value !== undefined )
+      return value
+   return 0
+}
+
+function DrawGainedPoints()
 {
    let coinUI_Total = file.coinUI_Total
    if ( coinUI_Total === undefined )
@@ -251,109 +314,80 @@ function DrawGainedPoints( score: number )
    if ( coinUI_Gain === undefined )
       return
 
-   let lastKnownScore = file.lastKnownScore
-   if ( score < lastKnownScore || score === 0 )
    {
-      if ( score > 0 )
-         coinUI_Total.TextLabel.Text = score + ""
-      else
-         coinUI_Total.TextLabel.Text = ""
-      file.currentlyDisplayedScore = score
-      return
+      const stash = GetStashScore( LOCAL_PLAYER )
+      TweenTextNumber( coinUI_Total.StashTotal, stash )
    }
 
-   let label = coinUI_Gain.CenterLabel
-   let gain = score - file.lastKnownScore
-   let lastPickingUpAmount = file.currentlyPickingUp
-   file.currentlyPickingUp = gain
+   let matchTotal = coinUI_Total.MatchTotal
+   const score = GetMatchScore( LOCAL_PLAYER )
 
-   let mainScore = coinUI_Total.TextLabel
-
-   if ( gain - lastPickingUpAmount >= 10 )
+   if ( score > GetElemScore( matchTotal ) )
    {
-      Thread( function ()
-      {
-         let startTime = Workspace.DistributedGameTime
-         let endTime = startTime + 0.3
-         for ( ; ; )
-         {
-            let num = math.floor( GraphCapped( Workspace.DistributedGameTime, startTime, endTime, lastPickingUpAmount, gain ) )
-            if ( num < 1 )
-               num = 1
-            label.Text = "+" + num
-            if ( file.currentlyPickingUp !== gain )
-               return
-            if ( Workspace.DistributedGameTime >= endTime )
-               return
-            wait()
-         }
-      } )
+      matchTotal.TextColor3 = SCORE_COLOR
+      Tween( matchTotal, { TextColor3: WHITE }, 1.0 )
+      TweenTextNumber( matchTotal, score )
    }
    else
    {
-      label.Text = "+" + gain
+      TweenTextNumber( matchTotal, score )
+      return
    }
 
-   Thread( function ()
-   {
-      label.TextColor3 = SCORE_COLOR
-      Tween( label, { TextColor3: WHITE }, 1.0 )
-      Tween( label, { TextTransparency: 0, TextStrokeTransparency: 0 }, 0.1 )
-      label.Size = new UDim2( 0.25, 0, 0.25, 0 )
+   let gain = score - file.lastKnownScore
+   if ( gain <= 0 )
+      return
 
-      Tween( label, { Size: new UDim2( 0.08, 0, 0.08, 0 ) }, 0.5, Enum.EasingStyle.Quad, Enum.EasingDirection.Out )
-      wait( 0.5 )
+   file.lastKnownScore = score
 
-      if ( file.currentlyPickingUp !== gain )
-         return
+   let label = coinUI_Gain.CenterLabel
 
-      Tween( label, { TextTransparency: 1, TextStrokeTransparency: 1 }, 0.8, Enum.EasingStyle.Quad, Enum.EasingDirection.Out )
+   let currentGain = gain
+   //print( "label.TextTransparency is " + label.TextTransparency )
+   if ( label.TextTransparency >= 1 )
+      label.Text = ""
+   else
+      currentGain += GetElemScore( label )
 
-      if ( file.currentlyPickingUp !== gain )
-         return
+   //print( "Tween " + GetElemScore( label ) + " to " + currentGain )
 
-      mainScore.TextColor3 = SCORE_COLOR
-
-      if ( score - lastKnownScore > 1 )
+   TweenTextNumber( label, currentGain,
+      function ()
       {
-         Thread( function ()
-         {
-            let startTime = Workspace.DistributedGameTime
-            let endTime = startTime + 0.3
-            for ( ; ; )
+         label.TextColor3 = SCORE_COLOR
+         Tween( label, { TextColor3: WHITE }, 1.0 )
+         Tween( label, { TextTransparency: 0, TextStrokeTransparency: 0 }, 0.1 )
+         label.Size = new UDim2( 0.25, 0, 0.25, 0 )
+
+         Tween( label, { Size: new UDim2( 0.08, 0, 0.08, 0 ) }, 0.5, Enum.EasingStyle.Quad, Enum.EasingDirection.Out )
+
+         Thread(
+            function ()
             {
-               let num = math.floor( GraphCapped( Workspace.DistributedGameTime, startTime, endTime, lastKnownScore + 1, score ) )
-               if ( num > file.currentlyDisplayedScore )
-               {
-                  file.currentlyDisplayedScore = num
-                  mainScore.Text = num + ""
-               }
-               if ( Workspace.DistributedGameTime >= endTime )
+               let tweenCount = file.tweenCount.get( label ) as number
+               wait( 1.0 )
+
+               if ( file.tweenCount.get( label ) as number !== tweenCount )
                   return
-               wait()
-               if ( file.currentlyPickingUp !== gain )
-                  return
-            }
-         } )
-      }
-      else
+
+               Tween( label, { TextTransparency: 1, TextStrokeTransparency: 1 }, 1.5, Enum.EasingStyle.Quad, Enum.EasingDirection.Out )
+            } )
+      },
+      function ( elem: TextLabel, num: number )
       {
-         if ( score > file.currentlyDisplayedScore )
-         {
-            file.currentlyDisplayedScore = score
-            mainScore.Text = score + ""
-         }
-      }
+         if ( num < 1 )
+            num = 1
+
+         elem.Text = "+" + num
+      } )
+}
 
 
-      wait( 0.5 )
-
-      if ( file.currentlyPickingUp !== gain )
-         return
-
-      Tween( mainScore, { TextColor3: WHITE }, 1.5 )
-      file.lastKnownScore = score
-
-      file.currentlyPickingUp = 0
-   } )
+function UpdateDisplay()
+{
+   Thread(
+      function ()
+      {
+         DrawGainedPoints()
+      } )
 }

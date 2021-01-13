@@ -1,4 +1,4 @@
-import { GiveAssignment, ServerPlayeyHasAssignment, PlayerToGame } from "server/sv_gameState";
+import { GiveAssignment, ServerPlayeyHasAssignment, PlayerToGame, PlayerInGame } from "server/sv_gameState";
 import { ABILITIES } from "shared/content/sh_ability_content";
 import { SetAbilityCanUseFunc, SetAbilityServerFunc } from "shared/sh_ability";
 import { TASK_RESTORE_LIGHTS, Assignment } from "shared/sh_gamestate";
@@ -12,17 +12,19 @@ export function SV_AbilityContentSetup()
    SetAbilityServerFunc( ABILITIES.ABILITY_SABOTAGE_LIGHTS,
       function ( player: Player )
       {
+         if ( !PlayerInGame( player ) )
+            return
          print( "ABILITY_SABOTAGE_LIGHTS" )
-         let game = PlayerToGame( player )
-         ResetFuses( game )
+         ResetFuses()
 
-         let players = game.GetAllPlayers()
+         let match = PlayerToGame( player )
+         let players = match.GetAllPlayers()
          for ( let aplayer of players )
          {
-            if ( ServerPlayeyHasAssignment( aplayer, game, 'Garage', TASK_RESTORE_LIGHTS ) )
+            if ( ServerPlayeyHasAssignment( aplayer, match, 'Garage', TASK_RESTORE_LIGHTS ) )
                continue
             let assignment = new Assignment( 'Garage', TASK_RESTORE_LIGHTS )
-            GiveAssignment( aplayer, game, assignment )
+            GiveAssignment( aplayer, match, assignment )
             print( "Give restore lights task" )
          }
 
@@ -34,7 +36,7 @@ export function SV_AbilityContentSetup()
       function ( player: Player ): boolean
       {
          print( "test server has lights" )
-         let game = PlayerToGame( player )
-         return !ServerPlayeyHasAssignment( player, game, 'Garage', TASK_RESTORE_LIGHTS )
+         let match = PlayerToGame( player )
+         return !ServerPlayeyHasAssignment( player, match, 'Garage', TASK_RESTORE_LIGHTS )
       } )
 }

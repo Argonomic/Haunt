@@ -1,13 +1,12 @@
-import { DataStoreService, Workspace } from "@rbxts/services";
-import { IsReservedServer, LOCAL } from "shared/sh_gamestate";
+import { DataStoreService, RunService, Workspace } from "@rbxts/services";
+import { Assert } from "shared/sh_assert";
 import { AddCallback_OnPlayerConnected } from "shared/sh_onPlayerConnect";
-import { SetScore } from "shared/sh_score";
+import { IsReservedServer } from "shared/sh_reservedServer";
 import { MATCHMAKE_SERVER_VERSION } from "shared/sh_settings";
 import { Thread } from "shared/sh_utils";
 
-const META_PERSISTENCE = "PERSISTENCE"
-const COINS = "_COINS"
-
+const LOCAL = RunService.IsStudio()
+const PPRSTYPE_META = "PERSISTENCE"
 const GLOBAL_PERSISTENCE = "GLOBAL_PERSISTENCE"
 const GP_SERVER_VERSION = "GP_SERVER_VERSION"
 const CHECK_UPTODATE_TIME = 60
@@ -31,22 +30,16 @@ export function SV_PersistenceSetup()
    AddCallback_OnPlayerConnected(
       function ( player: Player )
       {
-         pcall(
+         Thread(
             function ()
             {
-               let pkey = GetPlayerKey( player )
-               let ds = DataStoreService.GetDataStore( META_PERSISTENCE, pkey )
-               file.playerToDS.set( player, ds )
-               let value = ds.GetAsync( COINS )
-               if ( typeOf( value ) === 'number' )
-               {
-                  if ( !IsReservedServer() )
-                     SetScore( player, value as number ) // see your score in the lobby
-               }
-               else
-               {
-                  ds.SetAsync( COINS, 0 )
-               }
+               pcall(
+                  function ()
+                  {
+                     let pkey = GetPlayerKey( player )
+                     let ds = DataStoreService.GetDataStore( PPRSTYPE_META, pkey )
+                     file.playerToDS.set( player, ds )
+                  } )
             } )
       } )
 
@@ -75,6 +68,8 @@ export function SV_PersistenceSetup()
                }
             } )
       } )
+
+   Assert( !LOCAL, "!LOCAL" )
 }
 
 export function IncrementServerVersion()
@@ -141,7 +136,48 @@ function GetPlayerKey( player: Player )
    return "PL" + player.UserId
 }
 
-export function GivePersistentPoints( player: Player, score: number )
+
+export function GetPlayerPersistence_Number( player: Player, field: string, _default: number ): number
+{
+   if ( LOCAL )
+      return _default
+
+   pcall(
+      function ()
+      {
+         let ds = file.playerToDS.get( player )
+         if ( ds === undefined )
+            return
+
+         let value = ds.GetAsync( field )
+         if ( typeOf( value ) === 'number' )
+            _default = value as number
+      } )
+
+   return _default
+}
+
+export function GetPlayerPersistence_Boolean( player: Player, field: string, _default: boolean ): boolean
+{
+   if ( LOCAL )
+      return _default
+
+   pcall(
+      function ()
+      {
+         let ds = file.playerToDS.get( player )
+         if ( ds === undefined )
+            return
+
+         let value = ds.GetAsync( field )
+         if ( typeOf( value ) === 'boolean' )
+            _default = value as boolean
+      } )
+
+   return _default
+}
+
+export function IncrementPlayerPersistence( player: Player, field: string, amount: number )
 {
    if ( LOCAL )
       return
@@ -152,14 +188,32 @@ export function GivePersistentPoints( player: Player, score: number )
          pcall(
             function ()
             {
-               let ds = file.playerToDS.get( player ) as GlobalDataStore
-               let value = ds.GetAsync( COINS )
-               if ( typeOf( value ) === 'number' )
-                  ds.IncrementAsync( COINS, score )
-               else
-                  ds.SetAsync( COINS, score )
+               let ds = file.playerToDS.get( player )
+               if ( ds === undefined )
+                  return
 
-               print( "Points: " + ds.GetAsync( COINS ) )
+               if ( typeOf( ds.GetAsync( field ) ) === 'number' )
+                  ds.IncrementAsync( field, amount )
+               else
+                  ds.SetAsync( field, amount )
+            } )
+      } )
+}
+
+export function SetPlayerPersistence( player: Player, field: string, value: unknown )
+{
+   if ( LOCAL )
+      return
+
+   Thread(
+      function ()
+      {
+         pcall(
+            function ()
+            {
+               let ds = file.playerToDS.get( player )
+               if ( ds !== undefined )
+                  ds.SetAsync( field, value )
             } )
       } )
 }

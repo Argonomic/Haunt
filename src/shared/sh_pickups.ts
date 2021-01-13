@@ -1,6 +1,6 @@
 import { IsServer, Thread, Distance, GetPosition, GraphCapped, RandomFloatRange, ArrayDistSorted } from "./sh_utils"
 import { Assert } from "./sh_assert"
-import { AddCallback_OnPlayerCharacterAdded } from "./sh_onPlayerConnect"
+import { AddCallback_OnPlayerCharacterAdded, AddCallback_OnPlayerConnected } from "./sh_onPlayerConnect"
 import { Workspace } from "@rbxts/services"
 import { Tween } from "./sh_tween"
 
@@ -13,10 +13,8 @@ class File
    pickupTypesByIndex = new Map<PICKUPS, PickupType>()
    partToType = new Map<Part, PICKUPS>()
 
-   //playerPickedUpFunc: ( player: Player, part: Part, index: PICKUPS ) => boolean = function ( player: Player, part: Part, index: PICKUPS ) { return true }
-
-   playersCanPickup = true
-   playerPickupDisabled = new Map<Player, boolean>()
+   //playersCanPickup = true
+   playerPickupEnabled = new Map<Player, boolean>()
 
    doneCreatingPickupTypes = false
 }
@@ -35,6 +33,12 @@ class PickupType
 
 export function SH_PickupsSetup()
 {
+   AddCallback_OnPlayerConnected(
+      function ( player: Player )
+      {
+         PlayerPickupsEnabled( player )
+      } )
+
    if ( IsServer() )
    {
       AddCallback_OnPlayerCharacterAdded(
@@ -43,7 +47,7 @@ export function SH_PickupsSetup()
             Thread(
                function ()
                {
-                  PlayerPickupCheck( player )
+                  PlayerPickupCheck( player, player.Character as Model )
                } )
          } )
    }
@@ -90,21 +94,23 @@ export function SetplayerPickedUpFunc( func: ( player: Player, part: Part, index
 
 function PlayerCanPickup( player: Player ): boolean
 {
-   if ( file.playerPickupDisabled.has( player ) )
+   if ( !file.playerPickupEnabled.has( player ) )
       return false
-   if ( !file.playersCanPickup )
-      return false
+   //   if ( !file.playersCanPickup )
+   //      return false
    if ( player.Character === undefined ) // disconnected?
       return false
    return true
 }
 
-function PlayerPickupCheck( player: Player )
+function PlayerPickupCheck( player: Player, character: Model )
 {
    for ( ; ; )
    {
       wait()
       if ( player.Character === undefined ) // disconnected?
+         return
+      if ( player.Character !== character )
          return
 
       if ( PlayerCanPickup( player ) )
@@ -206,23 +212,29 @@ function TryToPickup( player: Player, withinDist: Array<Part> )
    }
 }
 
+/*
 export function PickupsDisable()
 {
+   print( "PICKUPS GLOBALLY DISABLED (serv" + IsServer() + ")" )
    file.playersCanPickup = false
 }
 
 export function PickupsEnable()
 {
+   print( "PICKUPS GLOBALLY ENABLED (serv" + IsServer() + ")" )
    file.playersCanPickup = true
+}
+*/
+
+export function PlayerPickupsDisabled( player: Player )
+{
+   //print( "PICKUPS DISABLED FOR " + player.Name + " serv" + IsServer() + " )" )
+   if ( file.playerPickupEnabled.has( player ) )
+      file.playerPickupEnabled.delete( player )
 }
 
 export function PlayerPickupsEnabled( player: Player )
 {
-   if ( file.playerPickupDisabled.has( player ) )
-      file.playerPickupDisabled.delete( player )
-}
-
-export function PlayerPickupsDisabled( player: Player )
-{
-   file.playerPickupDisabled.set( player, true )
+   //print( "PICKUPS ENABLED FOR " + player.Name + " serv" + IsServer() + " )" )
+   file.playerPickupEnabled.set( player, true )
 }

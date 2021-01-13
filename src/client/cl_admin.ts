@@ -1,8 +1,8 @@
 import { UserInputService } from "@rbxts/services";
 import { AddCallback_OnPlayerCharacterAncestryChanged } from "shared/sh_onPlayerConnect";
-import { CL_SendRPC } from "shared/sh_rpc";
+import { SendRPC_Client } from "shared/sh_rpc";
 import { ADMINS } from "shared/sh_settings";
-import { ArrayFind, GetExistingFirstChildWithNameAndClassName, GetLocalPlayer } from "shared/sh_utils";
+import { ArrayFind, GetExistingFirstChildWithNameAndClassName, GetLocalPlayer, Thread } from "shared/sh_utils";
 import { AddPlayerGuiFolderExistsCallback } from "./cl_ui";
 
 const LOCAL_PLAYER = GetLocalPlayer()
@@ -36,7 +36,7 @@ export function CL_AdminSetup()
          adminUI.TextButton.MouseButton1Click.Connect(
             function ()
             {
-               CL_SendRPC( "RPC_FromClient_AdminClick" )
+               SendRPC_Client( "RPC_FromClient_AdminClick" )
             } )
       } )
 
@@ -46,5 +46,6 @@ export function CL_AdminSetup()
          if ( file.adminUI !== undefined )
             file.adminUI.Parent = undefined
       } )
+
 
 }

@@ -316,7 +316,13 @@ export function CreateRemoteEvent( name: string ): RemoteEvent
 export function Thread( func: Function ): Function
 {
    let newFunc = coroutine.wrap( func )
-   newFunc()
+   pcall(
+      function ()
+      {
+         newFunc()
+      }
+   )
+
    return newFunc
 }
 
@@ -709,4 +715,14 @@ function Assert( bool: boolean, msg: string )
    print( "\n\n\n" )
 
    assert( false, msg )
+}
+
+export function PlayerExists( player: Player )
+{
+   for ( let other of Players.GetPlayers() )
+   {
+      if ( other === player )
+         return true
+   }
+   return false
 }

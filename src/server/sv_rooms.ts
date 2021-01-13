@@ -195,7 +195,7 @@ export function PutPlayerInStartRoom( player: Player )
    let room = GetRoomByName( SPAWN_ROOM )
    Thread( function ()
    {
-      wait() // because hey, otherwise the game tries to set the player position somewhere
+      wait() // because hey, otherwise the match tries to set the player position somewhere
       PutPlayersInRoom( [player], room )
    } )
 }

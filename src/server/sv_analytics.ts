@@ -1,7 +1,9 @@
+import { RunService } from "@rbxts/services"
 import { AddAssertServerCallback } from "shared/sh_assert"
-import { IsReservedServer, LOCAL } from "shared/sh_gamestate"
 import { AddCallback_OnPlayerConnected } from "shared/sh_onPlayerConnect"
 import { Thread } from "shared/sh_utils"
+
+const LOCAL = RunService.IsStudio()
 
 class AnalyticsData
 {

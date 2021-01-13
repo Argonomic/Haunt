@@ -1,12 +1,15 @@
 import { MATCHMAKING_STATUS, NETVAR_MATCHMAKING_STATUS } from "shared/sh_gamestate";
-import { AddCallback_OnPlayerCharacterAncestryChanged, SetPlayerWalkSpeed } from "shared/sh_onPlayerConnect";
+import { AddCallback_OnPlayerCharacterAdded, AddCallback_OnPlayerCharacterAncestryChanged, SetPlayerWalkSpeed } from "shared/sh_onPlayerConnect";
 import { GetNetVar_Number } from "shared/sh_player_netvars";
 import { PLAYER_WALKSPEED } from "shared/sh_settings";
 import { Tween } from "shared/sh_tween";
 import { CloneChild, GetExistingFirstChildWithNameAndClassName, GetLocalPlayer, Thread } from "shared/sh_utils";
 import { Assert } from "shared/sh_assert"
 import { AddPlayerGuiFolderExistsCallback, UIORDER } from "./cl_ui";
-import { SendMeBackToLobby } from "../shared/sh_teleport";
+import { SendMeBackToLobby } from "shared/sh_matchmaking";
+import { GetLocalIsSpectator } from "./cl_gamestate";
+
+const LOCAL_PLAYER = GetLocalPlayer()
 
 class File
 {
@@ -73,8 +76,7 @@ class MatchScreenFrame
 
       let thisThread = coroutine.running()
 
-      let player = GetLocalPlayer()
-      SetPlayerWalkSpeed( player, 0 )
+      SetPlayerWalkSpeed( LOCAL_PLAYER, 0 )
 
       Thread(
          function ()
@@ -93,7 +95,7 @@ class MatchScreenFrame
                   if ( thisThread === file.threadQueue[0] )
                      file.threadQueue.remove( 0 )
                   if ( file.threadQueue.size() === 0 )
-                     SetPlayerWalkSpeed( player, PLAYER_WALKSPEED )
+                     SetPlayerWalkSpeed( LOCAL_PLAYER, PLAYER_WALKSPEED )
                   return
                }
                wait( 0.1 )
@@ -115,10 +117,13 @@ export function WaitForMatchScreenFrame( str: string ): MatchScreenFrame
    {
       Assert( file.threadQueue.size() > 0, "Should not be zero" )
 
-      let firstThread = file.threadQueue[0]
-      if ( firstThread === thisThread )
-         break
-      print( "waiting for thread release: " + file.threadQueue.size() )
+      if ( file.baseFrameTemplate !== undefined && LOCAL_PLAYER.Character !== undefined )
+      {
+         let firstThread = file.threadQueue[0]
+         if ( firstThread === thisThread )
+            break
+         print( "waiting for thread release: " + file.threadQueue.size() )
+      }
 
       wait( 0.1 )
    }
@@ -166,9 +171,9 @@ export function CL_MatchScreenSetup()
 
             wait( 1.0 )
 
-            if ( GetNetVar_Number( GetLocalPlayer(), NETVAR_MATCHMAKING_STATUS ) === MATCHMAKING_STATUS.MATCHMAKING_WAITING_TO_PLAY )
+            if ( GetNetVar_Number( LOCAL_PLAYER, NETVAR_MATCHMAKING_STATUS ) === MATCHMAKING_STATUS.MATCHMAKING_WAITING_FOR_RESERVEDSERVER_TO_START )
             {
-               if ( SendMeBackToLobby() )
+               if ( SendMeBackToLobby( LOCAL_PLAYER ) )
                {
                   frame.TitleFrame.SubTitle.Text = "Updating Lobby, hold tight!"
                   Tween( frame.TitleFrame.SubTitle, { TextTransparency: 0 }, 0.5 )
@@ -176,14 +181,14 @@ export function CL_MatchScreenSetup()
                }
                else
                {
-                  frame.TitleFrame.SubTitle.Text = "The game starts soon!"
+                  frame.TitleFrame.SubTitle.Text = "The match starts soon!"
                   Tween( frame.TitleFrame.SubTitle, { TextTransparency: 0 }, 2.5 )
                }
             }
 
             for ( ; ; )
             {
-               if ( GetNetVar_Number( GetLocalPlayer(), NETVAR_MATCHMAKING_STATUS ) !== MATCHMAKING_STATUS.MATCHMAKING_WAITING_TO_PLAY )
+               if ( GetNetVar_Number( LOCAL_PLAYER, NETVAR_MATCHMAKING_STATUS ) !== MATCHMAKING_STATUS.MATCHMAKING_WAITING_FOR_RESERVEDSERVER_TO_START )
                   break
                wait( 0.1 )
             }

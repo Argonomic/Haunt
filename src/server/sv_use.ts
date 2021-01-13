@@ -25,10 +25,11 @@ function RPC_FromClient_OnUse( player: Player )
    {
       EnableDebug()
       GetUseResultsForAttempt( player )
-      ReportEvent( "USE_FAILED", GetDebugBuffer() )
+      let buffer = GetDebugBuffer()
+      ReportEvent( "USE_FAILED", buffer )
       DisableDebug()
 
-      print( "no useResults" )
+      print( "no useResults: " + buffer )
       return
    }
    if ( useResults.usedThing === undefined )

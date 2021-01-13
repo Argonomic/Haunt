@@ -1,12 +1,16 @@
-import { Players } from "@rbxts/services";
+import { Players, RunService } from "@rbxts/services";
 import { AssignDefaultNVs } from "shared/sh_player_netvars"
-import { GetExistingFirstChildWithNameAndClassName, ExecOnChildWhenItExists, GetPlayerFromCharacter, IsServer, Thread, GetLocalPlayer, IsClient, GetFirstChildWithNameAndClassName } from "./sh_utils";
+import { GetExistingFirstChildWithNameAndClassName, ExecOnChildWhenItExists, GetPlayerFromCharacter, IsServer, Thread, GetLocalPlayer, IsClient, GetFirstChildWithNameAndClassName, ArrayRandomize } from "./sh_utils";
 import { Assert } from "shared/sh_assert"
+import { PLAYER_WALKSPEED } from "./sh_settings";
+
+const LOCAL = RunService.IsStudio()
+const LOCAL_PLAYER = GetLocalPlayer()
 
 class File
 {
    onPlayerConnected: Array<Function> = []
-   onPlayerCharacterAdded: Array<Function> = []
+   onPlayerCharacterAdded: Array<( player: Player ) => void> = []
    aPlayerConnected = false
 
    playerToModel = new Map<Player, Model>()
@@ -23,7 +27,6 @@ export function SH_OnPlayerConnectSetup()
    {
       OnPlayerConnected( player )
    }
-
 }
 
 export function AddCallback_OnPlayerConnected( func: Function )
@@ -41,6 +44,8 @@ export function AddCallback_OnPlayerCharacterAncestryChanged( func: () => void )
 {
    let localPlayer = GetLocalPlayer()
    Assert( IsClient(), "Client only" )
+   //   if ( !IsServer() && file.onPlayerCharacterAdded.size() >= 2 && file.onPlayerCharacterAdded.size() <= 4 )
+   //      print( "1 file.onPlayerCharacterAdded " + file.onPlayerCharacterAdded.size() + " " + debug.traceback() )
    file.onPlayerCharacterAdded.push(
       function ( player: Player )
       {
@@ -56,9 +61,11 @@ export function AddCallback_OnPlayerCharacterAncestryChanged( func: () => void )
       } )
 }
 
-export function AddCallback_OnPlayerCharacterAdded( func: Function )
+export function AddCallback_OnPlayerCharacterAdded( func: ( player: Player ) => void )
 {
    Assert( !file.aPlayerConnected, "Tried to add a player character added callback after a player connected" )
+   //   if ( !IsServer() && file.onPlayerCharacterAdded.size() >= 2 && file.onPlayerCharacterAdded.size() <= 4 )
+   //      print( "2 file.onPlayerCharacterAdded " + file.onPlayerCharacterAdded.size() + " " + debug.traceback() )
    file.onPlayerCharacterAdded.push( func )
 }
 
@@ -94,9 +101,15 @@ function OnPlayerCharacterAdded( character: Model )
       let human = instance as Humanoid
       human.SetStateEnabled( Enum.HumanoidStateType.Jumping, false )
       human.SetStateEnabled( Enum.HumanoidStateType.Climbing, false )
+      SetPlayerWalkSpeed( player, PLAYER_WALKSPEED )
 
-      for ( let func of file.onPlayerCharacterAdded )
+      print( "EXECUTING ON PLAYER CHARACTER ADDED, IS SERVER: " + IsServer() )
+
+      for ( let i = 0; i < file.onPlayerCharacterAdded.size(); i++ )
       {
+         let func = file.onPlayerCharacterAdded[i]
+         // /         if ( !IsServer() )
+         // /            print( "file.onPlayerCharacterAdded " + i )
          Thread( function ()
          {
             func( player )
@@ -111,9 +124,57 @@ export function ClonePlayerModel( player: Player ): Model | undefined
       return undefined
 
    let model = file.playerToModel.get( player ) as Model
-   let clone = _CloneCharacter( model )
-   //clone.Name = player.Name + " clone model"
-   return clone
+   return _CloneCharacter( model )
+}
+
+export function ClonePlayerModels( players: Array<Player> ): Array<Model>
+{
+   let models: Array<Model> = []
+   for ( let player of players )
+   {
+      if ( file.playerToModel.has( player ) )
+      {
+         let model = file.playerToModel.get( player ) as Model
+         models.push( _CloneCharacter( model ) )
+      }
+   }
+   return models
+}
+
+export function TryFillWithFakeModels( models: Array<Model>, count: number )
+{
+   let otherPlayers: Array<Player> = []
+   for ( let pair of file.playerToModel )
+   {
+      let player = pair[0]
+      if ( player === LOCAL_PLAYER )
+         continue
+      if ( !file.playerToModel.has( player ) )
+         continue
+      otherPlayers.push( player )
+   }
+
+   if ( !otherPlayers.size() )
+      return
+
+   for ( ; ; )
+   {
+      ArrayRandomize( otherPlayers )
+      for ( let player of otherPlayers )
+      {
+         if ( models.size() >= count )
+            return
+
+         let model = ClonePlayerModel( player )
+         if ( model === undefined )
+         {
+            Assert( false, "Expected a model" )
+            throw undefined
+         }
+
+         models.push( model )
+      }
+   }
 }
 
 function _CloneCharacter( character: Model ): Model 
@@ -157,21 +218,20 @@ function OnPlayerConnected( player: Player )
 {
    let finished = false
 
+   /*
    Thread( function ()
    {
       wait()
       Assert( finished, "OnPlayerConnected Never finished init" )
 
-      /*
       if ( IsServer() )
       {
          wait( 5 )
-         //game.playerToSpawnLocation.set( player, spawnLocations[i] )
+         //match.playerToSpawnLocation.set( player, spawnLocations[i] )
          //KillPlayer( player )
       }
-      */
    } )
-
+   */
 
    file.aPlayerConnected = true
 
@@ -187,6 +247,7 @@ function OnPlayerConnected( player: Player )
    }
 
    player.CharacterAdded.Connect( OnPlayerCharacterAdded )
+
    if ( player.Character )
       OnPlayerCharacterAdded( player.Character )
 

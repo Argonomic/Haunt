@@ -6,7 +6,7 @@ import { TASK_EXIT, TASK_RESTORE_LIGHTS } from "shared/sh_gamestate"
 import { Tween, TweenThenDestroy } from "shared/sh_tween"
 import { ArrayRandomize, BlendColors, ExecOnChildWhenItExists, GetChildren_NoFutureOffspring, GetExistingFirstChildWithNameAndClassName, Graph, LoadSound, RandomFloatRange, RandomInt, Thread } from "shared/sh_utils"
 import { Assert } from "shared/sh_assert"
-import { AddRPC, CL_SendRPC } from "shared/sh_rpc"
+import { AddRPC, SendRPC_Client } from "shared/sh_rpc"
 
 const IMAGE_WEB = 'rbxassetid://170195297'
 
@@ -257,7 +257,7 @@ function Task_RestoreLights( frame: RestoreLights, closeTaskThread: Function, st
          localRedraw = true
          file.restoreLightsFlipSound.Play()
          localFusePositions[i] = !localFusePositions[i]
-         CL_SendRPC( "RPC_FromClient_RestoreLighting_Fuse", i, localFusePositions[i] )
+         SendRPC_Client( "RPC_FromClient_RestoreLighting_Fuse", i, localFusePositions[i] )
       } )
    }
 

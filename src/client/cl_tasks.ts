@@ -1,4 +1,4 @@
-import { AddRPC, CL_SendRPC } from "shared/sh_rpc"
+import { AddRPC, SendRPC_Client } from "shared/sh_rpc"
 import { Assignment, AssignmentIsSame, NETVAR_JSON_ASSIGNMENTS } from "shared/sh_gamestate"
 import { AddNetVarChangedCallback, GetNetVar_String } from "shared/sh_player_netvars"
 import { ReleaseDraggedButton, AddCallback_MouseClick } from "client/cl_ui"
@@ -186,7 +186,7 @@ export function RPC_FromServer_OnPlayerUseTask( roomName: string, taskName: stri
       if ( activeTaskStatus.success )
       {
          file.successSound.Play()
-         CL_SendRPC( "RPC_FromClient_OnPlayerFinishTask", roomName, taskName )
+         SendRPC_Client( "RPC_FromClient_OnPlayerFinishTask", roomName, taskName )
          SetUseDebounceTime( 1 ) // hide use for a second
       }
 

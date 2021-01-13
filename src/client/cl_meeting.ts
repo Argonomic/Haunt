@@ -1,12 +1,12 @@
 import { RunService } from "@rbxts/services";
-import { Game, GAME_STATE, PlayerInfo, PlayerNumToGameViewable, ROLE } from "shared/sh_gamestate";
+import { Match, GAME_STATE, PlayerInfo, PlayerNumToGameViewable, ROLE } from "shared/sh_gamestate";
 import { ClonePlayerModel } from "shared/sh_onPlayerConnect";
-import { MATCHMAKE_PLAYERCOUNT_DESIRED, PLAYER_COLORS } from "shared/sh_settings";
+import { MATCHMAKE_PLAYERCOUNT_MAX, PLAYER_COLORS } from "shared/sh_settings";
 import { Tween } from "shared/sh_tween";
 import { GetColor, GetFirstChildWithName, GetFirstChildWithNameAndClassName, GetLocalPlayer, LightenColor, SetCharacterTransparency, Thread, SetCharacterYaw } from "shared/sh_utils";
 import { Assert } from "shared/sh_assert"
 import { AddPlayerGuiFolderExistsCallback, UIORDER } from "./cl_ui";
-import { CL_SendRPC } from "shared/sh_rpc";
+import { SendRPC_Client } from "shared/sh_rpc";
 
 class File
 {
@@ -41,7 +41,7 @@ class PlayerButtonGroup
    playerInfo: PlayerInfo
    horn: ImageLabel
 
-   constructor( game: Game, player: Player, playerButtonTemplate: Editor_PlayerFrameButton, playerCount: number, displayChecks: ( buttonGroup: ButtonGroup ) => void, checkYes: () => void )
+   constructor( match: Match, player: Player, playerButtonTemplate: Editor_PlayerFrameButton, playerCount: number, displayChecks: ( buttonGroup: ButtonGroup ) => void, checkYes: () => void )
    {
       this.player = player
       this.frameButton = playerButtonTemplate.Clone()
@@ -69,7 +69,7 @@ class PlayerButtonGroup
       playerImageLabel.ImageTransparency = 1.0
       playerImageLabel.BackgroundTransparency = 1.0
       playerName.Text = player.Name
-      let playerInfo = game.GetPlayerInfo( player )
+      let playerInfo = match.GetPlayerInfo( player )
       this.playerInfo = playerInfo
       if ( playerInfo.playernum >= 0 )
       {
@@ -85,11 +85,11 @@ class PlayerButtonGroup
 
       this.alive = this.connected
 
-      if ( game.GetPlayerRole( player ) === ROLE.ROLE_SPECTATOR_CAMPER_ESCAPED )
+      if ( match.GetPlayerRole( player ) === ROLE.ROLE_SPECTATOR_CAMPER_ESCAPED )
       {
          this.alive = false
       }
-      else if ( game.IsSpectator( player ) )
+      else if ( match.IsSpectator( player ) )
       {
          this.alive = false
          dead.Visible = true
@@ -249,14 +249,14 @@ class ActiveMeeting
    skipButtonGroup: ButtonGroup
    playerButtonGroups: Array<PlayerButtonGroup>
    meetingMessage: TextLabel
-   game: Game
+   match: Match
    render: RBXScriptConnection
 
-   constructor( game: Game, meetingUITemplate: ScreenGui, meetingCaller: Player )
+   constructor( match: Match, meetingUITemplate: ScreenGui, meetingCaller: Player )
    {
-      let players = game.GetAllPlayers()
+      let players = match.GetAllPlayers()
       Assert( players.size() > 0, "Can't start a meeting with zero players" )
-      this.game = game
+      this.match = match
 
       let meetingUI = meetingUITemplate.Clone()
       this.meetingUI = meetingUI
@@ -274,13 +274,13 @@ class ActiveMeeting
 
       function HideAllChecksAndDisplayThisOne( buttonGroup: ButtonGroup )
       {
-         if ( game.GetGameState() !== GAME_STATE.GAME_STATE_MEETING_VOTE )
+         if ( match.GetGameState() !== GAME_STATE.GAME_STATE_MEETING_VOTE )
             return
 
-         if ( game.IsSpectator( localPlayer ) )
+         if ( match.IsSpectator( localPlayer ) )
             return
 
-         for ( let vote of game.GetVotes() )
+         for ( let vote of match.GetVotes() )
          {
             if ( vote.voter === localPlayer )
                return // already voted
@@ -291,7 +291,7 @@ class ActiveMeeting
             buttonGroup.HideChecks()
          }
 
-         switch ( game.GetPlayerRole( localPlayer ) )
+         switch ( match.GetPlayerRole( localPlayer ) )
          {
             case ROLE.ROLE_POSSESSED:
             case ROLE.ROLE_CAMPER:
@@ -306,7 +306,7 @@ class ActiveMeeting
 
          function ()
          {
-            CL_SendRPC( "RPC_FromClient_Skipvote" )
+            SendRPC_Client( "RPC_FromClient_Skipvote" )
          },
       )
       allButtonGroups.push( skipButtonGroup )
@@ -325,10 +325,10 @@ class ActiveMeeting
       for ( let i = 0; i < players.size(); i++ )
       {
          let player = players[i]
-         let playerButtonGroup = new PlayerButtonGroup( game, player, playerButtonTemplate, players.size(),
+         let playerButtonGroup = new PlayerButtonGroup( match, player, playerButtonTemplate, players.size(),
             function ( buttonGroup: ButtonGroup )
             {
-               if ( game.IsSpectator( playerButtonGroup.player ) )
+               if ( match.IsSpectator( playerButtonGroup.player ) )
                   return
 
                HideAllChecksAndDisplayThisOne( buttonGroup )
@@ -336,7 +336,7 @@ class ActiveMeeting
 
             function ()
             {
-               CL_SendRPC( "RPC_FromClient_Vote", player.UserId )
+               SendRPC_Client( "RPC_FromClient_Vote", player.UserId )
             },
          )
          allButtonGroups.push( playerButtonGroup.buttonGroup )
@@ -362,7 +362,7 @@ class ActiveMeeting
       }
 
 
-      let last = MATCHMAKE_PLAYERCOUNT_DESIRED - 1
+      let last = MATCHMAKE_PLAYERCOUNT_MAX - 1
       let first = 0
 
       for ( let i = 0; i < this.playerButtonGroups.size(); i++ )
@@ -395,14 +395,14 @@ class ActiveMeeting
 
       this.render = RunService.RenderStepped.Connect( function ()
       {
-         let timeRemaining = math.floor( game.GetTimeRemainingForState() )
+         let timeRemaining = math.floor( match.GetTimeRemainingForState() )
          if ( timeRemaining > 0 )
             timeRemaining++
          let timeRemainingMsg = " (" + timeRemaining + ")"
 
-         if ( game.IsSpectator( localPlayer ) )
+         if ( match.IsSpectator( localPlayer ) )
          {
-            switch ( game.GetGameState() )
+            switch ( match.GetGameState() )
             {
                case GAME_STATE.GAME_STATE_MEETING_VOTE:
                   activeMeeting.meetingMessage.Text = "Waiting for votes.." + timeRemainingMsg
@@ -415,10 +415,10 @@ class ActiveMeeting
          }
          else
          {
-            switch ( game.GetGameState() )
+            switch ( match.GetGameState() )
             {
                case GAME_STATE.GAME_STATE_MEETING_VOTE:
-                  if ( !game.DidVote( localPlayer ) )
+                  if ( !match.DidVote( localPlayer ) )
                      activeMeeting.meetingMessage.Text = "Make your vote!" + timeRemainingMsg
                   else
                      activeMeeting.meetingMessage.Text = "Waiting for votes.." + timeRemainingMsg
@@ -458,14 +458,14 @@ class ActiveMeeting
       }
    }
 
-   public RedrawMeeting( game: Game )
+   public RedrawMeeting( match: Match )
    {
       let playerToButtonGroup = new Map<Player, PlayerButtonGroup>()
 
       let localPlayer = GetLocalPlayer()
 
       let didVote = false
-      for ( let vote of game.GetVotes() )
+      for ( let vote of match.GetVotes() )
       {
          if ( vote.voter === localPlayer )
          {
@@ -485,9 +485,9 @@ class ActiveMeeting
       }
       else
       {
-         if ( !game.IsSpectator( localPlayer ) )
+         if ( !match.IsSpectator( localPlayer ) )
          {
-            if ( game.GetGameState() === GAME_STATE.GAME_STATE_MEETING_VOTE )
+            if ( match.GetGameState() === GAME_STATE.GAME_STATE_MEETING_VOTE )
                this.skipButtonGroup.button.Visible = true
          }
       }
@@ -503,7 +503,7 @@ class ActiveMeeting
 
       const TIME = 0.6
       let dif = 0.3
-      for ( let vote of game.GetVotes() )
+      for ( let vote of match.GetVotes() )
       {
          let voter = vote.voter as Player
          Assert( voter !== undefined, "No voter!" )
@@ -540,7 +540,7 @@ class ActiveMeeting
    }
 }
 
-export function UpdateMeeting( game: Game, lastGameState: GAME_STATE )
+export function UpdateMeeting( match: Match, lastGameState: GAME_STATE )
 {
    let meetingUITemplate = file.meetingUI
    if ( meetingUITemplate === undefined )
@@ -549,7 +549,7 @@ export function UpdateMeeting( game: Game, lastGameState: GAME_STATE )
       return
    }
 
-   let meetingCaller = game.meetingCaller
+   let meetingCaller = match.meetingCaller
    if ( meetingCaller === undefined )
       return
 
@@ -569,17 +569,17 @@ export function UpdateMeeting( game: Game, lastGameState: GAME_STATE )
       }
    }
 
-   switch ( game.GetGameState() )
+   switch ( match.GetGameState() )
    {
       case GAME_STATE.GAME_STATE_MEETING_DISCUSS:
       case GAME_STATE.GAME_STATE_MEETING_VOTE:
          if ( activeMeeting === undefined )
          {
-            activeMeeting = new ActiveMeeting( game, meetingUITemplate, meetingCaller )
+            activeMeeting = new ActiveMeeting( match, meetingUITemplate, meetingCaller )
             file.activeMeeting = activeMeeting
          }
 
-         activeMeeting.RedrawMeeting( game )
+         activeMeeting.RedrawMeeting( match )
          break
 
       default:

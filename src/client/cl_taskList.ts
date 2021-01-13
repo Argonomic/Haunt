@@ -1,6 +1,6 @@
 import { GetTaskSpec } from "client/cl_tasks"
-import { GAME_STATE, IsPracticing, NETVAR_JSON_GAMESTATE, NETVAR_JSON_ASSIGNMENTS, NETVAR_MEETINGS_CALLED, USETYPES } from "shared/sh_gamestate"
-import { AddNetVarChangedCallback, GetNetVar_Number } from "shared/sh_player_netvars"
+import { NETVAR_JSON_GAMESTATE, NETVAR_JSON_ASSIGNMENTS, USETYPES } from "shared/sh_gamestate"
+import { AddNetVarChangedCallback } from "shared/sh_player_netvars"
 import { GetCurrentRoom } from "./cl_rooms"
 import { GetFirstChildWithName, GetLocalPlayer, Graph, Thread } from "shared/sh_utils"
 import { Assert } from "shared/sh_assert"
@@ -8,9 +8,11 @@ import { Task } from "shared/sh_rooms"
 import { GetMinimapReferencesFrame } from "./cl_minimap"
 import { AddPlayerGuiFolderExistsCallback, ToggleButton, UIORDER } from "./cl_ui"
 import { GetUsableByType } from "shared/sh_use"
-import { GetLocalAssignments, GetLocalGame, GetLocalIsSpectator } from "./cl_gamestate"
+import { GetLocalAssignments, GetLocalGame } from "./cl_gamestate"
 import { AddCallback_OnPlayerCharacterAncestryChanged } from "shared/sh_onPlayerConnect"
 import { Tween } from "shared/sh_tween"
+import { CanCallMeeting } from "shared/content/sh_use_content"
+import { IsReservedServer } from "shared/sh_reservedServer"
 
 const LOCAL_PLAYER = GetLocalPlayer()
 
@@ -45,32 +47,6 @@ export function TasksRemaining(): number
 
 let file = new File()
 
-function RefreshTaskList()
-{
-   if ( file.existingUI === undefined )
-      return
-
-   file.existingUI.Enabled = !IsPracticing( LOCAL_PLAYER )
-
-   let frame = GetMinimapReferencesFrame()
-   if ( frame !== undefined )
-   {
-      file.framePosition = new UDim2( 0, frame.AbsolutePosition.X, 0, frame.AbsoluteSize.Y + frame.AbsolutePosition.X )
-      file.existingUI.Frame.Position = file.framePosition
-   }
-
-   let assignments = GetLocalAssignments()
-
-   if ( file.lastAssignmentCount !== assignments.size() )
-   {
-      file.lastAssignmentCount = assignments.size()
-      if ( file.toggleButton !== undefined )
-         file.toggleButton.Open()
-   }
-
-   RedrawTaskListUI()
-}
-
 export function CL_TaskListSetup()
 {
    GetUsableByType( USETYPES.USETYPE_TASK ).DefineGetter(
@@ -78,6 +54,9 @@ export function CL_TaskListSetup()
       {
          let parts: Array<BasePart> = []
          let room = GetCurrentRoom( LOCAL_PLAYER )
+         let match = GetLocalGame()
+         if ( match === undefined )
+            return []
 
          for ( let assignment of GetLocalAssignments() )
          {
@@ -88,6 +67,9 @@ export function CL_TaskListSetup()
 
             Assert( room.tasks.has( assignment.taskName ), "Room " + room.name + " has no task " + assignment.taskName )
             let task = room.tasks.get( assignment.taskName ) as Task
+            if ( match.winOnlybyEscaping && task.realMatchesOnly )
+               continue
+
             parts.push( task.volume )
          }
 
@@ -95,20 +77,14 @@ export function CL_TaskListSetup()
       } )
 
 
-   let game = GetLocalGame()
    GetUsableByType( USETYPES.USETYPE_MEETING ).DefineGetter(
       function ( player: Player ): Array<BasePart>
       {
-         if ( IsPracticing( player ) )
+         let match = GetLocalGame()
+         if ( match === undefined )
             return []
 
-         if ( GetLocalIsSpectator() )
-            return []
-
-         if ( GetNetVar_Number( player, NETVAR_MEETINGS_CALLED ) > 0 )
-            return []
-
-         if ( game.GetGameState() === GAME_STATE.GAME_STATE_SUDDEN_DEATH )
+         if ( !CanCallMeeting( match, LOCAL_PLAYER ) )
             return []
 
          let room = GetCurrentRoom( LOCAL_PLAYER )
@@ -179,7 +155,7 @@ export function CL_TaskListSetup()
       let baseLabel = clone.Frame.TextLabel
       baseLabel.TextSize = Graph( clone.Frame.AbsoluteSize.X, 200, 400, 14, 28 )
       baseLabel.TextWrapped = false
-      baseLabel.TextScaled = false
+      baseLabel.TextScaled = true // was false??
       for ( let i = 0; i < 10; i++ )
       {
          let label = baseLabel.Clone()
@@ -205,11 +181,28 @@ export function CL_TaskListSetup()
 }
 
 
-
-export function RedrawTaskListUI()
+function RefreshTaskList()
 {
    if ( file.existingUI === undefined )
       return
+
+   let existingUI = file.existingUI
+
+   let frame = GetMinimapReferencesFrame()
+   if ( frame !== undefined )
+   {
+      file.framePosition = new UDim2( 0, frame.AbsolutePosition.X, 0, frame.AbsoluteSize.Y + frame.AbsolutePosition.X )
+      file.existingUI.Frame.Position = file.framePosition
+   }
+
+   let assignments = GetLocalAssignments()
+
+   if ( file.lastAssignmentCount !== assignments.size() )
+   {
+      file.lastAssignmentCount = assignments.size()
+      if ( file.toggleButton !== undefined )
+         file.toggleButton.Open()
+   }
 
    let count = 0
    for ( let assignment of GetLocalAssignments() )
@@ -223,22 +216,38 @@ export function RedrawTaskListUI()
       label.Text = ""
    }
 
-   let game = GetLocalGame()
-   if ( game.IsSpectator( GetLocalPlayer() ) )
+   let match = GetLocalGame()
+   if ( match === undefined )
    {
-      let toggleButton = file.toggleButton
-      if ( toggleButton !== undefined && count === 0 && toggleButton.IsOpen() )
-      {
-         toggleButton.Close()
+      existingUI.Enabled = false
+      return
+   }
 
-         let position = file.framePosition
-         let newPosition = new UDim2( position.X.Scale - 0.25, position.X.Offset, position.Y.Scale, position.Y.Offset )
-         // deep close it
-         Tween( file.existingUI.Frame, { Position: newPosition, 'AnchorPoint': new Vector2( 1.0, 0 ) }, 1.0 )
+   if ( match.IsSpectator( GetLocalPlayer() ) )
+   {
+      if ( existingUI.Enabled )
+      {
+         Thread(
+            function ()
+            {
+               let toggleButton = file.toggleButton
+               if ( toggleButton !== undefined && count === 0 && toggleButton.IsOpen() )
+               {
+                  toggleButton.Close()
+
+                  let position = file.framePosition
+                  let newPosition = new UDim2( position.X.Scale - 0.25, position.X.Offset, position.Y.Scale, position.Y.Offset )
+                  // deep close it
+                  Tween( existingUI.Frame, { Position: newPosition, 'AnchorPoint': new Vector2( 1.0, 0 ) }, 1.0 )
+                  wait( 1.0 )
+                  existingUI.Enabled = false
+               }
+            } )
       }
       return
    }
 
+   existingUI.Enabled = true
 
    class DrawTask
    {
@@ -279,23 +288,18 @@ export function RedrawTaskListUI()
    let startIndex
    let localPlayer = GetLocalPlayer()
 
-   if ( IsPracticing( localPlayer ) )
-   {
-      file.taskLabels[0].Text = "Try " + drawTasks.size() + " tasks:"
-      startIndex = 2
-   }
-   else if ( game.IsImpostor( localPlayer ) )
+   if ( match.IsImpostor( localPlayer ) )
    {
       file.taskLabels[0].Text = "Kill the innocent before they"
       file.taskLabels[1].Text = "complete their tasks and escape"
-      startIndex = 3
+      startIndex = 2
    }
    else
    {
       file.taskLabels[0].Text = "Complete your tasks while avoiding"
       file.taskLabels[1].Text = "any Impostors, then escape."
       file.taskLabels[2].Text = drawTasks.size() + " Tasks Remaining:"
-      startIndex = 4
+      startIndex = 3
    }
 
    let index = startIndex

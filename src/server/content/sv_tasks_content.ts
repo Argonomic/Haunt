@@ -1,10 +1,10 @@
-import { HttpService } from "@rbxts/services";
+import { HttpService, Players } from "@rbxts/services";
 import { PlayerHasAssignments, PlayerToGame, RemoveAssignment } from "server/sv_gameState";
 import { SV_SendRPC } from "shared/sh_rpc"
 import { ABILITIES, COOLDOWN_SABOTAGE_LIGHTS } from "shared/content/sh_ability_content";
 import { HasAbility } from "shared/sh_ability";
 import { ResetCooldownTime } from "shared/sh_cooldown";
-import { Game, TASK_RESTORE_LIGHTS } from "shared/sh_gamestate";
+import { TASK_RESTORE_LIGHTS } from "shared/sh_gamestate";
 import { AddRPC } from "shared/sh_rpc";
 import { ArrayRandomize, RandomInt } from "shared/sh_utils";
 
@@ -15,7 +15,7 @@ class Fuses
 
 class File
 {
-   gameToFuses = new Map<Game, Fuses>()
+   fuses = new Fuses()
 }
 let file = new File()
 
@@ -24,16 +24,16 @@ export function SV_TasksContentSetup()
 {
    AddRPC( "RPC_FromClient_RestoreLighting_Fuse", function ( player: Player, fuse: number, status: boolean )
    {
-      let game = PlayerToGame( player )
-      if ( game.IsSpectator( player ) )
+      let match = PlayerToGame( player )
+      if ( match.IsSpectator( player ) )
          return
 
-      let fuses = file.gameToFuses.get( game ) as Fuses
+      let fuses = file.fuses
 
       if ( fuse < 0 || fuse >= fuses.fuses.size() )
          return
       fuses.fuses[fuse] = status
-      SendFusePositionsToClients( game )
+      SendFusePositionsToClients()
 
       for ( let fuse of fuses.fuses )
       {
@@ -41,10 +41,10 @@ export function SV_TasksContentSetup()
             return
       }
 
-      for ( let aplayer of game.GetAllPlayers() )
+      for ( let aplayer of match.GetAllPlayers() )
       {
-         if ( PlayerHasAssignments( aplayer, game ) )
-            RemoveAssignment( aplayer, game, 'Garage', TASK_RESTORE_LIGHTS )
+         if ( PlayerHasAssignments( aplayer, match ) )
+            RemoveAssignment( aplayer, match, 'Garage', TASK_RESTORE_LIGHTS )
 
          if ( HasAbility( aplayer, ABILITIES.ABILITY_SABOTAGE_LIGHTS ) )
             ResetCooldownTime( aplayer, COOLDOWN_SABOTAGE_LIGHTS )
@@ -52,29 +52,20 @@ export function SV_TasksContentSetup()
    } )
 }
 
-function SendFusePositionsToClients( game: Game )
+function SendFusePositionsToClients()
 {
-   let fuses = file.gameToFuses.get( game ) as Fuses
+   let fuses = file.fuses
    let fuseArrayJson = HttpService.JSONEncode( fuses.fuses )
-   for ( let player of game.GetAllPlayers() )
+   for ( let player of Players.GetPlayers() )
    {
       SV_SendRPC( "RPC_FromServer_RestoreLighting_Fuse", player, fuseArrayJson )
    }
 }
 
 
-export function ResetFuses( game: Game )
+export function ResetFuses()
 {
-   let fuses
-   if ( !file.gameToFuses.has( game ) )
-   {
-      fuses = new Fuses()
-      file.gameToFuses.set( game, fuses )
-   }
-   else
-   {
-      fuses = file.gameToFuses.get( game ) as Fuses
-   }
+   let fuses = file.fuses
 
    let positions: Array<number> = []
    for ( let i = 0; i < fuses.fuses.size(); i++ )
@@ -94,5 +85,5 @@ export function ResetFuses( game: Game )
       let fuse = positions[i]
       fuses.fuses[fuse] = true
    }
-   SendFusePositionsToClients( game )
+   SendFusePositionsToClients()
 }

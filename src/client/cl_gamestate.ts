@@ -1,62 +1,128 @@
 import { HttpService, Workspace } from "@rbxts/services"
-import { ROLE, Game, NETVAR_JSON_GAMESTATE, USETYPES, GAME_STATE, GetVoteResults, GAMERESULTS, MEETING_TYPE, IsCamperRole, IsImpostorRole, AddRoleChangeCallback, Assignment, AssignmentIsSame, NETVAR_JSON_ASSIGNMENTS } from "shared/sh_gamestate"
-import { AddCallback_OnPlayerCharacterAdded } from "shared/sh_onPlayerConnect"
+import { ROLE, Match, NETVAR_JSON_GAMESTATE, USETYPES, GAME_STATE, GetVoteResults, GAMERESULTS, MEETING_TYPE, IsCamperRole, IsImpostorRole, AddRoleChangeCallback, Assignment, AssignmentIsSame, NETVAR_JSON_ASSIGNMENTS, EDITOR_GameplayFolder } from "shared/sh_gamestate"
+import { AddCallback_OnPlayerCharacterAdded, ClonePlayerModels, TryFillWithFakeModels } from "shared/sh_onPlayerConnect"
 import { AddNetVarChangedCallback, GetNetVar_String } from "shared/sh_player_netvars"
-import { SetTimeDelta } from "shared/sh_time"
 import { GetUsableByType } from "shared/sh_use"
-import { GetFirstChildWithName, GetLocalPlayer, RandomFloatRange, RecursiveOnChildren, Resume, SetCharacterTransparency, Thread, WaitThread } from "shared/sh_utils"
+import { ExecOnChildWhenItExists, GetFirstChildWithName, GetLocalPlayer, RandomFloatRange, RecursiveOnChildren, Resume, SetCharacterTransparency, Thread, WaitThread } from "shared/sh_utils"
 import { Assert } from "shared/sh_assert"
 import { UpdateMeeting } from "./cl_meeting"
 import { CancelAnyOpenTask } from "./cl_tasks"
 import { AddPlayerUseDisabledCallback } from "./cl_use"
 import { DrawMatchScreen_EmergencyMeeting, DrawMatchScreen_Escaped, DrawMatchScreen_GameOver, DrawMatchScreen_Intro, DrawMatchScreen_Victory, DrawMatchScreen_VoteResults } from "./content/cl_matchScreen_content"
-import { GetScore } from "shared/sh_score"
+import { GetLastStashed } from "shared/sh_score"
+import { DEV_SKIP, MATCHMAKE_PLAYERCOUNT_MAX } from "shared/sh_settings"
 
 const LOCAL_PLAYER = GetLocalPlayer()
+const REAL_GEO_OFFSET = new Vector3( 0, -500, 0 )
 
 class File
 {
-   clientGame = new Game()
+   clientMatch: Match | undefined
 
    localAssignments: Array<Assignment> = []
    gainedAssignmentTime = new Map<Assignment, number>()
+
+   //realMatchDynamicArtInfos: Array<DynamicArtInfo> = []
+   realMatchOffsetGeo: Array<BasePart> = []
+   currentDynamicArt: Array<BasePart> = []
 }
 
 let file = new File()
 
-export function GetLocalGame(): Game
+export function GetLocalGame(): Match | undefined
 {
-   return file.clientGame
+   return file.clientMatch
 }
 
-export function GetLocalRole(): ROLE
+export function GetLocalRole(): ROLE | undefined
 {
-   if ( file.clientGame.HasPlayer( GetLocalPlayer() ) )
-      return file.clientGame.GetPlayerRole( GetLocalPlayer() )
+   if ( file.clientMatch === undefined )
+      return undefined
+
+   if ( file.clientMatch.HasPlayer( GetLocalPlayer() ) )
+      return file.clientMatch.GetPlayerRole( GetLocalPlayer() )
    return ROLE.ROLE_CAMPER
 }
 
 export function GetLocalIsSpectator(): boolean
 {
-   return file.clientGame.IsSpectator( GetLocalPlayer() )
+   if ( file.clientMatch === undefined )
+      return false
+
+   return file.clientMatch.IsSpectator( GetLocalPlayer() )
 }
 
-function GameThread( game: Game )
+function SortLocalPlayer( a: Player, b: Player ): boolean
 {
-   let lastGameState = game.GetGameState()
+   return a === LOCAL_PLAYER && b !== LOCAL_PLAYER
+}
+
+function ClientGameThread( match: Match )
+{
+   print( "ClientGameThread, draw intro" )
+   let lastGameState = match.GetGameState()
+
+   CancelAnyOpenTask()
+   WaitThread( function ()
+   {
+      if ( DEV_SKIP )
+      {
+         wait( 2 )
+      }
+      else
+      {
+         let possessed = match.GetPossessed()
+         let possessedCount = possessed.size()
+
+         let campers = match.GetCampers()
+         Assert( campers.size() > 0, "campers.size() > 0" )
+
+         let all = possessed.concat( campers )
+         all.sort( SortLocalPlayer ) // possessed always end up in the middle if they are known
+
+         let lineup = ClonePlayerModels( all )
+         if ( match.winOnlybyEscaping )
+         {
+            // add fake players
+            TryFillWithFakeModels( lineup, MATCHMAKE_PLAYERCOUNT_MAX )
+
+            if ( possessedCount < 1 && lineup.size() > 1 )
+               possessedCount = 1 // pretend one of the fake players is an impostor
+         }
+
+         let foundLocalPossessed = false
+         if ( possessed.size() )
+         {
+            for ( let player of possessed )
+            {
+               if ( LOCAL_PLAYER === player )
+               {
+                  foundLocalPossessed = true
+                  break
+               }
+            }
+            Assert( foundLocalPossessed, "DrawMatchScreen_Intro had possessed players but local player is not possessed" )
+         }
+
+         DrawMatchScreen_Intro( foundLocalPossessed, possessedCount, lineup )
+      }
+   } )
+
    for ( ; ; )
    {
-      let gameState = game.GetGameState()
+      if ( file.clientMatch !== match )
+         return
+
+      let gameState = match.GetGameState()
 
       let lastGameStateForMeeting = lastGameState
       if ( gameState !== lastGameState )
       {
-         CLGameStateChanged( lastGameState, gameState )
+         CLGameStateChanged( match, lastGameState, gameState )
          lastGameState = gameState
       }
 
-      if ( gameState !== GAME_STATE.GAME_STATE_PREMATCH )
-         UpdateMeeting( file.clientGame, lastGameStateForMeeting )
+      UpdateMeeting( match, lastGameStateForMeeting )
 
       coroutine.yield() // wait until something says update again
    }
@@ -96,27 +162,33 @@ export function CL_GameStateSetup()
    AddRoleChangeCallback(
       function ( player: Player, role: ROLE, lastRole: ROLE )
       {
-         if ( player !== LOCAL_PLAYER )
-            return
-
-         if ( role !== ROLE.ROLE_SPECTATOR_CAMPER_ESCAPED )
-            return
-
          Thread(
             function ()
             {
-               let score = GetScore( LOCAL_PLAYER )
-               DrawMatchScreen_Escaped( file.clientGame.GetPlayerInfo( LOCAL_PLAYER ), score )
+               let match = GetLocalGame()
+               if ( match === undefined )
+                  return
+
+               if ( player !== LOCAL_PLAYER )
+                  return
+
+               if ( role !== ROLE.ROLE_SPECTATOR_CAMPER_ESCAPED )
+                  return
+
+               let score = GetLastStashed( LOCAL_PLAYER )
+               DrawMatchScreen_Escaped( match.GetPlayerInfo( LOCAL_PLAYER ), score )
             } )
 
       } )
 
    AddPlayerUseDisabledCallback( function ()
    {
-      let gameState = GetLocalGame().GetGameState()
-      switch ( gameState )
+      let match = GetLocalGame()
+      if ( match === undefined )
+         return true
+
+      switch ( match.GetGameState() )
       {
-         case GAME_STATE.GAME_STATE_PREMATCH:
          case GAME_STATE.GAME_STATE_PLAYING:
          case GAME_STATE.GAME_STATE_SUDDEN_DEATH:
             return false
@@ -124,18 +196,15 @@ export function CL_GameStateSetup()
       return true
    } )
 
-   file.clientGame.gameThread = coroutine.create(
-      function ()
-      {
-         GameThread( file.clientGame )
-      } )
-   Resume( file.clientGame.gameThread )
-
 
    AddCallback_OnPlayerCharacterAdded( function ( player: Player )
    {
-      if ( file.clientGame.HasPlayer( player ) )
-         file.clientGame.Shared_OnGameStateChanged_PerPlayer( player, file.clientGame.GetGameState() )
+      let match = GetLocalGame()
+      if ( match === undefined )
+         return
+
+      if ( match.HasPlayer( player ) )
+         match.Shared_OnGameStateChanged_PerPlayer( player, match.GetGameState() )
    } )
 
    {
@@ -149,10 +218,14 @@ export function CL_GameStateSetup()
       usable.DefineGetter(
          function ( player: Player ): Array<Player>
          {
-            switch ( file.clientGame.GetPlayerRole( player ) )
+            let match = GetLocalGame()
+            if ( match === undefined )
+               return []
+
+            switch ( match.GetPlayerRole( player ) )
             {
                case ROLE.ROLE_POSSESSED:
-                  return file.clientGame.GetLivingCampers()
+                  return match.GetLivingCampers()
             }
 
             return []
@@ -162,87 +235,134 @@ export function CL_GameStateSetup()
    GetUsableByType( USETYPES.USETYPE_REPORT ).DefineGetter(
       function ( player: Player ): Array<Vector3>
       {
-         if ( file.clientGame.IsSpectator( player ) )
+         let match = GetLocalGame()
+         if ( match === undefined )
             return []
 
-         if ( file.clientGame.GetGameState() === GAME_STATE.GAME_STATE_SUDDEN_DEATH )
+         if ( match.IsSpectator( player ) )
+            return []
+
+         if ( match.GetGameState() === GAME_STATE.GAME_STATE_SUDDEN_DEATH )
             return []
 
          let positions: Array<Vector3> = []
-         for ( let corpse of file.clientGame.corpses )
+         for ( let corpse of match.corpses )
          {
             positions.push( corpse.pos )
          }
          return positions
       } )
 
+   ExecOnChildWhenItExists( Workspace, "Gameplay",
+      function ( folder: EDITOR_GameplayFolder )
+      {
+         //wtf
+         let children = folder.DynamicArt.scr_real_matches_only.GetChildren() as Array<BasePart>
+         for ( let child of children )
+         {
+            child.Position = child.Position.add( REAL_GEO_OFFSET )
+         }
+
+         file.realMatchOffsetGeo = file.realMatchOffsetGeo.concat( children )
+         //file.realMatchDynamicArtInfos = ConvertToDynamicArtInfos( children )
+      } )
+
    AddNetVarChangedCallback( NETVAR_JSON_GAMESTATE, function ()
    {
-      /*let pastRoles = new Map<Player, ROLE>()
-      for ( let player of file.clientGame.GetAllPlayers() )
+      let json = GetNetVar_String( LOCAL_PLAYER, NETVAR_JSON_GAMESTATE )
+      if ( !json.size() )
       {
-         pastRoles.set( player, file.clientGame.GetPlayerRole( player ) )
-      }*/
+         if ( file.clientMatch !== undefined ) 
+         {
+            // close game
+            file.clientMatch = undefined
+         }
 
-      let deltaTime = file.clientGame.NetvarToGamestate_ReturnServerTimeDelta()
-      SetTimeDelta( deltaTime )
+         return
+      }
 
-      for ( let corpse of file.clientGame.corpses )
+      let match = file.clientMatch
+      if ( match === undefined )
+      {
+         match = new Match()
+         file.clientMatch = match
+      }
+
+      match.NetvarToGamestate()
+
+      if ( match.gameThread === undefined )
+      {
+         // below depends on player having their character, which may not be true when a netvar changes
+         for ( ; ; )
+         {
+            if ( LOCAL_PLAYER.Character !== undefined )
+               break
+            wait()
+         }
+         //match.AddPlayer( LOCAL_PLAYER, ROLE.ROLE_CAMPER )
+
+         match.gameThread = coroutine.create(
+            function ()
+            {
+               ClientGameThread( match as Match )
+            } )
+      }
+
+      for ( let corpse of match.corpses )
       {
          if ( corpse.clientModel === undefined )
             corpse.clientModel = CreateCorpse( corpse.player, corpse.pos )
       }
 
-      /*
-      let userIDToPlayer = UserIDToPlayer()
-
-      let gamePlayers = file.clientGame.GetAllPlayers()
-      for ( let player of gamePlayers )
+      let gameThread = match.gameThread
+      if ( gameThread === undefined )
       {
-         Assert( userIDToPlayer.has( player.UserId ), "Should have player.." )
-         userIDToPlayer.delete( player.UserId )
+         Assert( false, "gameThread === undefined" )
+         throw undefined
       }
 
-      for ( let pair of userIDToPlayer )
-      {
-         SetPlayerTransparency( pair[1], 1 )
-      }
-      */
-
-      let gameThread = file.clientGame.gameThread
-      if ( gameThread !== undefined )
-         Resume( gameThread )
+      Resume( gameThread )
    } )
 }
 
-function CLGameStateChanged( oldGameState: number, newGameState: number )
+function CLGameStateChanged( match: Match, oldGameState: number, newGameState: number )
 {
    print( "\nGAME STATE CHANGED FROM " + oldGameState + " TO " + newGameState )
 
-   for ( let player of file.clientGame.GetAllPlayers() )
+   for ( let player of match.GetAllPlayers() )
    {
-      Assert( file.clientGame.HasPlayer( player ), "Game doesn't have player??" )
+      Assert( match.HasPlayer( player ), "Match doesn't have player??" )
       if ( player.Character !== undefined )
-         file.clientGame.Shared_OnGameStateChanged_PerPlayer( player, file.clientGame.GetGameState() )
+         match.Shared_OnGameStateChanged_PerPlayer( player, match.GetGameState() )
    }
 
-   print( "Leaving game state " + oldGameState )
-   // leaving this game state
+   print( "Leaving match state " + oldGameState )
+   // leaving this match state
    switch ( oldGameState )
    {
-      case GAME_STATE.GAME_STATE_PREMATCH:
+      case GAME_STATE.GAME_STATE_INIT:
+         for ( let model of file.currentDynamicArt )
          {
-            CancelAnyOpenTask()
-            WaitThread( function ()
-            {
-               DrawMatchScreen_Intro( file.clientGame.GetLivingPossessed(), file.clientGame.GetLivingCampers(), file.clientGame.startingPossessedCount )
-            } )
+            model.Destroy()
          }
+
+         if ( !match.winOnlybyEscaping )
+         {
+            //wtf file.currentDynamicArt = CreateDynamicArt( file.realMatchDynamicArtInfos )
+            for ( let geo of file.realMatchOffsetGeo )
+            {
+               let clone = geo.Clone()
+               clone.Name = geo.Name + " CLONE"
+               clone.Parent = geo.Parent
+               clone.Position = geo.Position.sub( REAL_GEO_OFFSET )
+            }
+         }
+
          break
 
       case GAME_STATE.GAME_STATE_MEETING_VOTE:
          print( "LEAVING GAME STATE GAME_STATE_MEETING_VOTE" )
-         let voteResults = GetVoteResults( file.clientGame.GetVotes() )
+         let voteResults = GetVoteResults( match.GetVotes() )
          let voted = voteResults.voted
          let votedAndReceivedNoVotesMap = new Map<Player, boolean>()
          for ( let voter of voted )
@@ -269,8 +389,8 @@ function CLGameStateChanged( oldGameState: number, newGameState: number )
                voteResults.highestRecipients,
                voteResults.receivedAnyVotes,
                votedAndReceivedNoVotes,
-               file.clientGame.startingPossessedCount,
-               file.clientGame.highestVotedScore
+               match.startingPossessedCount,
+               match.highestVotedScore
             )
          } )
 
@@ -283,32 +403,34 @@ function CLGameStateChanged( oldGameState: number, newGameState: number )
          break
    }
 
-   print( "Game State from  " + oldGameState + " to " + newGameState )
-   // entering this game state
+   print( "Match State from  " + oldGameState + " to " + newGameState )
+   // entering this match state
    switch ( newGameState )
    {
       case GAME_STATE.GAME_STATE_MEETING_DISCUSS:
-         file.clientGame.ClearVotes()
+         match.ClearVotes()
          WaitThread( function ()
          {
-            if ( file.clientGame.meetingType !== undefined && file.clientGame.meetingCaller !== undefined )
+            if ( match.meetingType !== undefined && match.meetingCaller !== undefined )
             {
-               let body: Player | undefined = file.clientGame.meetingBody
-               if ( file.clientGame.meetingType === MEETING_TYPE.MEETING_EMERGENCY )
+               let body: Player | undefined = match.meetingBody
+               if ( match.meetingType === MEETING_TYPE.MEETING_EMERGENCY )
                   body = undefined
 
-               DrawMatchScreen_EmergencyMeeting( file.clientGame.meetingType, file.clientGame.meetingCaller, body )
+               DrawMatchScreen_EmergencyMeeting( match.meetingType, match.meetingCaller, body )
             }
          } )
          break
 
       case GAME_STATE.GAME_STATE_COMPLETE:
 
-         let game = file.clientGame
-         let playerInfos = game.GetAllPlayerInfo()
-         let gameResults = game.GetGameResults_NoParityAllowed()
+         if ( match.winOnlybyEscaping )
+            return
 
-         let score = GetScore( GetLocalPlayer() )
+         let playerInfos = match.GetAllPlayerInfo()
+         let gameResults = match.GetGameResults_NoParityAllowed()
+
+         let score = GetLastStashed( LOCAL_PLAYER )
          let mySurvived = false
          switch ( GetLocalRole() )
          {
@@ -319,13 +441,14 @@ function CLGameStateChanged( oldGameState: number, newGameState: number )
                break
          }
 
+         let role = match.GetPlayerRole( LOCAL_PLAYER )
          switch ( gameResults )
          {
             case GAMERESULTS.RESULTS_CAMPERS_WIN:
                WaitThread( function ()
                {
                   let impostersWin = false
-                  let myWinningTeam = IsCamperRole( GetLocalRole() )
+                  let myWinningTeam = IsCamperRole( role )
                   DrawMatchScreen_Victory( playerInfos, impostersWin, myWinningTeam, mySurvived, score )
                } )
                break
@@ -334,13 +457,19 @@ function CLGameStateChanged( oldGameState: number, newGameState: number )
                WaitThread( function ()
                {
                   let impostersWin = true
-                  let myWinningTeam = IsImpostorRole( GetLocalRole() )
+                  let myWinningTeam = IsImpostorRole( role )
                   DrawMatchScreen_Victory( playerInfos, impostersWin, myWinningTeam, mySurvived, score )
                } )
                break
          }
 
       case GAME_STATE.GAME_STATE_DEAD:
+
+         file.clientMatch = undefined
+
+         if ( match.winOnlybyEscaping )
+            return
+
          DrawMatchScreen_GameOver()
          break
    }

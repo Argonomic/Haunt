@@ -1,23 +1,27 @@
 import { AddRPC } from "shared/sh_rpc"
-import { AddCallback_OnRoomSetup, CreateClientBlockers, Room, AddRoomsFromWorkspace, FAST_ROOM_ITERATION } from "shared/sh_rooms"
-import { GetLocalPlayer, GetPlayerFromDescendant, GetClosest, Resume, UserIDToPlayer } from "shared/sh_utils"
+import { AddCallback_OnRoomSetup, Room, AddRoomsFromWorkspace, FAST_ROOM_ITERATION } from "shared/sh_rooms"
+import { GetLocalPlayer, GetPlayerFromDescendant, GetClosest, Resume, UserIDToPlayer, GetWorkspaceChildByName, GetChildren_NoFutureOffspring } from "shared/sh_utils"
 import { Assert } from "shared/sh_assert"
 import { SetPlayerCameraToRoom } from "./cl_camera"
 import { ClearCoinPopUps } from "./cl_coins"
 import { AddCallback_OnPlayerConnected } from "shared/sh_onPlayerConnect"
 import { SPAWN_ROOM } from "shared/sh_settings"
-import { HttpService, Players } from "@rbxts/services"
+import { HttpService } from "@rbxts/services"
+import { EDITOR_GameplayFolder } from "shared/sh_gamestate"
+import { DynamicArtInfo, ConvertToDynamicArtInfos, CreateDynamicArt } from "./cl_dynamicArt"
 
 const LOCAL_PLAYER = GetLocalPlayer()
 
 class File
 {
-   currentClientBlockers: Array<BasePart> = []
+   currentDynamicArt: Array<BasePart> = []
    currentRoom = new Map<Player, Room>()
    currentDoorTrigger: BasePart | undefined
    playerToDoorTrigger = new Map<Player, BasePart>()
    rooms = new Map<string, Room>()
    roomChangedCallbacks: Array<Function> = []
+
+   roomToDynamicArtInfos = new Map<Room, Array<DynamicArtInfo>>()
 }
 let file = new File()
 
@@ -25,6 +29,33 @@ export function CL_RoomSetup()
 {
    AddCallback_OnRoomSetup( "trigger_door", OnTriggerDoorSetup )
    file.rooms = AddRoomsFromWorkspace()
+
+   {
+      const gameplayFolder = GetWorkspaceChildByName( "Gameplay" ) as EDITOR_GameplayFolder
+      let roomFolders = gameplayFolder.Rooms.GetChildren() as Array<Folder>
+      for ( let roomFolder of roomFolders )
+      {
+         let room = file.rooms.get( roomFolder.Name )
+         if ( room === undefined )
+         {
+            Assert( false, "room === undefined" )
+            throw undefined
+         }
+
+         let children = roomFolder.GetChildren()
+         for ( let child of children )
+         {
+            switch ( child.Name )
+            {
+               case "scr_client_dynamic_art":
+                  let children = GetChildren_NoFutureOffspring( child as BasePart ) as Array<BasePart>
+                  let models = ConvertToDynamicArtInfos( children )
+                  file.roomToDynamicArtInfos.set( room, models )
+                  break
+            }
+         }
+      }
+   }
 
    let startRoom = file.rooms.get( SPAWN_ROOM ) as Room
    Assert( startRoom !== undefined, "startRoom !== undefined" )
@@ -73,14 +104,19 @@ function FastRoomIteration()
    }
 }
 
-function SetBlockersFromRoom( room: Room )
+function CreateDynamicArtForRoom( room: Room )
 {
-   for ( let part of file.currentClientBlockers )
+   for ( let part of file.currentDynamicArt )
    {
       part.Destroy()
    }
 
-   file.currentClientBlockers = CreateClientBlockers( room )
+   file.currentDynamicArt = []
+   let dynamicArtInfos = file.roomToDynamicArtInfos.get( room )
+   if ( dynamicArtInfos === undefined )
+      return
+
+   file.currentDynamicArt = CreateDynamicArt( dynamicArtInfos )
 }
 
 export function GetCurrentRoom( player: Player ): Room
@@ -106,7 +142,7 @@ function SetCurrentRoom( player: Player, room: Room )
       return
 
    SetPlayerCameraToRoom( room )
-   SetBlockersFromRoom( room )
+   CreateDynamicArtForRoom( room )
    ClearCoinPopUps()
 
    for ( let roomChangedCallback of file.roomChangedCallbacks )

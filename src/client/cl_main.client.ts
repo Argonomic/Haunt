@@ -8,7 +8,7 @@ import { CL_PlayerSetup } from "client/cl_player"
 import { SH_OnPlayerConnectSetup } from "shared/sh_onPlayerConnect"
 import { SH_RPCSetup } from "shared/sh_rpc"
 import { DoneCreatingNVs, SH_PlayerNetVarsSetup } from "shared/sh_player_netvars"
-import { SharedGameStateInit } from "shared/sh_gamestate"
+import { SH_GameStateSetup } from "shared/sh_gamestate"
 import { CL_TaskListSetup } from "./cl_taskList"
 import { CL_MinimapSetup } from "./cl_minimap"
 import { CL_CalloutsSetup } from "./cl_callouts2d"
@@ -16,7 +16,7 @@ import { CL_FadeOverlaySetup } from "./cl_fadeoverlay"
 import { Thread } from "shared/sh_utils"
 import { Assert, SH_AssertSetup } from "shared/sh_assert"
 import { CL_UseSetup } from "./cl_use"
-import { CL_ReadyUpSetup } from "./cl_readyup"
+import { CL_MatchmakingSetup } from "./cl_matchmaking"
 import { CL_GameStateSetup } from "./cl_gamestate"
 import { SH_UseContentSetup } from "shared/content/sh_use_content"
 import { SH_UseSetup } from "shared/sh_use"
@@ -37,7 +37,11 @@ import { SH_ScoreSetup } from "shared/sh_score"
 import { CL_ReturnToLobbySetup } from "./cl_returnToLobby"
 import { CL_SuddenDeathSetup } from "./cl_suddenDeath"
 import { CL_AdminSetup } from "./cl_admin"
-import { SH_TeleportSetup } from "../shared/sh_teleport"
+import { SH_MatchmakingSetup } from "shared/sh_matchmaking"
+import { SH_FriendsSetup } from "shared/sh_friends"
+import { CL_GameStartingSetup } from "./cl_countdown"
+import { CL_DynamicArtSetup } from "./cl_dynamicArt"
+import { SH_ReservedServerSetup } from "shared/sh_reservedServer"
 
 class File
 {
@@ -64,8 +68,10 @@ SH_AssertSetup()
 SH_PickupsSetup()
 SH_CoinsSetup()
 SH_ScoreSetup()
-SH_TeleportSetup()
-SharedGameStateInit()
+SH_FriendsSetup()
+SH_GameStateSetup()
+SH_MatchmakingSetup()
+SH_ReservedServerSetup()
 
 CL_RoomSetup()
 CL_TasksSetup()
@@ -83,7 +89,7 @@ CL_FadeOverlaySetup()
 CL_UseSetup()
 CL_Ability_Setup()
 CL_AbilityContentSetup()
-CL_ReadyUpSetup()
+CL_MatchmakingSetup()
 CL_GameStateSetup()
 CL_ChatSetup()
 CL_MeetingSetup()
@@ -93,6 +99,8 @@ CL_CoinsSetup()
 CL_ReturnToLobbySetup()
 CL_SuddenDeathSetup()
 CL_AdminSetup()
+CL_GameStartingSetup()
+CL_DynamicArtSetup()
 SH_OnPlayerConnectSetup()
 
 file.finishedInit = true
