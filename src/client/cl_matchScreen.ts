@@ -1,13 +1,9 @@
-import { MATCHMAKING_STATUS, NETVAR_MATCHMAKING_STATUS } from "shared/sh_gamestate";
-import { AddCallback_OnPlayerCharacterAdded, AddCallback_OnPlayerCharacterAncestryChanged, SetPlayerWalkSpeed } from "shared/sh_onPlayerConnect";
-import { GetNetVar_Number } from "shared/sh_player_netvars";
+import { AddCallback_OnPlayerCharacterAncestryChanged, SetPlayerWalkSpeed } from "shared/sh_onPlayerConnect";
 import { PLAYER_WALKSPEED } from "shared/sh_settings";
 import { Tween } from "shared/sh_tween";
 import { CloneChild, GetExistingFirstChildWithNameAndClassName, GetLocalPlayer, Thread } from "shared/sh_utils";
 import { Assert } from "shared/sh_assert"
 import { AddPlayerGuiFolderExistsCallback, UIORDER } from "./cl_ui";
-import { SendMeBackToLobby } from "shared/sh_matchmaking";
-import { GetLocalIsSpectator } from "./cl_gamestate";
 
 const LOCAL_PLAYER = GetLocalPlayer()
 
@@ -171,6 +167,7 @@ export function CL_MatchScreenSetup()
 
             wait( 1.0 )
 
+            /*
             if ( GetNetVar_Number( LOCAL_PLAYER, NETVAR_MATCHMAKING_STATUS ) === MATCHMAKING_STATUS.MATCHMAKING_WAITING_FOR_RESERVEDSERVER_TO_START )
             {
                if ( SendMeBackToLobby( LOCAL_PLAYER ) )
@@ -185,13 +182,7 @@ export function CL_MatchScreenSetup()
                   Tween( frame.TitleFrame.SubTitle, { TextTransparency: 0 }, 2.5 )
                }
             }
-
-            for ( ; ; )
-            {
-               if ( GetNetVar_Number( LOCAL_PLAYER, NETVAR_MATCHMAKING_STATUS ) !== MATCHMAKING_STATUS.MATCHMAKING_WAITING_FOR_RESERVEDSERVER_TO_START )
-                  break
-               wait( 0.1 )
-            }
+            */
 
             print( "CLIENT GAME STARTED" )
 

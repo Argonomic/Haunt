@@ -103,8 +103,6 @@ function OnPlayerCharacterAdded( character: Model )
       human.SetStateEnabled( Enum.HumanoidStateType.Climbing, false )
       SetPlayerWalkSpeed( player, PLAYER_WALKSPEED )
 
-      print( "EXECUTING ON PLAYER CHARACTER ADDED, IS SERVER: " + IsServer() )
-
       for ( let i = 0; i < file.onPlayerCharacterAdded.size(); i++ )
       {
          let func = file.onPlayerCharacterAdded[i]

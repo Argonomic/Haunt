@@ -1,44 +1,38 @@
 import { HttpService, Workspace } from "@rbxts/services"
-import { ROLE, Match, NETVAR_JSON_GAMESTATE, USETYPES, GAME_STATE, GetVoteResults, GAMERESULTS, MEETING_TYPE, IsCamperRole, IsImpostorRole, AddRoleChangeCallback, Assignment, AssignmentIsSame, NETVAR_JSON_ASSIGNMENTS, EDITOR_GameplayFolder } from "shared/sh_gamestate"
-import { AddCallback_OnPlayerCharacterAdded, ClonePlayerModels, TryFillWithFakeModels } from "shared/sh_onPlayerConnect"
+import { ROLE, Match, NETVAR_JSON_GAMESTATE, USETYPES, GAME_STATE, GetVoteResults, GAMERESULTS, MEETING_TYPE, IsCamperRole, IsImpostorRole, AddRoleChangeCallback, Assignment, AssignmentIsSame, NETVAR_JSON_ASSIGNMENTS } from "shared/sh_gamestate"
+import { AddCallback_OnPlayerCharacterAdded, AddCallback_OnPlayerConnected, ClonePlayerModels } from "shared/sh_onPlayerConnect"
 import { AddNetVarChangedCallback, GetNetVar_String } from "shared/sh_player_netvars"
 import { GetUsableByType } from "shared/sh_use"
-import { ExecOnChildWhenItExists, GetFirstChildWithName, GetLocalPlayer, RandomFloatRange, RecursiveOnChildren, Resume, SetCharacterTransparency, Thread, WaitThread } from "shared/sh_utils"
+import { GetFirstChildWithName, GetLocalPlayer, RandomFloatRange, RecursiveOnChildren, Resume, SetCharacterTransparency, Thread, WaitThread } from "shared/sh_utils"
 import { Assert } from "shared/sh_assert"
 import { UpdateMeeting } from "./cl_meeting"
 import { CancelAnyOpenTask } from "./cl_tasks"
 import { AddPlayerUseDisabledCallback } from "./cl_use"
-import { DrawMatchScreen_EmergencyMeeting, DrawMatchScreen_Escaped, DrawMatchScreen_GameOver, DrawMatchScreen_Intro, DrawMatchScreen_Victory, DrawMatchScreen_VoteResults } from "./content/cl_matchScreen_content"
+import { DrawMatchScreen_EmergencyMeeting, DrawMatchScreen_Escaped, DrawMatchScreen_Intro, DrawMatchScreen_Victory, DrawMatchScreen_VoteResults } from "./content/cl_matchScreen_content"
 import { GetLastStashed } from "shared/sh_score"
-import { DEV_SKIP, MATCHMAKE_PLAYERCOUNT_MAX } from "shared/sh_settings"
+import { DEV_SKIP_INTRO, SKIP_INTRO_TIME } from "shared/sh_settings"
 
 const LOCAL_PLAYER = GetLocalPlayer()
-const REAL_GEO_OFFSET = new Vector3( 0, -500, 0 )
 
 class File
 {
-   clientMatch: Match | undefined
+   readonly clientMatch = new Match()
 
    localAssignments: Array<Assignment> = []
    gainedAssignmentTime = new Map<Assignment, number>()
 
-   //realMatchDynamicArtInfos: Array<DynamicArtInfo> = []
-   realMatchOffsetGeo: Array<BasePart> = []
    currentDynamicArt: Array<BasePart> = []
 }
 
 let file = new File()
 
-export function GetLocalGame(): Match | undefined
+export function GetLocalMatch(): Match
 {
    return file.clientMatch
 }
 
-export function GetLocalRole(): ROLE | undefined
+export function GetLocalRole(): ROLE 
 {
-   if ( file.clientMatch === undefined )
-      return undefined
-
    if ( file.clientMatch.HasPlayer( GetLocalPlayer() ) )
       return file.clientMatch.GetPlayerRole( GetLocalPlayer() )
    return ROLE.ROLE_CAMPER
@@ -46,9 +40,6 @@ export function GetLocalRole(): ROLE | undefined
 
 export function GetLocalIsSpectator(): boolean
 {
-   if ( file.clientMatch === undefined )
-      return false
-
    return file.clientMatch.IsSpectator( GetLocalPlayer() )
 }
 
@@ -59,60 +50,11 @@ function SortLocalPlayer( a: Player, b: Player ): boolean
 
 function ClientGameThread( match: Match )
 {
-   print( "ClientGameThread, draw intro" )
+   print( "ClientGameThread" )
    let lastGameState = match.GetGameState()
-
-   CancelAnyOpenTask()
-   WaitThread( function ()
-   {
-      if ( DEV_SKIP )
-      {
-         wait( 2 )
-      }
-      else
-      {
-         let possessed = match.GetPossessed()
-         let possessedCount = possessed.size()
-
-         let campers = match.GetCampers()
-         Assert( campers.size() > 0, "campers.size() > 0" )
-
-         let all = possessed.concat( campers )
-         all.sort( SortLocalPlayer ) // possessed always end up in the middle if they are known
-
-         let lineup = ClonePlayerModels( all )
-         if ( match.winOnlybyEscaping )
-         {
-            // add fake players
-            TryFillWithFakeModels( lineup, MATCHMAKE_PLAYERCOUNT_MAX )
-
-            if ( possessedCount < 1 && lineup.size() > 1 )
-               possessedCount = 1 // pretend one of the fake players is an impostor
-         }
-
-         let foundLocalPossessed = false
-         if ( possessed.size() )
-         {
-            for ( let player of possessed )
-            {
-               if ( LOCAL_PLAYER === player )
-               {
-                  foundLocalPossessed = true
-                  break
-               }
-            }
-            Assert( foundLocalPossessed, "DrawMatchScreen_Intro had possessed players but local player is not possessed" )
-         }
-
-         DrawMatchScreen_Intro( foundLocalPossessed, possessedCount, lineup )
-      }
-   } )
 
    for ( ; ; )
    {
-      if ( file.clientMatch !== match )
-         return
-
       let gameState = match.GetGameState()
 
       let lastGameStateForMeeting = lastGameState
@@ -130,6 +72,21 @@ function ClientGameThread( match: Match )
 
 export function CL_GameStateSetup()
 {
+   let match = file.clientMatch
+   let gameThread = coroutine.create(
+      function ()
+      {
+         ClientGameThread( match as Match )
+      } )
+   match.gameThread = gameThread
+   Resume( match.gameThread )
+
+   AddCallback_OnPlayerConnected( function ( player: Player )
+   {
+      file.clientMatch.AddPlayer( player )
+   } )
+
+
    AddNetVarChangedCallback( NETVAR_JSON_ASSIGNMENTS,
       function ()
       {
@@ -165,9 +122,7 @@ export function CL_GameStateSetup()
          Thread(
             function ()
             {
-               let match = GetLocalGame()
-               if ( match === undefined )
-                  return
+               let match = GetLocalMatch()
 
                if ( player !== LOCAL_PLAYER )
                   return
@@ -183,9 +138,7 @@ export function CL_GameStateSetup()
 
    AddPlayerUseDisabledCallback( function ()
    {
-      let match = GetLocalGame()
-      if ( match === undefined )
-         return true
+      let match = GetLocalMatch()
 
       switch ( match.GetGameState() )
       {
@@ -199,10 +152,7 @@ export function CL_GameStateSetup()
 
    AddCallback_OnPlayerCharacterAdded( function ( player: Player )
    {
-      let match = GetLocalGame()
-      if ( match === undefined )
-         return
-
+      let match = GetLocalMatch()
       if ( match.HasPlayer( player ) )
          match.Shared_OnGameStateChanged_PerPlayer( player, match.GetGameState() )
    } )
@@ -212,19 +162,17 @@ export function CL_GameStateSetup()
       usable.forceVisibleTest =
          function ()
          {
-            return GetLocalRole() === ROLE.ROLE_POSSESSED
+            return GetLocalRole() === ROLE.ROLE_IMPOSTOR
          }
 
       usable.DefineGetter(
          function ( player: Player ): Array<Player>
          {
-            let match = GetLocalGame()
-            if ( match === undefined )
-               return []
+            let match = GetLocalMatch()
 
             switch ( match.GetPlayerRole( player ) )
             {
-               case ROLE.ROLE_POSSESSED:
+               case ROLE.ROLE_IMPOSTOR:
                   return match.GetLivingCampers()
             }
 
@@ -235,9 +183,7 @@ export function CL_GameStateSetup()
    GetUsableByType( USETYPES.USETYPE_REPORT ).DefineGetter(
       function ( player: Player ): Array<Vector3>
       {
-         let match = GetLocalGame()
-         if ( match === undefined )
-            return []
+         let match = GetLocalMatch()
 
          if ( match.IsSpectator( player ) )
             return []
@@ -253,60 +199,14 @@ export function CL_GameStateSetup()
          return positions
       } )
 
-   ExecOnChildWhenItExists( Workspace, "Gameplay",
-      function ( folder: EDITOR_GameplayFolder )
-      {
-         //wtf
-         let children = folder.DynamicArt.scr_real_matches_only.GetChildren() as Array<BasePart>
-         for ( let child of children )
-         {
-            child.Position = child.Position.add( REAL_GEO_OFFSET )
-         }
-
-         file.realMatchOffsetGeo = file.realMatchOffsetGeo.concat( children )
-         //file.realMatchDynamicArtInfos = ConvertToDynamicArtInfos( children )
-      } )
-
    AddNetVarChangedCallback( NETVAR_JSON_GAMESTATE, function ()
    {
       let json = GetNetVar_String( LOCAL_PLAYER, NETVAR_JSON_GAMESTATE )
       if ( !json.size() )
-      {
-         if ( file.clientMatch !== undefined ) 
-         {
-            // close game
-            file.clientMatch = undefined
-         }
-
          return
-      }
 
       let match = file.clientMatch
-      if ( match === undefined )
-      {
-         match = new Match()
-         file.clientMatch = match
-      }
-
       match.NetvarToGamestate()
-
-      if ( match.gameThread === undefined )
-      {
-         // below depends on player having their character, which may not be true when a netvar changes
-         for ( ; ; )
-         {
-            if ( LOCAL_PLAYER.Character !== undefined )
-               break
-            wait()
-         }
-         //match.AddPlayer( LOCAL_PLAYER, ROLE.ROLE_CAMPER )
-
-         match.gameThread = coroutine.create(
-            function ()
-            {
-               ClientGameThread( match as Match )
-            } )
-      }
 
       for ( let corpse of match.corpses )
       {
@@ -314,14 +214,13 @@ export function CL_GameStateSetup()
             corpse.clientModel = CreateCorpse( corpse.player, corpse.pos )
       }
 
-      let gameThread = match.gameThread
-      if ( gameThread === undefined )
+      if ( match.gameThread === undefined )
       {
-         Assert( false, "gameThread === undefined" )
+         Assert( false, "match.gameThread is undefined" )
          throw undefined
       }
 
-      Resume( gameThread )
+      Resume( match.gameThread )
    } )
 }
 
@@ -336,7 +235,6 @@ function CLGameStateChanged( match: Match, oldGameState: number, newGameState: n
          match.Shared_OnGameStateChanged_PerPlayer( player, match.GetGameState() )
    }
 
-   print( "Leaving match state " + oldGameState )
    // leaving this match state
    switch ( oldGameState )
    {
@@ -346,19 +244,8 @@ function CLGameStateChanged( match: Match, oldGameState: number, newGameState: n
             model.Destroy()
          }
 
-         if ( !match.winOnlybyEscaping )
-         {
-            //wtf file.currentDynamicArt = CreateDynamicArt( file.realMatchDynamicArtInfos )
-            for ( let geo of file.realMatchOffsetGeo )
-            {
-               let clone = geo.Clone()
-               clone.Name = geo.Name + " CLONE"
-               clone.Parent = geo.Parent
-               clone.Position = geo.Position.sub( REAL_GEO_OFFSET )
-            }
-         }
-
          break
+
 
       case GAME_STATE.GAME_STATE_MEETING_VOTE:
          print( "LEAVING GAME STATE GAME_STATE_MEETING_VOTE" )
@@ -389,7 +276,7 @@ function CLGameStateChanged( match: Match, oldGameState: number, newGameState: n
                voteResults.highestRecipients,
                voteResults.receivedAnyVotes,
                votedAndReceivedNoVotes,
-               match.startingPossessedCount,
+               match.startingImpostorCount,
                match.highestVotedScore
             )
          } )
@@ -403,10 +290,54 @@ function CLGameStateChanged( match: Match, oldGameState: number, newGameState: n
          break
    }
 
-   print( "Match State from  " + oldGameState + " to " + newGameState )
    // entering this match state
    switch ( newGameState )
    {
+      case GAME_STATE.GAME_STATE_INTRO:
+
+         if ( DEV_SKIP_INTRO )
+         {
+            wait( SKIP_INTRO_TIME )
+         }
+         else
+         {
+            wait( 2 )
+
+            let impostors = match.GetImpostors()
+            let impostorCount = impostors.size()
+
+            let campers = match.GetCampers()
+            print( "Impostors " + impostors.size() + " campers " + campers.size() )
+            Assert( campers.size() > 0, "campers.size() > 0" )
+
+            let all = impostors.concat( campers )
+            all.sort( SortLocalPlayer ) // impostors always end up in the middle if they are known
+
+            let lineup = ClonePlayerModels( all )
+
+            let foundLocalImpostor = false
+            if ( impostors.size() )
+            {
+               for ( let player of impostors )
+               {
+                  if ( LOCAL_PLAYER === player )
+                  {
+                     foundLocalImpostor = true
+                     break
+                  }
+               }
+               Assert( foundLocalImpostor, "DrawMatchScreen_Intro had impostors players but local player is not impostors" )
+            }
+
+            WaitThread(
+               function ()
+               {
+                  DrawMatchScreen_Intro( foundLocalImpostor, impostorCount, lineup )
+               } )
+         }
+
+         break
+
       case GAME_STATE.GAME_STATE_MEETING_DISCUSS:
          match.ClearVotes()
          WaitThread( function ()
@@ -424,9 +355,6 @@ function CLGameStateChanged( match: Match, oldGameState: number, newGameState: n
 
       case GAME_STATE.GAME_STATE_COMPLETE:
 
-         if ( match.winOnlybyEscaping )
-            return
-
          let playerInfos = match.GetAllPlayerInfo()
          let gameResults = match.GetGameResults_NoParityAllowed()
 
@@ -435,7 +363,7 @@ function CLGameStateChanged( match: Match, oldGameState: number, newGameState: n
          switch ( GetLocalRole() )
          {
             case ROLE.ROLE_CAMPER:
-            case ROLE.ROLE_POSSESSED:
+            case ROLE.ROLE_IMPOSTOR:
             case ROLE.ROLE_SPECTATOR_CAMPER_ESCAPED:
                mySurvived = true
                break
@@ -453,7 +381,7 @@ function CLGameStateChanged( match: Match, oldGameState: number, newGameState: n
                } )
                break
 
-            case GAMERESULTS.RESULTS_POSSESSED_WIN:
+            case GAMERESULTS.RESULTS_IMPOSTORS_WIN:
                WaitThread( function ()
                {
                   let impostersWin = true
@@ -462,16 +390,6 @@ function CLGameStateChanged( match: Match, oldGameState: number, newGameState: n
                } )
                break
          }
-
-      case GAME_STATE.GAME_STATE_DEAD:
-
-         file.clientMatch = undefined
-
-         if ( match.winOnlybyEscaping )
-            return
-
-         DrawMatchScreen_GameOver()
-         break
    }
 }
 

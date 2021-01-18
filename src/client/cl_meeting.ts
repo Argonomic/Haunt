@@ -1,7 +1,7 @@
 import { RunService } from "@rbxts/services";
 import { Match, GAME_STATE, PlayerInfo, PlayerNumToGameViewable, ROLE } from "shared/sh_gamestate";
 import { ClonePlayerModel } from "shared/sh_onPlayerConnect";
-import { MATCHMAKE_PLAYERCOUNT_MAX, PLAYER_COLORS } from "shared/sh_settings";
+import { MATCHMAKE_PLAYERCOUNT_STARTSERVER, PLAYER_COLORS } from "shared/sh_settings";
 import { Tween } from "shared/sh_tween";
 import { GetColor, GetFirstChildWithName, GetFirstChildWithNameAndClassName, GetLocalPlayer, LightenColor, SetCharacterTransparency, Thread, SetCharacterYaw } from "shared/sh_utils";
 import { Assert } from "shared/sh_assert"
@@ -254,7 +254,10 @@ class ActiveMeeting
 
    constructor( match: Match, meetingUITemplate: ScreenGui, meetingCaller: Player )
    {
-      let players = match.GetAllPlayers()
+      let players: Array<Player> = []
+      players = players.concat( match.GetCampers() )
+      players = players.concat( match.GetImpostors() )
+
       Assert( players.size() > 0, "Can't start a meeting with zero players" )
       this.match = match
 
@@ -293,7 +296,7 @@ class ActiveMeeting
 
          switch ( match.GetPlayerRole( localPlayer ) )
          {
-            case ROLE.ROLE_POSSESSED:
+            case ROLE.ROLE_IMPOSTOR:
             case ROLE.ROLE_CAMPER:
                buttonGroup.ShowChecks()
                break
@@ -362,7 +365,7 @@ class ActiveMeeting
       }
 
 
-      let last = MATCHMAKE_PLAYERCOUNT_MAX - 1
+      let last = MATCHMAKE_PLAYERCOUNT_STARTSERVER - 1
       let first = 0
 
       for ( let i = 0; i < this.playerButtonGroups.size(); i++ )
@@ -544,10 +547,7 @@ export function UpdateMeeting( match: Match, lastGameState: GAME_STATE )
 {
    let meetingUITemplate = file.meetingUI
    if ( meetingUITemplate === undefined )
-   {
-      Assert( false, "meetingUITemplate === undefined" )
       return
-   }
 
    let meetingCaller = match.meetingCaller
    if ( meetingCaller === undefined )

@@ -1,4 +1,4 @@
-import { GAME_STATE, IsMatchmaking, Match, NETVAR_MEETINGS_CALLED, USETYPES } from "shared/sh_gamestate";
+import { GAME_STATE, Match, NETVAR_MEETINGS_CALLED, USETYPES } from "shared/sh_gamestate";
 import { GetNetVar_Number } from "shared/sh_player_netvars";
 import { KILL_DIST, REPORT_DIST } from "shared/sh_settings";
 import { AddUseType } from "shared/sh_use";
@@ -48,13 +48,7 @@ export function CanCallMeeting( match: Match, player: Player ): boolean
    if ( !UsableGameState( match ) )
       return false
 
-   if ( IsMatchmaking( player ) )
-      return false
-
    if ( GetNetVar_Number( player, NETVAR_MEETINGS_CALLED ) > 0 )
-      return false
-
-   if ( match.winOnlybyEscaping )
       return false
 
    if ( match.IsSpectator( player ) )

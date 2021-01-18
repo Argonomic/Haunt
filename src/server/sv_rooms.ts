@@ -115,6 +115,11 @@ function OnTriggerDoorSetup( doorTrigger: BasePart, room: Room )
 
 }
 
+export function PlayerHasCurrentRoom( player: Player ): boolean
+{
+   return file.currentRoom.has( player )
+}
+
 export function GetCurrentRoom( player: Player ): Room
 {
    Assert( file.currentRoom.has( player ), "Player has no current room yet" )

@@ -8,11 +8,10 @@ import { Task } from "shared/sh_rooms"
 import { GetMinimapReferencesFrame } from "./cl_minimap"
 import { AddPlayerGuiFolderExistsCallback, ToggleButton, UIORDER } from "./cl_ui"
 import { GetUsableByType } from "shared/sh_use"
-import { GetLocalAssignments, GetLocalGame } from "./cl_gamestate"
+import { GetLocalAssignments, GetLocalMatch } from "./cl_gamestate"
 import { AddCallback_OnPlayerCharacterAncestryChanged } from "shared/sh_onPlayerConnect"
 import { Tween } from "shared/sh_tween"
 import { CanCallMeeting } from "shared/content/sh_use_content"
-import { IsReservedServer } from "shared/sh_reservedServer"
 
 const LOCAL_PLAYER = GetLocalPlayer()
 
@@ -54,9 +53,7 @@ export function CL_TaskListSetup()
       {
          let parts: Array<BasePart> = []
          let room = GetCurrentRoom( LOCAL_PLAYER )
-         let match = GetLocalGame()
-         if ( match === undefined )
-            return []
+         let match = GetLocalMatch()
 
          for ( let assignment of GetLocalAssignments() )
          {
@@ -67,9 +64,6 @@ export function CL_TaskListSetup()
 
             Assert( room.tasks.has( assignment.taskName ), "Room " + room.name + " has no task " + assignment.taskName )
             let task = room.tasks.get( assignment.taskName ) as Task
-            if ( match.winOnlybyEscaping && task.realMatchesOnly )
-               continue
-
             parts.push( task.volume )
          }
 
@@ -80,9 +74,7 @@ export function CL_TaskListSetup()
    GetUsableByType( USETYPES.USETYPE_MEETING ).DefineGetter(
       function ( player: Player ): Array<BasePart>
       {
-         let match = GetLocalGame()
-         if ( match === undefined )
-            return []
+         let match = GetLocalMatch()
 
          if ( !CanCallMeeting( match, LOCAL_PLAYER ) )
             return []
@@ -185,7 +177,9 @@ function RefreshTaskList()
 {
    if ( file.existingUI === undefined )
       return
-
+   if ( file.toggleButton === undefined )
+      return
+   let toggleButton = file.toggleButton
    let existingUI = file.existingUI
 
    let frame = GetMinimapReferencesFrame()
@@ -216,38 +210,7 @@ function RefreshTaskList()
       label.Text = ""
    }
 
-   let match = GetLocalGame()
-   if ( match === undefined )
-   {
-      existingUI.Enabled = false
-      return
-   }
-
-   if ( match.IsSpectator( GetLocalPlayer() ) )
-   {
-      if ( existingUI.Enabled )
-      {
-         Thread(
-            function ()
-            {
-               let toggleButton = file.toggleButton
-               if ( toggleButton !== undefined && count === 0 && toggleButton.IsOpen() )
-               {
-                  toggleButton.Close()
-
-                  let position = file.framePosition
-                  let newPosition = new UDim2( position.X.Scale - 0.25, position.X.Offset, position.Y.Scale, position.Y.Offset )
-                  // deep close it
-                  Tween( existingUI.Frame, { Position: newPosition, 'AnchorPoint': new Vector2( 1.0, 0 ) }, 1.0 )
-                  wait( 1.0 )
-                  existingUI.Enabled = false
-               }
-            } )
-      }
-      return
-   }
-
-   existingUI.Enabled = true
+   let match = GetLocalMatch()
 
    class DrawTask
    {
@@ -319,4 +282,30 @@ function RefreshTaskList()
       if ( index >= file.taskLabels.size() )
          break
    }
+
+   if ( existingUI.Enabled && drawTasks.size() === 0 )
+   {
+      Thread(
+         function ()
+         {
+            toggleButton.Close()
+
+            let position = file.framePosition
+            let newPosition = new UDim2( position.X.Scale - 0.25, position.X.Offset, position.Y.Scale, position.Y.Offset )
+            // deep close it
+            Tween( existingUI.Frame, { Position: newPosition, 'AnchorPoint': new Vector2( 1.0, 0 ) }, 1.0 )
+            wait( 1.0 )
+            existingUI.Enabled = false
+         } )
+   }
+   else if ( !existingUI.Enabled && drawTasks.size() > 0 )
+   {
+      Thread(
+         function ()
+         {
+            toggleButton.Open()
+            existingUI.Enabled = true
+         } )
+   }
+
 }

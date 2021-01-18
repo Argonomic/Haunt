@@ -1,7 +1,7 @@
 import { GetHumanoid, GetPosition, IsAlive, KillPlayer } from "shared/sh_utils"
-import { GAME_STATE, ROLE, IsMatchmaking, Corpse, USETYPES, COOLDOWN_NAME_KILL, MEETING_TYPE, NETVAR_MEETINGS_CALLED } from "shared/sh_gamestate"
+import { GAME_STATE, ROLE, Corpse, USETYPES, COOLDOWN_NAME_KILL, MEETING_TYPE, NETVAR_MEETINGS_CALLED } from "shared/sh_gamestate"
 import { GetUsableByType, USABLETYPES } from "shared/sh_use"
-import { PlayerHasUnfinishedAssignment, PlayerToGame, ClearAssignments, PlayerHasAssignments } from "server/sv_gameState"
+import { PlayerHasUnfinishedAssignment, ClearAssignments, PlayerHasAssignments, GetMatch } from "server/sv_gameState"
 import { SV_SendRPC } from "shared/sh_rpc"
 import { GetCurrentRoom } from "server/sv_rooms"
 import { ResetCooldownTime } from "shared/sh_cooldown"
@@ -9,7 +9,6 @@ import { SetPlayerWalkSpeed } from "shared/sh_onPlayerConnect"
 import { GetNetVar_Number, SetNetVar } from "shared/sh_player_netvars"
 import { PlayerDropsCoins } from "server/sv_coins"
 import { CanCallMeeting, UsableGameState } from "shared/content/sh_use_content"
-import { IsReservedServer } from "shared/sh_reservedServer"
 
 export function SV_UseContentSetup()
 {
@@ -17,7 +16,7 @@ export function SV_UseContentSetup()
    usableReport.DefineGetter(
       function ( player: Player ): Array<USABLETYPES>
       {
-         let match = PlayerToGame( player )
+         let match = GetMatch()
          if ( !UsableGameState( match ) )
             return []
 
@@ -37,7 +36,7 @@ export function SV_UseContentSetup()
    usableReport.successFunc =
       function ( player: Player, usedThing: USABLETYPES )
       {
-         let match = PlayerToGame( player )
+         let match = GetMatch()
          if ( !UsableGameState( match ) )
             return
 
@@ -60,10 +59,7 @@ export function SV_UseContentSetup()
    usableKill.DefineGetter(
       function ( player: Player ): Array<Player>
       {
-         if ( IsMatchmaking( player ) )
-            return []
-
-         let match = PlayerToGame( player )
+         let match = GetMatch()
          if ( !UsableGameState( match ) )
             return []
 
@@ -90,7 +86,7 @@ export function SV_UseContentSetup()
    usableKill.successFunc =
       function ( player: Player, usedThing: USABLETYPES )
       {
-         let match = PlayerToGame( player )
+         let match = GetMatch()
          if ( !UsableGameState( match ) )
             return
 
@@ -117,10 +113,7 @@ export function SV_UseContentSetup()
          // print( "Room for " + player.Name + " is " + room.name )
          let results: Array<BasePart> = []
 
-         if ( IsMatchmaking( player ) )
-            return []
-
-         let match = PlayerToGame( player )
+         let match = GetMatch()
          if ( !UsableGameState( match ) )
             return []
 
@@ -130,8 +123,6 @@ export function SV_UseContentSetup()
          for ( let taskPair of room.tasks )
          {
             let task = taskPair[1]
-            if ( match.winOnlybyEscaping && task.realMatchesOnly )
-               continue
 
             if ( PlayerHasUnfinishedAssignment( player, match, room.name, task.name ) )
                results.push( task.volume )
@@ -143,7 +134,7 @@ export function SV_UseContentSetup()
    usableTask.successFunc =
       function ( player: Player, usedThing: USABLETYPES )
       {
-         let match = PlayerToGame( player )
+         let match = GetMatch()
          if ( !UsableGameState( match ) )
             return
          let volume = usedThing as BasePart
@@ -164,7 +155,7 @@ export function SV_UseContentSetup()
       usable.DefineGetter(
          function ( player: Player ): Array<BasePart>
          {
-            let match = PlayerToGame( player )
+            let match = GetMatch()
             if ( !CanCallMeeting( match, player ) )
                return []
 
@@ -177,7 +168,7 @@ export function SV_UseContentSetup()
       usable.successFunc =
          function ( player: Player, usedThing: USABLETYPES )
          {
-            let match = PlayerToGame( player )
+            let match = GetMatch()
             if ( !UsableGameState( match ) )
                return
             print( "Meeting called by " + player.Name )

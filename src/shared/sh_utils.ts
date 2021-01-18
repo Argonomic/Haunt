@@ -698,8 +698,10 @@ export function CloneChild( instance: Instance ): Instance
 
 export function Resume( thrd: thread )
 {
+   if ( thrd === coroutine.running() )
+      return
+
    Assert( coroutine.status( thrd ) === "suspended", "Tried to resume thread with status " + coroutine.status( thrd ) )
-   Assert( coroutine.running() !== thrd, "coroutine.running() !== thrd" )
    coroutine.resume( thrd )
 }
 

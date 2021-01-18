@@ -1,5 +1,5 @@
 import { GetFirstChildWithNameAndClassName, GetLocalPlayer, Thread } from "shared/sh_utils";
-import { GetLocalGame } from "./cl_gamestate";
+import { GetLocalMatch } from "./cl_gamestate";
 import { ROLE, NETVAR_JSON_GAMESTATE } from "shared/sh_gamestate";
 import { AddPlayerGuiFolderExistsCallback, ToggleButton, UIORDER } from "./cl_ui";
 import { AddNetVarChangedCallback } from "shared/sh_player_netvars";
@@ -82,20 +82,14 @@ export function CL_ReturnToLobbySetup()
                wait() // after it actually state
 
                wait( 4 )
-               let match = GetLocalGame()
-               if ( match === undefined )
-                  return
-
-               if ( match.GetPlayerRole( LOCAL_PLAYER ) === ROLE.ROLE_SPECTATOR_CAMPER_ESCAPED )
+               let match = GetLocalMatch()
+               switch ( match.GetPlayerRole( LOCAL_PLAYER ) )
                {
-                  DisplayReturnToLobby()
-                  return
-               }
-
-               if ( match.IsSpectator( LOCAL_PLAYER ) )
-               {
-                  DisplayReturnToLobby()
-                  return
+                  case ROLE.ROLE_SPECTATOR_CAMPER:
+                  case ROLE.ROLE_SPECTATOR_CAMPER_ESCAPED:
+                  case ROLE.ROLE_SPECTATOR_IMPOSTOR:
+                     DisplayReturnToLobby()
+                     return
                }
             } )
       } )

@@ -1,5 +1,5 @@
 import { HttpService, Players } from "@rbxts/services";
-import { PlayerHasAssignments, PlayerToGame, RemoveAssignment } from "server/sv_gameState";
+import { GetMatch, PlayerHasAssignments, RemoveAssignment } from "server/sv_gameState";
 import { SV_SendRPC } from "shared/sh_rpc"
 import { ABILITIES, COOLDOWN_SABOTAGE_LIGHTS } from "shared/content/sh_ability_content";
 import { HasAbility } from "shared/sh_ability";
@@ -24,7 +24,7 @@ export function SV_TasksContentSetup()
 {
    AddRPC( "RPC_FromClient_RestoreLighting_Fuse", function ( player: Player, fuse: number, status: boolean )
    {
-      let match = PlayerToGame( player )
+      let match = GetMatch()
       if ( match.IsSpectator( player ) )
          return
 

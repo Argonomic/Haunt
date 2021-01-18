@@ -1,9 +1,8 @@
 import { StarterGui } from "@rbxts/services"
-import { IsMatchmaking } from "shared/sh_gamestate"
 import { AddCallback_OnPlayerCharacterAdded } from "shared/sh_onPlayerConnect"
 import { SPECTATOR_TRANS } from "shared/sh_settings"
-import { GetLocalPlayer, IsAlive, SetPlayerTransparency, Thread } from "shared/sh_utils"
-import { GetLocalGame } from "./cl_gamestate"
+import { GetLocalPlayer, SetPlayerTransparency, Thread } from "shared/sh_utils"
+import { GetLocalMatch } from "./cl_gamestate"
 import { AddPlayerGuiFolderExistsCallback } from "./cl_ui"
 
 const LOCAL_PLAYER = GetLocalPlayer()
@@ -49,14 +48,8 @@ export function CL_PlayerSetup()
             if ( player.Character === undefined )
                return
 
-            let match = GetLocalGame()
-            if ( match === undefined )
-               return
-
-            if ( !match.IsSpectator( player ) )
-               return
-
-            if ( !IsMatchmaking( player ) )
+            let match = GetLocalMatch()
+            if ( match.IsSpectator( player ) )
                SetPlayerTransparency( player, SPECTATOR_TRANS )
          }
       } )

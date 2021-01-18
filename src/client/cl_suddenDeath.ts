@@ -5,7 +5,7 @@ import { AddCallback_OnPlayerCharacterAncestryChanged } from "shared/sh_onPlayer
 import { AddNetVarChangedCallback } from "shared/sh_player_netvars";
 import { Tween } from "shared/sh_tween";
 import { GetExistingFirstChildWithNameAndClassName, GraphCapped, LoadSound, Thread } from "shared/sh_utils";
-import { GetLocalGame } from "./cl_gamestate";
+import { GetLocalMatch } from "./cl_gamestate";
 import { AddPlayerGuiFolderExistsCallback, UIORDER } from "./cl_ui";
 
 const BEEP = LoadSound( 138081500 )
@@ -69,7 +69,7 @@ export function CL_SuddenDeathSetup()
 
                   let match: Match
                   {
-                     let _game = GetLocalGame()
+                     let _game = GetLocalMatch()
                      let isSuddenDeath = _game !== undefined && _game.GetGameState() === GAME_STATE.GAME_STATE_SUDDEN_DEATH
                      suddenDeathUI.Enabled = isSuddenDeath
 

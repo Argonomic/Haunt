@@ -106,7 +106,7 @@ function CreateRoomFromFolder( folder: Folder ): Room
                let childPart = child as BasePart
                let realMatchesOnly = GetFirstChildWithName( childPart, "not_in_lobby" ) !== undefined
                realMatchesOnly = realMatchesOnly || GetFirstChildWithName( childPart, "not_in_npe" ) !== undefined
-               //if ( realMatchesOnly && !IsReservedServer() )
+               //if ( realMatchesOnly && match.winblah() )
                //{
                //   childPart.Destroy()
                //   break

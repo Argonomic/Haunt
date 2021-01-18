@@ -1,7 +1,6 @@
 import { DataStoreService, RunService, Workspace } from "@rbxts/services";
 import { Assert } from "shared/sh_assert";
 import { AddCallback_OnPlayerConnected } from "shared/sh_onPlayerConnect";
-import { IsReservedServer } from "shared/sh_reservedServer";
 import { MATCHMAKE_SERVER_VERSION } from "shared/sh_settings";
 import { Thread } from "shared/sh_utils";
 
@@ -115,8 +114,6 @@ export function LobbyUpToDate(): boolean
    if ( file.globalPersistence === undefined )
       return true
    if ( file.serverVersion === -1 )
-      return true
-   if ( IsReservedServer() )
       return true
 
    if ( Workspace.DistributedGameTime >= file.nextServerVersionCheckTime )

@@ -1,8 +1,8 @@
 import { HttpService, RunService, Workspace } from "@rbxts/services"
-import { AddNetVar, GetNetVar_Number, GetNetVar_String, ResetNetVar, SetNetVar } from "shared/sh_player_netvars"
+import { AddNetVar, GetNetVar_String, SetNetVar } from "shared/sh_player_netvars"
 import { AddCooldown } from "./sh_cooldown"
 import { SetPlayerWalkSpeed } from "./sh_onPlayerConnect"
-import { COOLDOWNTIME_MEETING, COOLDOWNTIME_KILL, MEETING_DISCUSS_TIME, MEETING_VOTE_TIME, PLAYER_WALKSPEED_SPECTATOR, PLAYER_WALKSPEED, SPECTATOR_TRANS, SUDDEN_DEATH_TIME, DEV_SKIP, MATCHMAKE_PLAYERCOUNT_FALLBACK_DEVSKIP, MATCHMAKE_PLAYERCOUNT_FALLBACK } from "./sh_settings"
+import { COOLDOWNTIME_MEETING, COOLDOWNTIME_KILL, MEETING_DISCUSS_TIME, MEETING_VOTE_TIME, PLAYER_WALKSPEED_SPECTATOR, PLAYER_WALKSPEED, SPECTATOR_TRANS, SUDDEN_DEATH_TIME, DEV_SKIP_INTRO, RESERVEDSERVER_WAITS_FOR_PLAYERS, START_COUNTDOWN, INTRO_TIME, SKIP_INTRO_TIME } from "./sh_settings"
 import { IsServer, IsClient, UserIDToPlayer, IsAlive, SetPlayerTransparency, GetLocalPlayer, Resume, Thread } from "./sh_utils"
 import { Assert } from "shared/sh_assert"
 import { GiveAbility, TakeAbility } from "./sh_ability"
@@ -11,18 +11,12 @@ import { PlayerPickupsDisabled, PlayerPickupsEnabled } from "./sh_pickups"
 import { GetMatchScore, NETVAR_LAST_STASHED, NETVAR_SCORE, NETVAR_STASH } from "./sh_score"
 import { GetDeltaTime } from "./sh_time"
 
-
 const LOCAL = RunService.IsStudio()
 const LOCAL_PLAYER = GetLocalPlayer()
 
 export const NETVAR_JSON_ASSIGNMENTS = "JS_TL"
 export const NETVAR_JSON_GAMESTATE = "JS_GS"
 export const NETVAR_MEETINGS_CALLED = "N_MC"
-
-export const NETVAR_MATCHMAKING_STATUS = "MM_S"
-export const NETVAR_RENDERONLY_MATCHMAKING_NUMINFO = "MM_N"
-export const NETVAR_MATCHMAKING_PLACE_IN_LINE = "MM_L"
-export const NETVAR_JSON_TELEPORTDATA = "JS_TD"
 
 export enum PICKUPS
 {
@@ -46,41 +40,34 @@ export enum GAMERESULTS
    RESULTS_STILL_PLAYING = 0,
    RESULTS_NO_WINNER,
    RESULTS_SUDDEN_DEATH,
-   RESULTS_POSSESSED_WIN,
+   RESULTS_IMPOSTORS_WIN,
    RESULTS_CAMPERS_WIN,
-}
-
-export enum MATCHMAKING_STATUS
-{
-   MATCHMAKING_CONNECTING,
-   MATCHMAKING_LFG,
-   MATCHMAKING_FOUND_GROUP,
-   MATCHMAKING_COUNTDOWN,
-   MATCHMAKING_WAITING_FOR_RESERVEDSERVER_TO_START,
-   MATCHMAKING_PLAYING,
-   MATCHMAKING_SEND_TO_RESERVEDSERVER,
-   MATCHMAKING_SEND_TO_LOBBY,
 }
 
 export enum ROLE
 {
-   ROLE_CAMPER = 0,
-   ROLE_POSSESSED,
+   ROLE_UNASSIGNED = 0,
+   ROLE_CAMPER,
+   ROLE_IMPOSTOR,
    ROLE_SPECTATOR_CAMPER,
    ROLE_SPECTATOR_IMPOSTOR,
    ROLE_SPECTATOR_CAMPER_ESCAPED,
+   ROLE_SPECTATOR_LATE_JOINER,
 }
 
 export enum GAME_STATE
 {
    GAME_STATE_INIT = 0,
-   GAME_STATE_PLAYING, //1
-   GAME_STATE_MEETING_DISCUSS, //2
-   GAME_STATE_MEETING_VOTE,//3
-   GAME_STATE_MEETING_RESULTS,//4
-   GAME_STATE_SUDDEN_DEATH, //5
-   GAME_STATE_COMPLETE, //6
-   GAME_STATE_DEAD, //7
+   GAME_STATE_WAITING_FOR_PLAYERS, // 1
+   GAME_STATE_COUNTDOWN, // 2
+   GAME_STATE_RESERVED_SERVER_WAITING, // 3
+   GAME_STATE_INTRO, // 4
+   GAME_STATE_PLAYING, // 5
+   GAME_STATE_MEETING_DISCUSS, // 6
+   GAME_STATE_MEETING_VOTE,// 7
+   GAME_STATE_MEETING_RESULTS,// 8
+   GAME_STATE_SUDDEN_DEATH, // 9
+   GAME_STATE_COMPLETE, // 10
 }
 
 export enum MEETING_TYPE
@@ -166,8 +153,7 @@ class NETVAR_GameState
    meetingCallerUserId: number | undefined
    meetingType: MEETING_TYPE | undefined
    meetingBodyUserId: number | undefined
-   startingPossessedCount: number
-   winOnlybyEscaping: boolean
+   startingImpostorCount: number
 
    constructor( match: Match, playerInfos: Array<NETVAR_GamePlayerInfo>, corpses: Array<NETVAR_Corpse>, votes: Array<NETVAR_Vote> )
    {
@@ -176,8 +162,7 @@ class NETVAR_GameState
       this.playerInfos = playerInfos
       this.corpses = corpses
       this.votes = votes
-      this.startingPossessedCount = match.startingPossessedCount
-      this.winOnlybyEscaping = match.winOnlybyEscaping
+      this.startingImpostorCount = match.startingImpostorCount
    }
 }
 
@@ -214,14 +199,13 @@ export class Corpse
 export class PlayerInfo
 {
    player: Player
-   role: ROLE
+   role: ROLE = ROLE.ROLE_UNASSIGNED
    playernum = -1
    _userid: number
 
-   constructor( player: Player, role: ROLE )
+   constructor( player: Player )
    {
       this.player = player
-      this.role = role
       this._userid = player.UserId
    }
 }
@@ -270,10 +254,8 @@ export class Match
 
    gameThread: thread | undefined
    playerToSpawnLocation = new Map<Player, Vector3>()
-   startingPossessedCount = 0
+   startingImpostorCount = 0
    highestVotedScore = 0
-
-   winOnlybyEscaping = false
 
    //   coins: Array<Coin> = []
 
@@ -283,7 +265,8 @@ export class Match
       if ( this.gameThread === undefined )
          return
 
-      Resume( this.gameThread )
+      if ( coroutine.status( this.gameThread ) === "suspended" )
+         Resume( this.gameThread )
    }
 
    public GetGameResults_ParityAllowed(): GAMERESULTS
@@ -293,16 +276,9 @@ export class Match
       function func(): GAMERESULTS
       {
          let campers = match.GetLivingCampers().size()
-         if ( match.winOnlybyEscaping )
-         {
-            if ( campers > 0 )
-               return GAMERESULTS.RESULTS_STILL_PLAYING
-            return GAMERESULTS.RESULTS_CAMPERS_WIN
-         }
+         let impostors = match.GetLivingImpostors().size()
 
-         let possessed = match.GetLivingPossessed().size()
-
-         if ( possessed === 0 )
+         if ( impostors === 0 )
          {
             if ( campers === 0 )
                return GAMERESULTS.RESULTS_NO_WINNER
@@ -310,16 +286,16 @@ export class Match
          }
 
          if ( campers === 0 )
-            return GAMERESULTS.RESULTS_POSSESSED_WIN
+            return GAMERESULTS.RESULTS_IMPOSTORS_WIN
 
-         if ( possessed >= campers )
+         if ( impostors >= campers )
             return GAMERESULTS.RESULTS_SUDDEN_DEATH
 
          return GAMERESULTS.RESULTS_STILL_PLAYING
       }
 
       let results = func()
-      print( "GetGameResults_ParityAllowed:" + results + ", isserver: " + IsServer() )
+      //print( "GetGameResults_ParityAllowed:" + results + ", isserver: " + IsServer() )
       return results
    }
 
@@ -330,19 +306,19 @@ export class Match
       {
          let results = match.GetGameResults_ParityAllowed()
          if ( results === GAMERESULTS.RESULTS_SUDDEN_DEATH )
-            return GAMERESULTS.RESULTS_POSSESSED_WIN
+            return GAMERESULTS.RESULTS_IMPOSTORS_WIN
          return results
       }
 
       let results = func()
-      print( "GetGameResults_NoParityAllowed:" + results + ", isserver: " + IsServer() )
+      //print( "GetGameResults_NoParityAllowed:" + results + ", isserver: " + IsServer() )
       return results
    }
 
    public BroadcastGamestate()
    {
       Assert( IsServer(), "Server only" )
-      print( "\nBroadcasting match state: " + this.GetGameState() )
+      //print( "\nBroadcasting match state: " + this.GetGameState() )
 
       // these things are common/consistent to all players
       let corpses: Array<NETVAR_Corpse> = []
@@ -374,7 +350,7 @@ export class Match
       let revealedImpostor = false
       for ( let player of this.GetAllPlayers() )
       {
-         // tell the campers about everyone, but mask the possessed
+         // tell the campers about everyone, but mask the impostors
          let infos: Array<NETVAR_GamePlayerInfo> = []
 
          if ( RevealImpostors( this, player ) )
@@ -393,7 +369,7 @@ export class Match
                let role = pair[1].role
                switch ( role )
                {
-                  case ROLE.ROLE_POSSESSED:
+                  case ROLE.ROLE_IMPOSTOR:
                      role = ROLE.ROLE_CAMPER
                      break
 
@@ -434,14 +410,16 @@ export class Match
       //print( "this.winOnlybyEscaping: " + this.winOnlybyEscaping )
       //print( "Bool: " + ( revealedImpostor || this.winOnlybyEscaping ) )
 
-      Assert( revealedImpostor || this.winOnlybyEscaping, "Didn't reveal imposter" )
+      Assert( this.GetGameState() < GAME_STATE.GAME_STATE_PLAYING || revealedImpostor, "Didn't reveal imposter" )
    }
 
    public SetGameState( state: GAME_STATE )
    {
       let match = this
       Assert( IsServer(), "Server only" )
-      print( "Set Match State " + state + ", Time since last change: " + math.floor( ( Workspace.DistributedGameTime - this._gameStateChangedTime ) ) )
+
+      print( "\nSet Match State " + state + ", Time since last change: " + math.floor( ( Workspace.DistributedGameTime - this._gameStateChangedTime ) ) )
+      //print( "Stack: " + debug.traceback() )
 
       Assert( state >= GAME_STATE.GAME_STATE_COMPLETE || this.gameState < GAME_STATE.GAME_STATE_COMPLETE, "Illegal match state setting. Tried to set state " + state + ", but match state was " + this.gameState )
 
@@ -495,7 +473,7 @@ export class Match
          switch ( playerInfo.role )
          {
             case ROLE.ROLE_CAMPER:
-            case ROLE.ROLE_POSSESSED:
+            case ROLE.ROLE_IMPOSTOR:
                players.push( player )
                break
          }
@@ -536,17 +514,54 @@ export class Match
    //    SHARED
    // 
    //////////////////////////////////////////////////////
-   private gameState: GAME_STATE = GAME_STATE.GAME_STATE_INIT
+   private gameState: GAME_STATE = GAME_STATE.GAME_STATE_WAITING_FOR_PLAYERS
    private _gameStateChangedTime = 0
    private playerToInfo = new Map<Player, PlayerInfo>()
    private votes: Array<PlayerVote> = []
    corpses: Array<Corpse> = []
 
+
+   public GameStateHasTimeLimit(): boolean
+   {
+      let timeRemaining = this._GetTimeRemainingForState()
+      return timeRemaining !== undefined
+   }
+
    public GetTimeRemainingForState(): number
+   {
+      Assert( this.GameStateHasTimeLimit(), "Expected time limited gamestate" )
+      return this._GetTimeRemainingForState() as number
+   }
+
+   public PollingGameState(): boolean
+   {
+      switch ( this.gameState )
+      {
+         case GAME_STATE.GAME_STATE_WAITING_FOR_PLAYERS:
+         case GAME_STATE.GAME_STATE_RESERVED_SERVER_WAITING:
+         case GAME_STATE.GAME_STATE_COUNTDOWN:
+            return true
+      }
+
+      return false
+   }
+
+   private _GetTimeRemainingForState(): number | undefined
    {
       let timeRemaining = 0
       switch ( this.gameState )
       {
+         case GAME_STATE.GAME_STATE_RESERVED_SERVER_WAITING:
+            timeRemaining = RESERVEDSERVER_WAITS_FOR_PLAYERS
+            break
+
+         case GAME_STATE.GAME_STATE_INTRO:
+            if ( DEV_SKIP_INTRO )
+               timeRemaining = SKIP_INTRO_TIME
+            else
+               timeRemaining = INTRO_TIME
+            break
+
          case GAME_STATE.GAME_STATE_MEETING_DISCUSS:
             timeRemaining = MEETING_DISCUSS_TIME
             break
@@ -558,6 +573,13 @@ export class Match
          case GAME_STATE.GAME_STATE_SUDDEN_DEATH:
             timeRemaining = SUDDEN_DEATH_TIME
             break
+
+         case GAME_STATE.GAME_STATE_COUNTDOWN:
+            timeRemaining = START_COUNTDOWN
+            break
+
+         default:
+            return undefined
       }
 
       return math.max( 0, timeRemaining - this.GetTimeInGameState() )
@@ -634,7 +656,7 @@ export class Match
          if ( role === ROLE.ROLE_SPECTATOR_CAMPER )
             Assert( this.GetPlayerRole( player ) === ROLE.ROLE_CAMPER, "Bad role assignment" )
          else if ( role === ROLE.ROLE_SPECTATOR_IMPOSTOR )
-            Assert( this.GetPlayerRole( player ) === ROLE.ROLE_POSSESSED, "Bad role assignment" )
+            Assert( this.GetPlayerRole( player ) === ROLE.ROLE_IMPOSTOR, "Bad role assignment" )
       }
 
       Assert( this.playerToInfo.has( player ), "SetPlayerRole: Match does not have " + player.Name )
@@ -690,17 +712,17 @@ export class Match
       return this.GetPlayersOfRole( ROLE.ROLE_CAMPER ).concat( this.GetPlayersOfRole( ROLE.ROLE_SPECTATOR_CAMPER ) )
    }
 
-   public GetLivingPossessed(): Array<Player>
+   public GetLivingImpostors(): Array<Player>
    {
-      return this.GetPlayersOfRole( ROLE.ROLE_POSSESSED ).filter( function ( player )
+      return this.GetPlayersOfRole( ROLE.ROLE_IMPOSTOR ).filter( function ( player )
       {
          return player.Character !== undefined
       } )
    }
 
-   public GetPossessed(): Array<Player>
+   public GetImpostors(): Array<Player>
    {
-      return this.GetPlayersOfRole( ROLE.ROLE_POSSESSED ).concat( this.GetPlayersOfRole( ROLE.ROLE_SPECTATOR_IMPOSTOR ) )
+      return this.GetPlayersOfRole( ROLE.ROLE_IMPOSTOR ).concat( this.GetPlayersOfRole( ROLE.ROLE_SPECTATOR_IMPOSTOR ) )
    }
 
    public GetSpectators(): Array<Player>
@@ -719,22 +741,11 @@ export class Match
       return players
    }
 
-   public AddPlayer( player: Player, role: ROLE ): PlayerInfo
+   public AddPlayer( player: Player ): PlayerInfo
    {
-      //AssignDefaultNVs( player )
-      if ( IsServer() )
-      {
-         ResetNetVar( player, NETVAR_JSON_ASSIGNMENTS )
-         ResetNetVar( player, NETVAR_JSON_GAMESTATE )
-         ResetNetVar( player, NETVAR_MEETINGS_CALLED )
-         ResetNetVar( player, NETVAR_SCORE )
-      }
-
       Assert( !this.playerToInfo.has( player ), "Match already has " + player.Name )
-      let playerInfo = new PlayerInfo( player, role )
+      let playerInfo = new PlayerInfo( player )
       this.playerToInfo.set( player, playerInfo )
-
-      this.SetPlayerRole( player, role )
 
       let character = player.Character
       if ( character !== undefined )
@@ -839,8 +850,7 @@ export class Match
       this.gameState = gs.gameState
 
       this._gameStateChangedTime = gs.gsChangedTime + GetDeltaTime()
-      this.startingPossessedCount = gs.startingPossessedCount
-      this.winOnlybyEscaping = gs.winOnlybyEscaping
+      this.startingImpostorCount = gs.startingImpostorCount
 
       // update PLAYERS
       {
@@ -854,16 +864,10 @@ export class Match
             sentPlayers.set( player, true )
 
             let role = gsPlayerInfo.role
-            let playerInfo: PlayerInfo | undefined
-            if ( this.HasPlayer( player ) )
-               playerInfo = this.SetPlayerRole( player, role )
-            else
-               playerInfo = this.AddPlayer( player, role )
+            let playerInfo = this.SetPlayerRole( player, role )
 
             Assert( playerInfo !== undefined, "playerInfo !== undefined" )
-
-            if ( playerInfo !== undefined )
-               playerInfo.playernum = gsPlayerInfo.playernum
+            playerInfo.playernum = gsPlayerInfo.playernum
          }
 
          let localSpectator = this.IsSpectator( LOCAL_PLAYER )
@@ -970,14 +974,11 @@ export class Match
 export function SH_GameStateSetup()
 {
    AddNetVar( "string", NETVAR_JSON_ASSIGNMENTS, "{}" )
-   AddNetVar( "number", NETVAR_RENDERONLY_MATCHMAKING_NUMINFO, 0 )
-   AddNetVar( "number", NETVAR_MATCHMAKING_PLACE_IN_LINE, -1 )
    AddNetVar( "string", NETVAR_JSON_GAMESTATE, "" )
    AddNetVar( "number", NETVAR_MEETINGS_CALLED, 0 )
    AddNetVar( "number", NETVAR_SCORE, 0 )
    AddNetVar( "number", NETVAR_STASH, 0 )
    AddNetVar( "number", NETVAR_LAST_STASHED, 0 )
-   AddNetVar( "number", NETVAR_MATCHMAKING_STATUS, MATCHMAKING_STATUS.MATCHMAKING_CONNECTING )
 
    AddCooldown( COOLDOWN_NAME_KILL, COOLDOWNTIME_KILL )
    AddCooldown( COOLDOWN_NAME_MEETING, COOLDOWNTIME_MEETING )
@@ -1016,17 +1017,13 @@ export function SH_GameStateSetup()
 
 }
 
+/*
 export function IsMatchmaking( player: Player ): boolean
 {
    let status = GetNetVar_Number( player, NETVAR_MATCHMAKING_STATUS )
    switch ( status )
    {
-      case MATCHMAKING_STATUS.MATCHMAKING_CONNECTING:
-      case MATCHMAKING_STATUS.MATCHMAKING_LFG:
-      case MATCHMAKING_STATUS.MATCHMAKING_FOUND_GROUP:
-      case MATCHMAKING_STATUS.MATCHMAKING_COUNTDOWN:
-      case MATCHMAKING_STATUS.MATCHMAKING_WAITING_FOR_RESERVEDSERVER_TO_START:
-      case MATCHMAKING_STATUS.MATCHMAKING_SEND_TO_RESERVEDSERVER:
+      case MATCHMAKING_STATUS.MATCHMAKING_WAITING_TO_PLAY:
       case MATCHMAKING_STATUS.MATCHMAKING_SEND_TO_LOBBY:
          return true
 
@@ -1037,6 +1034,7 @@ export function IsMatchmaking( player: Player ): boolean
    Assert( false, "IsMatchmaking bad netvar status " + status )
    throw undefined
 }
+*/
 
 export function PlayerNumToGameViewable( playerNum: number ): string
 {
@@ -1128,7 +1126,7 @@ export function IsImpostorRole( role: ROLE ): boolean
    switch ( role )
    {
       case ROLE.ROLE_SPECTATOR_IMPOSTOR:
-      case ROLE.ROLE_POSSESSED:
+      case ROLE.ROLE_IMPOSTOR:
          return true
    }
 
@@ -1165,17 +1163,9 @@ export function IsSpectatorRole( role: ROLE ): boolean
       case ROLE.ROLE_SPECTATOR_CAMPER:
       case ROLE.ROLE_SPECTATOR_IMPOSTOR:
       case ROLE.ROLE_SPECTATOR_CAMPER_ESCAPED:
+      case ROLE.ROLE_SPECTATOR_LATE_JOINER:
          return true
    }
 
    return false
 }
-
-export function GetFallbackPlayerCount(): number
-{
-   if ( DEV_SKIP )
-      return MATCHMAKE_PLAYERCOUNT_FALLBACK_DEVSKIP
-   return MATCHMAKE_PLAYERCOUNT_FALLBACK
-}
-
-

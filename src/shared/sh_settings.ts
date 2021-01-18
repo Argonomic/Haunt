@@ -1,18 +1,16 @@
 import { RunService } from "@rbxts/services"
 const LOCAL = RunService.IsStudio()
 
-export const DEV_SKIP = LOCAL && false
-export const DEV_SKIP_NPE = LOCAL && true
-export const DEV_SKIP_MMTIME = LOCAL && true
+export const DEV_SKIP_INTRO = LOCAL && false
+export const DEV_1_TASK = true
 
 // MATCHMAKING
 export const MATCHMAKE_SERVER_VERSION = 1
-export const MATCHMAKE_PLAYERCOUNT_MAX = 4 // 10
-export const MATCHMAKE_PLAYERCOUNT_FALLBACK_DEVSKIP = 4 // 5
-export const MATCHMAKE_PLAYERCOUNT_FALLBACK = 4 // 7 // min players to start outside mm
-export const MAX_FRIEND_WAIT_TIME = 20
-export const DEFAULT_REMIND_MATCHMAKING = 60
-export const MATCHMAKING_COUNTDOWN_SERVERTIME = 5
+export const MATCHMAKE_PLAYERCOUNT_FALLBACK = 3
+export const MATCHMAKE_PLAYERCOUNT_STARTSERVER = 4
+export const MATCHMAKE_PLAYER_CAN_MATCHMAKE_TIME = 10
+export const START_COUNTDOWN = 10
+export const RESERVEDSERVER_WAITS_FOR_PLAYERS = 10
 
 // POINTS
 export const COIN_VALUE_SILVER = 1
@@ -21,6 +19,8 @@ export const COIN_VALUE_GEM = 50
 export const TASK_VALUE = 10
 
 // IN GAME
+export const INTRO_TIME = 10
+export const SKIP_INTRO_TIME = 2
 export const PLAYER_WALKSPEED = 16 * 2.5
 export const PLAYER_WALKSPEED_SPECTATOR = 16 * 1.333
 export const MAX_TASKLIST_SIZE = 7
@@ -36,7 +36,7 @@ export let COOLDOWNTIME_KILL = 45
 export let COOLDOWNTIME_SABOTAGE_LIGHTS = 70
 export let COOLDOWNTIME_MEETING = 20
 
-if ( DEV_SKIP )
+if ( DEV_SKIP_INTRO )
 {
    COOLDOWNTIME_KILL = 0
    COOLDOWNTIME_SABOTAGE_LIGHTS = 4
@@ -59,3 +59,5 @@ export const PLAYER_COLORS =
    ]
 
 export const ADMINS = ["Argonomic", "ArgonomicDev"]
+
+print( "SRV1" )

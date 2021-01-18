@@ -6,7 +6,6 @@ import { SH_PlayerNetVarsSetup, DoneCreatingNVs } from "shared/sh_player_netvars
 import { SetServer, Thread } from "shared/sh_utils";
 import { Assert, SH_AssertSetup } from "shared/sh_assert"
 
-import { SV_MatchmakingSetup } from "./sv_matchmaking";
 import { SV_CollisionGroupsSetup } from "server/sv_collisionGroups";
 import { SH_UseContentSetup } from "shared/content/sh_use_content";
 import { SH_UseSetup } from "shared/sh_use";
@@ -24,11 +23,9 @@ import { SV_CoinsSetup } from "./sv_coins";
 import { SV_UseSetup } from "./sv_use";
 import { SV_PersistenceSetup } from "./sv_persistence";
 import { SH_ScoreSetup } from "shared/sh_score";
-import { SH_MatchmakingSetup } from "shared/sh_matchmaking";
-import { SH_FriendsSetup } from "shared/sh_friends";
 import { SH_GameStateSetup } from "shared/sh_gamestate";
-import { SH_ReservedServerSetup } from "shared/sh_reservedServer";
 import { SV_ScoreSetup } from "./sv_score";
+import { SH_ReservedServerSetup } from "shared/sh_reservedServer";
 
 class File
 {
@@ -46,6 +43,7 @@ Thread( FinishCheck )
 
 SetServer()
 
+SH_ReservedServerSetup()
 SH_RPCSetup()
 SH_PlayerNetVarsSetup()
 SH_UseSetup()
@@ -58,10 +56,7 @@ SH_AssertSetup()
 SH_PickupsSetup()
 SH_CoinsSetup()
 SH_ScoreSetup()
-SH_FriendsSetup()
 SH_GameStateSetup()
-SH_MatchmakingSetup()
-SH_ReservedServerSetup()
 
 SV_CollisionGroupsSetup()
 SV_RoomsSetup()
@@ -77,7 +72,5 @@ SV_ScoreSetup()
 
 DoneCreatingNVs()
 SH_OnPlayerConnectSetup()
-
-SV_MatchmakingSetup()
 
 file.finishedInit = true

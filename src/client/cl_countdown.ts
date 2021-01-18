@@ -1,7 +1,7 @@
-import { MATCHMAKING_STATUS, NETVAR_RENDERONLY_MATCHMAKING_NUMINFO, NETVAR_MATCHMAKING_STATUS } from "shared/sh_gamestate";
-import { AddNetVarChangedCallback, GetNetVar_Number } from "shared/sh_player_netvars";
-import { GetServerTime } from "shared/sh_time";
+import { GAME_STATE, NETVAR_JSON_GAMESTATE } from "shared/sh_gamestate";
+import { AddNetVarChangedCallback } from "shared/sh_player_netvars";
 import { GetExistingFirstChildWithNameAndClassName, GetLocalPlayer, LoadSound, Thread } from "shared/sh_utils";
+import { GetLocalMatch } from "./cl_gamestate";
 import { AddPlayerGuiFolderExistsCallback, UIORDER } from "./cl_ui";
 
 const LOCAL_PLAYER = GetLocalPlayer()
@@ -22,6 +22,8 @@ let file = new File()
 
 export function CL_GameStartingSetup()
 {
+   BEEP.Volume = 0.15
+
    AddPlayerGuiFolderExistsCallback( function ( folder: Folder )
    {
       if ( file.gameStartingUI !== undefined )
@@ -36,70 +38,62 @@ export function CL_GameStartingSetup()
       file.gameStartingUI = gameStartingUI
    } )
 
-   function DrawCountdown( countdownTime: number )
+   function DrawCountdown()
    {
-      print( "DrawCountdown " + countdownTime )
       Thread( function ()
       {
          if ( file.gameStartingUI === undefined )
             return
          if ( file.uiFolder === undefined )
             return
+
          let gameStartingUI = file.gameStartingUI.Clone()
          gameStartingUI.Enabled = true
          gameStartingUI.Parent = file.uiFolder
          gameStartingUI.Name = "Runtime CountdownUI"
          file.currentUI = gameStartingUI
 
-         countdownTime = math.floor( countdownTime )
-
+         let lastTime = -1
          for ( ; ; )
          {
-            if ( gameStartingUI !== file.currentUI )
+            let match = GetLocalMatch()
+            if ( match.GetGameState() !== GAME_STATE.GAME_STATE_COUNTDOWN )
                break
 
-            BEEP.Volume = 0.15
-            // another thread started?
-            gameStartingUI.Timer.Text = countdownTime + ""
-            if ( countdownTime <= 5 )
-               BEEP.Play()
+            let time = math.floor( match.GetTimeRemainingForState() )
+            if ( time <= 0 )
+               break
 
-            countdownTime--
-            if ( countdownTime < 1 )
+            if ( time !== lastTime )
             {
-               gameStartingUI.Destroy()
-               file.currentUI = undefined
-               return
+               lastTime = time
+               gameStartingUI.Timer.Text = time + ""
+               if ( time <= 5 )
+                  BEEP.Play()
             }
 
-            wait( 1 )
+            wait()
          }
+
+         file.currentUI = undefined
+         gameStartingUI.Destroy()
       } )
    }
 
-   AddNetVarChangedCallback( NETVAR_MATCHMAKING_STATUS,
+   AddNetVarChangedCallback( NETVAR_JSON_GAMESTATE,
       function ()
       {
          Thread(
             function ()
             {
-               wait() // involves multiple netvars, which isn't supported properly
-               if ( file.currentUI !== undefined )
-               {
-                  file.currentUI.Destroy()
-                  file.currentUI = undefined
-               }
+               wait() // wait for gamestate to update
 
-               switch ( GetNetVar_Number( LOCAL_PLAYER, NETVAR_MATCHMAKING_STATUS ) )
-               {
-                  case MATCHMAKING_STATUS.MATCHMAKING_COUNTDOWN:
-                     let time = GetServerTime()
-                     let endTime = GetNetVar_Number( LOCAL_PLAYER, NETVAR_RENDERONLY_MATCHMAKING_NUMINFO )
-                     let difference = endTime - time
-                     if ( difference > 0 )
-                        DrawCountdown( difference )
-                     break
-               }
+               if ( file.currentUI !== undefined )
+                  return
+
+               let match = GetLocalMatch()
+               if ( match.GetGameState() === GAME_STATE.GAME_STATE_COUNTDOWN )
+                  Thread( DrawCountdown )
             } )
       } )
 

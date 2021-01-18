@@ -71,13 +71,13 @@ AddNetVarChangedCallback( NETVAR_MATCHMAKING_STATUS, function ()
                let receivedHighestVotes: Array<Player> = []
                let receivedVotes: Array<Player> = []
                let votedAndReceivedNoVotes = [LOCAL_PLAYER, LOCAL_PLAYER, LOCAL_PLAYER]
-               let possessedCount = 1
+               let impostorCount = 1
                DrawMatchScreen_VoteResults(
                   skipTie,
                   receivedHighestVotes,
                   receivedVotes,
                   votedAndReceivedNoVotes,
-                  possessedCount,
+                  impostorCount,
                   500
                )
             }
@@ -87,32 +87,35 @@ AddNetVarChangedCallback( NETVAR_MATCHMAKING_STATUS, function ()
             {
                let receivedVotes = [LOCAL_PLAYER, LOCAL_PLAYER, LOCAL_PLAYER, LOCAL_PLAYER, LOCAL_PLAYER]
                let votedAndReceivedNoVotes: Array<Player> = [LOCAL_PLAYER, LOCAL_PLAYER]
-               let possessedCount = 2
+               let impostorCount = 2
                let skipTie = false
                let receivedHighestVotes = [LOCAL_PLAYER]
-               DrawMatchScreen_VoteResults( skipTie, receivedHighestVotes, receivedVotes, votedAndReceivedNoVotes, possessedCount,
+               DrawMatchScreen_VoteResults( skipTie, receivedHighestVotes, receivedVotes, votedAndReceivedNoVotes, impostorCount,
                   500 )
             }
 
             break
 
          case 4:
-            {
-               let playerInfos: Array<PlayerInfo> = []
-               for ( let i = 0; i < 4; i++ )
-               {
-                  let playerInfo = new PlayerInfo( LOCAL_PLAYER, ROLE.ROLE_CAMPER )
-                  playerInfos.push( playerInfo )
-                  if ( i > 2 )
-                     playerInfo.role = ROLE.ROLE_SPECTATOR_CAMPER
-               }
-               DrawMatchScreen_Victory( playerInfos, false, true, true, 350 )
-            }
+         //{
+         //   let playerInfos: Array<PlayerInfo> = []
+         //   for ( let i = 0; i < 4; i++ )
+         //   {
+         //      let playerInfo = new PlayerInfo( LOCAL_PLAYER )
+         //      playerInfos.push( playerInfo )
+         //      if ( i > 2 )
+         //         playerInfo.role = ROLE.ROLE_SPECTATOR_CAMPER
+         //      else
+         //         playerInfo.role = ROLE.ROLE_CAMPER
+         //   }
+         //   DrawMatchScreen_Victory( playerInfos, false, true, true, 350 )
+         //}
 
          case 5:
-            {
-               DrawMatchScreen_Escaped( new PlayerInfo( LOCAL_PLAYER, ROLE.ROLE_CAMPER ), 302 )
-            }
+         //{
+         //   let playerInfo = 
+         //   DrawMatchScreen_Escaped( new PlayerInfo( LOCAL_PLAYER, ROLE.ROLE_CAMPER ), 302 )
+         //}
 
          case 6:
             {
@@ -123,7 +126,7 @@ AddNetVarChangedCallback( NETVAR_MATCHMAKING_STATUS, function ()
 
 }
 
-export function DrawMatchScreen_Intro( foundLocalPossessed: boolean, possessedCount: number, lineup: Array<Model> )
+export function DrawMatchScreen_Intro( foundLocalImpostor: boolean, impostorCount: number, lineup: Array<Model> )
 {
    let matchScreenFrame = WaitForMatchScreenFrame( "MATCHSCREEN_INTRO" )
    let baseFrame = matchScreenFrame.baseFrame
@@ -135,9 +138,9 @@ export function DrawMatchScreen_Intro( foundLocalPossessed: boolean, possessedCo
    let viewportCamera = matchScreenFrame.viewportCamera
 
    title.Text = "Shhh..."
-   if ( foundLocalPossessed )
+   if ( foundLocalImpostor )
    {
-      if ( possessedCount === 1 )
+      if ( impostorCount === 1 )
          subTitle.Text = "You are the imposter!"
       else
          subTitle.Text = "You are an imposter!"
@@ -148,12 +151,12 @@ export function DrawMatchScreen_Intro( foundLocalPossessed: boolean, possessedCo
    }
 
    let imposterText: string
-   if ( possessedCount === 0 )
+   if ( impostorCount === 0 )
       imposterText = ""
-   else if ( possessedCount === 1 )
+   else if ( impostorCount === 1 )
       imposterText = "There is 1 imposter"
    else
-      imposterText = "There are " + possessedCount + " imposters"
+      imposterText = "There are " + impostorCount + " imposters"
 
    title.TextTransparency = 1
    subTitle.TextTransparency = 1
@@ -180,7 +183,7 @@ export function DrawMatchScreen_Intro( foundLocalPossessed: boolean, possessedCo
          function ()
          {
             wait( 2 )
-            if ( !foundLocalPossessed )
+            if ( !foundLocalImpostor )
             {
                Tween( subTitle, { TextTransparency: 1 }, 0.5 )
                wait( 0.5 )
@@ -201,14 +204,14 @@ export function DrawMatchScreen_Intro( foundLocalPossessed: boolean, possessedCo
       ArrangeModelsInLineup( lineup, viewportFrame )
       let lineupCamera = new AnimateLineup( viewportFrame, viewportCamera )
 
-      if ( foundLocalPossessed )
+      if ( foundLocalImpostor )
       {
          Thread(
             function ()
             {
                wait( 1.6 )
                let goal = { Transparency: 1 }
-               let camperModels = lineup.slice( possessedCount )
+               let camperModels = lineup.slice( impostorCount )
                for ( let model of camperModels )
                {
                   TweenCharacterParts( model, goal, 1.0 )
@@ -238,7 +241,7 @@ function SortLocalPlayerInfo( a: PlayerInfo, b: PlayerInfo ): boolean
    return a.player === LOCAL_PLAYER && b.player !== LOCAL_PLAYER
 }
 
-export function DrawMatchScreen_VoteResults( skipTie: boolean, receivedHighestVotes: Array<Player>, receivedVotes: Array<Player>, votedAndReceivedNoVotes: Array<Player>, possessedCount: number, highestVotedScore: number )
+export function DrawMatchScreen_VoteResults( skipTie: boolean, receivedHighestVotes: Array<Player>, receivedVotes: Array<Player>, votedAndReceivedNoVotes: Array<Player>, impostorCount: number, highestVotedScore: number )
 {
    print( "DrawMatchScreen_VoteResults, highestVotedScore: " + highestVotedScore )
    function GetResultsText(): Array<string>
