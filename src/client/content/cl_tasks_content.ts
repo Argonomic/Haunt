@@ -1072,7 +1072,6 @@ function Task_Exit( frame: EDITOR_TaskExit, closeTaskThread: Function, status: T
 
    key.Position = new UDim2( x, 0, y, 0 )
 
-   const DIST = 14
    return RunService.RenderStepped.Connect( function ()
    {
       if ( key === undefined )
@@ -1083,8 +1082,7 @@ function Task_Exit( frame: EDITOR_TaskExit, closeTaskThread: Function, status: T
       let button = GetDraggedButton()
       if ( button === undefined )
          return
-
-      if ( ElementDist( key, cloneKey ) > DIST )
+      if ( !ElementWithinElement( key, keyhole ) )
          return
 
       status.success = true
