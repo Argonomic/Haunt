@@ -1012,40 +1012,23 @@ function Task_CleanOutFridge( frame: Frame, closeTaskThread: Function, status: T
    } )
 }
 
-
-function Task_Exit( frame: Frame, closeTaskThread: Function, status: TaskStatus )
+type EDITOR_TaskExit = Frame &
 {
-   let background: ImageLabel | undefined
-   let doorFrame: Frame | undefined
-   let children = GetChildren_NoFutureOffspring( frame )
-   for ( let child of children )
+   DoorFrame: Frame &
    {
-      switch ( child.Name )
-      {
-         case "Background":
-            background = child as ImageLabel
-            break
-
-         case "DoorFrame":
-            doorFrame = child as Frame
-            break
-      }
+      Keyhole: Frame
+      Key: ImageButton
    }
+   Background: ImageLabel
+}
 
-   Assert( background !== undefined, "Could not find background" )
-   if ( background === undefined )
-      return
-
-   Assert( doorFrame !== undefined, "Could not find doorFrame" )
-   if ( doorFrame === undefined )
-      return
-
-
-   let key = GetExistingFirstChildWithNameAndClassName( doorFrame, "Key", "ImageButton" ) as ImageButton
-
-   Assert( key !== undefined, "Could not find key" )
-   if ( key === undefined )
-      return
+function Task_Exit( frame: EDITOR_TaskExit, closeTaskThread: Function, status: TaskStatus )
+{
+   let background = frame.Background
+   let doorFrame = frame.DoorFrame
+   let key = doorFrame.Key
+   let keyhole = doorFrame.Keyhole
+   keyhole.Visible = false
 
    background.ZIndex = 1
 
