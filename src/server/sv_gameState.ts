@@ -42,6 +42,20 @@ function CreateMatch(): Match
    return match
 }
 
+export function PlayerHasMatch( player: Player ): boolean
+{
+   for ( let match of file.matches )
+   {
+      for ( let otherPlayer of match.GetAllPlayers() )
+      {
+         if ( otherPlayer === player )
+            return true
+      }
+   }
+
+   return false
+}
+
 export function PlayerToMatch( player: Player ): Match
 {
    for ( let match of file.matches )
@@ -203,7 +217,7 @@ export function SV_GameStateSetup()
             PlayerBecomesSpectatorAndDistributesCoins( player, match )
 
          // don't remove quitters from real games because their info is still valid and needed
-         if ( !match.realMatch )
+         if ( !match.GetRealMatch() )
             match.RemovePlayer( player )
 
          match.UpdateGame()
@@ -658,7 +672,6 @@ function GameStateThink( match: Match )
             if ( IsReservedServer() )
             {
                match.SetGameState( GAME_STATE.GAME_STATE_INTRO )
-               match.realMatch = true
                return
             }
 
@@ -977,7 +990,7 @@ export function AssignAllTasks( player: Player, match: Match )
 
    for ( let roomAndTask of roomsAndTasks )
    {
-      if ( roomAndTask.task.realMatchesOnly && !match.realMatch )
+      if ( roomAndTask.task.realMatchesOnly && !match.GetRealMatch() )
          continue
 
       let assignment = new Assignment( roomAndTask.room.name, roomAndTask.task.name )
@@ -1045,18 +1058,14 @@ function PlayerBecomesSpectatorAndDistributesCoins( player: Player, match: Match
       case GAME_STATE.GAME_STATE_PLAYING:
       case GAME_STATE.GAME_STATE_SUDDEN_DEATH:
          PlayerDropsCoinsWithTrajectory( player, GetPosition( player ) )
-         break
+         return
+   }
 
-      case GAME_STATE.GAME_STATE_MEETING_DISCUSS:
-      case GAME_STATE.GAME_STATE_MEETING_RESULTS:
-      case GAME_STATE.GAME_STATE_MEETING_VOTE:
-         let score = GetMatchScore( player )
-         if ( score > 0 )
-         {
-            ClearMatchScore( player )
-            DistributePointsToPlayers( match.GetLivingPlayers(), score )
-         }
-         break
+   let score = GetMatchScore( player )
+   if ( score > 0 )
+   {
+      ClearMatchScore( player )
+      DistributePointsToPlayers( match.GetLivingPlayers(), score )
    }
 }
 
@@ -1079,6 +1088,13 @@ function TeleportPlayersToLobby( players: Array<Player>, msg: string )
 
 function FindMatchForPlayer( player: Player )
 {
+   if ( PlayerHasMatch( player ) )
+   {
+      let match = PlayerToMatch( player )
+      match.RemovePlayer( player )
+      match.UpdateGame()
+   }
+
    let addedPlayer = false
    if ( IsReservedServer() )
    {
@@ -1147,7 +1163,8 @@ function DestroyMatch( match: Match )
    let userIdToPlayer = UserIDToPlayer()
    for ( let player of match.GetAllPlayers() )
    {
-      if ( userIdToPlayer.has( player.UserId ) )
+      match.RemovePlayer( player )
+      if ( userIdToPlayer.has( player.UserId ) ) // still in game?
          FindMatchForPlayer( player )
    }
 

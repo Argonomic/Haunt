@@ -1,6 +1,6 @@
 import { HttpService, Workspace } from "@rbxts/services"
 import { ROLE, Match, NETVAR_JSON_GAMESTATE, USETYPES, GAME_STATE, GetVoteResults, GAMERESULTS, MEETING_TYPE, IsCamperRole, IsImpostorRole, AddRoleChangeCallback, Assignment, AssignmentIsSame, NETVAR_JSON_ASSIGNMENTS, UsableGameState } from "shared/sh_gamestate"
-import { AddCallback_OnPlayerCharacterAdded, AddCallback_OnPlayerConnected, ClonePlayerModels, PlayerHasClone } from "shared/sh_onPlayerConnect"
+import { AddCallback_OnPlayerCharacterAdded, AddCallback_OnPlayerConnected, ClonePlayerModel, ClonePlayerModels, PlayerHasClone } from "shared/sh_onPlayerConnect"
 import { AddNetVarChangedCallback, GetNetVar_String } from "shared/sh_player_netvars"
 import { GetUsableByType } from "shared/sh_use"
 import { GetFirstChildWithName, GetLocalPlayer, RandomFloatRange, RecursiveOnChildren, Resume, SetCharacterTransparency, Thread, WaitThread } from "shared/sh_utils"
@@ -444,12 +444,9 @@ function CreateCorpse( player: Player, pos: Vector3 ): Model | undefined
    const PUSH = 10
    const ROTVEL = 36
 
-   if ( player.Character === undefined )
+   let corpseCharacter = ClonePlayerModel( player )
+   if ( corpseCharacter === undefined )
       return undefined
-
-   let character = player.Character as Model
-   character.Archivable = true
-   let corpseCharacter = character.Clone()
    SetCharacterTransparency( corpseCharacter, 0 )
 
    corpseCharacter.Name = "corspseClone"

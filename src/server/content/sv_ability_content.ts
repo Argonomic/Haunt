@@ -19,6 +19,8 @@ export function SV_AbilityContentSetup()
          let players = match.GetAllPlayers()
          for ( let aplayer of players )
          {
+            if ( match.IsSpectator( aplayer ) )
+               continue
             if ( ServerPlayeyHasAssignment( aplayer, match, 'Garage', TASK_RESTORE_LIGHTS ) )
                continue
             let assignment = new Assignment( 'Garage', TASK_RESTORE_LIGHTS )
