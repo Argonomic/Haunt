@@ -10,6 +10,7 @@ import { ABILITIES } from "./content/sh_ability_content"
 import { PlayerPickupsDisabled, PlayerPickupsEnabled } from "./sh_pickups"
 import { GetMatchScore, NETVAR_LAST_STASHED, NETVAR_SCORE, NETVAR_STASH } from "./sh_score"
 import { GetDeltaTime } from "./sh_time"
+import { IsReservedServer } from "./sh_reservedServer"
 
 const LOCAL = RunService.IsStudio()
 const LOCAL_PLAYER = GetLocalPlayer()
@@ -227,6 +228,9 @@ export class Match
    constructor()
    {
       let match = this
+      if ( IsServer() )
+         match.svRealMatch = IsReservedServer()
+
       for ( let func of file.gameCreatedCallbacks )
       {
          Thread(
@@ -257,7 +261,7 @@ export class Match
    playerToSpawnLocation = new Map<Player, Vector3>()
    startingImpostorCount = 0
    highestVotedScore = 0
-   realMatch = false
+   svRealMatch = false
 
    //   coins: Array<Coin> = []
 
@@ -306,6 +310,12 @@ export class Match
       let results = func()
       //print( "GetGameResults_ParityAllowed:" + results + ", isserver: " + IsServer() )
       return results
+   }
+
+   public GetRealMatch(): boolean
+   {
+      Assert( IsServer(), "Is server required" )
+      return this.svRealMatch
    }
 
    public GetGameResults_NoParityAllowed(): GAMERESULTS
@@ -419,7 +429,7 @@ export class Match
       //print( "this.winOnlybyEscaping: " + this.winOnlybyEscaping )
       //print( "Bool: " + ( revealedImpostor || this.winOnlybyEscaping ) )
 
-      Assert( !this.realMatch || this.GetGameState() < GAME_STATE.GAME_STATE_PLAYING || revealedImpostor, "Didn't reveal imposter" )
+      Assert( !this.GetRealMatch() || this.GetGameState() < GAME_STATE.GAME_STATE_PLAYING || revealedImpostor, "Didn't reveal imposter" )
    }
 
    public SetGameState( state: GAME_STATE )
@@ -858,6 +868,11 @@ export class Match
 
       let gs = HttpService.JSONDecode( json ) as NETVAR_GameState
       let userIdToPlayer = UserIDToPlayer()
+      for ( let playerInfo of this.GetAllPlayerInfo() )
+      {
+         userIdToPlayer.set( playerInfo.player.UserId, playerInfo.player )
+      }
+
       this.gameState = gs.gameState
 
       this._gameStateChangedTime = gs.gsChangedTime + GetDeltaTime()
