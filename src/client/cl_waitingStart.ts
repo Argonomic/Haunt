@@ -62,6 +62,12 @@ export function CL_WaitingStartSetup()
       toggleButton.button.AnchorPoint = new Vector2( 1, 0 )
       file.toggleButton = toggleButton
       toggleButton.SnapClosed()
+      Thread( function ()
+      {
+         wait( 30 )
+         if ( !toggleButton.EverClicked() )
+            toggleButton.Open()
+      } )
 
       frame.FriendsButton.MouseButton1Click.Connect( function ()
       {

@@ -2,7 +2,7 @@ import { HttpService, RunService, Teams, Workspace } from "@rbxts/services"
 import { AddNetVar, GetNetVar_String, SetNetVar } from "shared/sh_player_netvars"
 import { AddCooldown } from "./sh_cooldown"
 import { SetPlayerWalkSpeed, TryFillWithFakeModels } from "./sh_onPlayerConnect"
-import { COOLDOWNTIME_MEETING, COOLDOWNTIME_KILL, MEETING_DISCUSS_TIME, MEETING_VOTE_TIME, PLAYER_WALKSPEED_SPECTATOR, PLAYER_WALKSPEED, SPECTATOR_TRANS, SUDDEN_DEATH_TIME, DEV_SKIP_INTRO, RESERVEDSERVER_WAITS_FOR_PLAYERS, START_COUNTDOWN, INTRO_TIME, SKIP_INTRO_TIME } from "./sh_settings"
+import { COOLDOWNTIME_MEETING, COOLDOWNTIME_KILL, MEETING_DISCUSS_TIME, MEETING_VOTE_TIME, PLAYER_WALKSPEED_SPECTATOR, PLAYER_WALKSPEED, SPECTATOR_TRANS, SUDDEN_DEATH_TIME, DEV_SKIP_INTRO, RESERVEDSERVER_WAITS_FOR_PLAYERS, START_COUNTDOWN, INTRO_TIME, SKIP_INTRO_TIME, MEETING_VOTE_RESULTS } from "./sh_settings"
 import { IsServer, IsClient, UserIDToPlayer, IsAlive, SetPlayerTransparency, GetLocalPlayer, Resume, Thread, GetExistingFirstChildWithNameAndClassName } from "./sh_utils"
 import { Assert } from "shared/sh_assert"
 import { GiveAbility, TakeAbility } from "./sh_ability"
@@ -261,7 +261,7 @@ export class Match
    playerToSpawnLocation = new Map<Player, Vector3>()
    startingImpostorCount = 0
    highestVotedScore = 0
-   svRealMatch = false
+   private svRealMatch = false
 
    //   coins: Array<Coin> = []
 
@@ -312,7 +312,7 @@ export class Match
       return results
    }
 
-   public GetRealMatch(): boolean
+   public IsRealMatch(): boolean
    {
       Assert( IsServer(), "Is server required" )
       return this.svRealMatch
@@ -429,7 +429,7 @@ export class Match
       //print( "this.winOnlybyEscaping: " + this.winOnlybyEscaping )
       //print( "Bool: " + ( revealedImpostor || this.winOnlybyEscaping ) )
 
-      Assert( !this.GetRealMatch() || this.GetGameState() < GAME_STATE.GAME_STATE_PLAYING || revealedImpostor, "Didn't reveal imposter" )
+      Assert( !this.IsRealMatch() || this.GetGameState() < GAME_STATE.GAME_STATE_PLAYING || revealedImpostor, "Didn't reveal imposter" )
    }
 
    public SetGameState( state: GAME_STATE )
@@ -508,6 +508,16 @@ export class Match
       return this.playerToInfo.get( player ) as PlayerInfo
    }
 
+   public GetPlayerInfoFromUserID( userId: number ): PlayerInfo | undefined
+   {
+      for ( let pair of this.playerToInfo )
+      {
+         if ( pair[1]._userid === userId )
+            return pair[1]
+      }
+      return undefined
+   }
+
    public RemovePlayer( player: Player )
    {
       Assert( this.playerToInfo.has( player ), "Player is not in match" )
@@ -577,6 +587,10 @@ export class Match
             timeRemaining = MEETING_VOTE_TIME
             break
 
+         case GAME_STATE.GAME_STATE_MEETING_RESULTS:
+            timeRemaining = MEETING_VOTE_RESULTS
+            break
+
          case GAME_STATE.GAME_STATE_SUDDEN_DEATH:
             timeRemaining = SUDDEN_DEATH_TIME
             break
@@ -644,10 +658,9 @@ export class Match
 
       if ( voteUserID !== undefined )
       {
-         let userIdToPlayer = UserIDToPlayer()
-         Assert( userIdToPlayer.has( voteUserID ), "VoteuserID " + voteUserID + "  does not exist in match, userIdToPlayer size " + userIdToPlayer.size() )
-         let target = userIdToPlayer.get( voteUserID ) as Player
-         voteTarget = target
+         let playerInfo = this.GetPlayerInfoFromUserID( voteUserID )
+         if ( playerInfo !== undefined )
+            voteTarget = playerInfo.player
       }
 
       this.votes.push( new PlayerVote( player, voteTarget ) )

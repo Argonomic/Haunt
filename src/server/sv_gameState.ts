@@ -93,49 +93,24 @@ export function SV_GameStateSetup()
          a.ShouldDeliver = true
 
          let match = PlayerToMatch( player )
-         switch ( match.GetGameState() )
+         if ( match.IsRealMatch() )
          {
-            case GAME_STATE.GAME_STATE_PLAYING:
-            case GAME_STATE.GAME_STATE_SUDDEN_DEATH:
-               a.ShouldDeliver = match.IsSpectator( player )
-               break
+            switch ( match.GetGameState() )
+            {
+               case GAME_STATE.GAME_STATE_PLAYING:
+               case GAME_STATE.GAME_STATE_SUDDEN_DEATH:
+                  a.ShouldDeliver = match.IsSpectator( player )
+                  break
 
-            case GAME_STATE.GAME_STATE_MEETING_DISCUSS:
-            case GAME_STATE.GAME_STATE_MEETING_VOTE:
-            case GAME_STATE.GAME_STATE_MEETING_RESULTS:
-               a.ShouldDeliver = !match.IsSpectator( player )
-               break
-
-            case GAME_STATE.GAME_STATE_INIT:
-            case GAME_STATE.GAME_STATE_COMPLETE:
-               a.ShouldDeliver = true
-               break
+               //               case GAME_STATE.GAME_STATE_MEETING_DISCUSS:
+               //               case GAME_STATE.GAME_STATE_MEETING_VOTE:
+               //               case GAME_STATE.GAME_STATE_MEETING_RESULTS:
+               //                  a.ShouldDeliver = !match.IsSpectator( player )
+               //                  break
+            }
          }
 
          return a
-
-         /*
-         {
-            ID = self.ChatService: InternalGetUniqueMessageId(),
-               FromSpeaker = fromSpeaker,
-               SpeakerDisplayName = speakerDisplayName,
-               SpeakerUserId = speakerUserId,
-               OriginalChannel = self.Name,
-               MessageLength = string.len( message ),
-               MessageType = messageType,
-               IsFiltered = isFiltered,
-               Message = isFiltered and message or nil,
-                  --// These two get set by the new API. The comments are just here
-      --// to remind readers that they will exist so it's not super
-      --// confusing if they find them in the code but cannot find them
-      --// here.
-      --FilterResult = nil,
-               --IsFilterResult = false,
-                  Time = os.time(),
-                  ExtraData = {},
-   }
-         */
-
       } )
 
    AddRPC( "RPC_FromClient_AdminClick", function ( player: Player )
@@ -146,7 +121,7 @@ export function SV_GameStateSetup()
       //IncrementServerVersion()
       for ( let player of Players.GetPlayers() )
       {
-         player.Kick( "Admin kick" )
+         player.Kick( "Restarting server - reconnect please" )
       }
    } )
 
@@ -213,11 +188,11 @@ export function SV_GameStateSetup()
       function ( player: Player )
       {
          let match = PlayerToMatch( player )
-         if ( !match.IsSpectator( player ) )
+         if ( !match.IsSpectator( player ) && match.IsRealMatch() )
             PlayerBecomesSpectatorAndDistributesCoins( player, match )
 
          // don't remove quitters from real games because their info is still valid and needed
-         if ( !match.GetRealMatch() )
+         if ( !match.IsRealMatch() )
             match.RemovePlayer( player )
 
          match.UpdateGame()
@@ -493,7 +468,7 @@ function SV_GameStateChanged( match: Match, oldGameState: GAME_STATE )
          Thread(
             function ()
             {
-               Wait( 7 ) // watch ending
+               Wait( 10 ) // watch ending
                if ( IsReservedServer() )
                {
                   TeleportPlayersToLobby( Players.GetPlayers(), "Teleport to new match failed, reconnect." )
@@ -531,7 +506,20 @@ function ServerGameThread( match: Match )
          delay = match.GetTimeRemainingForState()
          if ( delay <= 0 )
          {
-            match.SetGameState( match.GetGameState() + 1 )
+            let nextState = match.GetGameState() + 1
+            switch ( match.GetGameState() )
+            {
+               case GAME_STATE.GAME_STATE_MEETING_RESULTS:
+                  nextState = GAME_STATE.GAME_STATE_PLAYING
+                  break
+            }
+
+            match.SetGameState( nextState )
+            //match.SetGameState( GAME_STATE.GAME_STATE_PLAYING )
+            //if ( match.GetGameResults_NoParityAllowed() === GAMERESULTS.RESULTS_STILL_PLAYING )
+            //   match.SetGameState( GAME_STATE.GAME_STATE_PLAYING )
+            //else
+            //   match.SetGameState( GAME_STATE.GAME_STATE_COMPLETE )
             return
          }
       }
@@ -616,6 +604,7 @@ function ServerGameThread( match: Match )
 function GameStateThink( match: Match )
 {
    let debugState = match.GetGameState()
+   //print( "GameStateThink match:" + GetMatchIndex( match ) + " gamestate:" + debugState )
    // quick check on whether or not match is even still going
    switch ( match.GetGameState() )
    {
@@ -666,7 +655,7 @@ function GameStateThink( match: Match )
 
       case GAME_STATE.GAME_STATE_WAITING_FOR_PLAYERS:
 
-         //print( "Found " + match.GetAllPlayersWithCharacters().size() + " players, need " + MATCHMAKE_PLAYERCOUNT_STARTSERVER )
+         print( "Found " + match.GetAllPlayersWithCharacters().size() + " players, need " + MATCHMAKE_PLAYERCOUNT_STARTSERVER )
          if ( match.GetAllPlayersWithCharacters().size() >= MATCHMAKE_PLAYERCOUNT_STARTSERVER )
          {
             if ( IsReservedServer() )
@@ -677,7 +666,10 @@ function GameStateThink( match: Match )
 
             let matchedPlayers = ServerAttemptToFindReadyPlayersOfPlayerCount( match.GetAllPlayersWithCharacters(), MATCHMAKE_PLAYERCOUNT_STARTSERVER )
             if ( matchedPlayers === undefined )
+            {
+               print( "not enough matchedplayers" )
                return
+            }
 
             print( "Found enough players for match" )
             if ( LOCAL )
@@ -776,7 +768,9 @@ function RPC_FromClient_OnPlayerFinishTask( player: Player, roomName: string, ta
 
    let match = PlayerToMatch( player )
 
-   Assert( match.assignments.has( player ), "Player has no assignments" )
+   if ( !match.assignments.has( player ) )
+      return
+
    let assignments = match.assignments.get( player ) as Array<Assignment>
 
    let thisAssignment: Assignment | undefined
@@ -867,10 +861,7 @@ export function PlayerHasAssignments( player: Player, match: Match ): boolean
 {
    let assignments = match.assignments.get( player )
    if ( assignments === undefined )
-   {
-      Assert( false, "PlayerHasAssignments" )
-      throw undefined
-   }
+      return false
 
    return assignments.size() > 0
 }
@@ -882,10 +873,7 @@ export function ServerPlayeyHasAssignment( player: Player, match: Match, roomNam
 
    let assignments = match.assignments.get( player )
    if ( assignments === undefined )
-   {
-      Assert( false, "Player has no assignments" )
-      throw undefined
-   }
+      return false
 
    for ( let assignment of assignments )
    {
@@ -899,10 +887,7 @@ export function RemoveAssignment( player: Player, match: Match, roomName: string
 {
    let assignments = match.assignments.get( player )
    if ( assignments === undefined )
-   {
-      Assert( false, "Player has no assignments" )
-      throw undefined
-   }
+      return
 
    for ( let i = 0; i < assignments.size(); i++ )
    {
@@ -928,10 +913,7 @@ export function PlayerHasUnfinishedAssignment( player: Player, match: Match, roo
 {
    let assignments = match.assignments.get( player )
    if ( assignments === undefined )
-   {
-      Assert( false, "Player has no assignments" )
-      throw undefined
-   }
+      return false
 
    for ( let assignment of assignments )
    {
@@ -990,7 +972,7 @@ export function AssignAllTasks( player: Player, match: Match )
 
    for ( let roomAndTask of roomsAndTasks )
    {
-      if ( roomAndTask.task.realMatchesOnly && !match.GetRealMatch() )
+      if ( roomAndTask.task.realMatchesOnly && !match.IsRealMatch() )
          continue
 
       let assignment = new Assignment( roomAndTask.room.name, roomAndTask.task.name )
@@ -1041,7 +1023,6 @@ function DistributePointsToPlayers( players: Array<Player>, score: number )
 
 function PlayerBecomesSpectatorAndDistributesCoins( player: Player, match: Match )
 {
-   print( "PlayerBecomesSpectatorAndDistributesCoins" )
    switch ( match.GetPlayerRole( player ) )
    {
       case ROLE.ROLE_CAMPER:
@@ -1055,17 +1036,21 @@ function PlayerBecomesSpectatorAndDistributesCoins( player: Player, match: Match
 
    switch ( match.GetGameState() )
    {
-      case GAME_STATE.GAME_STATE_PLAYING:
-      case GAME_STATE.GAME_STATE_SUDDEN_DEATH:
+      case GAME_STATE.GAME_STATE_MEETING_DISCUSS:
+      case GAME_STATE.GAME_STATE_MEETING_VOTE:
+      case GAME_STATE.GAME_STATE_MEETING_RESULTS:
+      case GAME_STATE.GAME_STATE_COMPLETE:
+         let score = GetMatchScore( player )
+         if ( score > 0 )
+         {
+            ClearMatchScore( player )
+            DistributePointsToPlayers( match.GetLivingPlayers(), score )
+         }
+         return
+
+      default:
          PlayerDropsCoinsWithTrajectory( player, GetPosition( player ) )
          return
-   }
-
-   let score = GetMatchScore( player )
-   if ( score > 0 )
-   {
-      ClearMatchScore( player )
-      DistributePointsToPlayers( match.GetLivingPlayers(), score )
    }
 }
 

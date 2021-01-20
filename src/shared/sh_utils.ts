@@ -318,6 +318,22 @@ export function WaitThread( func: Function )
    }
 }
 
+export function WaitThreadOrTimeout( func: Function, timeout: number ): boolean
+{
+   let endTime = Workspace.DistributedGameTime + timeout
+   let result = coroutine.create( func )
+   Resume( result )
+   for ( ; ; )
+   {
+      if ( coroutine.status( result ) === "dead" )
+         return true
+      wait()
+      if ( Workspace.DistributedGameTime >= endTime )
+         return false
+   }
+   return true
+}
+
 export function SetPlayerState( player: Player, setting: Enum.HumanoidStateType, value: boolean )
 {
    let character = player.Character

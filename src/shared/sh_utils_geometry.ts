@@ -11,6 +11,8 @@ let file = new File()
 
 function GetLastPlayerPosition( player: Player ): Vector3
 {
+   if ( !file.lastPlayerPos.has( player ) )
+      return new Vector3( 0, 0, 0 )
    Assert( file.lastPlayerPos.has( player ), "Tried to GetLastPlayerPosition of player that does not exist" )
    return file.lastPlayerPos.get( player ) as Vector3
 }

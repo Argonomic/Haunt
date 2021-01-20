@@ -136,7 +136,7 @@ export function CL_FadeOverlaySetup()
 
       let camera = file.camera
       let lightsLastDimmedTime = 0
-      const LIGHT_NORMAL = 30
+      const LIGHT_NORMAL = 50
       const LIGHT_DIM = 9
 
       function GetLightDist(): number

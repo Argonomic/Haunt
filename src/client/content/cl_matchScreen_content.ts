@@ -56,7 +56,8 @@ AddNetVarChangedCallback( NETVAR_MATCHMAKING_STATUS, function ()
                {
                   players.push( LOCAL_PLAYER )
                }
-               //DrawMatchScreen_Intro( [LOCAL_PLAYER, LOCAL_PLAYER], players, 2 )
+               let lineup = ClonePlayerModels( players )
+               DrawMatchScreen_Intro( false, 1, lineup )
             }
             break
 
@@ -802,6 +803,7 @@ function CoinExplosion( highestVotedScore: number, viewportFrame: ViewportFrame,
    let pos = ( votedOffModel.PrimaryPart as Part ).CFrame
    for ( let coin of coins )
    {
+      coin.Transparency = 0
       coin.Position = pos.Position
       coin.Orientation = new Vector3( RandomFloatRange( 0, 360 ), RandomFloatRange( 0, 360 ), RandomFloatRange( 0, 360 ) )
       coin.RotVelocity = new Vector3( RandomFloatRange( -rot, rot ), RandomFloatRange( -rot, rot ), RandomFloatRange( -rot, rot ) )

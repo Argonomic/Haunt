@@ -396,8 +396,14 @@ class ActiveMeeting
          playerButtonGroup.frameButton.Position = new UDim2( x, 0, y, 0 )
       }
 
-      this.render = RunService.RenderStepped.Connect( function ()
+      let render = RunService.RenderStepped.Connect( function ()
       {
+         if ( !match.GameStateHasTimeLimit() )
+         {
+            render.Disconnect()
+            return
+         }
+
          let timeRemaining = math.floor( match.GetTimeRemainingForState() )
          if ( timeRemaining > 0 )
             timeRemaining++
@@ -433,6 +439,7 @@ class ActiveMeeting
             }
          }
       } )
+      this.render = render
    }
 
    private HideButtonGroup( buttonGroup: ButtonGroup )
@@ -463,6 +470,7 @@ class ActiveMeeting
 
    public RedrawMeeting( match: Match )
    {
+      print( "RedrawMeeting" )
       let playerToButtonGroup = new Map<Player, PlayerButtonGroup>()
 
       let localPlayer = GetLocalPlayer()
@@ -545,51 +553,57 @@ class ActiveMeeting
 
 export function UpdateMeeting( match: Match, lastGameState: GAME_STATE )
 {
-   let meetingUITemplate = file.meetingUI
-   if ( meetingUITemplate === undefined )
-      return
-
-   let meetingCaller = match.meetingCaller
-   if ( meetingCaller === undefined )
-      return
-
-   if ( lastGameState === GAME_STATE.GAME_STATE_SUDDEN_DEATH )
-      return
-
-   let activeMeeting = file.activeMeeting
-
-   if ( lastGameState === GAME_STATE.GAME_STATE_PLAYING )
+   function DrewMeeting(): boolean
    {
-      if ( activeMeeting !== undefined )
+      let meetingUITemplate = file.meetingUI
+      if ( meetingUITemplate === undefined )
+         return false
+
+      let meetingCaller = match.meetingCaller
+      if ( meetingCaller === undefined )
+         return false
+
+      if ( lastGameState === GAME_STATE.GAME_STATE_SUDDEN_DEATH )
+         return false
+
+      let activeMeeting = file.activeMeeting
+
+      if ( lastGameState === GAME_STATE.GAME_STATE_PLAYING )
       {
-         print( "DESTROYED ACTIVEMEETING" )
-         activeMeeting.render.Disconnect()
-         activeMeeting.meetingUI.Destroy()
-         file.activeMeeting = undefined
-      }
-   }
-
-   switch ( match.GetGameState() )
-   {
-      case GAME_STATE.GAME_STATE_MEETING_DISCUSS:
-      case GAME_STATE.GAME_STATE_MEETING_VOTE:
-         if ( activeMeeting === undefined )
-         {
-            activeMeeting = new ActiveMeeting( match, meetingUITemplate, meetingCaller )
-            file.activeMeeting = activeMeeting
-         }
-
-         activeMeeting.RedrawMeeting( match )
-         break
-
-      default:
          if ( activeMeeting !== undefined )
          {
+            print( "DESTROYED ACTIVEMEETING" )
             activeMeeting.render.Disconnect()
             activeMeeting.meetingUI.Destroy()
             file.activeMeeting = undefined
          }
-         return
+      }
+
+      switch ( match.GetGameState() )
+      {
+         case GAME_STATE.GAME_STATE_MEETING_DISCUSS:
+         case GAME_STATE.GAME_STATE_MEETING_VOTE:
+            if ( activeMeeting === undefined )
+            {
+               activeMeeting = new ActiveMeeting( match, meetingUITemplate, meetingCaller )
+               file.activeMeeting = activeMeeting
+            }
+
+            activeMeeting.RedrawMeeting( match )
+            return true
+      }
+      return false
+   }
+
+   if ( DrewMeeting() )
+      return
+
+   let activeMeeting = file.activeMeeting
+   if ( activeMeeting !== undefined )
+   {
+      activeMeeting.render.Disconnect()
+      activeMeeting.meetingUI.Destroy()
+      file.activeMeeting = undefined
    }
 }
 

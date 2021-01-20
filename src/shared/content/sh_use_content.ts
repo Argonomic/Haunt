@@ -50,7 +50,10 @@ export function CanCallMeeting( match: Match, player: Player ): boolean
 
    switch ( match.GetGameState() )
    {
-      case GAME_STATE.GAME_STATE_SUDDEN_DEATH:
+      case GAME_STATE.GAME_STATE_PLAYING:
+         break
+
+      default:
          return false
    }
 
