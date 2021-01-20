@@ -1,8 +1,8 @@
-import { GAME_STATE, Match, NETVAR_MEETINGS_CALLED, USETYPES } from "shared/sh_gamestate";
+import { GAME_STATE, Match, NETVAR_MEETINGS_CALLED, UsableGameState, USETYPES } from "shared/sh_gamestate";
 import { GetNetVar_Number } from "shared/sh_player_netvars";
 import { KILL_DIST, REPORT_DIST } from "shared/sh_settings";
 import { AddUseType } from "shared/sh_use";
-import { GetPosition, PlayerTouchesPart } from "shared/sh_utils";
+import { GetPosition, IsClient, PlayerTouchesPart } from "shared/sh_utils";
 
 const ICON_CORPSE = 'rbxassetid://6080134682'
 const TEXT_CORPSE = "REPORT"
@@ -61,15 +61,4 @@ export function CanCallMeeting( match: Match, player: Player ): boolean
       return false
 
    return true
-}
-
-export function UsableGameState( match: Match ): boolean
-{
-   switch ( match.GetGameState() )
-   {
-      case GAME_STATE.GAME_STATE_PLAYING:
-      case GAME_STATE.GAME_STATE_SUDDEN_DEATH:
-         return true
-   }
-   return false
 }

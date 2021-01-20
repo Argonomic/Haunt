@@ -325,14 +325,16 @@ function SV_GameStateChanged( match: Match, oldGameState: GAME_STATE )
             return
          }
 
-         print( "Starting intro" )
          let players = match.GetAllPlayersWithCharacters()
          Assert( players.size() <= MATCHMAKE_PLAYERCOUNT_STARTSERVER, "Too many players" )
          if ( players.size() < MATCHMAKE_PLAYERCOUNT_FALLBACK )
          {
+            print( "Not enough players, return to lobby" )
             TeleportPlayersToLobby( players, "Need more players" )
             return
          }
+
+         print( "Starting intro" )
 
          for ( let player of players )
          {
@@ -637,6 +639,7 @@ function GameStateThink( match: Match )
             if ( IsReservedServer() )
             {
                match.SetGameState( GAME_STATE.GAME_STATE_INTRO )
+               match.realMatch = true
                return
             }
 
@@ -955,7 +958,11 @@ export function AssignAllTasks( player: Player, match: Match )
 
    for ( let roomAndTask of roomsAndTasks )
    {
+      if ( roomAndTask.task.realMatchesOnly && !match.realMatch )
+         continue
+
       let assignment = new Assignment( roomAndTask.room.name, roomAndTask.task.name )
+
       switch ( assignment.taskName )
       {
          case TASK_EXIT:
@@ -1077,6 +1084,14 @@ function FindMatchForPlayer( player: Player )
       // make a new match
       let match = CreateMatch()
       match.AddPlayer( player )
+      match.UpdateGame()
+   }
+
+   if ( !IsReservedServer() )
+   {
+      let match = PlayerToMatch( player )
+      AssignAllTasks( player, match )
+      match.SetPlayerRole( player, ROLE.ROLE_CAMPER )
       match.UpdateGame()
    }
 }

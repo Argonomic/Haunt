@@ -1,5 +1,5 @@
 import { HttpService, Workspace } from "@rbxts/services"
-import { ROLE, Match, NETVAR_JSON_GAMESTATE, USETYPES, GAME_STATE, GetVoteResults, GAMERESULTS, MEETING_TYPE, IsCamperRole, IsImpostorRole, AddRoleChangeCallback, Assignment, AssignmentIsSame, NETVAR_JSON_ASSIGNMENTS } from "shared/sh_gamestate"
+import { ROLE, Match, NETVAR_JSON_GAMESTATE, USETYPES, GAME_STATE, GetVoteResults, GAMERESULTS, MEETING_TYPE, IsCamperRole, IsImpostorRole, AddRoleChangeCallback, Assignment, AssignmentIsSame, NETVAR_JSON_ASSIGNMENTS, UsableGameState } from "shared/sh_gamestate"
 import { AddCallback_OnPlayerCharacterAdded, AddCallback_OnPlayerConnected, ClonePlayerModels, PlayerHasClone } from "shared/sh_onPlayerConnect"
 import { AddNetVarChangedCallback, GetNetVar_String } from "shared/sh_player_netvars"
 import { GetUsableByType } from "shared/sh_use"
@@ -82,7 +82,6 @@ export function CL_GameStateSetup()
    match.gameThread = gameThread
    Resume( match.gameThread )
 
-
    Thread(
       function ()
       {
@@ -93,7 +92,8 @@ export function CL_GameStateSetup()
             if ( !IsReservedServer() )
                return
 
-            if ( GetLocalMatch().GetGameState() >= GAME_STATE.GAME_STATE_INTRO )
+            let state = GetLocalMatch().GetGameState()
+            if ( state >= GAME_STATE.GAME_STATE_INTRO )
             {
                ReservedServerRelease()
                break
@@ -137,13 +137,15 @@ export function CL_GameStateSetup()
          }
 
          file.localAssignments.sort( SortAssignments )
+         /*
          print( "\nUpdated Assignments:" )
          for ( let assignment of file.localAssignments )
          {
             let compoundName = GetCompoundName( assignment )
             let time = Workspace.DistributedGameTime - ( file.gainedAssignmentTime.get( compoundName ) as number )
             print( assignment.taskName + " for " + time )
-         }
+         }         
+         */
       } )
 
 
@@ -170,16 +172,8 @@ export function CL_GameStateSetup()
    AddPlayerUseDisabledCallback( function ()
    {
       let match = GetLocalMatch()
-
-      switch ( match.GetGameState() )
-      {
-         case GAME_STATE.GAME_STATE_PLAYING:
-         case GAME_STATE.GAME_STATE_SUDDEN_DEATH:
-            return false
-      }
-      return true
+      return !UsableGameState( match )
    } )
-
 
    AddCallback_OnPlayerCharacterAdded( function ( player: Player )
    {

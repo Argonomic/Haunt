@@ -218,5 +218,6 @@ export function CL_MatchScreenSetup()
 
 export function ReservedServerRelease()
 {
+   print( "ReservedServerRelease" )
    file.reservedServerRelease = true
 }

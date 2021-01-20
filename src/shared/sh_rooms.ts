@@ -106,11 +106,6 @@ function CreateRoomFromFolder( folder: Folder ): Room
                let childPart = child as BasePart
                let realMatchesOnly = GetFirstChildWithName( childPart, "not_in_lobby" ) !== undefined
                realMatchesOnly = realMatchesOnly || GetFirstChildWithName( childPart, "not_in_npe" ) !== undefined
-               //if ( realMatchesOnly && match.winblah() )
-               //{
-               //   childPart.Destroy()
-               //   break
-               //}
 
                Assert( childPart.ClassName === "Part", "usable_task should be a Part" )
 

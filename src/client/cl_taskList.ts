@@ -12,6 +12,7 @@ import { GetLocalAssignments, GetLocalMatch } from "./cl_gamestate"
 import { AddCallback_OnPlayerCharacterAncestryChanged } from "shared/sh_onPlayerConnect"
 import { Tween } from "shared/sh_tween"
 import { CanCallMeeting } from "shared/content/sh_use_content"
+import { IsReservedServer } from "shared/sh_reservedServer"
 
 const LOCAL_PLAYER = GetLocalPlayer()
 
@@ -67,6 +68,7 @@ export function CL_TaskListSetup()
             parts.push( task.volume )
          }
 
+         //print( "parts.size() " + parts.size() )
          return parts
       } )
 
@@ -175,6 +177,8 @@ export function CL_TaskListSetup()
 
 function RefreshTaskList()
 {
+   if ( !IsReservedServer() )
+      return
    if ( file.existingUI === undefined )
       return
    if ( file.toggleButton === undefined )

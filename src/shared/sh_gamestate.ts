@@ -257,6 +257,7 @@ export class Match
    playerToSpawnLocation = new Map<Player, Vector3>()
    startingImpostorCount = 0
    highestVotedScore = 0
+   realMatch = false
 
    //   coins: Array<Coin> = []
 
@@ -868,7 +869,7 @@ export class Match
 
          let localSpectator = this.IsSpectator( LOCAL_PLAYER )
 
-        for ( let player of this.GetAllPlayers() )
+         for ( let player of this.GetAllPlayers() )
          {
             if ( this.IsSpectator( player ) )
             {
@@ -1131,5 +1132,17 @@ export function IsSpectatorRole( role: ROLE ): boolean
          return true
    }
 
+   return false
+}
+
+export function UsableGameState( match: Match ): boolean
+{
+   switch ( match.GetGameState() )
+   {
+      case GAME_STATE.GAME_STATE_WAITING_FOR_PLAYERS:
+      case GAME_STATE.GAME_STATE_PLAYING:
+      case GAME_STATE.GAME_STATE_SUDDEN_DEATH:
+         return true
+   }
    return false
 }
