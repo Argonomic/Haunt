@@ -1,7 +1,7 @@
 import { GetHumanoid, GetPosition, IsAlive, KillPlayer } from "shared/sh_utils"
 import { GAME_STATE, ROLE, Corpse, USETYPES, COOLDOWN_NAME_KILL, MEETING_TYPE, NETVAR_MEETINGS_CALLED } from "shared/sh_gamestate"
 import { GetUsableByType, USABLETYPES } from "shared/sh_use"
-import { PlayerHasUnfinishedAssignment, ClearAssignments, PlayerHasAssignments, GetMatch } from "server/sv_gameState"
+import { PlayerHasUnfinishedAssignment, ClearAssignments, PlayerHasAssignments, PlayerToMatch } from "server/sv_gameState"
 import { SV_SendRPC } from "shared/sh_rpc"
 import { GetCurrentRoom } from "server/sv_rooms"
 import { ResetCooldownTime } from "shared/sh_cooldown"
@@ -16,7 +16,7 @@ export function SV_UseContentSetup()
    usableReport.DefineGetter(
       function ( player: Player ): Array<USABLETYPES>
       {
-         let match = GetMatch()
+         let match = PlayerToMatch( player )
          if ( !UsableGameState( match ) )
             return []
 
@@ -36,7 +36,7 @@ export function SV_UseContentSetup()
    usableReport.successFunc =
       function ( player: Player, usedThing: USABLETYPES )
       {
-         let match = GetMatch()
+         let match = PlayerToMatch( player )
          if ( !UsableGameState( match ) )
             return
 
@@ -45,7 +45,7 @@ export function SV_UseContentSetup()
          {
             if ( corpse.pos.sub( pos ).Magnitude < 1 ) // dunno if we can just compare vectors directly and I dunno if it drops any precision
             {
-               print( "Set meeting caller to " + player.Name )
+               //print( "Set meeting caller to " + player.Name )
                match.meetingCaller = player
                match.meetingBody = corpse.player
                match.meetingType = MEETING_TYPE.MEETING_REPORT
@@ -59,7 +59,7 @@ export function SV_UseContentSetup()
    usableKill.DefineGetter(
       function ( player: Player ): Array<Player>
       {
-         let match = GetMatch()
+         let match = PlayerToMatch( player )
          if ( !UsableGameState( match ) )
             return []
 
@@ -86,7 +86,7 @@ export function SV_UseContentSetup()
    usableKill.successFunc =
       function ( player: Player, usedThing: USABLETYPES )
       {
-         let match = GetMatch()
+         let match = PlayerToMatch( player )
          if ( !UsableGameState( match ) )
             return
 
@@ -113,7 +113,7 @@ export function SV_UseContentSetup()
          // print( "Room for " + player.Name + " is " + room.name )
          let results: Array<BasePart> = []
 
-         let match = GetMatch()
+         let match = PlayerToMatch( player )
          if ( !UsableGameState( match ) )
             return []
 
@@ -134,7 +134,7 @@ export function SV_UseContentSetup()
    usableTask.successFunc =
       function ( player: Player, usedThing: USABLETYPES )
       {
-         let match = GetMatch()
+         let match = PlayerToMatch( player )
          if ( !UsableGameState( match ) )
             return
          let volume = usedThing as BasePart
@@ -155,7 +155,7 @@ export function SV_UseContentSetup()
       usable.DefineGetter(
          function ( player: Player ): Array<BasePart>
          {
-            let match = GetMatch()
+            let match = PlayerToMatch( player )
             if ( !CanCallMeeting( match, player ) )
                return []
 
@@ -168,7 +168,7 @@ export function SV_UseContentSetup()
       usable.successFunc =
          function ( player: Player, usedThing: USABLETYPES )
          {
-            let match = GetMatch()
+            let match = PlayerToMatch( player )
             if ( !UsableGameState( match ) )
                return
             print( "Meeting called by " + player.Name )

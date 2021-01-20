@@ -36,7 +36,8 @@ class File
 export function TasksRemaining(): number
 {
    let count = 0
-   for ( let assignment of GetLocalAssignments() )
+   let assignments = GetLocalAssignments()
+   for ( let assignment of assignments )
    {
       if ( assignment.status === 0 )
          count++
@@ -53,9 +54,8 @@ export function CL_TaskListSetup()
       {
          let parts: Array<BasePart> = []
          let room = GetCurrentRoom( LOCAL_PLAYER )
-         let match = GetLocalMatch()
-
-         for ( let assignment of GetLocalAssignments() )
+         let assignments = GetLocalAssignments()
+         for ( let assignment of assignments )
          {
             if ( assignment.roomName !== room.name )
                continue
@@ -199,7 +199,7 @@ function RefreshTaskList()
    }
 
    let count = 0
-   for ( let assignment of GetLocalAssignments() )
+   for ( let assignment of assignments )
    {
       if ( assignment.status === 0 )
          count++
@@ -220,33 +220,36 @@ function RefreshTaskList()
       title = "---"
    }
 
-   let drawTasks = new Map<string, DrawTask>()
-   for ( let assignment of GetLocalAssignments() )
+   let drawTasksArr: Array<DrawTask> = []
    {
-      if ( !drawTasks.has( assignment.taskName ) )
+      let drawTasks = new Map<string, DrawTask>()
+      for ( let assignment of assignments )
       {
-         let drawTask = new DrawTask()
-         drawTask.roomName = assignment.roomName
-         let taskSpec = GetTaskSpec( assignment.taskName )
-         drawTask.title = taskSpec.title
-         drawTasks.set( assignment.taskName, drawTask )
+         if ( !drawTasks.has( assignment.taskName ) )
+         {
+            let drawTask = new DrawTask()
+            drawTask.roomName = assignment.roomName
+            let taskSpec = GetTaskSpec( assignment.taskName )
+            drawTask.title = taskSpec.title
+            drawTasks.set( assignment.taskName, drawTask )
+            drawTasksArr.push( drawTask )
+         }
+      }
+
+      for ( let assignment of assignments )
+      {
+         let drawTask = drawTasks.get( assignment.taskName ) as DrawTask
+         drawTask.total++
+
+         if ( assignment.status === 0 )
+            drawTask.remaining++
       }
    }
 
-   for ( let assignment of GetLocalAssignments() )
+   drawTasksArr = drawTasksArr.filter( function ( drawTask )
    {
-      let drawTask = drawTasks.get( assignment.taskName ) as DrawTask
-      drawTask.total++
-
-      if ( assignment.status === 0 )
-         drawTask.remaining++
-   }
-
-   for ( let pair of drawTasks )
-   {
-      if ( pair[1].remaining === 0 )
-         drawTasks.delete( pair[0] )
-   }
+      return drawTask.remaining > 0
+   } )
 
    let startIndex
    let localPlayer = GetLocalPlayer()
@@ -261,14 +264,13 @@ function RefreshTaskList()
    {
       file.taskLabels[0].Text = "Complete your tasks while avoiding"
       file.taskLabels[1].Text = "any Impostors, then escape."
-      file.taskLabels[2].Text = drawTasks.size() + " Tasks Remaining:"
+      file.taskLabels[2].Text = drawTasksArr.size() + " Tasks Remaining:"
       startIndex = 3
    }
 
    let index = startIndex
-   for ( let pair of drawTasks )
+   for ( let drawTask of drawTasksArr )
    {
-      let drawTask = pair[1]
       if ( drawTask.remaining === 0 )
          continue
 
@@ -283,7 +285,7 @@ function RefreshTaskList()
          break
    }
 
-   if ( existingUI.Enabled && drawTasks.size() === 0 )
+   if ( existingUI.Enabled && drawTasksArr.size() === 0 )
    {
       Thread(
          function ()
@@ -298,7 +300,7 @@ function RefreshTaskList()
             existingUI.Enabled = false
          } )
    }
-   else if ( !existingUI.Enabled && drawTasks.size() > 0 )
+   else if ( !existingUI.Enabled && drawTasksArr.size() > 0 )
    {
       Thread(
          function ()

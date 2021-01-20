@@ -1,9 +1,9 @@
-import { HttpService, RunService, Workspace } from "@rbxts/services"
+import { HttpService, RunService, Teams, Workspace } from "@rbxts/services"
 import { AddNetVar, GetNetVar_String, SetNetVar } from "shared/sh_player_netvars"
 import { AddCooldown } from "./sh_cooldown"
-import { SetPlayerWalkSpeed } from "./sh_onPlayerConnect"
+import { SetPlayerWalkSpeed, TryFillWithFakeModels } from "./sh_onPlayerConnect"
 import { COOLDOWNTIME_MEETING, COOLDOWNTIME_KILL, MEETING_DISCUSS_TIME, MEETING_VOTE_TIME, PLAYER_WALKSPEED_SPECTATOR, PLAYER_WALKSPEED, SPECTATOR_TRANS, SUDDEN_DEATH_TIME, DEV_SKIP_INTRO, RESERVEDSERVER_WAITS_FOR_PLAYERS, START_COUNTDOWN, INTRO_TIME, SKIP_INTRO_TIME } from "./sh_settings"
-import { IsServer, IsClient, UserIDToPlayer, IsAlive, SetPlayerTransparency, GetLocalPlayer, Resume, Thread } from "./sh_utils"
+import { IsServer, IsClient, UserIDToPlayer, IsAlive, SetPlayerTransparency, GetLocalPlayer, Resume, Thread, GetExistingFirstChildWithNameAndClassName } from "./sh_utils"
 import { Assert } from "shared/sh_assert"
 import { GiveAbility, TakeAbility } from "./sh_ability"
 import { ABILITIES } from "./content/sh_ability_content"
@@ -47,12 +47,12 @@ export enum GAMERESULTS
 export enum ROLE
 {
    ROLE_UNASSIGNED = 0,
-   ROLE_CAMPER,
-   ROLE_IMPOSTOR,
-   ROLE_SPECTATOR_CAMPER,
-   ROLE_SPECTATOR_IMPOSTOR,
-   ROLE_SPECTATOR_CAMPER_ESCAPED,
-   ROLE_SPECTATOR_LATE_JOINER,
+   ROLE_CAMPER, // 1
+   ROLE_IMPOSTOR, // 2
+   ROLE_SPECTATOR_CAMPER, // 3
+   ROLE_SPECTATOR_IMPOSTOR, // 4
+   ROLE_SPECTATOR_CAMPER_ESCAPED, // 5
+   ROLE_SPECTATOR_LATE_JOINER, // 6
 }
 
 export enum GAME_STATE
@@ -237,6 +237,7 @@ export class Match
       }
    }
 
+   updateTracker = 0
    creationTime = Workspace.DistributedGameTime
 
    //////////////////////////////////////////////////////
@@ -261,6 +262,13 @@ export class Match
 
    public UpdateGame() 
    {
+      if ( IsServer() )
+      {
+         this.updateTracker++
+         return
+      }
+
+      //print( "UpdateGame(): " + debug.traceback() )
       // if the server or client has a gamethread that yields until match update, this resumes it
       if ( this.gameThread === undefined )
          return
@@ -318,7 +326,7 @@ export class Match
    public BroadcastGamestate()
    {
       Assert( IsServer(), "Server only" )
-      //print( "\nBroadcasting match state: " + this.GetGameState() )
+      //print( "\nBroadcastGamestate " + this.GetGameState() + " at " + Workspace.DistributedGameTime )
 
       // these things are common/consistent to all players
       let corpses: Array<NETVAR_Corpse> = []
@@ -431,19 +439,7 @@ export class Match
       if ( thread === coroutine.running() )
          return
 
-      let status = coroutine.status( thread as thread )
-      switch ( status )
-      {
-         case "dead":
-         case "normal":
-         case "running":
-            Assert( false, "Unexpected gameThread status " + status )
-            break
-
-         case "suspended":
-            Resume( thread as thread )
-            break
-      }
+      this.UpdateGame()
 
       for ( let func of file.gameStateChangedCallbacks )
       {
@@ -514,7 +510,7 @@ export class Match
    //    SHARED
    // 
    //////////////////////////////////////////////////////
-   private gameState: GAME_STATE = GAME_STATE.GAME_STATE_WAITING_FOR_PLAYERS
+   private gameState: GAME_STATE = GAME_STATE.GAME_STATE_INIT
    private _gameStateChangedTime = 0
    private playerToInfo = new Map<Player, PlayerInfo>()
    private votes: Array<PlayerVote> = []
@@ -680,7 +676,7 @@ export class Match
       return playerInfo
    }
 
-   public GetAllConnectedPlayers(): Array<Player>
+   public GetAllPlayersWithCharacters(): Array<Player>
    {
       let players = this.GetAllPlayers()
       return players.filter( function ( player )
@@ -872,7 +868,7 @@ export class Match
 
          let localSpectator = this.IsSpectator( LOCAL_PLAYER )
 
-         for ( let player of this.GetAllPlayers() )
+        for ( let player of this.GetAllPlayers() )
          {
             if ( this.IsSpectator( player ) )
             {
@@ -1001,40 +997,8 @@ export function SH_GameStateSetup()
          }
       } )
 
-   /*
-   AddCallback_OnPlayerConnected(
-      function ( player: Player )
-      {
-         Thread(
-            function ()
-            {
-               wait( 3 )
-               GiveAbility( player, ABILITIES.ABILITY_SABOTAGE_LIGHTS )
-            }
-         )
-      } )
-   */
-
 }
 
-/*
-export function IsMatchmaking( player: Player ): boolean
-{
-   let status = GetNetVar_Number( player, NETVAR_MATCHMAKING_STATUS )
-   switch ( status )
-   {
-      case MATCHMAKING_STATUS.MATCHMAKING_WAITING_TO_PLAY:
-      case MATCHMAKING_STATUS.MATCHMAKING_SEND_TO_LOBBY:
-         return true
-
-      case MATCHMAKING_STATUS.MATCHMAKING_PLAYING:
-         return false
-   }
-
-   Assert( false, "IsMatchmaking bad netvar status " + status )
-   throw undefined
-}
-*/
 
 export function PlayerNumToGameViewable( playerNum: number ): string
 {

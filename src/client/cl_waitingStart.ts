@@ -6,6 +6,7 @@ import { Players, SocialService } from "@rbxts/services";
 import { GAME_STATE, NETVAR_JSON_GAMESTATE } from "shared/sh_gamestate";
 import { GetLocalMatch } from "./cl_gamestate";
 import { MATCHMAKE_PLAYERCOUNT_STARTSERVER } from "shared/sh_settings";
+import { SendRPC_Client } from "shared/sh_rpc";
 
 const LOCAL_PLAYER = GetLocalPlayer()
 
@@ -66,6 +67,7 @@ export function CL_WaitingStartSetup()
       {
          pcall( function ()
          {
+            SendRPC_Client( "RPC_FromClient_OpenedFriendInvite" )
             if ( SocialService.CanSendGameInviteAsync( localPlayer ) )
                SocialService.PromptGameInvite( localPlayer )
          } )
@@ -107,17 +109,19 @@ function UpdateWaitingStartUI()
    switch ( match.GetGameState() )
    {
       case GAME_STATE.GAME_STATE_WAITING_FOR_PLAYERS:
-         let players = Players.GetPlayers()
-         let count = MATCHMAKE_PLAYERCOUNT_STARTSERVER - players.size()
-         let text
-         if ( count < 1 )
-            text = "Starting"
-         else if ( count === 1 )
-            text = "Waiting for 1 more player"
-         else
-            text = "Waiting for " + count + " more players"
+         //let players = Players.GetPlayers()
+         //let count = MATCHMAKE_PLAYERCOUNT_STARTSERVER - players.size()
+         //let text
+         //if ( count < 1 )
+         //   text = "Starting"
+         //else if ( count === 1 )
+         //   text = "Waiting for 1 more player"
+         //else
+         //   text = "Waiting for " + count + " more players"
+         //
+         //waitingUI.Frame.InfoFrame.Status.Text = text
 
-         waitingUI.Frame.InfoFrame.Status.Text = text
+         waitingUI.Frame.InfoFrame.Status.Text = "Waiting for players"
          waitingUI.Enabled = true
          break
 

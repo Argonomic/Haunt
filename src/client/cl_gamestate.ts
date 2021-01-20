@@ -1,6 +1,6 @@
 import { HttpService, Workspace } from "@rbxts/services"
 import { ROLE, Match, NETVAR_JSON_GAMESTATE, USETYPES, GAME_STATE, GetVoteResults, GAMERESULTS, MEETING_TYPE, IsCamperRole, IsImpostorRole, AddRoleChangeCallback, Assignment, AssignmentIsSame, NETVAR_JSON_ASSIGNMENTS } from "shared/sh_gamestate"
-import { AddCallback_OnPlayerCharacterAdded, AddCallback_OnPlayerConnected, ClonePlayerModels } from "shared/sh_onPlayerConnect"
+import { AddCallback_OnPlayerCharacterAdded, AddCallback_OnPlayerConnected, ClonePlayerModels, PlayerHasClone } from "shared/sh_onPlayerConnect"
 import { AddNetVarChangedCallback, GetNetVar_String } from "shared/sh_player_netvars"
 import { GetUsableByType } from "shared/sh_use"
 import { GetFirstChildWithName, GetLocalPlayer, RandomFloatRange, RecursiveOnChildren, Resume, SetCharacterTransparency, Thread, WaitThread } from "shared/sh_utils"
@@ -11,6 +11,8 @@ import { AddPlayerUseDisabledCallback } from "./cl_use"
 import { DrawMatchScreen_EmergencyMeeting, DrawMatchScreen_Escaped, DrawMatchScreen_Intro, DrawMatchScreen_Victory, DrawMatchScreen_VoteResults } from "./content/cl_matchScreen_content"
 import { GetLastStashed } from "shared/sh_score"
 import { DEV_SKIP_INTRO, SKIP_INTRO_TIME } from "shared/sh_settings"
+import { IsReservedServer } from "shared/sh_reservedServer"
+import { ReservedServerRelease } from "./cl_matchScreen"
 
 const LOCAL_PLAYER = GetLocalPlayer()
 
@@ -19,7 +21,7 @@ class File
    readonly clientMatch = new Match()
 
    localAssignments: Array<Assignment> = []
-   gainedAssignmentTime = new Map<Assignment, number>()
+   gainedAssignmentTime = new Map<string, number>()
 
    currentDynamicArt: Array<BasePart> = []
 }
@@ -50,7 +52,6 @@ function SortLocalPlayer( a: Player, b: Player ): boolean
 
 function ClientGameThread( match: Match )
 {
-   print( "ClientGameThread" )
    let lastGameState = match.GetGameState()
 
    for ( ; ; )
@@ -81,6 +82,25 @@ export function CL_GameStateSetup()
    match.gameThread = gameThread
    Resume( match.gameThread )
 
+
+   Thread(
+      function ()
+      {
+         // complicated way to tell matchscreen to fade in
+         for ( ; ; )
+         {
+            wait()
+            if ( !IsReservedServer() )
+               return
+
+            if ( GetLocalMatch().GetGameState() >= GAME_STATE.GAME_STATE_INTRO )
+            {
+               ReservedServerRelease()
+               break
+            }
+         }
+      } )
+
    AddCallback_OnPlayerConnected( function ( player: Player )
    {
       file.clientMatch.AddPlayer( player )
@@ -93,7 +113,8 @@ export function CL_GameStateSetup()
          let json = GetNetVar_String( LOCAL_PLAYER, NETVAR_JSON_ASSIGNMENTS )
          let assignments = HttpService.JSONDecode( json ) as Array<Assignment>
          file.localAssignments = assignments
-         let lostAssignments = new Map<Assignment, boolean>()
+
+         let lostAssignments = new Map<string, boolean>()
          for ( let pair of file.gainedAssignmentTime )
          {
             lostAssignments.set( pair[0], true )
@@ -101,17 +122,27 @@ export function CL_GameStateSetup()
 
          for ( let assignment of assignments )
          {
-            if ( lostAssignments.has( assignment ) )
-               lostAssignments.delete( assignment )
+            let compoundName = GetCompoundName( assignment )
+            if ( lostAssignments.has( compoundName ) )
+               lostAssignments.delete( compoundName )
 
-            if ( !file.gainedAssignmentTime.has( assignment ) )
-               file.gainedAssignmentTime.set( assignment, Workspace.DistributedGameTime )
+            if ( !file.gainedAssignmentTime.has( compoundName ) )
+               file.gainedAssignmentTime.set( compoundName, Workspace.DistributedGameTime )
          }
 
          for ( let pair of lostAssignments )
          {
             // remove assignments we don't have anymore
             file.gainedAssignmentTime.delete( pair[0] )
+         }
+
+         file.localAssignments.sort( SortAssignments )
+         print( "\nUpdated Assignments:" )
+         for ( let assignment of file.localAssignments )
+         {
+            let compoundName = GetCompoundName( assignment )
+            let time = Workspace.DistributedGameTime - ( file.gainedAssignmentTime.get( compoundName ) as number )
+            print( assignment.taskName + " for " + time )
          }
       } )
 
@@ -295,25 +326,20 @@ function CLGameStateChanged( match: Match, oldGameState: number, newGameState: n
    {
       case GAME_STATE.GAME_STATE_INTRO:
 
+         print( "" )
+         print( "Entering INTRO at " + Workspace.DistributedGameTime )
+
          if ( DEV_SKIP_INTRO )
          {
             wait( SKIP_INTRO_TIME )
          }
          else
          {
-            wait( 2 )
-
             let impostors = match.GetImpostors()
             let impostorCount = impostors.size()
 
             let campers = match.GetCampers()
-            print( "Impostors " + impostors.size() + " campers " + campers.size() )
             Assert( campers.size() > 0, "campers.size() > 0" )
-
-            let all = impostors.concat( campers )
-            all.sort( SortLocalPlayer ) // impostors always end up in the middle if they are known
-
-            let lineup = ClonePlayerModels( all )
 
             let foundLocalImpostor = false
             if ( impostors.size() )
@@ -329,9 +355,35 @@ function CLGameStateChanged( match: Match, oldGameState: number, newGameState: n
                Assert( foundLocalImpostor, "DrawMatchScreen_Intro had impostors players but local player is not impostors" )
             }
 
+            print( "wait for all players loaded at " + Workspace.DistributedGameTime )
+
+            let timeOut = Workspace.DistributedGameTime + 5
+            for ( ; ; )
+            {
+               let allPlayersLoaded = true
+               if ( Workspace.DistributedGameTime > timeOut )
+                  break
+
+               for ( let player of match.GetAllPlayers() )
+               {
+                  if ( !PlayerHasClone( player ) )
+                  {
+                     allPlayersLoaded = false
+                     break
+                  }
+               }
+               if ( allPlayersLoaded )
+                  break
+
+               wait()
+            }
+
             WaitThread(
                function ()
                {
+                  let all = match.GetAllPlayersWithCharacters()
+                  all.sort( SortLocalPlayer ) // impostors always end up in the middle if they are known
+                  let lineup = ClonePlayerModels( all )
                   DrawMatchScreen_Intro( foundLocalImpostor, impostorCount, lineup )
                } )
          }
@@ -376,7 +428,7 @@ function CLGameStateChanged( match: Match, oldGameState: number, newGameState: n
                WaitThread( function ()
                {
                   let impostersWin = false
-                  let myWinningTeam = IsCamperRole( role )
+                  let myWinningTeam = IsCamperRole( role ) || role === ROLE.ROLE_SPECTATOR_CAMPER_ESCAPED
                   DrawMatchScreen_Victory( playerInfos, impostersWin, myWinningTeam, mySurvived, score )
                } )
                break
@@ -385,7 +437,7 @@ function CLGameStateChanged( match: Match, oldGameState: number, newGameState: n
                WaitThread( function ()
                {
                   let impostersWin = true
-                  let myWinningTeam = IsImpostorRole( role )
+                  let myWinningTeam = IsImpostorRole( role ) || role === ROLE.ROLE_SPECTATOR_CAMPER_ESCAPED
                   DrawMatchScreen_Victory( playerInfos, impostersWin, myWinningTeam, mySurvived, score )
                } )
                break
@@ -461,10 +513,26 @@ export function ClientGetAssignmentAssignedTime( roomName: string, taskName: str
 {
    for ( let pair of file.gainedAssignmentTime )
    {
-      if ( AssignmentIsSame( pair[0], roomName, taskName ) )
+      if ( GetCompoundNameFromNames( roomName, taskName ) === pair[0] )
          return pair[1]
    }
 
    Assert( false, "ClientGetAssignmentAssignedTime" )
    throw undefined
+}
+
+function SortAssignments( a: Assignment, b: Assignment )
+{
+   return ( file.gainedAssignmentTime.get( GetCompoundName( a ) ) ) as number > ( file.gainedAssignmentTime.get( GetCompoundName( b ) ) as number )
+   //   return a.taskName === TASK_RESTORE_LIGHTS && b.taskName !== TASK_RESTORE_LIGHTS
+}
+
+function GetCompoundName( assignment: Assignment ): string
+{
+   return assignment.roomName + assignment.taskName
+}
+
+function GetCompoundNameFromNames( roomName: string, taskName: string ): string
+{
+   return roomName + taskName
 }

@@ -4,6 +4,8 @@ import { Tween } from "shared/sh_tween";
 import { CloneChild, GetExistingFirstChildWithNameAndClassName, GetLocalPlayer, Thread } from "shared/sh_utils";
 import { Assert } from "shared/sh_assert"
 import { AddPlayerGuiFolderExistsCallback, UIORDER } from "./cl_ui";
+import { IsReservedServer } from "shared/sh_reservedServer";
+import { GAME_STATE } from "shared/sh_gamestate";
 
 const LOCAL_PLAYER = GetLocalPlayer()
 
@@ -13,6 +15,8 @@ class File
    matchScreenTemplate: ScreenGui | undefined
    threadQueue: Array<thread> = []
    baseFrameTemplate: Editor_MatchScreenBaseFrame | undefined
+
+   reservedServerRelease = false
 }
 
 let file = new File()
@@ -183,6 +187,15 @@ export function CL_MatchScreenSetup()
                }
             }
             */
+            if ( IsReservedServer() )
+            {
+               for ( ; ; )
+               {
+                  if ( file.reservedServerRelease )
+                     break
+                  wait()
+               }
+            }
 
             print( "CLIENT GAME STARTED" )
 
@@ -201,4 +214,9 @@ export function CL_MatchScreenSetup()
          file.matchScreenUI.Parent = undefined
       } )
 
+}
+
+export function ReservedServerRelease()
+{
+   file.reservedServerRelease = true
 }

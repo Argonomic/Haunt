@@ -1,4 +1,4 @@
-import { GetMatch, GiveAssignment, ServerPlayeyHasAssignment } from "server/sv_gameState";
+import { GiveAssignment, PlayerToMatch, ServerPlayeyHasAssignment } from "server/sv_gameState";
 import { ABILITIES } from "shared/content/sh_ability_content";
 import { SetAbilityCanUseFunc, SetAbilityServerFunc } from "shared/sh_ability";
 import { TASK_RESTORE_LIGHTS, Assignment } from "shared/sh_gamestate";
@@ -15,7 +15,7 @@ export function SV_AbilityContentSetup()
          print( "ABILITY_SABOTAGE_LIGHTS" )
          ResetFuses()
 
-         let match = GetMatch()
+         let match = PlayerToMatch( player )
          let players = match.GetAllPlayers()
          for ( let aplayer of players )
          {
@@ -23,9 +23,9 @@ export function SV_AbilityContentSetup()
                continue
             let assignment = new Assignment( 'Garage', TASK_RESTORE_LIGHTS )
             GiveAssignment( aplayer, match, assignment )
-            print( "Give restore lights task" )
          }
 
+         print( "Give restore lights task" )
          LIGHTS_OUT_SOUND.Volume = 0.8
          LIGHTS_OUT_SOUND.Play()
       } )
@@ -34,7 +34,7 @@ export function SV_AbilityContentSetup()
       function ( player: Player ): boolean
       {
          print( "test server has lights" )
-         let match = GetMatch()
+         let match = PlayerToMatch( player )
          return !ServerPlayeyHasAssignment( player, match, 'Garage', TASK_RESTORE_LIGHTS )
       } )
 }

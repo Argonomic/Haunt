@@ -62,6 +62,7 @@ export function CL_ReturnToLobbySetup()
       frame.LeaveMatch.MouseButton1Click.Connect( function ()
       {
          SendRPC_Client( "RPC_FromClient_RequestLobby" )
+         toggleButton.Close()
       } )
 
    } )

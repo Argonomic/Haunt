@@ -116,6 +116,11 @@ function OnPlayerCharacterAdded( character: Model )
    } )
 }
 
+export function PlayerHasClone( player: Player ): boolean
+{
+   return file.playerToModel.has( player )
+}
+
 export function ClonePlayerModel( player: Player ): Model | undefined
 {
    if ( !file.playerToModel.has( player ) )

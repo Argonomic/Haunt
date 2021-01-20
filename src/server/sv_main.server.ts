@@ -26,6 +26,7 @@ import { SH_ScoreSetup } from "shared/sh_score";
 import { SH_GameStateSetup } from "shared/sh_gamestate";
 import { SV_ScoreSetup } from "./sv_score";
 import { SH_ReservedServerSetup } from "shared/sh_reservedServer";
+import { SV_MatchMakingSetup } from "./sv_matchmaking";
 
 class File
 {
@@ -69,6 +70,7 @@ SV_CoinsSetup()
 SV_PersistenceSetup()
 SV_UseSetup()
 SV_ScoreSetup()
+SV_MatchMakingSetup()
 
 DoneCreatingNVs()
 SH_OnPlayerConnectSetup()

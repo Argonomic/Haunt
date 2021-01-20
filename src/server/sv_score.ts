@@ -16,7 +16,7 @@ export function SV_ScoreSetup()
 
 export function ClearMatchScore( player: Player )
 {
-   print( "PPRS_PREMATCH_COINS ScoreToStash " + player.Name )
+   //print( "PPRS_PREMATCH_COINS ScoreToStash " + player.Name )
    Assert( IsServer(), "IsServer()" )
    SetNetVar( player, NETVAR_SCORE, 0 )
 }
@@ -26,7 +26,7 @@ export function IncrementMatchScore( player: Player, add: number )
    Assert( IsServer(), "IsServer()" )
    let score = GetMatchScore( player )
    score += add
-   print( "PPRS_PREMATCH_COINS IncrementMatchScore " + player.Name + ", " + score )
+   //print( "PPRS_PREMATCH_COINS IncrementMatchScore " + player.Name + ", " + score )
    SetNetVar( player, NETVAR_SCORE, score )
 }
 
@@ -38,7 +38,7 @@ export function SetStashScore( player: Player, score: number )
 
 export function ScoreToStash( player: Player )
 {
-   print( "PPRS_PREMATCH_COINS ScoreToStash " + player.Name )
+   //print( "PPRS_PREMATCH_COINS ScoreToStash " + player.Name )
    let score = GetMatchScore( player )
    SetNetVar( player, NETVAR_LAST_STASHED, score )
    ClearMatchScore( player )

@@ -39,13 +39,6 @@ let file = new File()
 
 export function SH_CoinsSetup()
 {
-   Thread(
-      function ()
-      {
-         wait( 1 )
-         GetCoinBreakdownForScore( 2343 )
-      }
-   )
    CreateCoinType( COIN_TYPE.TYPE_SILVER, COIN_VALUE_SILVER, 0.85, new Color3( 1, 1, 1 ) )
    CreateCoinType( COIN_TYPE.TYPE_GOLD, COIN_VALUE_GOLD, 1.25, new Color3( 1, 1, 0 ) )
    CreateCoinType( COIN_TYPE.TYPE_GEM, COIN_VALUE_GEM, 1.0, new Color3( 256 / 170, 0, 256 / 170 ) )

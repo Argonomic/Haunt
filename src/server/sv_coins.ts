@@ -2,7 +2,7 @@ import { GetCoinSpawnLocations, GetCoinType, CreateCoin, COIN_TYPE, GetCoinDataF
 import { PICKUPS } from "shared/sh_gamestate"
 import { CreatePickupType } from "shared/sh_pickups"
 import { GetMatchScore } from "shared/sh_score"
-import { ArrayRandomize, GetPosition, RandomFloatRange, RandomInt, Thread, VectorNormalize } from "shared/sh_utils"
+import { ArrayRandomize, GetPosition, RandomFloatRange, RandomInt, Thread, VectorNormalize, Wait } from "shared/sh_utils"
 import { COL_GROUP_GEO_ONLY, SetCollisionGroup } from "./sv_collisionGroups"
 import { SV_SendRPC } from "shared/sh_rpc"
 import { RunService } from "@rbxts/services"
@@ -32,7 +32,7 @@ export function SV_CoinsSetup()
       Thread(
          function ()
          {
-            wait( 4 )
+            Wait( 4 )
             CreateCoinExplosion( 1500, new Vector3( 56.277, 15.823, 53.974 ), new Vector3( 0, 0, 0 ) )
             SpawnRandomCoins( 2000 )
          } )

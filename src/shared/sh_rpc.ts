@@ -39,10 +39,11 @@ export function SH_RPCSetup()
    let rpcs =
       [
          "RPC_FromClient_AdminClick",
-         "RPC_FromClient_OnPlayerFinishTask",
          "RPC_FromClient_NotWaitingFor",
+         "RPC_FromClient_OnPlayerFinishTask",
          "RPC_FromClient_OnPlayerUseFromRoom",
          "RPC_FromClient_OnUse",
+         "RPC_FromClient_OpenedFriendInvite",
          "RPC_FromClient_RequestLobby",
          "RPC_FromClient_RestoreLighting_Fuse",
          "RPC_FromClient_Skipvote",

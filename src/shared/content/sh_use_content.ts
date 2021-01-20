@@ -48,6 +48,12 @@ export function CanCallMeeting( match: Match, player: Player ): boolean
    if ( !UsableGameState( match ) )
       return false
 
+   switch ( match.GetGameState() )
+   {
+      case GAME_STATE.GAME_STATE_SUDDEN_DEATH:
+         return false
+   }
+
    if ( GetNetVar_Number( player, NETVAR_MEETINGS_CALLED ) > 0 )
       return false
 

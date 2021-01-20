@@ -728,3 +728,15 @@ export function PlayerExists( player: Player )
    }
    return false
 }
+
+export function Wait( time: number )
+{
+   let endTime = Workspace.DistributedGameTime + time
+   for ( ; ; )
+   {
+      let remaining = endTime - Workspace.DistributedGameTime
+      if ( remaining <= 0 )
+         break
+      wait( remaining )
+   }
+}

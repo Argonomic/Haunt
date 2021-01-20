@@ -181,7 +181,7 @@ export function GetUseResultsForAttempt( player: Player ): UseResults | undefine
    for ( let usable of usables )
    {
       if ( file.debug )
-         file.debugMsg += "test " + usable.useType + " " + usable.text + "\n"
+         file.debugMsg += "\nuse_test " + usable.useType + " " + usable.text + "\n"
 
       if ( usable.testPlayerPosToInstance !== undefined )
       {
