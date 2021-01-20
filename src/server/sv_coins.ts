@@ -2,11 +2,12 @@ import { GetCoinSpawnLocations, GetCoinType, CreateCoin, COIN_TYPE, GetCoinDataF
 import { PICKUPS } from "shared/sh_gamestate"
 import { CreatePickupType } from "shared/sh_pickups"
 import { GetMatchScore } from "shared/sh_score"
-import { ArrayRandomize, GetPosition, RandomFloatRange, RandomInt, Thread, VectorNormalize, Wait } from "shared/sh_utils"
+import { ArrayRandomize, RandomFloatRange, RandomInt, Thread, VectorNormalize, Wait } from "shared/sh_utils"
 import { COL_GROUP_GEO_ONLY, SetCollisionGroup } from "./sv_collisionGroups"
 import { SV_SendRPC } from "shared/sh_rpc"
 import { RunService } from "@rbxts/services"
 import { ClearMatchScore, IncrementMatchScore } from "./sv_score"
+import { GetPosition } from "shared/sh_utils_geometry"
 
 const LOCAL = RunService.IsStudio()
 const ROTVEL = 50
@@ -32,9 +33,12 @@ export function SV_CoinsSetup()
       Thread(
          function ()
          {
-            Wait( 4 )
-            CreateCoinExplosion( 1500, new Vector3( 56.277, 15.823, 53.974 ), new Vector3( 0, 0, 0 ) )
-            SpawnRandomCoins( 2000 )
+            for ( ; ; )
+            {
+               Wait( 2 )
+               let vec = new Vector3( 58, 3, 50 )
+               CreateCoinExplosion( 33, vec, vec )
+            }
          } )
    }
 }
@@ -109,12 +113,12 @@ export function SpawnRandomCoins( count: number ): Array<Part>
 
 const PUSH = 25
 
-export function PlayerDropsCoins( player: Player, offsetPos: Vector3 )
+export function PlayerDropsCoinsWithTrajectory( player: Player, trajectoryPos: Vector3 )
 {
    let playerPos = GetPosition( player )
    let score = GetMatchScore( player )
    ClearMatchScore( player )
-   CreateCoinExplosion( score, playerPos, offsetPos )
+   CreateCoinExplosion( score, playerPos, trajectoryPos )
 }
 
 export function CreateCoinExplosion( score: number, playerPos: Vector3, offsetPos: Vector3 ): Array<Part>
@@ -126,7 +130,6 @@ export function CreateCoinExplosion( score: number, playerPos: Vector3, offsetPo
    vec = vec.add( new Vector3( 0, 1.8, 0 ) )
    vec = VectorNormalize( vec )
    vec = vec.mul( 50 )
-   vec = vec.add( new Vector3( RandomFloatRange( -30, 30 ), 0, RandomFloatRange( -30, 30 ) ) )
 
    let breakdown = GetCoinBreakdownForScore( score )
 
@@ -135,8 +138,11 @@ export function CreateCoinExplosion( score: number, playerPos: Vector3, offsetPo
       let coinData = GetCoinDataFromType( pair[0] )
       for ( let i = 0; i < pair[1]; i++ )
       {
+         let vec2 = vec.add( new Vector3( RandomFloatRange( -15, 15 ), 0, RandomFloatRange( -15, 15 ) ) )
+         vec2 = vec2.mul( RandomFloatRange( 1, 2 ) )
+
          let coin = _CreateCoin( playerPos, coinData )
-         coin.Velocity = vec.mul( RandomFloatRange( 1, 2 ) )
+         coin.Velocity = vec2
          coins.push( coin )
       }
    }

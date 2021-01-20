@@ -61,7 +61,7 @@ export function CL_WaitingStartSetup()
       toggleButton.button.Position = new UDim2( 0, -5, 0, 0 )
       toggleButton.button.AnchorPoint = new Vector2( 1, 0 )
       file.toggleButton = toggleButton
-      //toggleButton.SnapClosed()
+      toggleButton.SnapClosed()
 
       frame.FriendsButton.MouseButton1Click.Connect( function ()
       {

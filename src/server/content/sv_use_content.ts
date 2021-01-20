@@ -1,5 +1,5 @@
-import { GetHumanoid, GetPosition, IsAlive, KillPlayer } from "shared/sh_utils"
-import { GAME_STATE, ROLE, Corpse, USETYPES, COOLDOWN_NAME_KILL, MEETING_TYPE, NETVAR_MEETINGS_CALLED } from "shared/sh_gamestate"
+import { GetHumanoid, IsAlive, KillPlayer } from "shared/sh_utils"
+import { GAME_STATE, ROLE, Corpse, USETYPES, COOLDOWN_NAME_KILL, MEETING_TYPE, NETVAR_MEETINGS_CALLED, UsableGameState } from "shared/sh_gamestate"
 import { GetUsableByType, USABLETYPES } from "shared/sh_use"
 import { PlayerHasUnfinishedAssignment, ClearAssignments, PlayerHasAssignments, PlayerToMatch } from "server/sv_gameState"
 import { SV_SendRPC } from "shared/sh_rpc"
@@ -7,8 +7,9 @@ import { GetCurrentRoom } from "server/sv_rooms"
 import { ResetCooldownTime } from "shared/sh_cooldown"
 import { SetPlayerWalkSpeed } from "shared/sh_onPlayerConnect"
 import { GetNetVar_Number, SetNetVar } from "shared/sh_player_netvars"
-import { PlayerDropsCoins } from "server/sv_coins"
-import { CanCallMeeting, UsableGameState } from "shared/content/sh_use_content"
+import { PlayerDropsCoinsWithTrajectory } from "server/sv_coins"
+import { CanCallMeeting } from "shared/content/sh_use_content"
+import { GetPosition } from "shared/sh_utils_geometry"
 
 export function SV_UseContentSetup()
 {
@@ -94,7 +95,7 @@ export function SV_UseContentSetup()
 
          match.corpses.push( new Corpse( camper, GetPosition( camper ) ) )
          match.playerToSpawnLocation.set( camper, GetPosition( camper ) )
-         PlayerDropsCoins( camper, GetPosition( player ) )
+         PlayerDropsCoinsWithTrajectory( camper, GetPosition( player ) )
          match.SetPlayerRole( camper, ROLE.ROLE_SPECTATOR_CAMPER )
          KillPlayer( camper )
          SV_SendRPC( "RPC_FromServer_CancelTask", player )

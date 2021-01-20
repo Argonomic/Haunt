@@ -1,10 +1,11 @@
 import { RunService, Workspace } from "@rbxts/services"
 import { BoundsXZ, GetBoundsXZ } from "shared/sh_bounds"
 import { AddCallback_OnPlayerCharacterAncestryChanged } from "shared/sh_onPlayerConnect"
-import { GetChildrenWithName, GetChildren_NoFutureOffspring, GetExistingFirstChildWithNameAndClassName, GetInstanceChildWithName, GetLocalPlayer, GetPosition, GetWorkspaceChildByName, Graph } from "shared/sh_utils"
+import { GetChildrenWithName, GetChildren_NoFutureOffspring, GetExistingFirstChildWithNameAndClassName, GetInstanceChildWithName, GetLocalPlayer, GetWorkspaceChildByName, Graph } from "shared/sh_utils"
 import { Assert } from "shared/sh_assert"
 import { LiveName, AddPlayerGuiFolderExistsCallback, UIORDER, CreateCalloutStyleTextLabel } from "./cl_ui"
 import { Tween } from "shared/sh_tween"
+import { GetPosition } from "shared/sh_utils_geometry"
 
 const SCR_FLOOR = "scr_floor"
 const SCR_FLOOR_NONAME = "scr_floor_noname"

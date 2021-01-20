@@ -27,6 +27,7 @@ import { SH_GameStateSetup } from "shared/sh_gamestate";
 import { SV_ScoreSetup } from "./sv_score";
 import { SH_ReservedServerSetup } from "shared/sh_reservedServer";
 import { SV_MatchMakingSetup } from "./sv_matchmaking";
+import { SH_UtilsGeometrySetup } from "../shared/sh_utils_geometry";
 
 class File
 {
@@ -71,6 +72,7 @@ SV_PersistenceSetup()
 SV_UseSetup()
 SV_ScoreSetup()
 SV_MatchMakingSetup()
+SH_UtilsGeometrySetup()
 
 DoneCreatingNVs()
 SH_OnPlayerConnectSetup()

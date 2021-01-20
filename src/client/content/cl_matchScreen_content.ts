@@ -700,12 +700,12 @@ export function DrawMatchScreen_Victory( playerInfos: Array<PlayerInfo>, imposte
 
    let lineup = ClonePlayerModels( lineupTeam )
    ArrangeModelsInLineup( lineup, viewportFrame )
-   print( "\nCreatePlayerLineup: " + lineup.size() )
+   //print( "\nCreatePlayerLineup: " + lineup.size() )
 
    for ( let i = 0; i < lineupPlayerInfos.size(); i++ )
    {
       let playerInfo = lineupPlayerInfos[i]
-      print( "Player " + i + " role " + playerInfo.role )
+      //print( "Player " + i + " role " + playerInfo.role )
 
       switch ( playerInfo.role )
       {

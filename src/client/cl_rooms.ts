@@ -1,6 +1,6 @@
 import { AddRPC } from "shared/sh_rpc"
 import { AddCallback_OnRoomSetup, Room, AddRoomsFromWorkspace, FAST_ROOM_ITERATION } from "shared/sh_rooms"
-import { GetLocalPlayer, GetPlayerFromDescendant, GetClosest, Resume, UserIDToPlayer, GetWorkspaceChildByName, GetChildren_NoFutureOffspring } from "shared/sh_utils"
+import { GetLocalPlayer, GetPlayerFromDescendant, Resume, UserIDToPlayer, GetWorkspaceChildByName, GetChildren_NoFutureOffspring } from "shared/sh_utils"
 import { Assert } from "shared/sh_assert"
 import { SetPlayerCameraToRoom } from "./cl_camera"
 import { ClearCoinPopUps } from "./cl_coins"
@@ -9,6 +9,7 @@ import { SPAWN_ROOM } from "shared/sh_settings"
 import { HttpService } from "@rbxts/services"
 import { EDITOR_GameplayFolder } from "shared/sh_gamestate"
 import { DynamicArtInfo, ConvertToDynamicArtInfos, CreateDynamicArt } from "./cl_dynamicArt"
+import { GetClosest } from "shared/sh_utils_geometry"
 
 const LOCAL_PLAYER = GetLocalPlayer()
 

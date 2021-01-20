@@ -419,7 +419,7 @@ export class Match
       //print( "this.winOnlybyEscaping: " + this.winOnlybyEscaping )
       //print( "Bool: " + ( revealedImpostor || this.winOnlybyEscaping ) )
 
-      Assert( this.GetGameState() < GAME_STATE.GAME_STATE_PLAYING || revealedImpostor, "Didn't reveal imposter" )
+      Assert( !this.realMatch || this.GetGameState() < GAME_STATE.GAME_STATE_PLAYING || revealedImpostor, "Didn't reveal imposter" )
    }
 
    public SetGameState( state: GAME_STATE )
@@ -777,6 +777,20 @@ export class Match
    {
       Assert( this.playerToInfo.has( player ), "GetPlayerRole: Match does not have " + player.Name )
       return ( this.playerToInfo.get( player ) as PlayerInfo ).role
+   }
+
+   public InActiveGameState()
+   {
+      switch ( this.GetGameState() )
+      {
+         case GAME_STATE.GAME_STATE_PLAYING:
+         case GAME_STATE.GAME_STATE_MEETING_DISCUSS:
+         case GAME_STATE.GAME_STATE_MEETING_VOTE:
+         case GAME_STATE.GAME_STATE_MEETING_RESULTS:
+         case GAME_STATE.GAME_STATE_SUDDEN_DEATH:
+            return true
+      }
+      return false
    }
 
    public GetGameState()

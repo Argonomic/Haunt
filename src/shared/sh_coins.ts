@@ -1,9 +1,10 @@
 import { Workspace } from "@rbxts/services"
 import { Assert } from "./sh_assert"
 import { EDITOR_GameplayFolder, PICKUPS } from "./sh_gamestate"
+import { GetPosition } from "./sh_utils_geometry"
 import { MakePartIntoPickup } from "./sh_pickups"
 import { COIN_VALUE_GEM, COIN_VALUE_GOLD, COIN_VALUE_SILVER } from "./sh_settings"
-import { GetPosition, ExecOnChildWhenItExists, Thread, IsServer } from "./sh_utils"
+import { ExecOnChildWhenItExists, Thread, IsServer } from "./sh_utils"
 
 export enum COIN_TYPE
 {

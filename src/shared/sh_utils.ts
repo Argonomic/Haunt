@@ -214,26 +214,6 @@ export function GetColor( thing: Instance ): Color3
    return new Color3( 0, 0, 0 )
 }
 
-export function GetPosition( thing: Instance ): Vector3
-{
-   Assert( thing !== undefined, "Can't get position of undefined" )
-   if ( thing.IsA( 'Player' ) )
-   {
-      if ( thing.Character !== undefined )
-      {
-         if ( thing.Character.PrimaryPart !== undefined )
-            return thing.Character.PrimaryPart.Position
-      }
-      return new Vector3( 0, 0, 0 )
-   }
-
-   if ( thing.IsA( 'BasePart' ) )
-      return thing.Position
-
-   Assert( false, "Unknown type of thing " + thing.ClassName )
-   throw undefined
-}
-
 export function LoadSound( id: number ): Sound
 {
    let sound = new Instance( "Sound", game.Workspace ) as Sound
@@ -357,29 +337,11 @@ export function SetPlayerState( player: Player, setting: Enum.HumanoidStateType,
    ( human as Humanoid ).SetStateEnabled( setting, value )
 }
 
-export function PlayerTouchesPart( player: Player, basePart: BasePart ): boolean
-{
-   let playerOrg = GetPosition( player )
-   let dist = ( playerOrg.sub( basePart.Position ) ).Magnitude
-
-   if ( dist > basePart.Size.Magnitude )
-      return false
-
-   let parts = GetTouchingParts( basePart )
-
-   for ( let part of parts )
-   {
-      let partPlayer = GetPlayerFromDescendant( part )
-      if ( partPlayer === player )
-         return true
-   }
-
-   return false
-}
-
 export function VectorNormalize( vec: Vector3 ): Vector3 
 {
    let len = vec.Magnitude
+   if ( len === 0 )
+      len = 1
    return new Vector3( vec.X / len, vec.Y / len, vec.Z / len )
 }
 
@@ -607,35 +569,6 @@ export function KillPlayer( player: Player )
       human.TakeDamage( human.Health )
 }
 
-
-export function GetClosest( player: Player, baseParts: Array<BasePart> ): BasePart
-{
-   let playerOrg = GetPosition( player )
-   Assert( baseParts.size() > 0, "No parts" )
-   let closestPart = baseParts[0]
-   let closestDist = playerOrg.sub( closestPart.Position ).Magnitude
-
-   for ( let i = 1; i < baseParts.size(); i++ )
-   {
-      let basePart = baseParts[i]
-      let dist = playerOrg.sub( basePart.Position ).Magnitude
-      if ( dist < closestDist )
-      {
-         closestDist = dist
-         closestPart = basePart
-      }
-   }
-
-   return closestPart
-}
-
-export function Distance( a: Instance, b: Instance ): number
-{
-   let pos1 = GetPosition( a )
-   let pos2 = GetPosition( b )
-   return pos1.sub( pos2 ).Magnitude
-}
-
 /*
 export function TrimArrayDistSorted( thing: Instance, baseParts: Array<Instance>, maxDist: number )
 {
@@ -668,27 +601,6 @@ export function TrimArrayDistSorted( thing: Instance, baseParts: Array<Instance>
    }
 }
 */
-
-export function ArrayDistSorted( org: Vector3, baseParts: Array<Instance>, maxDist: number ): Array<Instance>
-{
-   let dist = new Map<Instance, number>()
-   let filtered = baseParts.filter( function ( part )
-   {
-      let distance = org.sub( GetPosition( part ) ).Magnitude
-      if ( distance > maxDist )
-         return false
-      dist.set( part, distance )
-      return true
-   } )
-
-   function DistSort( a: Instance, b: Instance ): boolean
-   {
-      return ( dist.get( a ) as number ) < ( dist.get( b ) as number )
-   }
-
-   filtered.sort( DistSort )
-   return filtered
-}
 
 export function CloneChild( instance: Instance ): Instance
 {

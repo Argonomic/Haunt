@@ -1,8 +1,8 @@
-import { Chat, HttpService, Players, RunService, ServerScriptService, Teams, TeleportService, Workspace } from "@rbxts/services"
+import { Chat, HttpService, Players, RunService, TeleportService, Workspace } from "@rbxts/services"
 import { AddRPC } from "shared/sh_rpc"
-import { ArrayFind, ArrayRandomize, GetExistingFirstChildWithNameAndClassName, IsAlive, KillPlayer, Resume, Thread, UserIDToPlayer, Wait } from "shared/sh_utils"
+import { ArrayFind, ArrayRandomize, IsAlive, Resume, Thread, UserIDToPlayer, Wait } from "shared/sh_utils"
 import { Assert } from "shared/sh_assert"
-import { Assignment, GAME_STATE, NETVAR_JSON_ASSIGNMENTS, ROLE, Match, GAMERESULTS, GetVoteResults, TASK_EXIT, AssignmentIsSame, TASK_RESTORE_LIGHTS, NETVAR_JSON_GAMESTATE, NETVAR_MEETINGS_CALLED, AddRoleChangeCallback } from "shared/sh_gamestate"
+import { Assignment, GAME_STATE, NETVAR_JSON_ASSIGNMENTS, ROLE, Match, GAMERESULTS, GetVoteResults, TASK_EXIT, AssignmentIsSame, TASK_RESTORE_LIGHTS, NETVAR_JSON_GAMESTATE, NETVAR_MEETINGS_CALLED } from "shared/sh_gamestate"
 import { MAX_TASKLIST_SIZE, MATCHMAKE_PLAYERCOUNT_STARTSERVER, SPAWN_ROOM, PLAYER_WALKSPEED, TASK_VALUE, MATCHMAKE_PLAYERCOUNT_FALLBACK, DEV_1_TASK, ADMINS } from "shared/sh_settings"
 import { ResetNetVar, SetNetVar } from "shared/sh_player_netvars"
 import { AddCallback_OnPlayerCharacterAdded, AddCallback_OnPlayerConnected, SetPlayerWalkSpeed } from "shared/sh_onPlayerConnect"
@@ -10,13 +10,14 @@ import { SV_SendRPC } from "shared/sh_rpc"
 import { GetAllRoomsAndTasks, GetCurrentRoom, GetRoomByName, PlayerHasCurrentRoom, PutPlayerInStartRoom, PutPlayersInRoom, TellClientsAboutPlayersInRoom } from "./sv_rooms"
 import { ResetAllCooldownTimes, ResetCooldownTime } from "shared/sh_cooldown"
 import { COOLDOWN_SABOTAGE_LIGHTS } from "shared/content/sh_ability_content"
-import { SpawnRandomCoins } from "server/sv_coins"
+import { PlayerDropsCoinsWithTrajectory, SpawnRandomCoins } from "server/sv_coins"
 import { GetTotalValueOfWorldCoins } from "shared/sh_coins"
 import { GetMatchScore, NETVAR_SCORE, PPRS_PREMATCH_COINS } from "shared/sh_score"
 import { ClearMatchScore, IncrementMatchScore, ScoreToStash } from "./sv_score"
 import { GetPlayerPersistence_Number, SetPlayerPersistence } from "./sv_persistence"
 import { ServerAttemptToFindReadyPlayersOfPlayerCount } from "./sv_matchmaking"
 import { IsReservedServer } from "shared/sh_reservedServer"
+import { GetPosition } from "shared/sh_utils_geometry"
 
 const LOCAL = RunService.IsStudio()
 
@@ -198,7 +199,13 @@ export function SV_GameStateSetup()
       function ( player: Player )
       {
          let match = PlayerToMatch( player )
-         match.RemovePlayer( player )
+         if ( !match.IsSpectator( player ) )
+            PlayerBecomesSpectatorAndDistributesCoins( player, match )
+
+         // don't remove quitters from real games because their info is still valid and needed
+         if ( !match.realMatch )
+            match.RemovePlayer( player )
+
          match.UpdateGame()
       } )
 
@@ -290,6 +297,15 @@ function SV_GameStateChanged( match: Match, oldGameState: GAME_STATE )
          if ( !IsReservedServer() )
             match.SetGameState( GAME_STATE.GAME_STATE_INTRO )
          return
+
+      case GAME_STATE.GAME_STATE_COUNTDOWN:
+
+         for ( let player of match.GetAllPlayers() )
+         {
+            SV_SendRPC( "RPC_FromServer_CancelTask", player )
+         }
+
+         break
 
       case GAME_STATE.GAME_STATE_INTRO:
          print( "GAME_STATE.GAME_STATE_INTRO" )
@@ -436,7 +452,7 @@ function SV_GameStateChanged( match: Match, oldGameState: GAME_STATE )
                      let players = match.GetLivingCampers()
                      for ( let player of players )
                      {
-                        PlayerBecomesSpectatorAndDistributesTheirScoreToLivingPlayers( player, match )
+                        PlayerBecomesSpectatorAndDistributesCoins( player, match )
                      }
                   }
                   break
@@ -446,7 +462,7 @@ function SV_GameStateChanged( match: Match, oldGameState: GAME_STATE )
                      let players = match.GetLivingImpostors()
                      for ( let player of players )
                      {
-                        PlayerBecomesSpectatorAndDistributesTheirScoreToLivingPlayers( player, match )
+                        PlayerBecomesSpectatorAndDistributesCoins( player, match )
                      }
                   }
                   break
@@ -491,6 +507,7 @@ function ServerGameThread( match: Match )
 
    let gameState = -1
    let lastGameState = match.GetGameState()
+   let lastTracker = -1
 
    function PostStateWait()
    {
@@ -513,7 +530,7 @@ function ServerGameThread( match: Match )
             delay = math.min( delay, 1 )
       }
 
-      let lastTracker = match.updateTracker
+      lastTracker = match.updateTracker
       if ( delay !== undefined )
       {
          let endTime = Workspace.DistributedGameTime + delay
@@ -541,6 +558,8 @@ function ServerGameThread( match: Match )
    function ShouldBroadcastGameState(): boolean
    {
       if ( gameState !== GAME_STATE.GAME_STATE_WAITING_FOR_PLAYERS )
+         return true
+      if ( lastTracker !== match.updateTracker )
          return true
       if ( IsReservedServer() )
          return true
@@ -674,7 +693,7 @@ function GameStateThink( match: Match )
          break
 
       case GAME_STATE.GAME_STATE_RESERVED_SERVER_WAITING:
-         print( "match.GetAllPlayersWithCharacters().size(): " + match.GetAllPlayersWithCharacters().size() )
+         //print( "match.GetAllPlayersWithCharacters().size(): " + match.GetAllPlayersWithCharacters().size() )
          if ( match.GetAllPlayersWithCharacters().size() >= MATCHMAKE_PLAYERCOUNT_STARTSERVER )
          {
             match.SetGameState( GAME_STATE.GAME_STATE_INTRO )
@@ -729,7 +748,7 @@ function HandleVoteResults( match: Match )
          {
             let highestTarget = voteResults.highestRecipients[0]
             Wait( 8 ) // delay for vote matchscreen
-            PlayerBecomesSpectatorAndDistributesTheirScoreToLivingPlayers( highestTarget, match )
+            PlayerBecomesSpectatorAndDistributesCoins( highestTarget, match )
 
             print( "Player " + highestTarget.Name + " was voted off" )
          }
@@ -1007,8 +1026,9 @@ function DistributePointsToPlayers( players: Array<Player>, score: number )
    }
 }
 
-function PlayerBecomesSpectatorAndDistributesTheirScoreToLivingPlayers( player: Player, match: Match )
+function PlayerBecomesSpectatorAndDistributesCoins( player: Player, match: Match )
 {
+   print( "PlayerBecomesSpectatorAndDistributesCoins" )
    switch ( match.GetPlayerRole( player ) )
    {
       case ROLE.ROLE_CAMPER:
@@ -1020,11 +1040,23 @@ function PlayerBecomesSpectatorAndDistributesTheirScoreToLivingPlayers( player: 
          break
    }
 
-   let score = GetMatchScore( player )
-   if ( score > 0 )
+   switch ( match.GetGameState() )
    {
-      ClearMatchScore( player )
-      DistributePointsToPlayers( match.GetLivingPlayers(), score )
+      case GAME_STATE.GAME_STATE_PLAYING:
+      case GAME_STATE.GAME_STATE_SUDDEN_DEATH:
+         PlayerDropsCoinsWithTrajectory( player, GetPosition( player ) )
+         break
+
+      case GAME_STATE.GAME_STATE_MEETING_DISCUSS:
+      case GAME_STATE.GAME_STATE_MEETING_RESULTS:
+      case GAME_STATE.GAME_STATE_MEETING_VOTE:
+         let score = GetMatchScore( player )
+         if ( score > 0 )
+         {
+            ClearMatchScore( player )
+            DistributePointsToPlayers( match.GetLivingPlayers(), score )
+         }
+         break
    }
 }
 

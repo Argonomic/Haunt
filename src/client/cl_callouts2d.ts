@@ -5,10 +5,10 @@ import { CreateCalloutStyleTextLabel, AddPlayerGuiFolderExistsCallback, UIORDER 
 import { AddRoomChangedCallback } from "./cl_rooms"
 import { Assert } from "shared/sh_assert"
 import { ClearMinimapIcons } from "./cl_minimap"
-import { NETVAR_JSON_ASSIGNMENTS } from "shared/sh_gamestate"
+import { NETVAR_JSON_ASSIGNMENTS, NETVAR_JSON_GAMESTATE, UsableGameState } from "shared/sh_gamestate"
 import { GetCurrentRoom, GetRooms } from "./cl_rooms"
 import { TextLabels, GetLocalPlayer, Graph, Thread } from "shared/sh_utils"
-import { GetLocalAssignments } from "./cl_gamestate"
+import { GetLocalAssignments, GetLocalMatch } from "./cl_gamestate"
 import { Room, Task } from "shared/sh_rooms"
 import { Workspace } from "@rbxts/services"
 
@@ -40,7 +40,7 @@ export function CL_CalloutsSetup()
       screenUI.Parent = gui
       screenUI.DisplayOrder = UIORDER.UIORDER_CALLOUTS
       file.screenUI = screenUI
-      RedrawAssignmentCallouts()
+      RedrawAssignmentCalloutsAndMapIcons()
    } )
 
    AddCallback_OnPlayerCharacterAncestryChanged( function ()
@@ -49,20 +49,31 @@ export function CL_CalloutsSetup()
          file.screenUI.Parent = undefined
    } )
 
+   AddNetVarChangedCallback( NETVAR_JSON_GAMESTATE,
+      function ()
+      {
+         Thread(
+            function ()
+            {
+               wait() // wait for netvar to be used elsewhere
+               RedrawAssignmentCalloutsAndMapIcons()
+            } )
+      } )
+
    AddNetVarChangedCallback( NETVAR_JSON_ASSIGNMENTS,
       function ()
       {
          Thread(
             function ()
             {
-               wait()  // wait for role to be updated elsewhere
-               RedrawAssignmentCallouts()
+               wait() // wait for netvar to be used elsewhere
+               RedrawAssignmentCalloutsAndMapIcons()
             } )
       } )
 
    AddRoomChangedCallback( function ()
    {
-      RedrawAssignmentCallouts()
+      RedrawAssignmentCalloutsAndMapIcons()
    } )
 }
 
@@ -109,41 +120,50 @@ export function AddCallout( name: string, worldPoint: Vector3 )
    //let depth = vector.Z
 }
 
-function RedrawAssignmentCallouts()
+function RedrawAssignmentCalloutsAndMapIcons()
 {
+   ClearMinimapIcons()
    ClearCallouts( CALLOUTS_NAME )
 
-   ClearMinimapIcons()
-
-   let room: Room = GetCurrentRoom( LOCAL_PLAYER )
    let assignments = GetLocalAssignments()
 
-   for ( let assignment of assignments )
-   {
-      if ( assignment.roomName !== room.name )
-         continue
-      if ( assignment.status !== 0 )
-         continue
+   let match = GetLocalMatch()
+   if ( !UsableGameState( match ) )
+      return
 
-      Assert( room.tasks.has( assignment.taskName ), "Room " + room.name + " has no task " + assignment.taskName )
-      let task = room.tasks.get( assignment.taskName ) as Task
-      AddCallout( CALLOUTS_NAME, task.volume.Position )
+   {
+
+      let rooms = GetRooms()
+
+      for ( let assignment of assignments )
+      {
+         if ( assignment.status !== 0 )
+            continue
+
+         Assert( rooms.has( assignment.roomName ), "No known room " + assignment.roomName )
+
+         let room = rooms.get( assignment.roomName ) as Room
+
+         Assert( room.tasks.has( assignment.taskName ), "Room " + room.name + " has no task " + assignment.taskName )
+         let task = room.tasks.get( assignment.taskName ) as Task
+
+         AddMapIcon( task.volume.Position )
+      }
    }
 
-   let rooms = GetRooms()
-
-   for ( let assignment of GetLocalAssignments() )
    {
-      if ( assignment.status !== 0 )
-         continue
+      let room: Room = GetCurrentRoom( LOCAL_PLAYER )
 
-      Assert( rooms.has( assignment.roomName ), "No known room " + assignment.roomName )
+      for ( let assignment of assignments )
+      {
+         if ( assignment.roomName !== room.name )
+            continue
+         if ( assignment.status !== 0 )
+            continue
 
-      let room = rooms.get( assignment.roomName ) as Room
-
-      Assert( room.tasks.has( assignment.taskName ), "Room " + room.name + " has no task " + assignment.taskName )
-      let task = room.tasks.get( assignment.taskName ) as Task
-
-      AddMapIcon( task.volume.Position )
+         Assert( room.tasks.has( assignment.taskName ), "Room " + room.name + " has no task " + assignment.taskName )
+         let task = room.tasks.get( assignment.taskName ) as Task
+         AddCallout( CALLOUTS_NAME, task.volume.Position )
+      }
    }
 }

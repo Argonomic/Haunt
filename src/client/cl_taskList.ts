@@ -280,7 +280,7 @@ function RefreshTaskList()
 
       let label = file.taskLabels[index]
       if ( drawTask.total === 1 )
-         label.Text = drawTask.roomName + ": " + drawTask.title
+         label.Text = drawTask.title + " (" + drawTask.roomName + ")"
       else
          label.Text = drawTask.title + " (" + ( drawTask.total - drawTask.remaining ) + "/" + drawTask.total + ")"
 

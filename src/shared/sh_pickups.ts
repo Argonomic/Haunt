@@ -1,8 +1,9 @@
-import { IsServer, Thread, Distance, GetPosition, GraphCapped, RandomFloatRange, ArrayDistSorted } from "./sh_utils"
+import { IsServer, Thread, GraphCapped, RandomFloatRange } from "./sh_utils"
 import { Assert } from "./sh_assert"
 import { AddCallback_OnPlayerCharacterAdded, AddCallback_OnPlayerConnected } from "./sh_onPlayerConnect"
 import { Workspace } from "@rbxts/services"
 import { Tween } from "./sh_tween"
+import { ArrayDistSorted, Distance, GetPosition } from "./sh_utils_geometry"
 
 type PICKUPS = number
 const PICKUP_DIST = 6
@@ -158,8 +159,6 @@ function TryToPickup( player: Player, withinDist: Array<Part> )
       if ( !pickupType.didPickupFunc( player, pickup ) )
          continue
 
-      let dist = Distance( player, pickup )
-
       // pickup success
       file.partToType.delete( pickup )
       let pickups = file.pickupsByIndex.get( index ) as Array<Part>
@@ -180,6 +179,8 @@ function TryToPickup( player: Player, withinDist: Array<Part> )
             pickup.CanCollide = false
             pickup.Anchored = true
             //pickup.RotVelocity = new Vector3( RandomFloatRange( -300, 300 ), RandomFloatRange( -300, 300 ), RandomFloatRange( -300, 300 ) )
+
+            //print( "Distance: " + Distance( player, pickup ) )
 
             let pos = pickup.Position.add( new Vector3( 0, 3.5, 0 ) )
             let floatTime = 0.5

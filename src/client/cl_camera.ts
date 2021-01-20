@@ -2,9 +2,9 @@ import { Room } from "shared/sh_rooms"
 import { RunService } from "@rbxts/services";
 import { Workspace } from "@rbxts/services";
 import { AddCallback_OnPlayerCharacterAdded } from "shared/sh_onPlayerConnect";
-import { GetPosition, VectorNormalize } from "shared/sh_utils";
+import { VectorNormalize } from "shared/sh_utils";
 import { Assert } from "shared/sh_assert"
-
+import { GetPosition } from "shared/sh_utils_geometry";
 
 class File
 {
