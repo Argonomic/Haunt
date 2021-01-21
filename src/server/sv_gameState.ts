@@ -1,4 +1,4 @@
-import { Chat, HttpService, Players, RunService, TeleportService, Workspace } from "@rbxts/services"
+import { Chat, HttpService, MessagingService, Players, RunService, TeleportService, Workspace } from "@rbxts/services"
 import { AddRPC } from "shared/sh_rpc"
 import { ArrayFind, ArrayRandomize, GraphCapped, IsAlive, Resume, Thread, UserIDToPlayer, Wait } from "shared/sh_utils"
 import { Assert } from "shared/sh_assert"
@@ -20,11 +20,13 @@ import { IsReservedServer } from "shared/sh_reservedServer"
 import { GetPosition } from "shared/sh_utils_geometry"
 
 const LOCAL = RunService.IsStudio()
+const MSLBL = "MATCHMAKE_CALL"
 
 class File
 {
    matches: Array<Match> = []
    userIdToPlayer = new Map<number, Player>()
+   nextCrossCallTime = Workspace.DistributedGameTime + 120
 }
 
 let file = new File()
@@ -74,6 +76,9 @@ export function PlayerToMatch( player: Player ): Match
 export function SV_GameStateSetup()
 {
    print( "IsReservedServer(): " + IsReservedServer() )
+   print( "Game name: " + game.Name )
+   print( "Placeid: " + game.PlaceId )
+   print( "Jobid: " + game.JobId )
 
    class ChatResults
    {
@@ -249,7 +254,7 @@ export function SV_GameStateSetup()
       */
    }
 
-
+   CrossServerMatchmakingSetup()
 }
 
 function SV_GameStateChanged( match: Match, oldGameState: GAME_STATE )
@@ -684,46 +689,48 @@ function GameStateThink( match: Match )
       case GAME_STATE.GAME_STATE_WAITING_FOR_PLAYERS:
 
          print( "Found " + match.GetAllPlayersWithCharacters().size() + " players, need " + MATCHMAKE_PLAYERCOUNT_STARTSERVER )
-         if ( match.GetAllPlayersWithCharacters().size() >= MATCHMAKE_PLAYERCOUNT_STARTSERVER )
+         if ( match.GetAllPlayersWithCharacters().size() < MATCHMAKE_PLAYERCOUNT_STARTSERVER )
          {
-            if ( IsReservedServer() )
-            {
-               match.SetGameState( GAME_STATE.GAME_STATE_INTRO )
-               return
-            }
-
-            let matchedPlayers = ServerAttemptToFindReadyPlayersOfPlayerCount( match.GetAllPlayersWithCharacters(), MATCHMAKE_PLAYERCOUNT_STARTSERVER )
-            if ( matchedPlayers === undefined )
-            {
-               print( "not enough matchedplayers" )
-               return
-            }
-
-            print( "Found enough players for match" )
-            if ( LOCAL )
-            {
-               match.SetGameState( GAME_STATE.GAME_STATE_COUNTDOWN )
-            }
-            else
-            {
-               // create a new match for the found players
-               let newMatch = CreateMatch()
-               print( "Creating new match" )
-               for ( let player of matchedPlayers )
-               {
-                  //print( "adding player " + player.Name )
-                  let playerMatch = PlayerToMatch( player )
-                  Assert( playerMatch === match, "playerMatch === match" )
-                  match.RemovePlayer( player )
-                  newMatch.AddPlayer( player )
-               }
-
-               newMatch.SetGameState( GAME_STATE.GAME_STATE_COUNTDOWN )
-               match.UpdateGame()
-            }
+            Thread( CrossServerRequestMorePlayers )
             return
          }
-         break
+
+         if ( IsReservedServer() )
+         {
+            match.SetGameState( GAME_STATE.GAME_STATE_INTRO )
+            return
+         }
+
+         let matchedPlayers = ServerAttemptToFindReadyPlayersOfPlayerCount( match.GetAllPlayersWithCharacters(), MATCHMAKE_PLAYERCOUNT_STARTSERVER )
+         if ( matchedPlayers === undefined )
+         {
+            print( "not enough matchedplayers" )
+            return
+         }
+
+         print( "Found enough players for match" )
+         if ( LOCAL )
+         {
+            match.SetGameState( GAME_STATE.GAME_STATE_COUNTDOWN )
+         }
+         else
+         {
+            // create a new match for the found players
+            let newMatch = CreateMatch()
+            print( "Creating new match" )
+            for ( let player of matchedPlayers )
+            {
+               //print( "adding player " + player.Name )
+               let playerMatch = PlayerToMatch( player )
+               Assert( playerMatch === match, "playerMatch === match" )
+               match.RemovePlayer( player )
+               newMatch.AddPlayer( player )
+            }
+
+            newMatch.SetGameState( GAME_STATE.GAME_STATE_COUNTDOWN )
+            match.UpdateGame()
+         }
+         return
 
       case GAME_STATE.GAME_STATE_RESERVED_SERVER_WAITING:
          //print( "match.GetAllPlayersWithCharacters().size(): " + match.GetAllPlayersWithCharacters().size() )
@@ -1198,4 +1205,110 @@ function DestroyMatch( match: Match )
    }
 
    match.SetGameState( GAME_STATE.GAME_STATE_COMPLETE )
+}
+
+
+class Message
+{
+   Data: string
+   Sent: number
+   constructor( Data: string, Sent: number )
+   {
+      this.Data = Data
+      this.Sent = Sent
+   }
+}
+
+function CrossServerMatchmakingSetup()
+{
+   if ( LOCAL )
+      return
+   if ( IsReservedServer() )
+      return
+
+   Thread(
+      function ()
+      {
+         let pair = pcall(
+            function ()
+            {
+               MessagingService.SubscribeAsync( MSLBL,
+                  function ( message: Message )
+                  {
+                     print( "MessagingService.SubscribeAsync: " + message.Sent )
+
+                     let jobId = message.Data
+                     print( "jobid is " + jobId )
+
+                     let delta = os.time() - math.floor( message.Sent )
+                     print( "Received matchmake request that was " + delta + " seconds old" )
+
+                     if ( jobId === game.JobId ) // this was the sender
+                     {
+                        print( "We were sender" )
+                        return
+                     }
+
+                     file.nextCrossCallTime = Workspace.DistributedGameTime + 120 // don't do our own broadcasts if we are not the leading broadcaster
+
+                     if ( delta > 5 )
+                     {
+                        print( "Message too old" )
+                        return
+                     }
+
+                     if ( jobId.size() <= 2 )
+                     {
+                        print( "jobid weird" )
+                        return
+                     }
+
+                     let players: Array<Player> = []
+
+                     for ( let match of file.matches )
+                     {
+                        if ( match.GetGameState() === GAME_STATE.GAME_STATE_WAITING_FOR_PLAYERS )
+                           players = players.concat( match.GetAllPlayers() )
+                     }
+
+                     print( "Sending " + players.size() + " players to " + game.PlaceId + "/" + jobId )
+
+                     for ( let player of players )
+                     {
+                        Thread(
+                           function ()
+                           {
+                              pcall(
+                                 function ()
+                                 {
+                                    TeleportService.TeleportToPlaceInstance( game.PlaceId, jobId, player )
+                                 } )
+                           } )
+                     }
+                  } )
+            } )
+
+         print( "Subscribe success: " + pair[0] )
+      } )
+}
+
+
+export function CrossServerRequestMorePlayers()
+{
+   if ( LOCAL )
+      return
+   if ( IsReservedServer() )
+      return
+
+   if ( Workspace.DistributedGameTime < file.nextCrossCallTime )
+      return
+
+   print( "CrossServerRequestMorePlayers()" )
+   file.nextCrossCallTime = Workspace.DistributedGameTime + 30
+
+   let pair = pcall( function ()
+   {
+      MessagingService.PublishAsync( MSLBL, game.JobId )
+   } )
+   print( "Broadcasted success: " + pair[0] )
 }

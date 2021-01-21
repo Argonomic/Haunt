@@ -1,6 +1,8 @@
 import { RunService } from "@rbxts/services"
 const LOCAL = RunService.IsStudio()
 
+const TEST = game.Name === "Impostor Mansion TEST"
+
 export const DEV_SKIP_INTRO = LOCAL && true
 export const DEV_1_TASK = LOCAL && true
 export let DEV_FAST_TIMERS = DEV_SKIP_INTRO
@@ -10,7 +12,7 @@ export const MATCHMAKE_SERVER_VERSION = 1
 export let MATCHMAKE_PLAYERCOUNT_FALLBACK = 6
 export let MATCHMAKE_PLAYERCOUNT_STARTSERVER = 10
 
-if ( LOCAL && true )
+if ( LOCAL && true || TEST )
 {
    MATCHMAKE_PLAYERCOUNT_FALLBACK = 3
    MATCHMAKE_PLAYERCOUNT_STARTSERVER = 4
@@ -80,4 +82,4 @@ export const PLAYER_COLORS =
 
 export const ADMINS = ["Argonomic", "ArgonomicDev"]
 
-print( "SRV2" )
+print( "SRV 1.21.21" )
