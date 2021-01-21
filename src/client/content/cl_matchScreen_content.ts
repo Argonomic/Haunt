@@ -336,13 +336,16 @@ export function DrawMatchScreen_VoteResults( skipTie: boolean, receivedHighestVo
             //offset = offset.add( new Vector3( dist * -0.5, 0, 0.0 ) ) // left
             yaw *= oddMultiplier
 
-            let clonedModel = ClonePlayerModel( player ) as Model
-            voterClones.push( clonedModel )
-            clonedModel.Parent = viewportFrame
-            SetCharacterTransparency( clonedModel, 0 )
+            let clonedModel = ClonePlayerModel( player )
+            if ( clonedModel !== undefined )
+            {
+               voterClones.push( clonedModel )
+               clonedModel.Parent = viewportFrame
+               SetCharacterTransparency( clonedModel, 0 )
 
-            clonedModel.SetPrimaryPartCFrame( new CFrame( offset ) )
-            SetCharacterYaw( clonedModel, 180 + yaw )
+               clonedModel.SetPrimaryPartCFrame( new CFrame( offset ) )
+               SetCharacterYaw( clonedModel, 180 + yaw )
+            }
          }
       }
 
@@ -374,15 +377,18 @@ export function DrawMatchScreen_VoteResults( skipTie: boolean, receivedHighestVo
             offset = offset.add( new Vector3( 0, 0, ADD_DEPTH + offsetCount * 0.5 ) ) // depth
             yaw *= multiplier
 
-            let clonedModel = ClonePlayerModel( player ) as Model
-            clonedModel.Parent = viewportFrame
-            SetCharacterTransparency( clonedModel, 0 )
+            let clonedModel = ClonePlayerModel( player )
+            if ( clonedModel !== undefined )
+            {
+               clonedModel.Parent = viewportFrame
+               SetCharacterTransparency( clonedModel, 0 )
 
-            if ( getVotedOffModel && player === receivedHighestVotes[0] )
-               votedOffModel = clonedModel
+               if ( getVotedOffModel && player === receivedHighestVotes[0] )
+                  votedOffModel = clonedModel
 
-            clonedModel.SetPrimaryPartCFrame( new CFrame( offset ) )
-            SetCharacterYaw( clonedModel, 0 )
+               clonedModel.SetPrimaryPartCFrame( new CFrame( offset ) )
+               SetCharacterYaw( clonedModel, 0 )
+            }
          }
       }
 
