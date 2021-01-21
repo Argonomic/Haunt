@@ -1304,7 +1304,7 @@ export function CrossServerRequestMorePlayers()
       return
 
    print( "CrossServerRequestMorePlayers()" )
-   file.nextCrossCallTime = Workspace.DistributedGameTime + 30
+   file.nextCrossCallTime = Workspace.DistributedGameTime + 60
 
    let pair = pcall( function ()
    {
