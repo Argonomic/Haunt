@@ -708,20 +708,19 @@ export function DrawMatchScreen_Victory( playerInfos: Array<PlayerInfo>, imposte
    let lineup: Array<Model> = []
    for ( let i = 0; i < lineupPlayerInfos.size(); i++ )
    {
-      let playerInfo = lineupPlayerInfos[i]
-
-      switch ( playerInfo.role )
+      let model = ClonePlayerModel( lineupTeam[i] )
+      if ( model !== undefined )
       {
-         case ROLE.ROLE_SPECTATOR_CAMPER:
-         case ROLE.ROLE_SPECTATOR_IMPOSTOR:
+         lineup.push( model )
 
-            let model = ClonePlayerModel( lineupTeam[i] )
-            if ( model !== undefined )
-            {
-               SetCharacterTransparency( model, SPECTATOR_TRANS )
-               lineup.push( model )
-            }
-            break
+         //let playerInfo = lineupPlayerInfos[i]
+         //switch ( playerInfo.role )
+         //{
+         //   case ROLE.ROLE_SPECTATOR_CAMPER:
+         //   case ROLE.ROLE_SPECTATOR_IMPOSTOR:
+         //      SetCharacterTransparency( model, SPECTATOR_TRANS )
+         //      break
+         //}
       }
       // escaper did not see any players in an imposter wins sudden death
    }

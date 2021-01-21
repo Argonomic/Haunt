@@ -3,16 +3,18 @@ const LOCAL = RunService.IsStudio()
 
 export const DEV_SKIP_INTRO = LOCAL && true
 export const DEV_1_TASK = LOCAL && true
+export let DEV_FAST_TIMERS = DEV_SKIP_INTRO
 
 // MATCHMAKING
 export const MATCHMAKE_SERVER_VERSION = 1
 export let MATCHMAKE_PLAYERCOUNT_FALLBACK = 6
 export let MATCHMAKE_PLAYERCOUNT_STARTSERVER = 10
 
-if ( LOCAL )
+if ( LOCAL || false )
 {
    MATCHMAKE_PLAYERCOUNT_FALLBACK = 3
    MATCHMAKE_PLAYERCOUNT_STARTSERVER = 4
+   DEV_FAST_TIMERS = true
 }
 
 //let results = pcall( MarketplaceService.GetProductInfo, MarketplaceService, DataModel )
@@ -20,7 +22,7 @@ if ( LOCAL )
 //print( info.Name )-- > Jailbreak
 //end
 
-export const MATCHMAKE_PLAYER_CAN_MATCHMAKE_TIME = 10
+export const MATCHMAKE_PLAYER_CAN_MATCHMAKE_TIME = 1
 export const MATCHMAKE_PLAYER_WAITING_FOR_FRIEND_TIME = 45
 export const MATCHMAKE_PLAYER_OPENED_FRIEND_INVITE = 15
 export let START_COUNTDOWN = 1
@@ -51,7 +53,7 @@ export let COOLDOWNTIME_KILL = 45
 export let COOLDOWNTIME_SABOTAGE_LIGHTS = 70
 export let COOLDOWNTIME_MEETING = 20
 
-if ( DEV_SKIP_INTRO )
+if ( DEV_FAST_TIMERS )
 {
    COOLDOWNTIME_KILL = 0
    COOLDOWNTIME_SABOTAGE_LIGHTS = 4

@@ -339,6 +339,17 @@ function SV_GameStateChanged( match: Match, oldGameState: GAME_STATE )
                   //} )
                   let code = TeleportService.ReserveServer( game.PlaceId )
                   TeleportService.TeleportToPrivateServer( game.PlaceId, code[0], players, "none" )
+
+                  /*
+                                    let playr = players[1]
+                                    players = players.filter( function ( player )
+                                    {
+                                       return player !== playr
+                                    } )
+                                    TeleportService.TeleportToPrivateServer( game.PlaceId, code[0], players, "none" )
+                                    wait( 15 )
+                                    TeleportService.TeleportToPrivateServer( game.PlaceId, code[0], [playr], "none" )
+                  */
                } )
 
             Wait( 30 )
@@ -1104,10 +1115,13 @@ function FindMatchForPlayer( player: Player )
       {
          let matchState = match.GetGameState()
          match.AddPlayer( player )
-         if ( matchState >= GAME_STATE.GAME_STATE_PLAYING )
+         if ( matchState >= GAME_STATE.GAME_STATE_INTRO )
          {
             print( "LATE JOINER " + player.Name + " at " + Workspace.DistributedGameTime )
             match.SetPlayerRole( player, ROLE.ROLE_CAMPER )
+            AssignTasks( player, match )
+            let playerInfo = match.GetPlayerInfo( player )
+            playerInfo.playernum = match.GetAllPlayers().size() - 1
          }
 
          addedPlayer = true
