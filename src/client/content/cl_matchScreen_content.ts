@@ -29,18 +29,18 @@ AddNetVarChangedCallback( NETVAR_MATCHMAKING_STATUS, function ()
 } )
    */
 
-   if ( LOCAL )
+   if ( LOCAL && false )
    {
       AddPlayerGuiFolderExistsCallback( function ()
       {
          Thread(
             function ()
             {
-               //for ( ; ; )
-               //{
-               //   wait( 3 )
-               //   TestDraw( 1 )
-               //}
+               for ( ; ; )
+               {
+                  wait( 1 )
+                  TestDraw( 0 )
+               }
             } )
       } )
    }
@@ -57,7 +57,7 @@ AddNetVarChangedCallback( NETVAR_MATCHMAKING_STATUS, function ()
                   players.push( LOCAL_PLAYER )
                }
                let lineup = ClonePlayerModels( players )
-               DrawMatchScreen_Intro( false, 1, lineup )
+               DrawMatchScreen_Intro( true, 1, lineup )
             }
             break
 
@@ -705,24 +705,28 @@ export function DrawMatchScreen_Victory( playerInfos: Array<PlayerInfo>, imposte
       }
    }
 
-   let lineup = ClonePlayerModels( lineupTeam )
-   ArrangeModelsInLineup( lineup, viewportFrame )
-   //print( "\nCreatePlayerLineup: " + lineup.size() )
-
+   let lineup: Array<Model> = []
    for ( let i = 0; i < lineupPlayerInfos.size(); i++ )
    {
       let playerInfo = lineupPlayerInfos[i]
-      //print( "Player " + i + " role " + playerInfo.role )
 
       switch ( playerInfo.role )
       {
          case ROLE.ROLE_SPECTATOR_CAMPER:
          case ROLE.ROLE_SPECTATOR_IMPOSTOR:
-            SetCharacterTransparency( lineup[i], SPECTATOR_TRANS )
+
+            let model = ClonePlayerModel( lineupTeam[i] )
+            if ( model !== undefined )
+            {
+               SetCharacterTransparency( model, SPECTATOR_TRANS )
+               lineup.push( model )
+            }
             break
       }
       // escaper did not see any players in an imposter wins sudden death
    }
+
+   ArrangeModelsInLineup( lineup, viewportFrame )
 
    let animLineup = new AnimateLineup( viewportFrame, viewportCamera )
    wait( animLineup.GetArriveTime() )
@@ -846,7 +850,7 @@ function ArrangeModelsInLineup( cloneModels: Array<Model>, viewportFrame: Viewpo
    for ( let i = 0; i < cloneModels.size(); i++ )
    {
       let offsetCount = count
-      let yaw = -15 * offsetCount
+      let yaw = 10 * offsetCount
       let offset = new Vector3( dist, 0, 0 ).mul( offsetCount )
       let multiplier = 1
       if ( odd )
