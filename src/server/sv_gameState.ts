@@ -27,6 +27,8 @@ class File
    matches: Array<Match> = []
    userIdToPlayer = new Map<number, Player>()
    nextCrossCallTime = Workspace.DistributedGameTime + 120
+
+   lastPlayerCount = -1
 }
 
 let file = new File()
@@ -688,8 +690,14 @@ function GameStateThink( match: Match )
 
       case GAME_STATE.GAME_STATE_WAITING_FOR_PLAYERS:
 
-         print( "Found " + match.GetAllPlayersWithCharacters().size() + " players, need " + MATCHMAKE_PLAYERCOUNT_STARTSERVER )
-         if ( match.GetAllPlayersWithCharacters().size() < MATCHMAKE_PLAYERCOUNT_STARTSERVER )
+         let searchCount = match.GetAllPlayersWithCharacters().size()
+         if ( file.lastPlayerCount !== searchCount )
+         {
+            print( "Found " + searchCount + " players, need " + MATCHMAKE_PLAYERCOUNT_STARTSERVER )
+            file.lastPlayerCount = searchCount
+         }
+
+         if ( searchCount < MATCHMAKE_PLAYERCOUNT_STARTSERVER )
          {
             Thread( CrossServerRequestMorePlayers )
             return
@@ -1271,8 +1279,9 @@ function CrossServerMatchmakingSetup()
                            players = players.concat( match.GetAllPlayers() )
                      }
 
-                     print( "Sending " + players.size() + " players to " + game.PlaceId + "/" + jobId )
+                     print( "WOULD be Sending " + players.size() + " players to " + game.PlaceId + "/" + jobId )
 
+                     /*
                      for ( let player of players )
                      {
                         Thread(
@@ -1285,6 +1294,7 @@ function CrossServerMatchmakingSetup()
                                  } )
                            } )
                      }
+                     */
                   } )
             } )
 
