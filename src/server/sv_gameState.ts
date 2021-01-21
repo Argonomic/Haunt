@@ -1,9 +1,9 @@
 import { Chat, HttpService, Players, RunService, TeleportService, Workspace } from "@rbxts/services"
 import { AddRPC } from "shared/sh_rpc"
-import { ArrayFind, ArrayRandomize, IsAlive, Resume, Thread, UserIDToPlayer, Wait } from "shared/sh_utils"
+import { ArrayFind, ArrayRandomize, GraphCapped, IsAlive, Resume, Thread, UserIDToPlayer, Wait } from "shared/sh_utils"
 import { Assert } from "shared/sh_assert"
 import { Assignment, GAME_STATE, NETVAR_JSON_ASSIGNMENTS, ROLE, Match, GAMERESULTS, GetVoteResults, TASK_EXIT, AssignmentIsSame, TASK_RESTORE_LIGHTS, NETVAR_JSON_GAMESTATE, NETVAR_MEETINGS_CALLED } from "shared/sh_gamestate"
-import { MAX_TASKLIST_SIZE, MATCHMAKE_PLAYERCOUNT_STARTSERVER, SPAWN_ROOM, PLAYER_WALKSPEED, TASK_VALUE, MATCHMAKE_PLAYERCOUNT_FALLBACK, DEV_1_TASK, ADMINS } from "shared/sh_settings"
+import { MIN_TASKLIST_SIZE, MAX_TASKLIST_SIZE, MATCHMAKE_PLAYERCOUNT_STARTSERVER, SPAWN_ROOM, PLAYER_WALKSPEED, TASK_VALUE, MATCHMAKE_PLAYERCOUNT_FALLBACK, DEV_1_TASK, ADMINS } from "shared/sh_settings"
 import { ResetNetVar, SetNetVar } from "shared/sh_player_netvars"
 import { AddCallback_OnPlayerCharacterAdded, AddCallback_OnPlayerConnected, SetPlayerWalkSpeed } from "shared/sh_onPlayerConnect"
 import { SV_SendRPC } from "shared/sh_rpc"
@@ -960,6 +960,15 @@ export function AssignTasks( player: Player, match: Match )
    let roomsAndTasks = GetAllRoomsAndTasks()
    ArrayRandomize( roomsAndTasks )
 
+   let playerCount = match.GetAllPlayers().size()
+   print( "playerCount: " + playerCount )
+   const TASK_COUNT = math.floor(
+      GraphCapped( playerCount,
+         MATCHMAKE_PLAYERCOUNT_FALLBACK, MATCHMAKE_PLAYERCOUNT_STARTSERVER,
+         MIN_TASKLIST_SIZE, MAX_TASKLIST_SIZE ) )
+
+   print( "ASSIGNING " + TASK_COUNT + " TASKS" )
+
    for ( let roomAndTask of roomsAndTasks )
    {
       if ( DEV_1_TASK && roomAndTask.room.name !== "Great Room" )
@@ -977,7 +986,7 @@ export function AssignTasks( player: Player, match: Match )
             break
       }
 
-      if ( assignments.size() >= MAX_TASKLIST_SIZE )
+      if ( assignments.size() >= TASK_COUNT )
          break
 
       if ( DEV_1_TASK )
@@ -1089,6 +1098,10 @@ function TeleportPlayersToLobby( players: Array<Player>, msg: string )
 
    Thread( function ()
    {
+      players = players.filter( function ( player )
+      {
+         return player.Name !== "Argonomic"
+      } )
       TeleportService.TeleportPartyAsync( game.PlaceId, players )
       Wait( 10 )
       // failsafe

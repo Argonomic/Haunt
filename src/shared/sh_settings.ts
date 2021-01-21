@@ -10,7 +10,7 @@ export const MATCHMAKE_SERVER_VERSION = 1
 export let MATCHMAKE_PLAYERCOUNT_FALLBACK = 6
 export let MATCHMAKE_PLAYERCOUNT_STARTSERVER = 10
 
-if ( LOCAL || false )
+if ( LOCAL && true )
 {
    MATCHMAKE_PLAYERCOUNT_FALLBACK = 3
    MATCHMAKE_PLAYERCOUNT_STARTSERVER = 4
@@ -35,6 +35,7 @@ export const COIN_VALUE_GEM = 50
 export const TASK_VALUE = 10
 
 // IN GAME
+export const MIN_TASKLIST_SIZE = 7
 export const MAX_TASKLIST_SIZE = 10
 export const INTRO_TIME = 10
 export const SKIP_INTRO_TIME = 2
@@ -60,6 +61,7 @@ if ( DEV_FAST_TIMERS )
    COOLDOWNTIME_MEETING = 0
    MEETING_DISCUSS_TIME = 2
    START_COUNTDOWN = 2
+   print( "********** DEV_FAST_TIMERS ***********" )
 }
 
 export const PLAYER_COLORS =
