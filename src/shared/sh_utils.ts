@@ -394,8 +394,9 @@ export function SetCharacterTransparency( char: Model, value: number )
          child.Transparency = value
    }
 
-   let primaryPart = char.PrimaryPart as Part
-   primaryPart.Transparency = 1
+   let primaryPart = char.PrimaryPart
+   if ( primaryPart !== undefined )
+      primaryPart.Transparency = 1
 }
 
 

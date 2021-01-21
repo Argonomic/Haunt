@@ -245,7 +245,8 @@ export function CL_GameStateSetup()
          throw undefined
       }
 
-      Resume( match.gameThread )
+      if ( coroutine.status( match.gameThread ) === "suspended" )
+         Resume( match.gameThread )
    } )
 }
 

@@ -123,18 +123,19 @@ class PlayerButtonGroup
       //            if ( lastModel !== undefined )
       //               lastModel.Destroy()
       //SetPlayerYaw( player, 0 )//numVal.Value )
-      let clonedModel = ClonePlayerModel( player ) as Model
-      SetCharacterTransparency( clonedModel, 0 )
-      SetCharacterYaw( clonedModel, 0 )
-      //lastModel = clonedModel
+      let clonedModel = ClonePlayerModel( player )
+      if ( clonedModel !== undefined )
+      {
+         SetCharacterTransparency( clonedModel, 0 )
+         SetCharacterYaw( clonedModel, 0 )
+         clonedModel.Parent = viewportFrame
+         let head = GetFirstChildWithNameAndClassName( clonedModel, 'Head', 'Part' ) as BasePart
+         let camPosVec = new Vector3( 0.45, -0.2, -1.4 )
+         let vecEnd = head.Position
+         let vecStart = vecEnd.add( camPosVec )
+         viewportCamera.CFrame = new CFrame( vecStart, vecEnd )
+      }
 
-      clonedModel.Parent = viewportFrame
-      let head = GetFirstChildWithNameAndClassName( clonedModel, 'Head', 'Part' ) as BasePart
-      let camPosVec = new Vector3( 0.45, -0.2, -1.4 )
-
-      let vecEnd = head.Position
-      let vecStart = vecEnd.add( camPosVec )
-      viewportCamera.CFrame = new CFrame( vecStart, vecEnd )
 
       //// For rapid iteration
       //let camPos = new Instance( 'Vector3Value' ) as Vector3Value
@@ -400,7 +401,7 @@ class ActiveMeeting
       {
          if ( !match.GameStateHasTimeLimit() )
          {
-            render.Disconnect()
+            DestroyActiveMeeting()
             return
          }
 
@@ -569,15 +570,7 @@ export function UpdateMeeting( match: Match, lastGameState: GAME_STATE )
       let activeMeeting = file.activeMeeting
 
       if ( lastGameState === GAME_STATE.GAME_STATE_PLAYING )
-      {
-         if ( activeMeeting !== undefined )
-         {
-            print( "DESTROYED ACTIVEMEETING" )
-            activeMeeting.render.Disconnect()
-            activeMeeting.meetingUI.Destroy()
-            file.activeMeeting = undefined
-         }
-      }
+         DestroyActiveMeeting()
 
       switch ( match.GetGameState() )
       {
@@ -598,6 +591,11 @@ export function UpdateMeeting( match: Match, lastGameState: GAME_STATE )
    if ( DrewMeeting() )
       return
 
+   DestroyActiveMeeting()
+}
+
+function DestroyActiveMeeting()
+{
    let activeMeeting = file.activeMeeting
    if ( activeMeeting !== undefined )
    {

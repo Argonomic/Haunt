@@ -6,7 +6,7 @@ export const DEV_1_TASK = LOCAL && true
 
 // MATCHMAKING
 export const MATCHMAKE_SERVER_VERSION = 1
-export let MATCHMAKE_PLAYERCOUNT_FALLBACK = 8
+export let MATCHMAKE_PLAYERCOUNT_FALLBACK = 6
 export let MATCHMAKE_PLAYERCOUNT_STARTSERVER = 10
 
 if ( LOCAL )
@@ -15,10 +15,15 @@ if ( LOCAL )
    MATCHMAKE_PLAYERCOUNT_STARTSERVER = 4
 }
 
+//let results = pcall( MarketplaceService.GetProductInfo, MarketplaceService, DataModel )
+//if isSuccessful then
+//print( info.Name )-- > Jailbreak
+//end
+
 export const MATCHMAKE_PLAYER_CAN_MATCHMAKE_TIME = 10
 export const MATCHMAKE_PLAYER_WAITING_FOR_FRIEND_TIME = 45
 export const MATCHMAKE_PLAYER_OPENED_FRIEND_INVITE = 15
-export let START_COUNTDOWN = 7
+export let START_COUNTDOWN = 1
 export const RESERVEDSERVER_WAITS_FOR_PLAYERS = 10
 
 // POINTS
@@ -31,7 +36,7 @@ export const TASK_VALUE = 10
 export const MAX_TASKLIST_SIZE = 10
 export const INTRO_TIME = 10
 export const SKIP_INTRO_TIME = 2
-export const PLAYER_WALKSPEED = 16 * 1.15 // * 2.5
+export const PLAYER_WALKSPEED = 16 * 1.05 // * 2.5
 export const PLAYER_WALKSPEED_SPECTATOR = 16 * 1.333
 export const SPAWN_ROOM = "Foyer"
 export const KILL_DIST = 6.5

@@ -67,7 +67,7 @@ export function PlayerToMatch( player: Player ): Match
       }
    }
 
-   Assert( false, "Couldn't find match for player" )
+   Assert( false, "Couldn't find match for player " + player.Name )
    throw undefined
 }
 
@@ -231,7 +231,24 @@ export function SV_GameStateSetup()
                Wait( 60 )
             }
          } )
+
+      /*
+      Thread( function ()
+      {
+         for ( ; ; )
+         {
+            wait( 3 )
+            let msg = "Players ALL:" + Players.GetPlayers().size()
+            for ( let i = 0; i < file.matches.size(); i++ )
+            {
+
+
+            }
+         }
+      } )
+      */
    }
+
 
 }
 
@@ -1090,7 +1107,7 @@ function FindMatchForPlayer( player: Player )
          if ( matchState >= GAME_STATE.GAME_STATE_PLAYING )
          {
             print( "LATE JOINER " + player.Name + " at " + Workspace.DistributedGameTime )
-            match.SetPlayerRole( player, ROLE.ROLE_SPECTATOR_LATE_JOINER )
+            match.SetPlayerRole( player, ROLE.ROLE_CAMPER )
          }
 
          addedPlayer = true

@@ -80,6 +80,7 @@ export function CL_GameStartingSetup()
       } )
    }
 
+   /*
    AddNetVarChangedCallback( NETVAR_JSON_GAMESTATE,
       function ()
       {
@@ -96,6 +97,6 @@ export function CL_GameStartingSetup()
                   Thread( DrawCountdown )
             } )
       } )
-
+   */
 }
 
