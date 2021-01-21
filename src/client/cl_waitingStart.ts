@@ -7,6 +7,9 @@ import { GAME_STATE, NETVAR_JSON_GAMESTATE } from "shared/sh_gamestate";
 import { GetLocalMatch } from "./cl_gamestate";
 import { MATCHMAKE_PLAYERCOUNT_STARTSERVER } from "shared/sh_settings";
 import { SendRPC_Client } from "shared/sh_rpc";
+import { GetUseUIForReference } from "./cl_use";
+import { IsReservedServer } from "shared/sh_reservedServer";
+import { Tween, TweenRecursive } from "shared/sh_tween";
 
 const LOCAL_PLAYER = GetLocalPlayer()
 
@@ -53,6 +56,7 @@ export function CL_WaitingStartSetup()
 
       let frame = waitingUI.Frame
 
+      /*
       let toggleButton = new ToggleButton( frame, 180,
          { 'Position': new UDim2( 1, -25, 0.6, -25 ), 'AnchorPoint': new Vector2( 0, 0.75 ) }, // hidden
          { 'Position': new UDim2( 1, -25, 0.6, -25 ), 'AnchorPoint': new Vector2( 1, 0.75 ) }, // visible
@@ -68,6 +72,7 @@ export function CL_WaitingStartSetup()
          if ( !toggleButton.EverClicked() )
             toggleButton.Open()
       } )
+      */
 
       frame.FriendsButton.MouseButton1Click.Connect( function ()
       {
@@ -103,11 +108,8 @@ function UpdateWaitingStartUI()
 {
    if ( file.waitingStart === undefined )
       return
-   if ( file.toggleButton === undefined )
-      return
 
    let waitingUI = file.waitingStart as Editor_WaitingToStartUI
-   let toggleButton = file.toggleButton as ToggleButton
 
    let match = GetLocalMatch()
    //print( "UpdateWaitingStartUI: " + match.GetGameState() )
@@ -115,24 +117,24 @@ function UpdateWaitingStartUI()
    switch ( match.GetGameState() )
    {
       case GAME_STATE.GAME_STATE_WAITING_FOR_PLAYERS:
-         //let players = Players.GetPlayers()
-         //let count = MATCHMAKE_PLAYERCOUNT_STARTSERVER - players.size()
-         //let text
-         //if ( count < 1 )
-         //   text = "Starting"
-         //else if ( count === 1 )
-         //   text = "Waiting for 1 more player"
-         //else
-         //   text = "Waiting for " + count + " more players"
-         //
-         //waitingUI.Frame.InfoFrame.Status.Text = text
+         let players = Players.GetPlayers()
+         let count = MATCHMAKE_PLAYERCOUNT_STARTSERVER - players.size()
+         let text
+         if ( count < 1 )
+            text = ""
+         else if ( count === 1 )
+            text = "Waiting for 1 more player"
+         else
+            text = "Waiting for " + count + " more players"
 
-         waitingUI.Frame.InfoFrame.Status.Text = "Waiting for players"
+         waitingUI.Frame.InfoFrame.Status.Text = text
+
+         //waitingUI.Frame.InfoFrame.Status.Text = "Waiting for players"
          waitingUI.Enabled = true
          break
 
       case GAME_STATE.GAME_STATE_COUNTDOWN:
-         waitingUI.Frame.InfoFrame.Status.Text = "Match is starting"
+         waitingUI.Frame.InfoFrame.Status.Text = "Starting New Match"
          waitingUI.Enabled = true
          break
 
@@ -142,6 +144,10 @@ function UpdateWaitingStartUI()
             {
                if ( waitingUI.Enabled )
                {
+                  if ( file.toggleButton === undefined )
+                     return
+                  let toggleButton = file.toggleButton as ToggleButton
+
                   toggleButton.Close()
                   wait( toggleButton.time )
                   waitingUI.Enabled = false

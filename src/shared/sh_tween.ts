@@ -74,6 +74,20 @@ export function TweenCharacterParts( character: Model, goal: any, time: number )
    Recursive( character )
 }
 
+export function TweenRecursive( instance: Instance, goal: any, time: number )
+{
+   function Recursive( instance: Instance )
+   {
+      for ( let child of instance.GetChildren() )
+      {
+         Tween( child, goal, time )
+         Recursive( child )
+      }
+   }
+
+   Recursive( instance )
+}
+
 export function TweenPlayerParts( player: Player, goal: any, time: number, debugMsg: string )
 {
    if ( player.Character === undefined )
