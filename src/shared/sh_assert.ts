@@ -15,21 +15,21 @@ export function Assert( bool: boolean, msg?: string )
    if ( bool )
       return
 
-   if ( file.asserted ) // first assert is only one that matters
-      return
-
-   let isServer = IsServer()
-
    if ( msg === undefined )
       msg = ""
 
-   file.asserted = true
    let stack = debug.traceback()
    let output = ""
    output += "\n\n\n"
    output += "\rASSERT FAILED: " + msg + "\n"
    output += stack + "\n"
    output += "\n\n\n"
+
+   print( output )
+
+   if ( file.asserted ) // first assert is only one that matters
+      return
+   file.asserted = true
 
    //ReportEvent( "ScriptError", stack )
    if ( IsServer() )
@@ -40,11 +40,11 @@ export function Assert( bool: boolean, msg?: string )
       }
    }
 
-   print( output )
-
    if ( LOCAL )
+   {
       assert( false, msg )
-   throw undefined
+      throw undefined
+   }
 }
 
 export function SH_AssertSetup()

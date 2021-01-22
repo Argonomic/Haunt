@@ -7,9 +7,6 @@ import { GAME_STATE, NETVAR_JSON_GAMESTATE } from "shared/sh_gamestate";
 import { GetLocalMatch } from "./cl_gamestate";
 import { MATCHMAKE_PLAYERCOUNT_STARTSERVER } from "shared/sh_settings";
 import { SendRPC_Client } from "shared/sh_rpc";
-import { GetUseUIForReference } from "./cl_use";
-import { IsReservedServer } from "shared/sh_reservedServer";
-import { Tween, TweenRecursive } from "shared/sh_tween";
 
 const LOCAL_PLAYER = GetLocalPlayer()
 
@@ -144,12 +141,13 @@ function UpdateWaitingStartUI()
             {
                if ( waitingUI.Enabled )
                {
-                  if ( file.toggleButton === undefined )
-                     return
-                  let toggleButton = file.toggleButton as ToggleButton
+                  if ( file.toggleButton !== undefined )
+                  {
+                     let toggleButton = file.toggleButton as ToggleButton
+                     toggleButton.Close()
+                     wait( toggleButton.time )
+                  }
 
-                  toggleButton.Close()
-                  wait( toggleButton.time )
                   waitingUI.Enabled = false
                }
             } )

@@ -155,8 +155,9 @@ class NETVAR_GameState
    meetingType: MEETING_TYPE | undefined
    meetingBodyUserId: number | undefined
    startingImpostorCount: number
+   readonly realMatch: boolean
 
-   constructor( match: Match, playerInfos: Array<NETVAR_GamePlayerInfo>, corpses: Array<NETVAR_Corpse>, votes: Array<NETVAR_Vote> )
+   constructor( match: Match, playerInfos: Array<NETVAR_GamePlayerInfo>, corpses: Array<NETVAR_Corpse>, votes: Array<NETVAR_Vote>, realMatch: boolean )
    {
       this.gameState = match.GetGameState()
       this.gsChangedTime = match.GetGameStateChangedTime()
@@ -164,6 +165,7 @@ class NETVAR_GameState
       this.corpses = corpses
       this.votes = votes
       this.startingImpostorCount = match.startingImpostorCount
+      this.realMatch = realMatch
    }
 }
 
@@ -318,6 +320,11 @@ export class Match
       return this.svRealMatch
    }
 
+   public EnableRealMatch()
+   {
+      this.svRealMatch = true
+   }
+
    public GetGameResults_NoParityAllowed(): GAMERESULTS
    {
       let match = this
@@ -401,7 +408,7 @@ export class Match
             }
          }
 
-         let gs = new NETVAR_GameState( this, infos, corpses, votes )
+         let gs = new NETVAR_GameState( this, infos, corpses, votes, this.IsRealMatch() )
          if ( this.votes.size() )
          {
             let results = GetVoteResults( this.votes )
@@ -520,6 +527,7 @@ export class Match
 
    public RemovePlayer( player: Player )
    {
+      print( "RemovePlayer " + player.Name )
       Assert( this.playerToInfo.has( player ), "Player is not in match" )
       this.playerToInfo.delete( player )
    }
@@ -763,6 +771,7 @@ export class Match
 
    public AddPlayer( player: Player ): PlayerInfo
    {
+      print( "AddPlayer " + player.Name )
       Assert( !this.playerToInfo.has( player ), "Match already has " + player.Name )
       let playerInfo = new PlayerInfo( player )
       this.playerToInfo.set( player, playerInfo )
@@ -887,6 +896,8 @@ export class Match
       }
 
       this.gameState = gs.gameState
+      if ( gs.realMatch )
+         this.EnableRealMatch()
 
       this._gameStateChangedTime = gs.gsChangedTime + GetDeltaTime()
       this.startingImpostorCount = gs.startingImpostorCount

@@ -658,7 +658,7 @@ export function DrawMatchScreen_Victory( playerInfos: Array<PlayerInfo>, imposte
    else
       subTitle.Text = "You did not survive"
 
-   lowerTitle.Text = myWinnings + " HauntBux added to your stash"
+   lowerTitle.Text = myWinnings + " Coins added to your stash"
 
 
    const FADE_IN = 2
@@ -762,7 +762,7 @@ export function DrawMatchScreen_Escaped( playerInfo: PlayerInfo, myWinnings: num
 
    title.Text = "Congratulations"
    subTitle.Text = "You escaped"
-   lowerTitle.Text = myWinnings + " HauntBux added to your stash"
+   lowerTitle.Text = myWinnings + " Coins added to your stash"
 
    const FADE_IN = 2
 

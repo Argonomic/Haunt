@@ -25,7 +25,6 @@ const MSLBL = "MATCHMAKE_CALL"
 class File
 {
    matches: Array<Match> = []
-   userIdToPlayer = new Map<number, Player>()
    nextCrossCallTime = Workspace.DistributedGameTime + 120
 
    lastPlayerCount = -1
@@ -93,27 +92,28 @@ export function SV_GameStateSetup()
    Chat.RegisterChatCallback( Enum.ChatCallbackType.OnServerReceivingMessage,
       function ( a: ChatResults )
       {
-         if ( !file.userIdToPlayer.has( a.SpeakerUserId ) )
-            file.userIdToPlayer = UserIDToPlayer()
-
-         let player = file.userIdToPlayer.get( a.SpeakerUserId ) as Player
+         let userIdToPlayer = UserIDToPlayer()
+         let player = userIdToPlayer.get( a.SpeakerUserId ) as Player
          a.ShouldDeliver = true
 
-         let match = PlayerToMatch( player )
-         if ( match.IsRealMatch() )
+         if ( PlayerHasMatch( player ) )
          {
-            switch ( match.GetGameState() )
+            let match = PlayerToMatch( player )
+            if ( match.IsRealMatch() )
             {
-               case GAME_STATE.GAME_STATE_PLAYING:
-               case GAME_STATE.GAME_STATE_SUDDEN_DEATH:
-                  a.ShouldDeliver = match.IsSpectator( player )
-                  break
+               switch ( match.GetGameState() )
+               {
+                  case GAME_STATE.GAME_STATE_PLAYING:
+                  case GAME_STATE.GAME_STATE_SUDDEN_DEATH:
+                     a.ShouldDeliver = match.IsSpectator( player )
+                     break
 
-               //               case GAME_STATE.GAME_STATE_MEETING_DISCUSS:
-               //               case GAME_STATE.GAME_STATE_MEETING_VOTE:
-               //               case GAME_STATE.GAME_STATE_MEETING_RESULTS:
-               //                  a.ShouldDeliver = !match.IsSpectator( player )
-               //                  break
+                  //               case GAME_STATE.GAME_STATE_MEETING_DISCUSS:
+                  //               case GAME_STATE.GAME_STATE_MEETING_VOTE:
+                  //               case GAME_STATE.GAME_STATE_MEETING_RESULTS:
+                  //                  a.ShouldDeliver = !match.IsSpectator( player )
+                  //                  break
+               }
             }
          }
 
@@ -225,6 +225,24 @@ export function SV_GameStateSetup()
 
    if ( !IsReservedServer() )
    {
+      Thread(
+         function ()
+         {
+            for ( ; ; )
+            {
+               wait( 10 )
+               let players = Players.GetPlayers()
+               for ( let player of players )
+               {
+                  if ( !PlayerHasMatch( player ) )
+                  {
+                     print( "FAILSAFE: " + player.Name + " had no match!" )
+                     FindMatchForPlayer( player )
+                  }
+               }
+            }
+         } )
+
       Thread(
          function ()
          {

@@ -88,13 +88,13 @@ export function CL_CoinsSetup()
          coinUI_Total.CenterLabel.Destroy()
 
          let score = GetMatchScore( LOCAL_PLAYER )
-         if ( score === 0 )
+         if ( score <= 0 )
             coinUI_Total.MatchTotal.Text = ""
          else
             coinUI_Total.MatchTotal.Text = score + ""
 
          let stash = GetStashScore( LOCAL_PLAYER )
-         if ( stash === 0 )
+         if ( stash <= 0 )
             coinUI_Total.StashTotal.Text = ""
          else
             coinUI_Total.StashTotal.Text = stash + ""
@@ -279,7 +279,7 @@ function TweenTextNumber( elem: TextLabel, target: number, preFunc?: () => void,
          let num = math.floor( GraphCapped( Workspace.DistributedGameTime, startTime, endTime, startNumber, target ) )
          //print( "Tween num " + num )
 
-         if ( num === 0 )
+         if ( num <= 0 )
             elem.Text = ""
          else
             elem.Text = num + ""
