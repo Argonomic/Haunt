@@ -1,9 +1,9 @@
 import { HttpService, RunService, Teams, Workspace } from "@rbxts/services"
 import { AddNetVar, GetNetVar_String, SetNetVar } from "shared/sh_player_netvars"
 import { AddCooldown } from "./sh_cooldown"
-import { SetPlayerWalkSpeed, TryFillWithFakeModels } from "./sh_onPlayerConnect"
+import { PlayerHasClone, SetPlayerWalkSpeed, TryFillWithFakeModels } from "./sh_onPlayerConnect"
 import { COOLDOWNTIME_MEETING, COOLDOWNTIME_KILL, MEETING_DISCUSS_TIME, MEETING_VOTE_TIME, PLAYER_WALKSPEED_SPECTATOR, PLAYER_WALKSPEED, SPECTATOR_TRANS, SUDDEN_DEATH_TIME, DEV_SKIP_INTRO, RESERVEDSERVER_WAITS_FOR_PLAYERS, START_COUNTDOWN, INTRO_TIME, SKIP_INTRO_TIME, MEETING_VOTE_RESULTS } from "./sh_settings"
-import { IsServer, IsClient, UserIDToPlayer, IsAlive, SetPlayerTransparency, GetLocalPlayer, Resume, Thread, GetExistingFirstChildWithNameAndClassName } from "./sh_utils"
+import { IsServer, IsClient, UserIDToPlayer, IsAlive, SetPlayerTransparency, GetLocalPlayer, Resume, Thread } from "./sh_utils"
 import { Assert } from "shared/sh_assert"
 import { GiveAbility, TakeAbility } from "./sh_ability"
 import { ABILITIES } from "./content/sh_ability_content"
@@ -708,12 +708,12 @@ export class Match
       return playerInfo
    }
 
-   public GetAllPlayersWithCharacters(): Array<Player>
+   public GetAllPlayersWithCharactersCloned(): Array<Player>
    {
       let players = this.GetAllPlayers()
       return players.filter( function ( player )
       {
-         return player.Character !== undefined
+         return PlayerHasClone( player )
       } )
    }
 

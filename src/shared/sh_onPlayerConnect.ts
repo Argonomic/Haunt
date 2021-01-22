@@ -1,6 +1,6 @@
 import { Players, RunService } from "@rbxts/services";
 import { AssignDefaultNVs } from "shared/sh_player_netvars"
-import { GetExistingFirstChildWithNameAndClassName, ExecOnChildWhenItExists, GetPlayerFromCharacter, IsServer, Thread, GetLocalPlayer, IsClient, GetFirstChildWithNameAndClassName, ArrayRandomize } from "./sh_utils";
+import { GetExistingFirstChildWithNameAndClassName, ExecOnChildWhenItExists, GetPlayerFromCharacter, IsServer, Thread, GetLocalPlayer, GetFirstChildWithNameAndClassName, ArrayRandomize } from "./sh_utils";
 import { Assert } from "shared/sh_assert"
 import { PLAYER_WALKSPEED } from "./sh_settings";
 
@@ -43,7 +43,7 @@ export function APlayerHasConnected(): boolean
 export function AddCallback_OnPlayerCharacterAncestryChanged( func: () => void )
 {
    let localPlayer = GetLocalPlayer()
-   Assert( IsClient(), "Client only" )
+   Assert( !IsServer(), "Client only" )
    //   if ( !IsServer() && file.onPlayerCharacterAdded.size() >= 2 && file.onPlayerCharacterAdded.size() <= 4 )
    //      print( "1 file.onPlayerCharacterAdded " + file.onPlayerCharacterAdded.size() + " " + debug.traceback() )
    file.onPlayerCharacterAdded.push(

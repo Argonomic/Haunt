@@ -1,5 +1,5 @@
 import { HttpService, Workspace } from "@rbxts/services"
-import { ROLE, Match, NETVAR_JSON_GAMESTATE, USETYPES, GAME_STATE, GetVoteResults, GAMERESULTS, MEETING_TYPE, IsCamperRole, IsImpostorRole, AddRoleChangeCallback, Assignment, AssignmentIsSame, NETVAR_JSON_ASSIGNMENTS, UsableGameState } from "shared/sh_gamestate"
+import { ROLE, Match, NETVAR_JSON_GAMESTATE, USETYPES, GAME_STATE, GetVoteResults, GAMERESULTS, MEETING_TYPE, IsCamperRole, IsImpostorRole, AddRoleChangeCallback, Assignment, AssignmentIsSame, NETVAR_JSON_ASSIGNMENTS, UsableGameState, PlayerInfo } from "shared/sh_gamestate"
 import { AddCallback_OnPlayerCharacterAdded, AddCallback_OnPlayerConnected, ClonePlayerModel, ClonePlayerModels, PlayerHasClone } from "shared/sh_onPlayerConnect"
 import { AddNetVarChangedCallback, GetNetVar_String } from "shared/sh_player_netvars"
 import { GetUsableByType } from "shared/sh_use"
@@ -376,8 +376,19 @@ function CLGameStateChanged( match: Match, oldGameState: number, newGameState: n
             WaitThread(
                function ()
                {
-                  let all = match.GetAllPlayersWithCharacters()
-                  all.sort( SortLocalPlayer ) // impostors always end up in the middle if they are known
+                  let playerInfos = match.GetAllPlayerInfo()
+                  playerInfos = playerInfos.filter( function ( playerInfo )
+                  {
+                     return PlayerHasClone( playerInfo.player )
+                  } )
+
+                  playerInfos.sort( SortPlayerInfosByLocalAndImpostor )
+                  let all: Array<Player> = []
+                  for ( let playerInfo of playerInfos )
+                  {
+                     all.push( playerInfo.player )
+                  }
+
                   let lineup = ClonePlayerModels( all )
                   DrawMatchScreen_Intro( foundLocalImpostor, impostorCount, lineup )
                } )
@@ -527,4 +538,16 @@ function GetCompoundName( assignment: Assignment ): string
 function GetCompoundNameFromNames( roomName: string, taskName: string ): string
 {
    return roomName + taskName
+}
+
+function SortPlayerInfosByLocalAndImpostor( a: PlayerInfo, b: PlayerInfo )
+{
+   if ( a.player === LOCAL_PLAYER && b.player !== LOCAL_PLAYER )
+      return true
+   if ( b.player === LOCAL_PLAYER && a.player !== LOCAL_PLAYER )
+      return false
+
+   let aImp = file.clientMatch.IsImpostor( a.player )
+   let bImp = file.clientMatch.IsImpostor( b.player )
+   return aImp && !bImp
 }

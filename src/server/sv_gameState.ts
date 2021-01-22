@@ -342,7 +342,7 @@ function SV_GameStateChanged( match: Match, oldGameState: GAME_STATE )
          print( "GAME_STATE.GAME_STATE_INTRO" )
          if ( !IsReservedServer() && !LOCAL )
          {
-            let players = match.GetAllPlayersWithCharacters()
+            let players = match.GetAllPlayersWithCharactersCloned()
             if ( players.size() < MATCHMAKE_PLAYERCOUNT_STARTSERVER )
             {
                DestroyMatch( match )
@@ -383,7 +383,7 @@ function SV_GameStateChanged( match: Match, oldGameState: GAME_STATE )
             return
          }
 
-         let players = match.GetAllPlayersWithCharacters()
+         let players = match.GetAllPlayersWithCharactersCloned()
          Assert( players.size() <= MATCHMAKE_PLAYERCOUNT_STARTSERVER, "Too many players" )
          if ( players.size() < MATCHMAKE_PLAYERCOUNT_FALLBACK )
          {
@@ -708,7 +708,7 @@ function GameStateThink( match: Match )
 
       case GAME_STATE.GAME_STATE_WAITING_FOR_PLAYERS:
 
-         let searchCount = match.GetAllPlayersWithCharacters().size()
+         let searchCount = match.GetAllPlayersWithCharactersCloned().size()
          if ( file.lastPlayerCount !== searchCount )
          {
             print( "Found " + searchCount + " players, need " + MATCHMAKE_PLAYERCOUNT_STARTSERVER )
@@ -727,7 +727,7 @@ function GameStateThink( match: Match )
             return
          }
 
-         let matchedPlayers = ServerAttemptToFindReadyPlayersOfPlayerCount( match.GetAllPlayersWithCharacters(), MATCHMAKE_PLAYERCOUNT_STARTSERVER )
+         let matchedPlayers = ServerAttemptToFindReadyPlayersOfPlayerCount( match.GetAllPlayersWithCharactersCloned(), MATCHMAKE_PLAYERCOUNT_STARTSERVER )
          if ( matchedPlayers === undefined )
          {
             print( "not enough matchedplayers" )
@@ -759,8 +759,8 @@ function GameStateThink( match: Match )
          return
 
       case GAME_STATE.GAME_STATE_RESERVED_SERVER_WAITING:
-         //print( "match.GetAllPlayersWithCharacters().size(): " + match.GetAllPlayersWithCharacters().size() )
-         if ( match.GetAllPlayersWithCharacters().size() >= MATCHMAKE_PLAYERCOUNT_STARTSERVER )
+         //print( "match.GetAllPlayersWithCharactersCloned().size(): " + match.GetAllPlayersWithCharactersCloned().size() )
+         if ( match.GetAllPlayersWithCharactersCloned().size() >= MATCHMAKE_PLAYERCOUNT_STARTSERVER )
          {
             match.SetGameState( GAME_STATE.GAME_STATE_INTRO )
             return
@@ -769,7 +769,7 @@ function GameStateThink( match: Match )
 
       case GAME_STATE.GAME_STATE_COUNTDOWN:
          {
-            if ( match.GetAllPlayersWithCharacters().size() < MATCHMAKE_PLAYERCOUNT_FALLBACK )
+            if ( match.GetAllPlayersWithCharactersCloned().size() < MATCHMAKE_PLAYERCOUNT_FALLBACK )
             {
                DestroyMatch( match )
                return
@@ -804,7 +804,7 @@ function HandleVoteResults( match: Match )
          match.corpses = [] // clear the corpses
 
          let room = GetRoomByName( 'Great Room' )
-         PutPlayersInRoom( match.GetAllPlayersWithCharacters(), room )
+         PutPlayersInRoom( match.GetAllPlayersWithCharactersCloned(), room )
 
          if ( voteResults.skipTie || voteResults.highestRecipients.size() !== 1 )
          {
