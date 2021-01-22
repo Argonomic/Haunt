@@ -42,7 +42,7 @@ export const MAX_TASKLIST_SIZE = 10
 export const INTRO_TIME = 10
 export const SKIP_INTRO_TIME = 2
 export const PLAYER_WALKSPEED = 16 * 1.05 // * 2.5
-export const PLAYER_WALKSPEED_SPECTATOR = 16 * 1.333
+export const PLAYER_WALKSPEED_SPECTATOR = 16 * 1.5
 export const SPAWN_ROOM = "Foyer"
 export const KILL_DIST = 6.5
 export const REPORT_DIST = 5
@@ -51,7 +51,7 @@ export const MEETING_VOTE_RESULTS = 8
 export const SUDDEN_DEATH_TIME = 90
 export const SPECTATOR_TRANS = 0.6
 
-export let MEETING_DISCUSS_TIME = 14
+export let MEETING_DISCUSS_TIME = 10
 export let COOLDOWNTIME_KILL = 45
 export let COOLDOWNTIME_SABOTAGE_LIGHTS = 70
 export let COOLDOWNTIME_MEETING = 20

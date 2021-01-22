@@ -77,6 +77,9 @@ function OnTriggerDoorSetup( doorTrigger: BasePart, room: Room )
 
    doorTrigger.TouchEnded.Connect( function ( toucher: Instance )
    {
+      if ( toucher === undefined )
+         return
+
       let player = GetPlayerFromDescendant( toucher )
       if ( player === undefined )
          return
@@ -201,7 +204,8 @@ export function PutPlayerInStartRoom( player: Player )
    Thread( function ()
    {
       wait() // because hey, otherwise the match tries to set the player position somewhere
-      PutPlayersInRoom( [player], room )
+      if ( player.Character !== undefined )
+         PutPlayersInRoom( [player], room )
    } )
 }
 

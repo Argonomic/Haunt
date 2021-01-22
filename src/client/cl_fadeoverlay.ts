@@ -1,5 +1,5 @@
 import { RunService, Workspace } from "@rbxts/services"
-import { Corpse, TASK_RESTORE_LIGHTS, PlayerNumToGameViewable, ROLE, Match } from "shared/sh_gamestate"
+import { Corpse, TASK_RESTORE_LIGHTS, PlayerNumToGameViewable, ROLE, Match, GAME_STATE, MEETING_TYPE } from "shared/sh_gamestate"
 import { AddCallback_OnPlayerCharacterAdded, AddCallback_OnPlayerCharacterAncestryChanged } from "shared/sh_onPlayerConnect"
 import { PLAYER_COLORS, SPECTATOR_TRANS } from "shared/sh_settings"
 import { TweenPlayerParts } from "shared/sh_tween"
@@ -36,20 +36,12 @@ export function CL_FadeOverlaySetup()
 {
    AddCallback_OnPlayerCharacterAdded( function ( player: Player )
    {
-      if ( player === LOCAL_PLAYER )
-         return
-
       let character = player.Character as Model
-      //      Thread(
-      //         function ()
-      //         {
-      //            wait( 1 )
       if ( character === undefined )
          return
       if ( player === undefined )
          return
       file.characterToPlayer.set( character, player )
-      //         } )
    } )
 
    AddPlayerGuiFolderExistsCallback( function ( folder: Folder )
@@ -139,16 +131,26 @@ export function CL_FadeOverlaySetup()
       const LIGHT_NORMAL = 50
       const LIGHT_DIM = 9
 
-      function GetLightDist(): number
+      function GetLightDist( match: Match ): number
       {
-         const MAX = 200
-         if ( GetLocalIsSpectator() )
-            return MAX
-
-         switch ( GetLocalRole() )
+         switch ( match.GetGameState() )
          {
-            case ROLE.ROLE_IMPOSTOR:
-               return MAX
+            case GAME_STATE.GAME_STATE_MEETING_DISCUSS:
+            case GAME_STATE.GAME_STATE_MEETING_VOTE:
+            case GAME_STATE.GAME_STATE_MEETING_RESULTS:
+               break
+
+            default:
+               const MAX = 200
+               if ( GetLocalIsSpectator() )
+                  return MAX
+
+               switch ( GetLocalRole() )
+               {
+                  case ROLE.ROLE_IMPOSTOR:
+                     return MAX
+               }
+               break
          }
 
          let lightsMax = LIGHT_NORMAL
@@ -196,13 +198,24 @@ export function CL_FadeOverlaySetup()
       {
          let match = GetLocalMatch()
 
-         let LIGHTDIST = GetLightDist()
+         let LIGHTDIST = GetLightDist( match )
 
          let character = LOCAL_PLAYER.Character
          if ( character === undefined )
             return
 
-         let pos = GetPosition( LOCAL_PLAYER )
+         let localPlayer = LOCAL_PLAYER
+         switch ( match.GetGameState() )
+         {
+            case GAME_STATE.GAME_STATE_MEETING_DISCUSS:
+            case GAME_STATE.GAME_STATE_MEETING_VOTE:
+            case GAME_STATE.GAME_STATE_MEETING_RESULTS:
+               if ( match.meetingType === MEETING_TYPE.MEETING_REPORT )
+                  localPlayer = match.meetingCaller as Player
+               break
+         }
+
+         let pos = GetPosition( localPlayer )
          let offset = pos.add( new Vector3( 0, 0, LIGHTDIST ) )
          let [offsetLightDistFromCenter, _1] = camera.WorldToScreenPoint( offset )
          let [screenCenter, _2] = camera.WorldToScreenPoint( pos )
@@ -283,7 +296,7 @@ export function CL_FadeOverlaySetup()
          }
 
 
-         let localPlayerRoom = GetCurrentRoom( LOCAL_PLAYER )
+         let localPlayerRoom = GetCurrentRoom( localPlayer )
 
          for ( let pair of file.characterToPlayer )
          {
@@ -295,7 +308,6 @@ export function CL_FadeOverlaySetup()
                continue
             }
 
-            Assert( player !== LOCAL_PLAYER, "pair[1] !== LOCAL_PLAYER" )
             let isVisible = false
             let part: BasePart | undefined
             let head: Part | undefined

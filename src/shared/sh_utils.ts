@@ -170,6 +170,9 @@ export function GetPlayerFromDescendant( descendant: Instance ): Player | undefi
    for ( ; ; )
    {
       let parent = descendant.Parent
+      if ( parent === undefined )
+         return undefined
+
       if ( parent === Workspace )
       {
          let model = descendant as Model
@@ -192,6 +195,7 @@ export function GetTouchingParts( part: BasePart ): Array<BasePart>
    return results
 }
 
+/*
 export function GetColor( thing: Instance ): Color3
 {
    if ( thing.IsA( 'Player' ) )
@@ -213,6 +217,7 @@ export function GetColor( thing: Instance ): Color3
 
    return new Color3( 0, 0, 0 )
 }
+*/
 
 export function LoadSound( id: number ): Sound
 {

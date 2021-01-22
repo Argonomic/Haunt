@@ -1,9 +1,9 @@
-import { HttpService, RunService, Teams, Workspace } from "@rbxts/services"
+import { HttpService, RunService, Workspace } from "@rbxts/services"
 import { AddNetVar, GetNetVar_String, SetNetVar } from "shared/sh_player_netvars"
 import { AddCooldown } from "./sh_cooldown"
-import { PlayerHasClone, SetPlayerWalkSpeed, TryFillWithFakeModels } from "./sh_onPlayerConnect"
+import { PlayerHasClone, SetPlayerWalkSpeed } from "./sh_onPlayerConnect"
 import { COOLDOWNTIME_MEETING, COOLDOWNTIME_KILL, MEETING_DISCUSS_TIME, MEETING_VOTE_TIME, PLAYER_WALKSPEED_SPECTATOR, PLAYER_WALKSPEED, SPECTATOR_TRANS, SUDDEN_DEATH_TIME, DEV_SKIP_INTRO, RESERVEDSERVER_WAITS_FOR_PLAYERS, START_COUNTDOWN, INTRO_TIME, SKIP_INTRO_TIME, MEETING_VOTE_RESULTS } from "./sh_settings"
-import { IsServer, IsClient, UserIDToPlayer, IsAlive, SetPlayerTransparency, GetLocalPlayer, Resume, Thread } from "./sh_utils"
+import { IsServer, IsClient, UserIDToPlayer, SetPlayerTransparency, GetLocalPlayer, Resume, Thread } from "./sh_utils"
 import { Assert } from "shared/sh_assert"
 import { GiveAbility, TakeAbility } from "./sh_ability"
 import { ABILITIES } from "./content/sh_ability_content"
@@ -95,8 +95,7 @@ export let TASK_RESTORE_LIGHTS = "task_restore_lights"
 
 class File
 {
-   onRoleChangeCallback: Array<( ( player: Player, role: ROLE, lastRole: ROLE ) => void )> = []
-   gameStateChangedCallbacks: Array<( ( match: Match ) => void )> = []
+   onRoleChangeCallback: Array<( ( player: Player, match: Match ) => void )> = []
    gameCreatedCallbacks: Array<( ( match: Match ) => void )> = []
 }
 let file = new File()
@@ -145,7 +144,7 @@ export class Assignment
 
 class NETVAR_GameState
 {
-   playerInfos: Array<NETVAR_GamePlayerInfo>
+   netPlayerInfos: Array<NETVAR_GamePlayerInfo>
    gameState: GAME_STATE
    gsChangedTime: number
    corpses: Array<NETVAR_Corpse>
@@ -157,11 +156,11 @@ class NETVAR_GameState
    startingImpostorCount: number
    readonly realMatch: boolean
 
-   constructor( match: Match, playerInfos: Array<NETVAR_GamePlayerInfo>, corpses: Array<NETVAR_Corpse>, votes: Array<NETVAR_Vote>, realMatch: boolean )
+   constructor( match: Match, netPlayerInfos: Array<NETVAR_GamePlayerInfo>, corpses: Array<NETVAR_Corpse>, votes: Array<NETVAR_Vote>, realMatch: boolean )
    {
       this.gameState = match.GetGameState()
       this.gsChangedTime = match.GetGameStateChangedTime()
-      this.playerInfos = playerInfos
+      this.netPlayerInfos = netPlayerInfos
       this.corpses = corpses
       this.votes = votes
       this.startingImpostorCount = match.startingImpostorCount
@@ -176,13 +175,15 @@ class NETVAR_GamePlayerInfo
    name: string
    role: ROLE
    playernum: number
+   readonly _killed: boolean
 
-   constructor( player: Player, role: ROLE, playernum: number )
+   constructor( player: Player, role: ROLE, playernum: number, killed: boolean )
    {
       this.userId = player.UserId
       this.name = player.Name
       this.role = role
       this.playernum = playernum
+      this._killed = killed
    }
 }
 
@@ -205,6 +206,7 @@ export class PlayerInfo
    role: ROLE = ROLE.ROLE_UNASSIGNED
    playernum = -1
    _userid: number
+   killed = false
 
    constructor( player: Player )
    {
@@ -263,7 +265,7 @@ export class Match
    playerToSpawnLocation = new Map<Player, Vector3>()
    startingImpostorCount = 0
    highestVotedScore = 0
-   private svRealMatch = false
+   svRealMatch = false
 
    //   coins: Array<Coin> = []
 
@@ -385,7 +387,7 @@ export class Match
             // full match info
             for ( let pair of this.playerToInfo )
             {
-               infos.push( new NETVAR_GamePlayerInfo( pair[0], pair[1].role, pair[1].playernum ) )
+               infos.push( new NETVAR_GamePlayerInfo( pair[0], pair[1].role, pair[1].playernum, pair[1].killed ) )
             }
          }
          else
@@ -404,7 +406,7 @@ export class Match
                      break
                }
 
-               infos.push( new NETVAR_GamePlayerInfo( pair[0], role, pair[1].playernum ) )
+               infos.push( new NETVAR_GamePlayerInfo( pair[0], role, pair[1].playernum, pair[1].killed ) )
             }
          }
 
@@ -439,13 +441,14 @@ export class Match
       Assert( !this.IsRealMatch() || this.GetGameState() < GAME_STATE.GAME_STATE_PLAYING || revealedImpostor, "Didn't reveal imposter" )
    }
 
+
    public SetGameState( state: GAME_STATE )
    {
       let match = this
       Assert( IsServer(), "Server only" )
 
       print( "\nSet Match State " + state + ", Time since last change: " + math.floor( ( Workspace.DistributedGameTime - this._gameStateChangedTime ) ) )
-      //print( "Stack: " + debug.traceback() )
+      print( "Stack: " + debug.traceback() )
 
       Assert( state >= GAME_STATE.GAME_STATE_COMPLETE || this.gameState < GAME_STATE.GAME_STATE_COMPLETE, "Illegal match state setting. Tried to set state " + state + ", but match state was " + this.gameState )
 
@@ -458,15 +461,6 @@ export class Match
          return
 
       this.UpdateGame()
-
-      for ( let func of file.gameStateChangedCallbacks )
-      {
-         Thread(
-            function ()
-            {
-               func( match )
-            } )
-      }
    }
 
    public GetTimeInGameState(): number
@@ -481,8 +475,6 @@ export class Match
       {
          let player = pair[0]
          let playerInfo = pair[1]
-         if ( !IsAlive( player ) )
-            continue
 
          switch ( playerInfo.role )
          {
@@ -513,6 +505,20 @@ export class Match
       Assert( playerInfo._userid === player.UserId, "WRONG PLAYER ID" )
 
       return this.playerToInfo.get( player ) as PlayerInfo
+   }
+
+   public GetPlayerKilled( player: Player ): boolean
+   {
+      let playerInfo = this.GetPlayerInfo( player )
+      print( "GetPlayerKilled " + player.Name + " " + playerInfo.killed )
+      return playerInfo.killed
+   }
+
+   public SetPlayerKilled( player: Player )
+   {
+      print( "SetPlayerKilled " + player.Name )
+      let playerInfo = this.GetPlayerInfo( player )
+      playerInfo.killed = true
    }
 
    public GetPlayerInfoFromUserID( userId: number ): PlayerInfo | undefined
@@ -696,7 +702,7 @@ export class Match
       {
          for ( let func of file.onRoleChangeCallback )
          {
-            func( player, role, lastRole )
+            func( player, this )
          }
       }
 
@@ -727,12 +733,18 @@ export class Match
       return players
    }
 
-   public GetLivingCampers(): Array<Player>
+   public GetAllPlayersWithCharacters(): Array<Player>
    {
-      return this.GetPlayersOfRole( ROLE.ROLE_CAMPER ).filter( function ( player )
+      let players = this.GetAllPlayers()
+      return players.filter( function ( player )
       {
          return player.Character !== undefined
       } )
+   }
+
+   public GetLivingCampers(): Array<Player>
+   {
+      return this.GetPlayersOfRole( ROLE.ROLE_CAMPER )
    }
 
    public GetCampers(): Array<Player>
@@ -742,10 +754,7 @@ export class Match
 
    public GetLivingImpostors(): Array<Player>
    {
-      return this.GetPlayersOfRole( ROLE.ROLE_IMPOSTOR ).filter( function ( player )
-      {
-         return player.Character !== undefined
-      } )
+      return this.GetPlayersOfRole( ROLE.ROLE_IMPOSTOR )
    }
 
    public GetImpostors(): Array<Player>
@@ -778,7 +787,7 @@ export class Match
 
       let character = player.Character
       if ( character !== undefined )
-         this.Shared_OnGameStateChanged_PerPlayer( player, this.GetGameState() )
+         this.Shared_OnGameStateChanged_PerPlayer( player, this )
 
       return playerInfo
    }
@@ -846,34 +855,11 @@ export class Match
    }
 
 
-   public Shared_OnGameStateChanged_PerPlayer( player: Player, state: GAME_STATE )
+   public Shared_OnGameStateChanged_PerPlayer( player: Player, match: Match )
    {
-      /*
-      if ( player.Character !== undefined )
-      {
-         ExecOnChildWhenItExists( player.Character, "Humanoid", function ( instance: Instance )
-         {
-            let human = instance as Humanoid
-            human.NameDisplayDistance = 1000
-            human.NameOcclusion = Enum.NameOcclusion.NoOcclusion
-         } )
-      }
-      */
+      SetPlayerWalkspeedForGameState( player, match )
 
-      switch ( state )
-      {
-         case GAME_STATE.GAME_STATE_MEETING_DISCUSS:
-         case GAME_STATE.GAME_STATE_MEETING_VOTE:
-            SetPlayerWalkSpeed( player, 0 )
-            break
-
-         default:
-            if ( this.IsSpectator( player ) )
-               SetPlayerWalkSpeed( player, PLAYER_WALKSPEED_SPECTATOR )
-            else
-               SetPlayerWalkSpeed( player, PLAYER_WALKSPEED )
-            break
-      }
+      UpdatePlayerAbilities( player, match )
    }
 
    //////////////////////////////////////////////////////
@@ -889,10 +875,10 @@ export class Match
       Assert( json.size() > 0 )
 
       let gs = HttpService.JSONDecode( json ) as NETVAR_GameState
-      let userIdToPlayer = UserIDToPlayer()
+      let fullyStockedUserIdToPlayer = UserIDToPlayer()
       for ( let playerInfo of this.GetAllPlayerInfo() )
       {
-         userIdToPlayer.set( playerInfo.player.UserId, playerInfo.player )
+         fullyStockedUserIdToPlayer.set( playerInfo.player.UserId, playerInfo.player )
       }
 
       this.gameState = gs.gameState
@@ -906,15 +892,17 @@ export class Match
       {
          let sentPlayers = new Map<Player, boolean>()
 
-         for ( let gsPlayerInfo of gs.playerInfos )
+         for ( let gsPlayerInfo of gs.netPlayerInfos )
          {
-            let player = userIdToPlayer.get( gsPlayerInfo.userId )
+            let player = fullyStockedUserIdToPlayer.get( gsPlayerInfo.userId )
             if ( player === undefined )
                continue
             sentPlayers.set( player, true )
 
             let role = gsPlayerInfo.role
             let playerInfo = this.SetPlayerRole( player, role )
+            if ( gsPlayerInfo._killed )
+               playerInfo.killed = true
 
             Assert( playerInfo !== undefined, "playerInfo !== undefined" )
             playerInfo.playernum = gsPlayerInfo.playernum
@@ -953,7 +941,7 @@ export class Match
                continue
 
             // can't draw the player if the got off the server too fast
-            let player = userIdToPlayer.get( corpseInfo.userId )
+            let player = fullyStockedUserIdToPlayer.get( corpseInfo.userId )
             if ( player !== undefined )
                this.corpses.push( new Corpse( player, new Vector3( corpseInfo.X, corpseInfo.Y, corpseInfo.Z ) ) )
          }
@@ -978,22 +966,23 @@ export class Match
       this.votes = []
       this.highestVotedScore = gs.voteTargetScore
 
+
+
       for ( let vote of gs.votes )
       {
-         let userIdToPlayer = UserIDToPlayer()
-         let player = userIdToPlayer.get( vote.voterUserId )
-         if ( player === undefined )
+         if ( !fullyStockedUserIdToPlayer.has( vote.voterUserId ) )
             continue
+         let voter = fullyStockedUserIdToPlayer.get( vote.voterUserId ) as Player
 
          let targetUserId = vote.targetUserId
          if ( targetUserId === undefined )
          {
-            this.votes.push( new PlayerVote( player, undefined ) )
+            this.votes.push( new PlayerVote( voter, undefined ) )
          }
          else
          {
-            let target = userIdToPlayer.get( targetUserId )
-            this.votes.push( new PlayerVote( player, target ) )
+            let target = fullyStockedUserIdToPlayer.get( targetUserId )
+            this.votes.push( new PlayerVote( voter, target ) )
          }
       }
 
@@ -1005,7 +994,7 @@ export class Match
       }
       else
       {
-         let meetingCaller = userIdToPlayer.get( gs.meetingCallerUserId )
+         let meetingCaller = fullyStockedUserIdToPlayer.get( gs.meetingCallerUserId )
          this.meetingCaller = meetingCaller
       }
 
@@ -1015,7 +1004,7 @@ export class Match
       }
       else
       {
-         let meetingBody = userIdToPlayer.get( gs.meetingBodyUserId )
+         let meetingBody = fullyStockedUserIdToPlayer.get( gs.meetingBodyUserId )
          this.meetingBody = meetingBody
       }
    }
@@ -1033,7 +1022,8 @@ export function SH_GameStateSetup()
    AddCooldown( COOLDOWN_NAME_KILL, COOLDOWNTIME_KILL )
    AddCooldown( COOLDOWN_NAME_MEETING, COOLDOWNTIME_MEETING )
 
-   AddRoleChangeCallback(
+   AddRoleChangeCallback( UpdatePlayerAbilities )
+   /*
       function ( player: Player, role: ROLE, lastRole: ROLE )
       {
          if ( IsImpostorRole( role ) )
@@ -1050,7 +1040,25 @@ export function SH_GameStateSetup()
             TakeAbility( player, ABILITIES.ABILITY_SABOTAGE_LIGHTS )
          }
       } )
+   */
+}
 
+function UpdatePlayerAbilities( player: Player, match: Match )
+{
+   switch ( match.GetGameState() )
+   {
+      case GAME_STATE.GAME_STATE_PLAYING:
+      case GAME_STATE.GAME_STATE_SUDDEN_DEATH:
+         if ( match.IsImpostor( player ) )
+            GiveAbility( player, ABILITIES.ABILITY_SABOTAGE_LIGHTS )
+         else
+            TakeAbility( player, ABILITIES.ABILITY_SABOTAGE_LIGHTS )
+         break
+
+      default:
+         TakeAbility( player, ABILITIES.ABILITY_SABOTAGE_LIGHTS )
+         break
+   }
 }
 
 
@@ -1134,7 +1142,7 @@ export function AssignmentIsSame( assignment: Assignment, roomName: string, task
    return assignment.taskName === taskName
 }
 
-export function AddRoleChangeCallback( func: ( player: Player, role: ROLE, lastRole: ROLE ) => void )
+export function AddRoleChangeCallback( func: ( player: Player, match: Match ) => void )
 {
    file.onRoleChangeCallback.push( func )
 }
@@ -1164,10 +1172,6 @@ export function IsCamperRole( role: ROLE ): boolean
    return false
 }
 
-export function AddGameStateChangedCallback( func: ( match: Match ) => void )
-{
-   file.gameStateChangedCallbacks.push( func )
-}
 
 export function AddGameCreatedCallback( func: ( match: Match ) => void )
 {
@@ -1198,4 +1202,23 @@ export function UsableGameState( match: Match ): boolean
          return true
    }
    return false
+}
+
+export function SetPlayerWalkspeedForGameState( player: Player, match: Match )
+{
+   switch ( match.GetGameState() )
+   {
+      case GAME_STATE.GAME_STATE_WAITING_FOR_PLAYERS:
+      case GAME_STATE.GAME_STATE_PLAYING:
+      case GAME_STATE.GAME_STATE_SUDDEN_DEATH:
+         if ( match.IsSpectator( player ) )
+            SetPlayerWalkSpeed( player, PLAYER_WALKSPEED_SPECTATOR )
+         else
+            SetPlayerWalkSpeed( player, PLAYER_WALKSPEED )
+         break
+
+      default:
+         SetPlayerWalkSpeed( player, 0 )
+         break
+   }
 }

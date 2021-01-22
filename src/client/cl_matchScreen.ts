@@ -5,7 +5,6 @@ import { CloneChild, GetExistingFirstChildWithNameAndClassName, GetLocalPlayer, 
 import { Assert } from "shared/sh_assert"
 import { AddPlayerGuiFolderExistsCallback, UIORDER } from "./cl_ui";
 import { IsReservedServer } from "shared/sh_reservedServer";
-import { GAME_STATE } from "shared/sh_gamestate";
 
 const LOCAL_PLAYER = GetLocalPlayer()
 
@@ -76,8 +75,6 @@ class MatchScreenFrame
 
       let thisThread = coroutine.running()
 
-      SetPlayerWalkSpeed( LOCAL_PLAYER, 0 )
-
       Thread(
          function ()
          {
@@ -94,8 +91,6 @@ class MatchScreenFrame
 
                   if ( thisThread === file.threadQueue[0] )
                      file.threadQueue.remove( 0 )
-                  if ( file.threadQueue.size() === 0 )
-                     SetPlayerWalkSpeed( LOCAL_PLAYER, PLAYER_WALKSPEED )
                   return
                }
                wait( 0.1 )

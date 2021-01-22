@@ -97,6 +97,7 @@ export function SV_UseContentSetup()
          match.playerToSpawnLocation.set( camper, GetPosition( camper ) )
          PlayerDropsCoinsWithTrajectory( camper, GetPosition( player ) )
          match.SetPlayerRole( camper, ROLE.ROLE_SPECTATOR_CAMPER )
+         match.SetPlayerKilled( camper )
          KillPlayer( camper )
          SV_SendRPC( "RPC_FromServer_CancelTask", player )
 

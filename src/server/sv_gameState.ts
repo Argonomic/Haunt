@@ -2,7 +2,7 @@ import { Chat, HttpService, MessagingService, Players, RunService, TeleportServi
 import { AddRPC } from "shared/sh_rpc"
 import { ArrayFind, ArrayRandomize, GraphCapped, IsAlive, Resume, Thread, UserIDToPlayer, Wait } from "shared/sh_utils"
 import { Assert } from "shared/sh_assert"
-import { Assignment, GAME_STATE, NETVAR_JSON_ASSIGNMENTS, ROLE, Match, GAMERESULTS, GetVoteResults, TASK_EXIT, AssignmentIsSame, TASK_RESTORE_LIGHTS, NETVAR_JSON_GAMESTATE, NETVAR_MEETINGS_CALLED } from "shared/sh_gamestate"
+import { Assignment, GAME_STATE, NETVAR_JSON_ASSIGNMENTS, ROLE, Match, GAMERESULTS, GetVoteResults, TASK_EXIT, AssignmentIsSame, TASK_RESTORE_LIGHTS, NETVAR_JSON_GAMESTATE, NETVAR_MEETINGS_CALLED, SetPlayerWalkspeedForGameState } from "shared/sh_gamestate"
 import { MIN_TASKLIST_SIZE, MAX_TASKLIST_SIZE, MATCHMAKE_PLAYERCOUNT_STARTSERVER, SPAWN_ROOM, PLAYER_WALKSPEED, TASK_VALUE, MATCHMAKE_PLAYERCOUNT_FALLBACK, DEV_1_TASK, ADMINS } from "shared/sh_settings"
 import { ResetNetVar, SetNetVar } from "shared/sh_player_netvars"
 import { AddCallback_OnPlayerCharacterAdded, AddCallback_OnPlayerConnected, SetPlayerWalkSpeed } from "shared/sh_onPlayerConnect"
@@ -170,7 +170,7 @@ export function SV_GameStateSetup()
          PutPlayerInStartRoom( player )
 
       let match = PlayerToMatch( player )
-      match.Shared_OnGameStateChanged_PerPlayer( player, match.GetGameState() )
+      match.Shared_OnGameStateChanged_PerPlayer( player, match )
 
       if ( !match.playerToSpawnLocation.has( player ) )
          return
@@ -195,13 +195,26 @@ export function SV_GameStateSetup()
       function ( player: Player )
       {
          let match = PlayerToMatch( player )
-         if ( !match.IsSpectator( player ) && match.IsRealMatch() )
-            PlayerBecomesSpectatorAndDistributesCoins( player, match )
 
-         // don't remove quitters from real games because their info is still valid and needed
-         if ( !match.IsRealMatch() )
-            match.RemovePlayer( player )
+         if ( match.IsRealMatch() )
+         {
+            // don't remove quitters from real games because their info is still valid and needed
 
+            if ( !match.IsSpectator( player ) )
+            {
+               switch ( match.GetGameState() )
+               {
+                  case GAME_STATE.GAME_STATE_PLAYING:
+                  case GAME_STATE.GAME_STATE_SUDDEN_DEATH:
+                     // other gamestates handle give out of coins for players themselves
+                     PlayerBecomesSpectatorAndDistributesCoins( player, match )
+                     break
+               }
+            }
+            return
+         }
+
+         match.RemovePlayer( player )
          match.UpdateGame()
       } )
 
@@ -284,7 +297,7 @@ function SV_GameStateChanged( match: Match, oldGameState: GAME_STATE )
       for ( let player of players )
       {
          if ( player.Character !== undefined )
-            match.Shared_OnGameStateChanged_PerPlayer( player, match.GetGameState() )
+            match.Shared_OnGameStateChanged_PerPlayer( player, match )
       }
    }
 
@@ -449,6 +462,14 @@ function SV_GameStateChanged( match: Match, oldGameState: GAME_STATE )
 
       case GAME_STATE.GAME_STATE_PLAYING:
          match.ClearVotes()
+
+         let livingPlayers = match.GetLivingPlayers()
+         let userIdToPlayer = UserIDToPlayer()
+         for ( let player of livingPlayers )
+         {
+            if ( !userIdToPlayer.has( player.UserId ) || player.Character === undefined )
+               PlayerBecomesSpectatorAndDistributesCoins( player, match )
+         }
 
          let livingCampers = match.GetLivingCampers().size()
          if ( match.previouslyLivingCampers === 0 || match.previouslyLivingCampers > livingCampers )
@@ -737,6 +758,7 @@ function GameStateThink( match: Match )
          print( "Found enough players for match" )
          if ( LOCAL )
          {
+            match.svRealMatch = true
             match.SetGameState( GAME_STATE.GAME_STATE_COUNTDOWN )
          }
          else
@@ -779,11 +801,29 @@ function GameStateThink( match: Match )
 
       case GAME_STATE.GAME_STATE_MEETING_VOTE:
          {
-            let count = match.GetLivingImpostors().size() + match.GetLivingCampers().size()
+            let userIDToPlayer = UserIDToPlayer()
             let votes = match.GetVotes()
-            if ( votes.size() >= count )
+            let playerVoted = new Map<Player, boolean>()
+
+            for ( let vote of votes )
             {
-               print( "SET GAME STATE GAME_STATE_MEETING_RESULTS" )
+               playerVoted.set( vote.voter, true )
+            }
+
+            let votingFinished = true
+            for ( let pair of userIDToPlayer )
+            {
+               if ( match.IsSpectator( pair[1] ) )
+                  continue // cant vote
+               if ( playerVoted.has( pair[1] ) )
+                  continue // already voted
+
+               votingFinished = false
+               break
+            }
+
+            if ( votingFinished )
+            {
                match.SetGameState( GAME_STATE.GAME_STATE_MEETING_RESULTS )
                return
             }
@@ -804,7 +844,7 @@ function HandleVoteResults( match: Match )
          match.corpses = [] // clear the corpses
 
          let room = GetRoomByName( 'Great Room' )
-         PutPlayersInRoom( match.GetAllPlayersWithCharactersCloned(), room )
+         PutPlayersInRoom( match.GetAllPlayersWithCharacters(), room )
 
          if ( voteResults.skipTie || voteResults.highestRecipients.size() !== 1 )
          {
@@ -814,6 +854,7 @@ function HandleVoteResults( match: Match )
          {
             let highestTarget = voteResults.highestRecipients[0]
             Wait( 8 ) // delay for vote matchscreen
+            match.SetPlayerKilled( highestTarget )
             PlayerBecomesSpectatorAndDistributesCoins( highestTarget, match )
 
             print( "Player " + highestTarget.Name + " was voted off" )
@@ -825,9 +866,8 @@ function HandleVoteResults( match: Match )
 
 function RPC_FromClient_OnPlayerFinishTask( player: Player, roomName: string, taskName: string )
 {
-   SetPlayerWalkSpeed( player, PLAYER_WALKSPEED )
-
    let match = PlayerToMatch( player )
+   SetPlayerWalkspeedForGameState( player, match )
 
    if ( !match.assignments.has( player ) )
       return

@@ -557,6 +557,10 @@ export function AddClickable( clickUI: EDITOR_ClickableUI, canClickFunc: ( () =>
       let results = setArt_getClickResults( imageButton, textButton )
       switch ( results.resultsType )
       {
+         case UI_CLICK_RESULTS_TYPE.RESULTS_VISIBLE:
+            Assert( false, "UI_CLICK_RESULTS_TYPE.RESULTS_VISIBLE is not implemented yet" )
+            break
+
          case UI_CLICK_RESULTS_TYPE.RESULTS_HIDE:
             if ( results.resultsType !== lastResultsType )
                clickUI.Enabled = false

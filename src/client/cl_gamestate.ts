@@ -6,13 +6,13 @@ import { GetUsableByType } from "shared/sh_use"
 import { GetFirstChildWithName, GetLocalPlayer, RandomFloatRange, RecursiveOnChildren, Resume, SetCharacterTransparency, Thread, WaitThread } from "shared/sh_utils"
 import { Assert } from "shared/sh_assert"
 import { UpdateMeeting } from "./cl_meeting"
-import { CancelAnyOpenTask } from "./cl_tasks"
 import { AddPlayerUseDisabledCallback } from "./cl_use"
 import { DrawMatchScreen_EmergencyMeeting, DrawMatchScreen_Escaped, DrawMatchScreen_Intro, DrawMatchScreen_Victory, DrawMatchScreen_VoteResults } from "./content/cl_matchScreen_content"
 import { GetLastStashed } from "shared/sh_score"
 import { DEV_SKIP_INTRO, SKIP_INTRO_TIME } from "shared/sh_settings"
 import { IsReservedServer } from "shared/sh_reservedServer"
 import { ReservedServerRelease } from "./cl_matchScreen"
+import { SetLocalViewToRoom, GetCurrentRoom } from "./cl_rooms"
 
 const LOCAL_PLAYER = GetLocalPlayer()
 
@@ -148,18 +148,16 @@ export function CL_GameStateSetup()
          */
       } )
 
-
    AddRoleChangeCallback(
-      function ( player: Player, role: ROLE, lastRole: ROLE )
+      function ( player: Player, match: Match )
       {
          Thread(
             function ()
             {
-               let match = GetLocalMatch()
-
                if ( player !== LOCAL_PLAYER )
                   return
 
+               let role = match.GetPlayerRole( player )
                if ( role !== ROLE.ROLE_SPECTATOR_CAMPER_ESCAPED )
                   return
 
@@ -179,7 +177,7 @@ export function CL_GameStateSetup()
    {
       let match = GetLocalMatch()
       if ( match.HasPlayer( player ) )
-         match.Shared_OnGameStateChanged_PerPlayer( player, match.GetGameState() )
+         match.Shared_OnGameStateChanged_PerPlayer( player, match )
    } )
 
    {
@@ -258,7 +256,7 @@ function CLGameStateChanged( match: Match, oldGameState: number, newGameState: n
    {
       Assert( match.HasPlayer( player ), "Match doesn't have player??" )
       if ( player.Character !== undefined )
-         match.Shared_OnGameStateChanged_PerPlayer( player, match.GetGameState() )
+         match.Shared_OnGameStateChanged_PerPlayer( player, match )
    }
 
    // leaving this match state
@@ -307,12 +305,6 @@ function CLGameStateChanged( match: Match, oldGameState: number, newGameState: n
             )
          } )
 
-         break
-
-      case GAME_STATE.GAME_STATE_PLAYING:
-      case GAME_STATE.GAME_STATE_SUDDEN_DEATH:
-         if ( newGameState !== GAME_STATE.GAME_STATE_SUDDEN_DEATH )
-            CancelAnyOpenTask()
          break
    }
 
@@ -402,11 +394,34 @@ function CLGameStateChanged( match: Match, oldGameState: number, newGameState: n
          {
             if ( match.meetingType !== undefined && match.meetingCaller !== undefined )
             {
+               let report = false
                let body: Player | undefined = match.meetingBody
-               if ( match.meetingType === MEETING_TYPE.MEETING_EMERGENCY )
-                  body = undefined
+               switch ( match.meetingType )
+               {
+                  case MEETING_TYPE.MEETING_EMERGENCY:
+                     body = undefined
+                     break
+
+                  case MEETING_TYPE.MEETING_REPORT:
+                     let room = GetCurrentRoom( match.meetingCaller )
+                     report = true
+                     Thread(
+                        function ()
+                        {
+                           wait( 2 ) // wait for match screen to fade out
+                           SetLocalViewToRoom( room )
+                        } )
+                     break
+
+                  default:
+                     Assert( false, "Unhandled meeting type " + match.meetingType )
+                     break
+               }
 
                DrawMatchScreen_EmergencyMeeting( match.meetingType, match.meetingCaller, body )
+
+               if ( report )
+                  wait( 4 ) // time to look at crime scene
             }
          } )
          break

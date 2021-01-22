@@ -101,7 +101,7 @@ function OnPlayerCharacterAdded( character: Model )
       let human = instance as Humanoid
       human.SetStateEnabled( Enum.HumanoidStateType.Jumping, false )
       human.SetStateEnabled( Enum.HumanoidStateType.Climbing, false )
-      SetPlayerWalkSpeed( player, PLAYER_WALKSPEED )
+      //SetPlayerWalkSpeed( player, PLAYER_WALKSPEED )
 
       for ( let i = 0; i < file.onPlayerCharacterAdded.size(); i++ )
       {

@@ -1,9 +1,9 @@
 import { RunService } from "@rbxts/services";
-import { Match, GAME_STATE, PlayerInfo, PlayerNumToGameViewable, ROLE } from "shared/sh_gamestate";
+import { Match, GAME_STATE, PlayerInfo, PlayerNumToGameViewable, ROLE, MEETING_TYPE } from "shared/sh_gamestate";
 import { ClonePlayerModel } from "shared/sh_onPlayerConnect";
 import { MATCHMAKE_PLAYERCOUNT_STARTSERVER, PLAYER_COLORS } from "shared/sh_settings";
 import { Tween } from "shared/sh_tween";
-import { GetColor, GetFirstChildWithName, GetFirstChildWithNameAndClassName, GetLocalPlayer, LightenColor, SetCharacterTransparency, Thread, SetCharacterYaw } from "shared/sh_utils";
+import { GetFirstChildWithNameAndClassName, GetLocalPlayer, LightenColor, SetCharacterTransparency, Thread, SetCharacterYaw } from "shared/sh_utils";
 import { Assert } from "shared/sh_assert"
 import { AddPlayerGuiFolderExistsCallback, UIORDER } from "./cl_ui";
 import { SendRPC_Client } from "shared/sh_rpc";
@@ -15,7 +15,12 @@ class File
 }
 let file = new File()
 
-type Editor_PlayerFrameButton = TextButton &
+type EDITOR_VoteImageWithText = ImageLabel &
+{
+   VoteNumber: TextLabel
+}
+
+type EDITOR_PlayerFrameButton = TextButton &
 {
    PlayerNumber: TextLabel
    voted: TextLabel
@@ -30,10 +35,21 @@ type Editor_PlayerFrameButton = TextButton &
    }
 }
 
+type EDITOR_MeetingFrame = Frame &
+{
+   CrimeScene: TextButton &
+   {
+      Label: TextButton
+   }
+   PlayerBackground: Frame
+   Skip: TextButton
+   MeetingMessage: TextLabel
+}
+
 class PlayerButtonGroup
 {
    buttonGroup: ButtonGroup
-   frameButton: Editor_PlayerFrameButton
+   frameButton: EDITOR_PlayerFrameButton
    voted: TextLabel
    player: Player
    alive = true
@@ -41,7 +57,7 @@ class PlayerButtonGroup
    playerInfo: PlayerInfo
    horn: ImageLabel
 
-   constructor( match: Match, player: Player, playerButtonTemplate: Editor_PlayerFrameButton, playerCount: number, displayChecks: ( buttonGroup: ButtonGroup ) => void, checkYes: () => void )
+   constructor( match: Match, player: Player, playerButtonTemplate: EDITOR_PlayerFrameButton, playerCount: number, displayChecks: ( buttonGroup: ButtonGroup ) => void, checkYes: () => void )
    {
       this.player = player
       this.frameButton = playerButtonTemplate.Clone()
@@ -89,7 +105,7 @@ class PlayerButtonGroup
       {
          this.alive = false
       }
-      else if ( match.IsSpectator( player ) )
+      else if ( match.GetPlayerKilled( player ) )
       {
          this.alive = false
          dead.Visible = true
@@ -157,7 +173,7 @@ class ButtonGroup
    checkYes: ImageLabel
    checkNo: ImageLabel
 
-   voteImages: Array<ImageLabel> = []
+   voteImages: Array<EDITOR_VoteImageWithText> = []
 
    public HideChecks()
    {
@@ -198,7 +214,9 @@ class ButtonGroup
       if ( playerImage !== undefined )
          voteImageParent = playerImage
 
-      let voteImage = GetFirstChildWithNameAndClassName( voteImageParent, 'VoteImage', 'ImageLabel' ) as ImageLabel
+      let voteImage = GetFirstChildWithNameAndClassName( voteImageParent, 'VoteImage', 'ImageLabel' ) as EDITOR_VoteImageWithText
+      voteImage.VoteNumber.Visible = false
+      voteImage.BackgroundTransparency = 1.0
 
       for ( let i = 0; i < playerCount; i++ )
       {
@@ -267,12 +285,34 @@ class ActiveMeeting
       meetingUI.Name = meetingUITemplate.Name + " Clone"
       meetingUI.Parent = meetingUITemplate.Parent
       meetingUI.Enabled = true
+      print( "meetingUI.Enabled = true" )
 
-      let frame = GetFirstChildWithNameAndClassName( meetingUI, 'Frame', 'Frame' ) as Frame
-      let playerBackground = GetFirstChildWithNameAndClassName( frame, 'PlayerBackground', 'Frame' ) as Frame
-      let playerButtonTemplate = GetFirstChildWithNameAndClassName( playerBackground, 'PlayerButton', 'TextButton' ) as Editor_PlayerFrameButton
+      let frame = GetFirstChildWithNameAndClassName( meetingUI, 'Frame', 'Frame' ) as EDITOR_MeetingFrame
+      let ogPos = frame.Position
+      let toggledPos = new UDim2( ogPos.X.Scale, ogPos.X.Offset, 0.9, ogPos.Y.Offset )
+      frame.Position = new UDim2( ogPos.X.Scale, ogPos.X.Offset, 1.0, ogPos.Y.Offset )
+      Tween( frame, { Position: ogPos }, 0.8, Enum.EasingStyle.Quart, Enum.EasingDirection.Out )
+
+      let playerBackground = frame.PlayerBackground
+      let playerButtonTemplate = GetFirstChildWithNameAndClassName( playerBackground, 'PlayerButton', 'TextButton' ) as EDITOR_PlayerFrameButton
       this.playerButtonTemplate = playerButtonTemplate
       playerButtonTemplate.Visible = false
+
+      let visible = true
+      frame.CrimeScene.Visible = match.meetingType === MEETING_TYPE.MEETING_REPORT
+      frame.CrimeScene.Label.MouseButton1Click.Connect(
+         function ()
+         {
+            print( "Click" )
+            visible = !visible
+
+            let pos
+            if ( visible )
+               pos = ogPos
+            else
+               pos = toggledPos
+            Tween( frame, { Position: pos }, 0.5, Enum.EasingStyle.Quart, Enum.EasingDirection.Out )
+         } )
 
       let allButtonGroups: Array<ButtonGroup> = []
 
@@ -304,7 +344,7 @@ class ActiveMeeting
          }
       }
 
-      let skipVote = GetFirstChildWithNameAndClassName( frame, 'Skip', 'TextButton' ) as TextButton
+      let skipVote = frame.Skip
       let skipButtonGroup = new ButtonGroup( skipVote, players.size(),
          HideAllChecksAndDisplayThisOne,
 
@@ -318,7 +358,7 @@ class ActiveMeeting
       this.skipButtonGroup = skipButtonGroup
       this.HideButtonGroup( skipButtonGroup )
 
-      this.meetingMessage = GetFirstChildWithName( frame, 'MeetingMessage' ) as TextLabel
+      this.meetingMessage = frame.MeetingMessage
 
       this.playerButtonGroups = []
 
@@ -457,14 +497,18 @@ class ActiveMeeting
       }
    }
 
-   private AddVote( buttonGroup: ButtonGroup, voter: Player )
+   private AddVote( buttonGroup: ButtonGroup, playerInfo: PlayerInfo )
    {
       for ( let voteImage of buttonGroup.voteImages )
       {
          if ( voteImage.Visible )
             continue
          voteImage.Visible = true
-         voteImage.ImageColor3 = GetColor( voter )
+         voteImage.VoteNumber.Visible = true
+         voteImage.VoteNumber.TextColor3 = PLAYER_COLORS[playerInfo.playernum]
+         voteImage.VoteNumber.Text = PlayerNumToGameViewable( playerInfo.playernum )
+
+         //voteImage.ImageColor3 = GetColor( voter )
          return
       }
    }
@@ -515,6 +559,7 @@ class ActiveMeeting
 
       const TIME = 0.6
       let dif = 0.3
+      print( "Vote count: " + match.GetVotes().size() )
       for ( let vote of match.GetVotes() )
       {
          let voter = vote.voter as Player
@@ -538,15 +583,16 @@ class ActiveMeeting
          }
          playerButtonGroup.voted.Visible = true
 
+         let playerInfo = match.GetPlayerInfo( voter )
          if ( vote.target === undefined )
          {
             // skipped
-            this.AddVote( this.skipButtonGroup, voter )
+            this.AddVote( this.skipButtonGroup, playerInfo )
          }
          else
          {
             let playerButtonGroup = playerToButtonGroup.get( vote.target ) as PlayerButtonGroup
-            this.AddVote( playerButtonGroup.buttonGroup, voter )
+            this.AddVote( playerButtonGroup.buttonGroup, playerInfo )
          }
       }
    }

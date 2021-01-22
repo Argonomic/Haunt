@@ -152,6 +152,13 @@ function SetCurrentRoom( player: Player, room: Room )
    }
 }
 
+export function SetLocalViewToRoom( room: Room )
+{
+   print( "SetLocalViewToRoom to " + room.name )
+   SetPlayerCameraToRoom( room )
+   CreateDynamicArtForRoom( room )
+}
+
 function OnTriggerDoorSetup( door: BasePart, room: Room )
 {
    door.Touched.Connect( function ( toucher )

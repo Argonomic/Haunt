@@ -3,7 +3,7 @@ import { Assert } from "shared/sh_assert"
 import { AddCallback_OnPlayerConnected } from "shared/sh_onPlayerConnect"
 import { AddRPC } from "shared/sh_rpc"
 import { MATCHMAKE_PLAYER_OPENED_FRIEND_INVITE, MATCHMAKE_PLAYER_WAITING_FOR_FRIEND_TIME, MATCHMAKE_PLAYER_CAN_MATCHMAKE_TIME } from "shared/sh_settings"
-import { ArrayRandomize, WaitThread, WaitThreadOrTimeout } from "shared/sh_utils"
+import { ArrayRandomize } from "shared/sh_utils"
 
 class File
 {

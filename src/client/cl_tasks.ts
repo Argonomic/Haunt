@@ -1,14 +1,14 @@
 import { AddRPC, SendRPC_Client } from "shared/sh_rpc"
-import { Assignment, AssignmentIsSame, NETVAR_JSON_ASSIGNMENTS } from "shared/sh_gamestate"
+import { Assignment, AssignmentIsSame, GAME_STATE, NETVAR_JSON_ASSIGNMENTS, NETVAR_JSON_GAMESTATE, SetPlayerWalkspeedForGameState } from "shared/sh_gamestate"
 import { AddNetVarChangedCallback, GetNetVar_String } from "shared/sh_player_netvars"
 import { ReleaseDraggedButton, AddCallback_MouseClick } from "client/cl_ui"
 import { GetLocalPlayer, LoadSound, Thread } from "shared/sh_utils"
 import { Assert } from "shared/sh_assert"
 import { SetPlayerWalkSpeed } from "shared/sh_onPlayerConnect"
 import { AddPlayerUseDisabledCallback, SetUseDebounceTime } from "./cl_use"
-import { PLAYER_WALKSPEED } from "shared/sh_settings"
 import { Tween } from "shared/sh_tween"
 import { HttpService } from "@rbxts/services"
+import { GetLocalMatch } from "./cl_gamestate"
 
 export enum TASK_UI
 {
@@ -106,6 +106,32 @@ export function CL_TasksSetup()
          CancelAnyOpenTask()
       } )
 
+
+   let lastKnownGameState = -1
+   AddNetVarChangedCallback( NETVAR_JSON_GAMESTATE,
+      function ()
+      {
+         wait() // for gamestate to update
+         let match = GetLocalMatch()
+         let gameState = match.GetGameState()
+
+         if ( lastKnownGameState === gameState )
+            return // game state did not change
+         lastKnownGameState = gameState
+
+         // entering this game state
+         switch ( gameState )
+         {
+            case GAME_STATE.GAME_STATE_MEETING_DISCUSS:
+            case GAME_STATE.GAME_STATE_MEETING_VOTE:
+            case GAME_STATE.GAME_STATE_MEETING_RESULTS:
+            case GAME_STATE.GAME_STATE_COMPLETE:
+            case GAME_STATE.GAME_STATE_INTRO:
+               CancelAnyOpenTask()
+               break
+         }
+      } )
+
 }
 
 export function AddTaskUI( name: TASK_UI, ui: ScreenGui )
@@ -134,7 +160,7 @@ export function GetTaskUI( name: TASK_UI ): ScreenGui
 }
 
 
-export function CancelAnyOpenTask()
+function CancelAnyOpenTask()
 {
    let activeTaskStatus = file.activeTaskStatus
    if ( activeTaskStatus === undefined )
@@ -190,7 +216,7 @@ export function RPC_FromServer_OnPlayerUseTask( roomName: string, taskName: stri
          SetUseDebounceTime( 1 ) // hide use for a second
       }
 
-      SetPlayerWalkSpeed( GetLocalPlayer(), PLAYER_WALKSPEED )
+      SetPlayerWalkspeedForGameState( GetLocalPlayer(), GetLocalMatch() )
 
       //SetPlayerState( GetLocalPlayer(), Enum.HumanoidStateType.Running, true )
       let think = activeTaskStatus.think
