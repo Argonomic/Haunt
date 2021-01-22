@@ -118,7 +118,7 @@ function UpdateWaitingStartUI()
          let count = MATCHMAKE_PLAYERCOUNT_STARTSERVER - players.size()
          let text
          if ( count < 1 )
-            text = ""
+            text = "Starting New Match Soon"
          else if ( count === 1 )
             text = "Waiting for 1 more player"
          else

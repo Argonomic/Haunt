@@ -1,7 +1,8 @@
 import { RunService } from "@rbxts/services"
 const LOCAL = RunService.IsStudio()
 
-const TEST = game.Name === "Impostor Mansion TEST"
+const TEST = game.PlaceId === 5954656113
+print( "TEST is " + TEST )
 
 export const DEV_SKIP_INTRO = LOCAL && true
 export const DEV_1_TASK = LOCAL && true

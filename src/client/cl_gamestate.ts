@@ -10,9 +10,9 @@ import { AddPlayerUseDisabledCallback } from "./cl_use"
 import { DrawMatchScreen_EmergencyMeeting, DrawMatchScreen_Escaped, DrawMatchScreen_Intro, DrawMatchScreen_Victory, DrawMatchScreen_VoteResults } from "./content/cl_matchScreen_content"
 import { GetLastStashed } from "shared/sh_score"
 import { DEV_SKIP_INTRO, SKIP_INTRO_TIME } from "shared/sh_settings"
-import { IsReservedServer } from "shared/sh_reservedServer"
 import { ReservedServerRelease } from "./cl_matchScreen"
-import { SetLocalViewToRoom, GetCurrentRoom } from "./cl_rooms"
+import { SetLocalViewToRoom, GetCurrentRoom, GetRoom } from "./cl_rooms"
+import { Room } from "shared/sh_rooms"
 
 const LOCAL_PLAYER = GetLocalPlayer()
 
@@ -82,30 +82,10 @@ export function CL_GameStateSetup()
    match.gameThread = gameThread
    Resume( match.gameThread )
 
-   Thread(
-      function ()
-      {
-         // complicated way to tell matchscreen to fade in
-         for ( ; ; )
-         {
-            wait()
-            if ( !IsReservedServer() )
-               return
-
-            let state = GetLocalMatch().GetGameState()
-            if ( state >= GAME_STATE.GAME_STATE_INTRO )
-            {
-               ReservedServerRelease()
-               break
-            }
-         }
-      } )
-
    AddCallback_OnPlayerConnected( function ( player: Player )
    {
       file.clientMatch.AddPlayer( player )
    } )
-
 
    AddNetVarChangedCallback( NETVAR_JSON_ASSIGNMENTS,
       function ()
@@ -319,6 +299,7 @@ function CLGameStateChanged( match: Match, oldGameState: number, newGameState: n
          if ( DEV_SKIP_INTRO )
          {
             wait( SKIP_INTRO_TIME )
+            ReservedServerRelease()
          }
          else
          {
@@ -365,6 +346,8 @@ function CLGameStateChanged( match: Match, oldGameState: number, newGameState: n
                wait()
             }
 
+            ReservedServerRelease()
+
             WaitThread(
                function ()
                {
@@ -403,7 +386,12 @@ function CLGameStateChanged( match: Match, oldGameState: number, newGameState: n
                      break
 
                   case MEETING_TYPE.MEETING_REPORT:
-                     let room = GetCurrentRoom( match.meetingCaller )
+                     let room: Room
+                     if ( match.meetingCallerRoomName !== undefined )
+                        room = GetRoom( match.meetingCallerRoomName )
+                     else
+                        room = GetCurrentRoom( match.meetingCaller )
+
                      report = true
                      Thread(
                         function ()

@@ -303,7 +303,6 @@ class ActiveMeeting
       frame.CrimeScene.Label.MouseButton1Click.Connect(
          function ()
          {
-            print( "Click" )
             visible = !visible
 
             let pos

@@ -1,11 +1,11 @@
 import { Chat, HttpService, MessagingService, Players, RunService, TeleportService, Workspace } from "@rbxts/services"
 import { AddRPC } from "shared/sh_rpc"
-import { ArrayFind, ArrayRandomize, GraphCapped, IsAlive, Resume, Thread, UserIDToPlayer, Wait } from "shared/sh_utils"
+import { ArrayFind, ArrayRandomize, GraphCapped, IsAlive, Resume, Thread, UserIDToPlayer, Wait, WaitThread } from "shared/sh_utils"
 import { Assert } from "shared/sh_assert"
 import { Assignment, GAME_STATE, NETVAR_JSON_ASSIGNMENTS, ROLE, Match, GAMERESULTS, GetVoteResults, TASK_EXIT, AssignmentIsSame, TASK_RESTORE_LIGHTS, NETVAR_JSON_GAMESTATE, NETVAR_MEETINGS_CALLED, SetPlayerWalkspeedForGameState } from "shared/sh_gamestate"
-import { MIN_TASKLIST_SIZE, MAX_TASKLIST_SIZE, MATCHMAKE_PLAYERCOUNT_STARTSERVER, SPAWN_ROOM, PLAYER_WALKSPEED, TASK_VALUE, MATCHMAKE_PLAYERCOUNT_FALLBACK, DEV_1_TASK, ADMINS } from "shared/sh_settings"
+import { MIN_TASKLIST_SIZE, MAX_TASKLIST_SIZE, MATCHMAKE_PLAYERCOUNT_STARTSERVER, SPAWN_ROOM, TASK_VALUE, MATCHMAKE_PLAYERCOUNT_FALLBACK, DEV_1_TASK, ADMINS } from "shared/sh_settings"
 import { ResetNetVar, SetNetVar } from "shared/sh_player_netvars"
-import { AddCallback_OnPlayerCharacterAdded, AddCallback_OnPlayerConnected, SetPlayerWalkSpeed } from "shared/sh_onPlayerConnect"
+import { AddCallback_OnPlayerCharacterAdded, AddCallback_OnPlayerConnected } from "shared/sh_onPlayerConnect"
 import { SV_SendRPC } from "shared/sh_rpc"
 import { GetAllRoomsAndTasks, GetCurrentRoom, GetRoomByName, PlayerHasCurrentRoom, PutPlayerInStartRoom, PutPlayersInRoom, TellClientsAboutPlayersInRoom } from "./sv_rooms"
 import { ResetAllCooldownTimes, ResetCooldownTime } from "shared/sh_cooldown"
@@ -198,8 +198,11 @@ export function SV_GameStateSetup()
 
          if ( match.IsRealMatch() )
          {
+            match.RemovePlayer( player )
+         }
+         else
+         {
             // don't remove quitters from real games because their info is still valid and needed
-
             if ( !match.IsSpectator( player ) )
             {
                switch ( match.GetGameState() )
@@ -214,7 +217,6 @@ export function SV_GameStateSetup()
             return
          }
 
-         match.RemovePlayer( player )
          match.UpdateGame()
       } )
 
@@ -304,7 +306,19 @@ function SV_GameStateChanged( match: Match, oldGameState: GAME_STATE )
    // leaving this match state
    switch ( oldGameState )
    {
-      case GAME_STATE.GAME_STATE_INIT:
+      case GAME_STATE.GAME_STATE_WAITING_FOR_PLAYERS:
+
+         if ( !IsReservedServer() && !LOCAL )
+         {
+            WaitThread( function ()
+            {
+               TryToSendPlayersToNewReservedServer( match )
+            } )
+
+            DestroyMatch( match )
+            return
+         }
+
          break
    }
 
@@ -337,11 +351,6 @@ function SV_GameStateChanged( match: Match, oldGameState: GAME_STATE )
    // entering this match state
    switch ( match.GetGameState() )
    {
-      case GAME_STATE.GAME_STATE_RESERVED_SERVER_WAITING:
-         if ( !IsReservedServer() )
-            match.SetGameState( GAME_STATE.GAME_STATE_INTRO )
-         return
-
       case GAME_STATE.GAME_STATE_COUNTDOWN:
 
          for ( let player of match.GetAllPlayers() )
@@ -352,57 +361,17 @@ function SV_GameStateChanged( match: Match, oldGameState: GAME_STATE )
          break
 
       case GAME_STATE.GAME_STATE_INTRO:
-         print( "GAME_STATE.GAME_STATE_INTRO" )
-         if ( !IsReservedServer() && !LOCAL )
-         {
-            let players = match.GetAllPlayersWithCharactersCloned()
-            if ( players.size() < MATCHMAKE_PLAYERCOUNT_STARTSERVER )
-            {
-               DestroyMatch( match )
-               return
-            }
-
-            for ( let player of players )
-            {
-               let score = GetMatchScore( player )
-               SetPlayerPersistence( player, PPRS_PREMATCH_COINS, score )
-            }
-            Thread(
-               function ()
-               {
-                  print( "Starting reserved server" )
-                  //players = players.filter( function ( player )
-                  //{
-                  //   return player.Name === "Argonomic"
-                  //} )
-                  let code = TeleportService.ReserveServer( game.PlaceId )
-                  TeleportService.TeleportToPrivateServer( game.PlaceId, code[0], players, "none" )
-
-                  /*
-                                    let playr = players[1]
-                                    players = players.filter( function ( player )
-                                    {
-                                       return player !== playr
-                                    } )
-                                    TeleportService.TeleportToPrivateServer( game.PlaceId, code[0], players, "none" )
-                                    wait( 15 )
-                                    TeleportService.TeleportToPrivateServer( game.PlaceId, code[0], [playr], "none" )
-                  */
-               } )
-
-            Wait( 30 )
-
-            DestroyMatch( match )
-            return
-         }
 
          let players = match.GetAllPlayersWithCharactersCloned()
-         Assert( players.size() <= MATCHMAKE_PLAYERCOUNT_STARTSERVER, "Too many players" )
-         if ( players.size() < MATCHMAKE_PLAYERCOUNT_FALLBACK )
+         if ( IsReservedServer() )
          {
-            print( "Not enough players, return to lobby" )
-            TeleportPlayersToLobby( players, "Need more players" )
-            return
+            Assert( players.size() <= MATCHMAKE_PLAYERCOUNT_STARTSERVER, "Too many players" )
+            if ( players.size() < MATCHMAKE_PLAYERCOUNT_FALLBACK )
+            {
+               print( "Not enough players, return to lobby" )
+               TeleportPlayersToLobby( players, "Need more players" )
+               return
+            }
          }
 
          print( "Starting intro" )
@@ -758,7 +727,7 @@ function GameStateThink( match: Match )
          print( "Found enough players for match" )
          if ( LOCAL )
          {
-            match.svRealMatch = true
+            match.realMatch = true
             match.SetGameState( GAME_STATE.GAME_STATE_COUNTDOWN )
          }
          else
@@ -1380,3 +1349,56 @@ export function CrossServerRequestMorePlayers()
    } )
    print( "Broadcasted success: " + pair[0] )
 }
+
+
+//players = players.filter( function ( player )
+//{
+//   return player.Name === "Argonomic"
+//} )
+function TryToSendPlayersToNewReservedServer( match: Match )
+{
+   print( "\n********************\n***************\nStarting reserved server" )
+   let players = match.GetAllPlayersWithCharactersCloned()
+   if ( players.size() < MATCHMAKE_PLAYERCOUNT_STARTSERVER )
+      return
+
+   pcall(
+      function ()
+      {
+         let code: LuaTuple<[string, string]> | undefined
+
+         let pair2 = pcall(
+            function ()
+            {
+               code = TeleportService.ReserveServer( game.PlaceId )
+            } )
+         if ( !pair2[0] || code === undefined )
+            return
+
+         let pair3 = pcall(
+            function ()
+            {
+               if ( code === undefined )
+                  return
+
+               for ( let player of players )
+               {
+                  let score = GetMatchScore( player )
+                  SetPlayerPersistence( player, PPRS_PREMATCH_COINS, score )
+               }
+               TeleportService.TeleportToPrivateServer( game.PlaceId, code[0], players, "none" )
+               Wait( 30 ) // presumably players have teleported
+            } )
+      } )
+}
+/*
+let playr = players[1]
+players = players.filter( function ( player )
+{
+   return player !== playr
+} )
+TeleportService.TeleportToPrivateServer( game.PlaceId, code[0], players, "none" )
+wait( 15 )
+TeleportService.TeleportToPrivateServer( game.PlaceId, code[0], [playr], "none" )
+*/
+

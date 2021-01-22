@@ -151,6 +151,7 @@ class NETVAR_GameState
    votes: Array<NETVAR_Vote>
    voteTargetScore = 0
    meetingCallerUserId: number | undefined
+   meetingCallerRoomName: string | undefined
    meetingType: MEETING_TYPE | undefined
    meetingBodyUserId: number | undefined
    startingImpostorCount: number
@@ -233,7 +234,7 @@ export class Match
    {
       let match = this
       if ( IsServer() )
-         match.svRealMatch = IsReservedServer()
+         match.realMatch = IsReservedServer()
 
       for ( let func of file.gameCreatedCallbacks )
       {
@@ -256,6 +257,7 @@ export class Match
    assignments = new Map<Player, Array<Assignment>>()
 
    meetingCaller: Player | undefined
+   meetingCallerRoomName: string | undefined
    meetingType: MEETING_TYPE | undefined
    meetingBody: Player | undefined
    roundsPassed = 0 // whenever a meeting is called and there is a new kill, a round passes
@@ -265,7 +267,7 @@ export class Match
    playerToSpawnLocation = new Map<Player, Vector3>()
    startingImpostorCount = 0
    highestVotedScore = 0
-   svRealMatch = false
+   realMatch = false
 
    //   coins: Array<Coin> = []
 
@@ -318,13 +320,12 @@ export class Match
 
    public IsRealMatch(): boolean
    {
-      Assert( IsServer(), "Is server required" )
-      return this.svRealMatch
+      return this.realMatch
    }
 
    public EnableRealMatch()
    {
-      this.svRealMatch = true
+      this.realMatch = true
    }
 
    public GetGameResults_NoParityAllowed(): GAMERESULTS
@@ -421,9 +422,15 @@ export class Match
          gs.meetingType = this.meetingType
 
          if ( this.meetingCaller )
+         {
             gs.meetingCallerUserId = this.meetingCaller.UserId
+            gs.meetingCallerRoomName = this.meetingCallerRoomName
+         }
          else
+         {
             gs.meetingCallerUserId = undefined
+            gs.meetingCallerRoomName = undefined
+         }
 
          if ( this.meetingBody )
             gs.meetingBodyUserId = this.meetingBody.UserId
@@ -448,7 +455,7 @@ export class Match
       Assert( IsServer(), "Server only" )
 
       print( "\nSet Match State " + state + ", Time since last change: " + math.floor( ( Workspace.DistributedGameTime - this._gameStateChangedTime ) ) )
-      print( "Stack: " + debug.traceback() )
+      //print( "Stack: " + debug.traceback() )
 
       Assert( state >= GAME_STATE.GAME_STATE_COMPLETE || this.gameState < GAME_STATE.GAME_STATE_COMPLETE, "Illegal match state setting. Tried to set state " + state + ", but match state was " + this.gameState )
 
@@ -510,13 +517,11 @@ export class Match
    public GetPlayerKilled( player: Player ): boolean
    {
       let playerInfo = this.GetPlayerInfo( player )
-      print( "GetPlayerKilled " + player.Name + " " + playerInfo.killed )
       return playerInfo.killed
    }
 
    public SetPlayerKilled( player: Player )
    {
-      print( "SetPlayerKilled " + player.Name )
       let playerInfo = this.GetPlayerInfo( player )
       playerInfo.killed = true
    }
@@ -996,6 +1001,7 @@ export class Match
       {
          let meetingCaller = fullyStockedUserIdToPlayer.get( gs.meetingCallerUserId )
          this.meetingCaller = meetingCaller
+         this.meetingCallerRoomName = gs.meetingCallerRoomName
       }
 
       if ( gs.meetingBodyUserId === undefined )
@@ -1206,11 +1212,26 @@ export function UsableGameState( match: Match ): boolean
 
 export function SetPlayerWalkspeedForGameState( player: Player, match: Match )
 {
+   if ( !match.IsRealMatch() )
+   {
+      SetPlayerWalkSpeed( player, PLAYER_WALKSPEED )
+      return
+   }
+
    switch ( match.GetGameState() )
    {
+      case GAME_STATE.GAME_STATE_INIT:
       case GAME_STATE.GAME_STATE_WAITING_FOR_PLAYERS:
+      case GAME_STATE.GAME_STATE_COUNTDOWN:
+      //case GAME_STATE.GAME_STATE_RESERVED_SERVER_WAITING:
+      //case GAME_STATE.GAME_STATE_INTRO:
       case GAME_STATE.GAME_STATE_PLAYING:
+      //case GAME_STATE.GAME_STATE_MEETING_DISCUSS:
+      //case GAME_STATE.GAME_STATE_MEETING_VOTE:
+      //case GAME_STATE.GAME_STATE_MEETING_RESULTS:
       case GAME_STATE.GAME_STATE_SUDDEN_DEATH:
+         //case GAME_STATE.GAME_STATE_COMPLETE:
+
          if ( match.IsSpectator( player ) )
             SetPlayerWalkSpeed( player, PLAYER_WALKSPEED_SPECTATOR )
          else

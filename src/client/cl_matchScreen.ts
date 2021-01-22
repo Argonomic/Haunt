@@ -190,7 +190,10 @@ export function CL_MatchScreenSetup()
                for ( ; ; )
                {
                   if ( file.reservedServerRelease )
+                  {
+                     wait( 1 )
                      break
+                  }
                   wait()
                }
             }

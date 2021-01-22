@@ -1,5 +1,5 @@
 import { GetHumanoid, IsAlive, KillPlayer } from "shared/sh_utils"
-import { GAME_STATE, ROLE, Corpse, USETYPES, COOLDOWN_NAME_KILL, MEETING_TYPE, NETVAR_MEETINGS_CALLED, UsableGameState } from "shared/sh_gamestate"
+import { GAME_STATE, ROLE, Corpse, USETYPES, COOLDOWN_NAME_KILL, MEETING_TYPE, NETVAR_MEETINGS_CALLED, UsableGameState, Match } from "shared/sh_gamestate"
 import { GetUsableByType, USABLETYPES } from "shared/sh_use"
 import { PlayerHasUnfinishedAssignment, ClearAssignments, PlayerHasAssignments, PlayerToMatch } from "server/sv_gameState"
 import { SV_SendRPC } from "shared/sh_rpc"
@@ -47,7 +47,7 @@ export function SV_UseContentSetup()
             if ( corpse.pos.sub( pos ).Magnitude < 1 ) // dunno if we can just compare vectors directly and I dunno if it drops any precision
             {
                //print( "Set meeting caller to " + player.Name )
-               match.meetingCaller = player
+               SetMeetingCaller( match, player )
                match.meetingBody = corpse.player
                match.meetingType = MEETING_TYPE.MEETING_REPORT
                match.SetGameState( GAME_STATE.GAME_STATE_MEETING_DISCUSS )
@@ -181,9 +181,15 @@ export function SV_UseContentSetup()
 
             let meetingsCalled = GetNetVar_Number( player, NETVAR_MEETINGS_CALLED )
             SetNetVar( player, NETVAR_MEETINGS_CALLED, meetingsCalled + 1 )
-            match.meetingCaller = player
+            SetMeetingCaller( match, player )
             match.meetingType = MEETING_TYPE.MEETING_EMERGENCY
             match.SetGameState( GAME_STATE.GAME_STATE_MEETING_DISCUSS )
          }
    }
+}
+
+function SetMeetingCaller( match: Match, player: Player )
+{
+   match.meetingCaller = player
+   match.meetingCallerRoomName = GetCurrentRoom( player ).name
 }

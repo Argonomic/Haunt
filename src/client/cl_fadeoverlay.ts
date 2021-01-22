@@ -204,18 +204,18 @@ export function CL_FadeOverlaySetup()
          if ( character === undefined )
             return
 
-         let localPlayer = LOCAL_PLAYER
+         let viewPlayer = LOCAL_PLAYER
          switch ( match.GetGameState() )
          {
             case GAME_STATE.GAME_STATE_MEETING_DISCUSS:
             case GAME_STATE.GAME_STATE_MEETING_VOTE:
             case GAME_STATE.GAME_STATE_MEETING_RESULTS:
                if ( match.meetingType === MEETING_TYPE.MEETING_REPORT )
-                  localPlayer = match.meetingCaller as Player
+                  viewPlayer = match.meetingCaller as Player
                break
          }
 
-         let pos = GetPosition( localPlayer )
+         let pos = GetPosition( viewPlayer )
          let offset = pos.add( new Vector3( 0, 0, LIGHTDIST ) )
          let [offsetLightDistFromCenter, _1] = camera.WorldToScreenPoint( offset )
          let [screenCenter, _2] = camera.WorldToScreenPoint( pos )
@@ -293,10 +293,16 @@ export function CL_FadeOverlaySetup()
                pair[1].Destroy()
             }
             playerToLabel.clear()
+
+            for ( let pair of visibleCorpsesToLabel )
+            {
+               pair[1].Destroy()
+            }
+            visibleCorpsesToLabel.clear()
          }
 
 
-         let localPlayerRoom = GetCurrentRoom( localPlayer )
+         let localViewRoom = GetCurrentRoom( viewPlayer )
 
          for ( let pair of file.characterToPlayer )
          {
@@ -337,6 +343,9 @@ export function CL_FadeOverlaySetup()
                dist < VISUAL_DIST &&
                !match.IsSpectator( player )
 
+            // maintain old behavior when player is viewing themselves, to not overwrite special spectator trans
+            let skipPlayerTween = player === viewPlayer && viewPlayer === LOCAL_PLAYER
+
             let wasVisible = wasVisiblePlayers.has( player )
             if ( doRefreshFailsafe || isVisible !== wasVisible )
             {
@@ -357,7 +366,8 @@ export function CL_FadeOverlaySetup()
                {
                   wasVisiblePlayers.delete( player )
 
-                  TweenPlayerParts( player, FADE_OUT, FADE_TIME, "FADE_OUT" )
+                  if ( !skipPlayerTween )
+                     TweenPlayerParts( player, FADE_OUT, FADE_TIME, "FADE_OUT" )
 
                   let textLabel = playerToLabel.get( player )
                   if ( textLabel !== undefined )
@@ -368,20 +378,17 @@ export function CL_FadeOverlaySetup()
                }
             }
 
-            if ( isVisible )
+            let textLabel = playerToLabel.get( player )
+            if ( textLabel !== undefined )
             {
-               let textLabel = playerToLabel.get( player )
-               if ( textLabel !== undefined )
+               if ( isVisible && GetCurrentRoom( player ) === localViewRoom )
                {
-                  if ( GetCurrentRoom( player ) === localPlayerRoom )
-                  {
-                     textLabel.Position = new UDim2( 0, partScreenCenter.X, 0, partScreenCenter.Y )
-                     textLabel.TextTransparency = 0
-                  }
-                  else
-                  {
-                     textLabel.TextTransparency = 1
-                  }
+                  textLabel.Position = new UDim2( 0, partScreenCenter.X, 0, partScreenCenter.Y )
+                  textLabel.TextTransparency = 0
+               }
+               else
+               {
+                  textLabel.TextTransparency = 1
                }
             }
          }
@@ -395,6 +402,13 @@ export function CL_FadeOverlaySetup()
             let dist = partScreenCenter.sub( screenCenter ).Magnitude
 
             let isVisible = dist < VISUAL_DIST
+            if ( isVisible )
+            {
+               let textLabel = visibleCorpsesToLabel.get( corpse )
+               if ( textLabel !== undefined )
+                  textLabel.Position = new UDim2( 0, partScreenCenter.X, 0, partScreenCenter.Y )
+            }
+
             let wasVisible = visibleCorpsesToLabel.has( corpse )
             if ( isVisible === wasVisible )
                continue
