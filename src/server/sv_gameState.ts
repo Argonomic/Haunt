@@ -1043,6 +1043,7 @@ function RPC_FromClient_OnPlayerFinishTask( player: Player, roomName: string, ta
       {
          let assignment = new Assignment( SPAWN_ROOM, TASK_EXIT )
          assignments.push( assignment )
+         UpdateTasklistNetvar( player, assignments )
       }
       else
       {
@@ -1050,6 +1051,7 @@ function RPC_FromClient_OnPlayerFinishTask( player: Player, roomName: string, ta
          {
             let assignment = new Assignment( SPAWN_ROOM, TASK_EXIT )
             assignments.push( assignment )
+            UpdateTasklistNetvar( player, assignments )
          }
          else
          {
@@ -1057,8 +1059,6 @@ function RPC_FromClient_OnPlayerFinishTask( player: Player, roomName: string, ta
          }
       }
    }
-
-   UpdateTasklistNetvar( player, assignments )
 }
 
 export function PlayerHasAssignments( player: Player, match: Match ): boolean
@@ -1128,26 +1128,16 @@ export function PlayerHasUnfinishedAssignment( player: Player, match: Match, roo
    return false
 }
 
-
-export function AssignTasks( player: Player, match: Match )
+function AssignTasksCount( player: Player, match: Match, assignments: Array<Assignment>, count?: number )
 {
-   let assignments: Array<Assignment> = []
-   // create a list of random tasks for player to do
    let roomsAndTasks = GetAllRoomsAndTasks()
    ArrayRandomize( roomsAndTasks )
-
-   let playerCount = match.GetAllPlayers().size()
-   print( "playerCount: " + playerCount )
-   const TASK_COUNT = math.floor(
-      GraphCapped( playerCount,
-         MATCHMAKE_PLAYERCOUNT_FALLBACK, MATCHMAKE_PLAYERCOUNT_STARTSERVER,
-         MIN_TASKLIST_SIZE, MAX_TASKLIST_SIZE ) )
-
-   print( "ASSIGNING " + TASK_COUNT + " TASKS" )
 
    for ( let roomAndTask of roomsAndTasks )
    {
       if ( DEV_1_TASK && roomAndTask.room.name !== "Great Room" )
+         continue
+      if ( roomAndTask.task.realMatchesOnly && ( !match.IsRealMatch() || match.GetGameState() < GAME_STATE.GAME_STATE_PLAYING ) )
          continue
 
       let assignment = new Assignment( roomAndTask.room.name, roomAndTask.task.name )
@@ -1162,8 +1152,11 @@ export function AssignTasks( player: Player, match: Match )
             break
       }
 
-      if ( assignments.size() >= TASK_COUNT )
-         break
+      if ( count !== undefined )
+      {
+         if ( assignments.size() >= count )
+            break
+      }
 
       if ( DEV_1_TASK )
       {
@@ -1172,41 +1165,30 @@ export function AssignTasks( player: Player, match: Match )
       }
    }
 
+   print( "Assigned " + assignments.size() + " tasks" )
    match.assignments.set( player, assignments )
    UpdateTasklistNetvar( player, assignments )
+}
+
+
+export function AssignTasks( player: Player, match: Match )
+{
+   let assignments: Array<Assignment> = []
+
+   let playerCount = match.GetAllPlayers().size()
+   const TASK_COUNT = math.floor(
+      GraphCapped( playerCount,
+         MATCHMAKE_PLAYERCOUNT_FALLBACK, MATCHMAKE_PLAYERCOUNT_STARTSERVER,
+         MIN_TASKLIST_SIZE, MAX_TASKLIST_SIZE ) )
+
+   AssignTasksCount( player, match, assignments, TASK_COUNT )
 }
 
 export function AssignAllTasks( player: Player, match: Match )
 {
    let assignments: Array<Assignment> = []
-   // create a list of random tasks for player to do
-   let roomsAndTasks = GetAllRoomsAndTasks()
-   ArrayRandomize( roomsAndTasks )
 
-   for ( let roomAndTask of roomsAndTasks )
-   {
-      if ( roomAndTask.task.realMatchesOnly && ( !match.IsRealMatch() || match.GetGameState() < GAME_STATE.GAME_STATE_PLAYING ) )
-         continue
-
-      let assignment = new Assignment( roomAndTask.room.name, roomAndTask.task.name )
-
-      switch ( assignment.taskName )
-      {
-         case TASK_EXIT:
-         case TASK_RESTORE_LIGHTS:
-            break
-
-         default:
-            assignments.push( assignment )
-            break
-      }
-
-      if ( DEV_1_TASK )
-         break
-   }
-
-   match.assignments.set( player, assignments )
-   UpdateTasklistNetvar( player, assignments )
+   AssignTasksCount( player, match, assignments )
 }
 
 export function UpdateTasklistNetvar( player: Player, assignments: Array<Assignment> )
@@ -1303,11 +1285,16 @@ function FindMatchForPlayer_NO_FLAG_RESERVED_SERVER( player: Player )
    {
       let matchState = match.GetGameState()
       match.AddPlayer( player )
-      if ( matchState >= GAME_STATE.GAME_STATE_INTRO )
+      if ( matchState <= GAME_STATE.GAME_STATE_WAITING_FOR_PLAYERS )
+      {
+         match.SetPlayerRole( player, ROLE.ROLE_CAMPER )
+         AssignAllTasks( player, match )
+      }
+      else if ( matchState >= GAME_STATE.GAME_STATE_INTRO )
       {
          print( "LATE JOINER " + player.Name + " at " + Workspace.DistributedGameTime )
          match.SetPlayerRole( player, ROLE.ROLE_SPECTATOR_LATE_JOINER )
-         //AssignTasks( player, match )
+
          let playerInfo = match.GetPlayerInfo( player )
          playerInfo.playernum = match.GetAllPlayers().size() - 1
       }

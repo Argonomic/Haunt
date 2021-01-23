@@ -7,7 +7,8 @@ const TEST = game.PlaceId === 5954656113
 print( "TEST is " + TEST )
 
 export const DEV_SKIP_INTRO = LOCAL && false
-export const DEV_1_TASK = LOCAL && true
+export const DEV_1_TASK = ( LOCAL || TEST ) && true
+print( "DEV_1_TASK: " + DEV_1_TASK )
 export let DEV_FAST_TIMERS: boolean = ( LOCAL || TEST ) && false
 
 // MATCHMAKING
