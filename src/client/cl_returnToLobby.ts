@@ -5,6 +5,7 @@ import { AddPlayerGuiFolderExistsCallback, ToggleButton, UIORDER } from "./cl_ui
 import { AddNetVarChangedCallback } from "shared/sh_player_netvars";
 import { AddCallback_OnPlayerCharacterAncestryChanged } from "shared/sh_onPlayerConnect";
 import { SendRPC_Client } from "shared/sh_rpc";
+import { FLAG_RESERVED_SERVER } from "shared/sh_settings";
 
 const LOCAL_PLAYER = GetLocalPlayer()
 
@@ -74,26 +75,29 @@ export function CL_ReturnToLobbySetup()
             file.returnToLobbyUI.Parent = undefined
       } )
 
-   AddNetVarChangedCallback( NETVAR_JSON_GAMESTATE,
-      function ()
-      {
-         Thread(
-            function ()
-            {
-               wait() // after it actually state
-
-               wait( 4 )
-               let match = GetLocalMatch()
-               switch ( match.GetPlayerRole( LOCAL_PLAYER ) )
+   if ( FLAG_RESERVED_SERVER )
+   {
+      AddNetVarChangedCallback( NETVAR_JSON_GAMESTATE,
+         function ()
+         {
+            Thread(
+               function ()
                {
-                  case ROLE.ROLE_SPECTATOR_CAMPER:
-                  case ROLE.ROLE_SPECTATOR_CAMPER_ESCAPED:
-                  case ROLE.ROLE_SPECTATOR_IMPOSTOR:
-                     DisplayReturnToLobby()
-                     return
-               }
-            } )
-      } )
+                  wait() // after it actually state
+
+                  wait( 4 )
+                  let match = GetLocalMatch()
+                  switch ( match.GetPlayerRole( LOCAL_PLAYER ) )
+                  {
+                     case ROLE.ROLE_SPECTATOR_CAMPER:
+                     case ROLE.ROLE_SPECTATOR_CAMPER_ESCAPED:
+                     case ROLE.ROLE_SPECTATOR_IMPOSTOR:
+                        DisplayReturnToLobby()
+                        return
+                  }
+               } )
+         } )
+   }
 }
 
 

@@ -3,7 +3,7 @@ import { WaitForMatchScreenFrame } from "client/cl_matchScreen";
 import { AddPlayerGuiFolderExistsCallback } from "client/cl_ui";
 import { IsImpostorRole, MEETING_TYPE, PlayerInfo, ROLE } from "shared/sh_gamestate";
 import { ClonePlayerModel, ClonePlayerModels } from "shared/sh_onPlayerConnect";
-import { SPECTATOR_TRANS } from "shared/sh_settings";
+import { FLAG_RESERVED_SERVER, SPECTATOR_TRANS } from "shared/sh_settings";
 import { Tween, TweenCharacterParts, TweenModel } from "shared/sh_tween";
 import { GetLocalPlayer, Graph, LoadSound, RandomFloatRange, SetCharacterTransparency, SetCharacterYaw, Thread } from "shared/sh_utils";
 import { Assert } from "shared/sh_assert"
@@ -73,14 +73,14 @@ AddNetVarChangedCallback( NETVAR_MATCHMAKING_STATUS, function ()
                let receivedVotes: Array<Player> = []
                let votedAndReceivedNoVotes = [LOCAL_PLAYER, LOCAL_PLAYER, LOCAL_PLAYER]
                let impostorCount = 1
-               DrawMatchScreen_VoteResults(
-                  skipTie,
-                  receivedHighestVotes,
-                  receivedVotes,
-                  votedAndReceivedNoVotes,
-                  impostorCount,
-                  500
-               )
+               //DrawMatchScreen_VoteResults(
+               //skipTie,
+               //   receivedHighestVotes,
+               //   receivedVotes,
+               //   votedAndReceivedNoVotes,
+               //   impostorCount,
+               //   500
+               //)
             }
             break
 
@@ -91,8 +91,8 @@ AddNetVarChangedCallback( NETVAR_MATCHMAKING_STATUS, function ()
                let impostorCount = 2
                let skipTie = false
                let receivedHighestVotes = [LOCAL_PLAYER]
-               DrawMatchScreen_VoteResults( skipTie, receivedHighestVotes, receivedVotes, votedAndReceivedNoVotes, impostorCount,
-                  500 )
+               //DrawMatchScreen_VoteResults( skipTie, receivedHighestVotes, receivedVotes, votedAndReceivedNoVotes, impostorCount,
+               //500 )
             }
 
             break
@@ -142,22 +142,22 @@ export function DrawMatchScreen_Intro( foundLocalImpostor: boolean, impostorCoun
    if ( foundLocalImpostor )
    {
       if ( impostorCount === 1 )
-         subTitle.Text = "You are the imposter!"
+         subTitle.Text = "You are the impostor!"
       else
-         subTitle.Text = "You are an imposter!"
+         subTitle.Text = "You are an impostor!"
    }
    else
    {
       subTitle.Text = "You are innocent"
    }
 
-   let imposterText: string
+   let impostorText: string
    if ( impostorCount === 0 )
-      imposterText = ""
+      impostorText = "There are no impostors"
    else if ( impostorCount === 1 )
-      imposterText = "There is 1 imposter"
+      impostorText = "There is 1 impostor"
    else
-      imposterText = "There are " + impostorCount + " imposters"
+      impostorText = "There are " + impostorCount + " impostors"
 
    title.TextTransparency = 1
    subTitle.TextTransparency = 1
@@ -188,7 +188,7 @@ export function DrawMatchScreen_Intro( foundLocalImpostor: boolean, impostorCoun
             {
                Tween( subTitle, { TextTransparency: 1 }, 0.5 )
                wait( 0.5 )
-               subTitle.Text = imposterText
+               subTitle.Text = impostorText
                Tween( subTitle, { TextTransparency: 0 }, 0.5 )
             }
          } )
@@ -242,7 +242,7 @@ function SortLocalPlayerInfo( a: PlayerInfo, b: PlayerInfo ): boolean
    return a.player === LOCAL_PLAYER && b.player !== LOCAL_PLAYER
 }
 
-export function DrawMatchScreen_VoteResults( skipTie: boolean, receivedHighestVotes: Array<Player>, receivedVotes: Array<Player>, votedAndReceivedNoVotes: Array<Player>, impostorCount: number, highestVotedScore: number )
+export function DrawMatchScreen_VoteResults( skipTie: boolean, receivedHighestVotes: Array<Player>, receivedVotes: Array<Player>, votedAndReceivedNoVotes: Array<Player>, highestVotedScore: number, wasImpostor: boolean, impostorsRemaining: number )
 {
    print( "DrawMatchScreen_VoteResults, highestVotedScore: " + highestVotedScore )
    function GetResultsText(): Array<string>
@@ -580,6 +580,34 @@ export function DrawMatchScreen_VoteResults( skipTie: boolean, receivedHighestVo
 
    Tween( lowerTitle, { TextTransparency: 1 }, FADE_OUT * 0.75 )
    wait( 1.0 )
+
+   if ( !skipTie && receivedHighestVotes.size() === 1 )
+   {
+      wait( 1.0 )
+
+      let name = receivedHighestVotes[0].Name
+      if ( wasImpostor )
+         title.Text = name + " was an impostor"
+      else
+         title.Text = name + " was innocent"
+
+      if ( impostorsRemaining === 0 )
+         subTitle.Text = "0 impostors remain"
+      else if ( impostorsRemaining === 1 )
+         subTitle.Text = "1 impostor remains"
+      else
+         subTitle.Text = impostorsRemaining + " impostors remain"
+
+      Tween( title, { TextTransparency: 0 }, 1.0 )
+      wait( 1.5 )
+      Tween( subTitle, { TextTransparency: 0 }, 1.0 )
+      wait( 2 )
+
+      Tween( title, { TextTransparency: 1 }, 1.0 )
+      Tween( subTitle, { TextTransparency: 1 }, 1.0 )
+      wait( 1 )
+   }
+
    Tween( viewportFrame, { ImageTransparency: 1 }, 1.5 )
    wait( 1.5 )
 
@@ -629,9 +657,9 @@ export function DrawMatchScreen_EmergencyMeeting( meetingType: MEETING_TYPE, cal
    Tween( baseFrame, { Transparency: 1 }, 1.0 )
 }
 
-export function DrawMatchScreen_Victory( playerInfos: Array<PlayerInfo>, impostersWin: boolean, myWinningTeam: boolean, mySurvived: boolean, myWinnings: number )
+export function DrawMatchScreen_Victory( playerInfos: Array<PlayerInfo>, impostorsWin: boolean, myWinningTeam: boolean, mySurvived: boolean, myWinnings: number )
 {
-   print( "DrawMatchScreen_Victory playerInfos:" + playerInfos.size() + " impostersWin:" + impostersWin + " myWinningTeam:" + myWinningTeam + " mySurvived:" + mySurvived + " myWinnings:" + myWinnings )
+   print( "DrawMatchScreen_Victory playerInfos:" + playerInfos.size() + " impostorsWin:" + impostorsWin + " myWinningTeam:" + myWinningTeam + " mySurvived:" + mySurvived + " myWinnings:" + myWinnings )
 
    let matchScreenFrame = WaitForMatchScreenFrame( "MATCHSCREEN_VICTORY" )
    let baseFrame = matchScreenFrame.baseFrame
@@ -673,9 +701,9 @@ export function DrawMatchScreen_Victory( playerInfos: Array<PlayerInfo>, imposte
 
    {
       let campers: Array<Player> = []
-      let imposters: Array<Player> = []
+      let impostors: Array<Player> = []
       let camperPlayerInfos: Array<PlayerInfo> = []
-      let imposterPlayerInfos: Array<PlayerInfo> = []
+      let impostorPlayerInfos: Array<PlayerInfo> = []
 
       for ( let i = 0; i < playerInfos.size(); i++ )
       {
@@ -683,8 +711,8 @@ export function DrawMatchScreen_Victory( playerInfos: Array<PlayerInfo>, imposte
 
          if ( IsImpostorRole( playerInfo.role ) )
          {
-            imposters.push( playerInfo.player )
-            imposterPlayerInfos.push( playerInfo )
+            impostors.push( playerInfo.player )
+            impostorPlayerInfos.push( playerInfo )
          }
          else
          {
@@ -693,10 +721,10 @@ export function DrawMatchScreen_Victory( playerInfos: Array<PlayerInfo>, imposte
          }
       }
 
-      if ( impostersWin )
+      if ( impostorsWin )
       {
-         lineupTeam = imposters
-         lineupPlayerInfos = imposterPlayerInfos
+         lineupTeam = impostors
+         lineupPlayerInfos = impostorPlayerInfos
       }
       else
       {
@@ -722,7 +750,7 @@ export function DrawMatchScreen_Victory( playerInfos: Array<PlayerInfo>, imposte
          //      break
          //}
       }
-      // escaper did not see any players in an imposter wins sudden death
+      // escaper did not see any players in an impostor wins sudden death
    }
 
    ArrangeModelsInLineup( lineup, viewportFrame )
@@ -739,7 +767,23 @@ export function DrawMatchScreen_Victory( playerInfos: Array<PlayerInfo>, imposte
       Tween( lowerTitle, { TextTransparency: 0 }, FADE_IN )
    }
 
-   wait( 9999 )
+   if ( FLAG_RESERVED_SERVER )
+   {
+      wait( 9999 )
+   }
+   else
+   {
+      wait( 3 )
+      const FADE_OUT = 2.0
+      Tween( title, { TextTransparency: 1 }, FADE_OUT * 0.75 )
+      Tween( subTitle, { TextTransparency: 1 }, FADE_OUT * 0.75 )
+      Tween( lowerTitle, { TextTransparency: 1 }, FADE_OUT * 0.75 )
+      wait( 1.0 )
+      Tween( viewportFrame, { ImageTransparency: 1 }, 0.75 )
+      wait( 0.75 )
+
+      Tween( baseFrame, { Transparency: 1 }, 1.0 )
+   }
 }
 
 

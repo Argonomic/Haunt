@@ -1,12 +1,14 @@
 import { RunService } from "@rbxts/services"
 const LOCAL = RunService.IsStudio()
 
+export const FLAG_RESERVED_SERVER = false
+
 const TEST = game.PlaceId === 5954656113
 print( "TEST is " + TEST )
 
-export const DEV_SKIP_INTRO = LOCAL && false
+export const DEV_SKIP_INTRO = LOCAL && true
 export const DEV_1_TASK = LOCAL && true
-export let DEV_FAST_TIMERS = DEV_SKIP_INTRO
+export let DEV_FAST_TIMERS = ( LOCAL || TEST ) && false
 
 // MATCHMAKING
 export const MATCHMAKE_SERVER_VERSION = 1
@@ -17,8 +19,9 @@ if ( LOCAL && true || TEST )
 {
    MATCHMAKE_PLAYERCOUNT_FALLBACK = 3
    MATCHMAKE_PLAYERCOUNT_STARTSERVER = 4
-   //DEV_FAST_TIMERS = true
+   DEV_FAST_TIMERS = true 
 }
+print( "DEV_FAST_TIMERS: " + DEV_FAST_TIMERS )
 
 //let results = pcall( MarketplaceService.GetProductInfo, MarketplaceService, DataModel )
 //if isSuccessful then
@@ -28,7 +31,11 @@ if ( LOCAL && true || TEST )
 export const MATCHMAKE_PLAYER_CAN_MATCHMAKE_TIME = 1
 export const MATCHMAKE_PLAYER_WAITING_FOR_FRIEND_TIME = 45
 export const MATCHMAKE_PLAYER_OPENED_FRIEND_INVITE = 30
+
+export const COUNTDOWN_TIME_POSTMATCH = 30
 export let START_COUNTDOWN = 1
+if ( !FLAG_RESERVED_SERVER )
+   START_COUNTDOWN = 5
 export const RESERVEDSERVER_WAITS_FOR_PLAYERS = 10
 
 // POINTS
@@ -83,4 +90,4 @@ export const PLAYER_COLORS =
 
 export const ADMINS = ["Argonomic", "ArgonomicDev"]
 
-print( "SRV 1.22.21 e" )
+print( "SRV 1.23.21 2" )

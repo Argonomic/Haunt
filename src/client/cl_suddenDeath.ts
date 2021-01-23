@@ -15,6 +15,7 @@ type EDITOR_SuddenDeath = ScreenGui &
    Frame: Frame &
    {
       SuddenDeath: TextLabel
+      NoMoreMeetings: TextLabel
 
       SecondsLeft: TextLabel
       Time: TextLabel
@@ -98,21 +99,26 @@ export function CL_SuddenDeathSetup()
                         if ( time > 0 )
                            time = math.floor( time + 1 )
 
+                        suddenDeathUI.Frame.SecondsLeft.Visible = false
+                        suddenDeathUI.Frame.Time.Visible = false
+                        suddenDeathUI.Frame.FinalSeconds.Visible = true
+                        suddenDeathUI.Frame.FinalSeconds.Text = time + ""
+
                         if ( time > 10 )
                         {
                            suddenDeathUI.Frame.SuddenDeath.Visible = true
-                           suddenDeathUI.Frame.SecondsLeft.Visible = true
-                           suddenDeathUI.Frame.Time.Visible = true
-                           suddenDeathUI.Frame.FinalSeconds.Visible = false
-                           suddenDeathUI.Frame.Time.Text = time + ""
+                           suddenDeathUI.Frame.NoMoreMeetings.Visible = true
+
+                           suddenDeathUI.Frame.FinalSeconds.Size = new UDim2( 1, 0, 0.5, 0 )
+                           suddenDeathUI.Frame.FinalSeconds.Position = new UDim2( 0, 0, 0.9, 0 )
                         }
                         else
                         {
                            suddenDeathUI.Frame.SuddenDeath.Visible = false
-                           suddenDeathUI.Frame.SecondsLeft.Visible = false
-                           suddenDeathUI.Frame.Time.Visible = false
-                           suddenDeathUI.Frame.FinalSeconds.Visible = true
-                           suddenDeathUI.Frame.FinalSeconds.Text = time + ""
+                           suddenDeathUI.Frame.NoMoreMeetings.Visible = false
+
+                           suddenDeathUI.Frame.FinalSeconds.Size = new UDim2( 1, 0, 1, 0 )
+                           suddenDeathUI.Frame.FinalSeconds.Position = new UDim2( 0, 0, 0, 0 )
 
                            if ( time !== lastTime )
                            {

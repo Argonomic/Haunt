@@ -2,7 +2,7 @@ import { HttpService, RunService, Workspace } from "@rbxts/services"
 import { AddNetVar, GetNetVar_String, SetNetVar } from "shared/sh_player_netvars"
 import { AddCooldown } from "./sh_cooldown"
 import { PlayerHasClone, SetPlayerWalkSpeed } from "./sh_onPlayerConnect"
-import { COOLDOWNTIME_MEETING, COOLDOWNTIME_KILL, MEETING_DISCUSS_TIME, MEETING_VOTE_TIME, PLAYER_WALKSPEED_SPECTATOR, PLAYER_WALKSPEED, SPECTATOR_TRANS, SUDDEN_DEATH_TIME, DEV_SKIP_INTRO, RESERVEDSERVER_WAITS_FOR_PLAYERS, START_COUNTDOWN, INTRO_TIME, SKIP_INTRO_TIME, MEETING_VOTE_RESULTS } from "./sh_settings"
+import { COOLDOWNTIME_MEETING, COOLDOWNTIME_KILL, MEETING_DISCUSS_TIME, MEETING_VOTE_TIME, PLAYER_WALKSPEED_SPECTATOR, PLAYER_WALKSPEED, SPECTATOR_TRANS, SUDDEN_DEATH_TIME, DEV_SKIP_INTRO, RESERVEDSERVER_WAITS_FOR_PLAYERS, INTRO_TIME, SKIP_INTRO_TIME, MEETING_VOTE_RESULTS, FLAG_RESERVED_SERVER, START_COUNTDOWN } from "./sh_settings"
 import { IsServer, IsClient, UserIDToPlayer, SetPlayerTransparency, GetLocalPlayer, Resume, Thread } from "./sh_utils"
 import { Assert } from "shared/sh_assert"
 import { GiveAbility, TakeAbility } from "./sh_ability"
@@ -11,13 +11,15 @@ import { PlayerPickupsDisabled, PlayerPickupsEnabled } from "./sh_pickups"
 import { GetMatchScore, NETVAR_LAST_STASHED, NETVAR_SCORE, NETVAR_STASH } from "./sh_score"
 import { GetDeltaTime } from "./sh_time"
 import { IsReservedServer } from "./sh_reservedServer"
+import { CreateSharedInt, GetSharedVarInt } from "./sh_sharedVar"
 
 const LOCAL = RunService.IsStudio()
-const LOCAL_PLAYER = GetLocalPlayer()
 
 export const NETVAR_JSON_ASSIGNMENTS = "JS_TL"
 export const NETVAR_JSON_GAMESTATE = "JS_GS"
 export const NETVAR_MEETINGS_CALLED = "N_MC"
+
+export const SHARED_COUNTDOWN_TIMER = 'CountdownTimer'
 
 export enum PICKUPS
 {
@@ -233,8 +235,15 @@ export class Match
    constructor()
    {
       let match = this
-      if ( IsServer() )
-         match.realMatch = IsReservedServer()
+      if ( FLAG_RESERVED_SERVER )
+      {
+         if ( IsServer() )
+            match.realMatch = IsReservedServer()
+      }
+      else
+      {
+         match.realMatch = true
+      }
 
       for ( let func of file.gameCreatedCallbacks )
       {
@@ -262,6 +271,7 @@ export class Match
    meetingBody: Player | undefined
    roundsPassed = 0 // whenever a meeting is called and there is a new kill, a round passes
    previouslyLivingCampers = 0
+   timeNextWaitingCoins = 0
 
    gameThread: thread | undefined
    playerToSpawnLocation = new Map<Player, Vector3>()
@@ -320,6 +330,9 @@ export class Match
 
    public IsRealMatch(): boolean
    {
+      if ( !FLAG_RESERVED_SERVER )
+         return true
+
       return this.realMatch
    }
 
@@ -402,9 +415,9 @@ export class Match
                      role = ROLE.ROLE_CAMPER
                      break
 
-                  case ROLE.ROLE_SPECTATOR_IMPOSTOR:
-                     role = ROLE.ROLE_SPECTATOR_CAMPER
-                     break
+                  //case ROLE.ROLE_SPECTATOR_IMPOSTOR:
+                  //   role = ROLE.ROLE_SPECTATOR_CAMPER
+                  //   break
                }
 
                infos.push( new NETVAR_GamePlayerInfo( pair[0], role, pair[1].playernum, pair[1].killed ) )
@@ -445,7 +458,7 @@ export class Match
       //print( "this.winOnlybyEscaping: " + this.winOnlybyEscaping )
       //print( "Bool: " + ( revealedImpostor || this.winOnlybyEscaping ) )
 
-      Assert( !this.IsRealMatch() || this.GetGameState() < GAME_STATE.GAME_STATE_PLAYING || revealedImpostor, "Didn't reveal imposter" )
+      Assert( !this.IsRealMatch() || this.GetGameState() < GAME_STATE.GAME_STATE_PLAYING || revealedImpostor, "Didn't reveal impostor" )
    }
 
 
@@ -615,7 +628,7 @@ export class Match
             break
 
          case GAME_STATE.GAME_STATE_COUNTDOWN:
-            timeRemaining = START_COUNTDOWN
+            timeRemaining = GetSharedVarInt( SHARED_COUNTDOWN_TIMER )
             break
 
          default:
@@ -692,10 +705,14 @@ export class Match
       //print( "Set player " + player.UserId + " role to " + role )
       if ( IsServer() )
       {
+         let lastRole = this.GetPlayerRole( player )
          if ( role === ROLE.ROLE_SPECTATOR_CAMPER )
-            Assert( this.GetPlayerRole( player ) === ROLE.ROLE_CAMPER, "Bad role assignment" )
+            Assert( lastRole === ROLE.ROLE_CAMPER, "Bad role assignment" )
          else if ( role === ROLE.ROLE_SPECTATOR_IMPOSTOR )
-            Assert( this.GetPlayerRole( player ) === ROLE.ROLE_IMPOSTOR, "Bad role assignment" )
+            Assert( lastRole === ROLE.ROLE_IMPOSTOR, "Bad role assignment" )
+
+         if ( IsSpectatorRole( lastRole ) )
+            Assert( IsSpectatorRole( role ), "Tried to go from spectator role " + lastRole + " to role " + role )
       }
 
       Assert( this.playerToInfo.has( player ), "SetPlayerRole: Match does not have " + player.Name )
@@ -877,6 +894,8 @@ export class Match
    //////////////////////////////////////////////////////
    public NetvarToGamestate()
    {
+      const LOCAL_PLAYER = GetLocalPlayer()
+
       //print( "\nNetvarToGamestate_ReturnServerTimeDelta()" )
       Assert( IsClient(), "Client only" )
       let json = GetNetVar_String( LOCAL_PLAYER, NETVAR_JSON_GAMESTATE )
@@ -1028,6 +1047,8 @@ export function SH_GameStateSetup()
    AddNetVar( "number", NETVAR_STASH, 0 )
    AddNetVar( "number", NETVAR_LAST_STASHED, 0 )
 
+   CreateSharedInt( SHARED_COUNTDOWN_TIMER, START_COUNTDOWN )
+
    AddCooldown( COOLDOWN_NAME_KILL, COOLDOWNTIME_KILL )
    AddCooldown( COOLDOWN_NAME_MEETING, COOLDOWNTIME_MEETING )
 
@@ -1039,13 +1060,13 @@ export function SH_GameStateSetup()
          {
             if ( !IsImpostorRole( lastRole ) )
             {
-               // became an imposter
+               // became an impostor
                GiveAbility( player, ABILITIES.ABILITY_SABOTAGE_LIGHTS )
             }
          }
          else if ( IsImpostorRole( lastRole ) )
          {
-            // became not an imposter
+            // became not an impostor
             TakeAbility( player, ABILITIES.ABILITY_SABOTAGE_LIGHTS )
          }
       } )

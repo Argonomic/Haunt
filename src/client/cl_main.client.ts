@@ -1,3 +1,6 @@
+import { SetClient, Thread } from "shared/sh_utils"
+SetClient()
+
 import { CL_CameraSetup } from "client/cl_camera"
 import { CL_InputSetup } from "client/cl_input"
 import { CL_RoomSetup } from "client/cl_rooms"
@@ -13,7 +16,6 @@ import { CL_TaskListSetup } from "./cl_taskList"
 import { CL_MinimapSetup } from "./cl_minimap"
 import { CL_CalloutsSetup } from "./cl_callouts2d"
 import { CL_FadeOverlaySetup } from "./cl_fadeoverlay"
-import { Thread } from "shared/sh_utils"
 import { Assert, SH_AssertSetup } from "shared/sh_assert"
 import { CL_UseSetup } from "./cl_use"
 import { CL_GameStateSetup } from "./cl_gamestate"
@@ -40,6 +42,7 @@ import { CL_GameStartingSetup } from "./cl_countdown"
 import { CL_DynamicArtSetup } from "./cl_dynamicArt"
 import { CL_WaitingStartSetup } from "./cl_waitingStart"
 import { SH_ReservedServerSetup } from "shared/sh_reservedServer"
+import { SH_SharedVarSetup } from "shared/sh_sharedVar"
 
 class File
 {
@@ -55,6 +58,7 @@ function FinishCheck()
 Thread( FinishCheck )
 
 SH_ReservedServerSetup()
+SH_SharedVarSetup()
 SH_RPCSetup()
 SH_PlayerNetVarsSetup()
 SH_UseSetup()

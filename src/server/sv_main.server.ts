@@ -1,11 +1,12 @@
+import { SetServer, Thread } from "shared/sh_utils";
+SetServer()
+
 import { SH_OnPlayerConnectSetup } from "shared/sh_onPlayerConnect"
 import { SH_RPCSetup } from "shared/sh_rpc"
 import { SV_RoomsSetup } from "server/sv_rooms";
 import { SV_GameStateSetup } from "server/sv_gameState";
 import { SH_PlayerNetVarsSetup, DoneCreatingNVs } from "shared/sh_player_netvars";
-import { SetServer, Thread } from "shared/sh_utils";
 import { Assert, SH_AssertSetup } from "shared/sh_assert"
-
 import { SV_CollisionGroupsSetup } from "server/sv_collisionGroups";
 import { SH_UseContentSetup } from "shared/content/sh_use_content";
 import { SH_UseSetup } from "shared/sh_use";
@@ -28,6 +29,7 @@ import { SV_ScoreSetup } from "./sv_score";
 import { SH_ReservedServerSetup } from "shared/sh_reservedServer";
 import { SV_MatchMakingSetup } from "./sv_matchmaking";
 import { SH_UtilsGeometrySetup } from "../shared/sh_utils_geometry";
+import { SH_SharedVarSetup } from "shared/sh_sharedVar";
 
 class File
 {
@@ -42,10 +44,8 @@ function FinishCheck()
 }
 Thread( FinishCheck )
 
-
-SetServer()
-
 SH_ReservedServerSetup()
+SH_SharedVarSetup()
 SH_RPCSetup()
 SH_PlayerNetVarsSetup()
 SH_UseSetup()

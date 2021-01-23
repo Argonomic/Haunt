@@ -2,10 +2,8 @@ import { Players, RunService } from "@rbxts/services";
 import { AssignDefaultNVs } from "shared/sh_player_netvars"
 import { GetExistingFirstChildWithNameAndClassName, ExecOnChildWhenItExists, GetPlayerFromCharacter, IsServer, Thread, GetLocalPlayer, GetFirstChildWithNameAndClassName, ArrayRandomize } from "./sh_utils";
 import { Assert } from "shared/sh_assert"
-import { PLAYER_WALKSPEED } from "./sh_settings";
 
 const LOCAL = RunService.IsStudio()
-const LOCAL_PLAYER = GetLocalPlayer()
 
 class File
 {
@@ -146,6 +144,8 @@ export function ClonePlayerModels( players: Array<Player> ): Array<Model>
 
 export function TryFillWithFakeModels( models: Array<Model>, count: number )
 {
+   const LOCAL_PLAYER = GetLocalPlayer()
+
    let otherPlayers: Array<Player> = []
    for ( let pair of file.playerToModel )
    {

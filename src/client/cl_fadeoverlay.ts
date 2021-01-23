@@ -72,6 +72,8 @@ export function CL_FadeOverlaySetup()
          let playerInfo = match.GetPlayerInfo( player )
          if ( playerInfo.playernum < 0 )
             return undefined
+         if ( match.GetGameState() < GAME_STATE.GAME_STATE_PLAYING )
+            return undefined
 
          let textLabel = new Instance( 'TextLabel' )
          textLabel.Parent = screenUI
@@ -177,6 +179,7 @@ export function CL_FadeOverlaySetup()
       let refreshFailsafe = 0
 
       let FADE_OUT = { Transparency: 1 }
+      let FADE_OUT_SPECTATOR = { Transparency: SPECTATOR_TRANS }
       let FADE_IN = { Transparency: 0 }
       const FADE_TIME = 0.25
       const COIN_FADE_TIME = 0.125
@@ -367,7 +370,12 @@ export function CL_FadeOverlaySetup()
                   wasVisiblePlayers.delete( player )
 
                   if ( !skipPlayerTween )
-                     TweenPlayerParts( player, FADE_OUT, FADE_TIME, "FADE_OUT" )
+                  {
+                     if ( match.IsSpectator( viewPlayer ) && match.IsSpectator( player ) )
+                        TweenPlayerParts( player, FADE_OUT_SPECTATOR, FADE_TIME, "FADE_OUT" )
+                     else
+                        TweenPlayerParts( player, FADE_OUT, FADE_TIME, "FADE_OUT" )
+                  }
 
                   let textLabel = playerToLabel.get( player )
                   if ( textLabel !== undefined )

@@ -1,5 +1,5 @@
 import { AddCallback_OnPlayerCharacterAncestryChanged, SetPlayerWalkSpeed } from "shared/sh_onPlayerConnect";
-import { PLAYER_WALKSPEED } from "shared/sh_settings";
+import { FLAG_RESERVED_SERVER } from "shared/sh_settings";
 import { Tween } from "shared/sh_tween";
 import { CloneChild, GetExistingFirstChildWithNameAndClassName, GetLocalPlayer, Thread } from "shared/sh_utils";
 import { Assert } from "shared/sh_assert"
@@ -182,21 +182,24 @@ export function CL_MatchScreenSetup()
                }
             }
             */
-            if ( IsReservedServer() )
+            if ( FLAG_RESERVED_SERVER )
             {
-               wait( 1 )
-               frame.TitleFrame.SubTitle.Text = "Starting.."
-               frame.TitleFrame.SubTitle.TextTransparency = 1
-               Tween( frame.TitleFrame.SubTitle, { TextTransparency: 0 }, 3.5 )
-
-               for ( ; ; )
+               if ( IsReservedServer() )
                {
-                  if ( file.reservedServerRelease )
+                  wait( 1 )
+                  frame.TitleFrame.SubTitle.Text = "Starting.."
+                  frame.TitleFrame.SubTitle.TextTransparency = 1
+                  Tween( frame.TitleFrame.SubTitle, { TextTransparency: 0 }, 3.5 )
+
+                  for ( ; ; )
                   {
-                     wait( 1 )
-                     break
+                     if ( file.reservedServerRelease )
+                     {
+                        wait( 1 )
+                        break
+                     }
+                     wait()
                   }
-                  wait()
                }
             }
 

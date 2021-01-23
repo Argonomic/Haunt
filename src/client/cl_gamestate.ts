@@ -273,6 +273,17 @@ function CLGameStateChanged( match: Match, oldGameState: number, newGameState: n
             votedAndReceivedNoVotes.push( pair[0] )
          }
 
+         let wasImpostor = false
+         if ( voteResults.highestRecipients.size() === 1 )
+            wasImpostor = match.IsImpostor( voteResults.highestRecipients[0] )
+
+         let impostorsRemaining = match.startingImpostorCount
+         for ( let player of match.GetAllPlayers() )
+         {
+            if ( match.IsImpostor( player ) && match.IsSpectator( player ) )
+               impostorsRemaining--
+         }
+
          Thread( function ()
          {
             DrawMatchScreen_VoteResults(
@@ -280,8 +291,9 @@ function CLGameStateChanged( match: Match, oldGameState: number, newGameState: n
                voteResults.highestRecipients,
                voteResults.receivedAnyVotes,
                votedAndReceivedNoVotes,
-               match.startingImpostorCount,
-               match.highestVotedScore
+               match.highestVotedScore,
+               wasImpostor,
+               impostorsRemaining
             )
          } )
 
@@ -304,7 +316,6 @@ function CLGameStateChanged( match: Match, oldGameState: number, newGameState: n
          else
          {
             let impostors = match.GetImpostors()
-            let impostorCount = impostors.size()
 
             let foundLocalImpostor = false
             if ( impostors.size() )
@@ -362,7 +373,7 @@ function CLGameStateChanged( match: Match, oldGameState: number, newGameState: n
                   }
 
                   let lineup = ClonePlayerModels( all )
-                  DrawMatchScreen_Intro( foundLocalImpostor, impostorCount, lineup )
+                  DrawMatchScreen_Intro( foundLocalImpostor, match.startingImpostorCount, lineup )
                } )
          }
 
@@ -405,7 +416,7 @@ function CLGameStateChanged( match: Match, oldGameState: number, newGameState: n
 
                DrawMatchScreen_EmergencyMeeting( match.meetingType, match.meetingCaller, body )
 
-               if ( report )
+               if ( report && !DEV_SKIP_INTRO )
                   wait( 4 ) // time to look at crime scene
             }
          } )
@@ -433,18 +444,18 @@ function CLGameStateChanged( match: Match, oldGameState: number, newGameState: n
             case GAMERESULTS.RESULTS_CAMPERS_WIN:
                WaitThread( function ()
                {
-                  let impostersWin = false
+                  let impostorsWin = false
                   let myWinningTeam = IsCamperRole( role ) || role === ROLE.ROLE_SPECTATOR_CAMPER_ESCAPED
-                  DrawMatchScreen_Victory( playerInfos, impostersWin, myWinningTeam, mySurvived, score )
+                  DrawMatchScreen_Victory( playerInfos, impostorsWin, myWinningTeam, mySurvived, score )
                } )
                break
 
             case GAMERESULTS.RESULTS_IMPOSTORS_WIN:
                WaitThread( function ()
                {
-                  let impostersWin = true
+                  let impostorsWin = true
                   let myWinningTeam = IsImpostorRole( role ) || role === ROLE.ROLE_SPECTATOR_CAMPER_ESCAPED
-                  DrawMatchScreen_Victory( playerInfos, impostersWin, myWinningTeam, mySurvived, score )
+                  DrawMatchScreen_Victory( playerInfos, impostorsWin, myWinningTeam, mySurvived, score )
                } )
                break
          }

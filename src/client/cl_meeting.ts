@@ -270,6 +270,8 @@ class ActiveMeeting
    meetingMessage: TextLabel
    match: Match
    render: RBXScriptConnection
+   frame: EDITOR_MeetingFrame
+   drewVote = new Map<Player, boolean>()
 
    constructor( match: Match, meetingUITemplate: ScreenGui, meetingCaller: Player )
    {
@@ -288,6 +290,7 @@ class ActiveMeeting
       print( "meetingUI.Enabled = true" )
 
       let frame = GetFirstChildWithNameAndClassName( meetingUI, 'Frame', 'Frame' ) as EDITOR_MeetingFrame
+      this.frame = frame
       let ogPos = frame.Position
       let toggledPos = new UDim2( ogPos.X.Scale, ogPos.X.Offset, 0.9, ogPos.Y.Offset )
       frame.Position = new UDim2( ogPos.X.Scale, ogPos.X.Offset, 1.0, ogPos.Y.Offset )
@@ -393,7 +396,6 @@ class ActiveMeeting
 
       this.playerButtonGroups.sort( SortByLiving )
 
-
       for ( let i = 0; i < this.playerButtonGroups.size(); i++ )
       {
          let zIndex = i
@@ -403,7 +405,6 @@ class ActiveMeeting
          // so "VOTED" graphic doesn't draw behind stuff
          this.playerButtonGroups[i].frameButton.ZIndex = zIndex
       }
-
 
       let last = MATCHMAKE_PLAYERCOUNT_STARTSERVER - 1
       let first = 0
@@ -496,18 +497,54 @@ class ActiveMeeting
       }
    }
 
-   private AddVote( buttonGroup: ButtonGroup, playerInfo: PlayerInfo )
+   private AddVote( buttonGroup: ButtonGroup, voterInfo: PlayerInfo, voterButtonGroup: PlayerButtonGroup )
    {
       for ( let voteImage of buttonGroup.voteImages )
       {
          if ( voteImage.Visible )
             continue
-         voteImage.Visible = true
-         voteImage.VoteNumber.Visible = true
-         voteImage.VoteNumber.TextColor3 = PLAYER_COLORS[playerInfo.playernum]
-         voteImage.VoteNumber.Text = PlayerNumToGameViewable( playerInfo.playernum )
+         voteImage.VoteNumber.TextColor3 = PLAYER_COLORS[voterInfo.playernum]
+         voteImage.VoteNumber.Text = PlayerNumToGameViewable( voterInfo.playernum )
 
-         //voteImage.ImageColor3 = GetColor( voter )
+         let baseFrame = this.frame
+         if ( !this.drewVote.has( voterInfo.player ) )
+         {
+            this.drewVote.set( voterInfo.player, true )
+            Thread( function ()
+            {
+               let voteRev = voteImage.VoteNumber
+               let pnum = voterButtonGroup.frameButton.PlayerNumber
+               let flyingNumber = voteRev.Clone()
+               flyingNumber.Parent = baseFrame
+               flyingNumber.Visible = true
+               flyingNumber.AnchorPoint = new Vector2( 0.0, 0.0 )
+               flyingNumber.ZIndex = 100
+               let pos = pnum.AbsolutePosition.sub( baseFrame.AbsolutePosition )
+               flyingNumber.Position = new UDim2( 0, pos.X, 0, pos.Y )
+
+               let startSize = pnum.AbsoluteSize
+               flyingNumber.Size = new UDim2( 0, startSize.X, 0, startSize.Y )
+
+               let targetPos = voteRev.AbsolutePosition.sub( baseFrame.AbsolutePosition )
+               let targetVec = new UDim2( 0, targetPos.X, 0, targetPos.Y )
+               let endSize = voteRev.AbsoluteSize
+               let endSizeUDim2 = new UDim2( 0, endSize.X, 0, endSize.Y )
+
+               let time = 1.5
+               Tween( flyingNumber, { Position: targetVec, Size: endSizeUDim2 }, time, Enum.EasingStyle.Quart, Enum.EasingDirection.InOut )
+               wait( time )
+               if ( flyingNumber !== undefined )
+                  flyingNumber.Destroy()
+               voteImage.Visible = true
+               voteImage.VoteNumber.Visible = true
+            } )
+         }
+         else
+         {
+            voteImage.Visible = true
+            voteImage.VoteNumber.Visible = true
+         }
+
          return
       }
    }
@@ -540,10 +577,13 @@ class ActiveMeeting
       }
       else
       {
-         if ( !match.IsSpectator( localPlayer ) )
+         if ( match.GetGameState() === GAME_STATE.GAME_STATE_MEETING_VOTE )
          {
-            if ( match.GetGameState() === GAME_STATE.GAME_STATE_MEETING_VOTE )
-               this.skipButtonGroup.button.Visible = true
+            this.skipButtonGroup.button.Visible = true
+            if ( match.IsSpectator( localPlayer ) )
+               this.skipButtonGroup.button.BackgroundColor3 = new Color3( 0.5, 0.5, 0.5 )
+            else
+               this.skipButtonGroup.button.BackgroundColor3 = new Color3( 1.0, 1.0, 1.0 )
          }
       }
 
@@ -582,16 +622,17 @@ class ActiveMeeting
          }
          playerButtonGroup.voted.Visible = true
 
-         let playerInfo = match.GetPlayerInfo( voter )
+         let voterPlayerInfo = match.GetPlayerInfo( voter )
+         let voterButtonGroup = playerToButtonGroup.get( voter ) as PlayerButtonGroup
          if ( vote.target === undefined )
          {
             // skipped
-            this.AddVote( this.skipButtonGroup, playerInfo )
+            this.AddVote( this.skipButtonGroup, voterPlayerInfo, voterButtonGroup )
          }
          else
          {
-            let playerButtonGroup = playerToButtonGroup.get( vote.target ) as PlayerButtonGroup
-            this.AddVote( playerButtonGroup.buttonGroup, playerInfo )
+            let voteTargetButtonGroup = playerToButtonGroup.get( vote.target ) as PlayerButtonGroup
+            this.AddVote( voteTargetButtonGroup.buttonGroup, voterPlayerInfo, voterButtonGroup )
          }
       }
    }
@@ -621,6 +662,7 @@ export function UpdateMeeting( match: Match, lastGameState: GAME_STATE )
       {
          case GAME_STATE.GAME_STATE_MEETING_DISCUSS:
          case GAME_STATE.GAME_STATE_MEETING_VOTE:
+         case GAME_STATE.GAME_STATE_MEETING_RESULTS:
             if ( activeMeeting === undefined )
             {
                activeMeeting = new ActiveMeeting( match, meetingUITemplate, meetingCaller )

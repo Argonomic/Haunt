@@ -111,8 +111,34 @@ function UpdateWaitingStartUI()
    let match = GetLocalMatch()
    //print( "UpdateWaitingStartUI: " + match.GetGameState() )
 
+   let drawingCountdown = false
    switch ( match.GetGameState() )
    {
+      case GAME_STATE.GAME_STATE_COUNTDOWN:
+
+         if ( !drawingCountdown )
+         {
+            Thread( function ()
+            {
+               drawingCountdown = true
+               waitingUI.Enabled = true
+               for ( ; ; )
+               {
+                  if ( match.GetGameState() !== GAME_STATE.GAME_STATE_COUNTDOWN )
+                     break
+
+                  let time = math.floor( match.GetTimeRemainingForState() )
+                  waitingUI.Frame.InfoFrame.Status.Text = time + ""
+                  if ( time <= 0 )
+                     break
+
+                  wait( 1 )
+               }
+               drawingCountdown = false
+            } )
+         }
+         break
+
       case GAME_STATE.GAME_STATE_WAITING_FOR_PLAYERS:
          let players = Players.GetPlayers()
          let count = MATCHMAKE_PLAYERCOUNT_STARTSERVER - players.size()

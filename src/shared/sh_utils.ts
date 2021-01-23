@@ -4,7 +4,7 @@ import { ReplicatedStorage } from "@rbxts/services"
 
 class File
 {
-   isServer: boolean = false
+   isServer: boolean | undefined
 }
 
 let file = new File()
@@ -18,13 +18,28 @@ export function SetServer()
    file.isServer = true
 }
 
+export function SetClient()
+{
+   file.isServer = false
+}
+
 export function IsServer(): boolean
 {
+   if ( file.isServer === undefined )
+   {
+      Assert( false, "IsServer is not defined" )
+      throw undefined
+   }
    return file.isServer
 }
 
 export function IsClient(): boolean
 {
+   if ( file.isServer === undefined )
+   {
+      Assert( false, "IsServer is not defined" )
+      throw undefined
+   }
    return !file.isServer
 }
 
