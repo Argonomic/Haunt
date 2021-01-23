@@ -217,6 +217,7 @@ export function DrawMatchScreen_Intro( foundLocalImpostor: boolean, impostorCoun
                {
                   TweenCharacterParts( model, goal, 1.0 )
                }
+               Tween( baseFrame, { BackgroundColor3: new Color3( 0.25, 0, 0 ) }, 2 )
             } )
       }
 
@@ -693,6 +694,9 @@ export function DrawMatchScreen_Victory( playerInfos: Array<PlayerInfo>, imposto
 
    wait( 0.8 )
    Tween( title, { TextTransparency: 0 }, FADE_IN )
+
+   if ( impostorsWin )
+      Tween( baseFrame, { BackgroundColor3: new Color3( 0.25, 0, 0 ) }, 2 )
 
    playerInfos.sort( SortLocalPlayerInfo )
 

@@ -6,9 +6,9 @@ export const FLAG_RESERVED_SERVER = false
 const TEST = game.PlaceId === 5954656113
 print( "TEST is " + TEST )
 
-export const DEV_SKIP_INTRO = LOCAL && true
+export const DEV_SKIP_INTRO = LOCAL && false
 export const DEV_1_TASK = LOCAL && true
-export let DEV_FAST_TIMERS = ( LOCAL || TEST ) && false
+export let DEV_FAST_TIMERS: boolean = ( LOCAL || TEST ) && false
 
 // MATCHMAKING
 export const MATCHMAKE_SERVER_VERSION = 1
@@ -19,7 +19,7 @@ if ( LOCAL && true || TEST )
 {
    MATCHMAKE_PLAYERCOUNT_FALLBACK = 3
    MATCHMAKE_PLAYERCOUNT_STARTSERVER = 4
-   DEV_FAST_TIMERS = true 
+   DEV_FAST_TIMERS = true
 }
 print( "DEV_FAST_TIMERS: " + DEV_FAST_TIMERS )
 

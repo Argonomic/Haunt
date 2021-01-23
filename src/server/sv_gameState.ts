@@ -920,6 +920,8 @@ function HandleVoteResults( match: Match )
          }
          else
          {
+            BecomeSpectator( voteResults.highestRecipients[0], match )
+
             let highestTarget = voteResults.highestRecipients[0]
             Wait( 8 ) // delay for vote matchscreen
             match.SetPlayerKilled( highestTarget )
@@ -928,8 +930,25 @@ function HandleVoteResults( match: Match )
             print( "Player " + highestTarget.Name + " was voted off" )
          }
 
+         if ( match.GetGameState() === GAME_STATE.GAME_STATE_COMPLETE )
+            return
+
          match.SetGameState( GAME_STATE.GAME_STATE_PLAYING )
       } )
+}
+
+function BecomeSpectator( player: Player, match: Match )
+{
+   switch ( match.GetPlayerRole( player ) )
+   {
+      case ROLE.ROLE_CAMPER:
+         match.SetPlayerRole( player, ROLE.ROLE_SPECTATOR_CAMPER )
+         break
+
+      case ROLE.ROLE_IMPOSTOR:
+         match.SetPlayerRole( player, ROLE.ROLE_SPECTATOR_IMPOSTOR )
+         break
+   }
 }
 
 function RPC_FromClient_OnPlayerFinishTask( player: Player, roomName: string, taskName: string )
@@ -1000,28 +1019,44 @@ function RPC_FromClient_OnPlayerFinishTask( player: Player, roomName: string, ta
          break
    }
 
-   function TryGainExitAssignment()
+   function NoRegularTasksLeft(): boolean
    {
       for ( let assignment of assignments )
       {
          switch ( assignment.taskName )
          {
             case TASK_RESTORE_LIGHTS:
-               break
-
             case TASK_EXIT:
-               return
+               break
 
             default:
                if ( assignment.status === 0 )
-                  return
+                  return false
          }
       }
-
-      let assignment = new Assignment( SPAWN_ROOM, TASK_EXIT )
-      assignments.push( assignment )
+      return true
    }
-   TryGainExitAssignment()
+
+   if ( NoRegularTasksLeft() )
+   {
+      if ( FLAG_RESERVED_SERVER )
+      {
+         let assignment = new Assignment( SPAWN_ROOM, TASK_EXIT )
+         assignments.push( assignment )
+      }
+      else
+      {
+         if ( match.GetGameState() >= GAME_STATE.GAME_STATE_PLAYING )
+         {
+            let assignment = new Assignment( SPAWN_ROOM, TASK_EXIT )
+            assignments.push( assignment )
+         }
+         else
+         {
+            AssignTasks( player, match ) // 7-10 random tasks
+         }
+      }
+   }
 
    UpdateTasklistNetvar( player, assignments )
 }
@@ -1150,7 +1185,7 @@ export function AssignAllTasks( player: Player, match: Match )
 
    for ( let roomAndTask of roomsAndTasks )
    {
-      if ( roomAndTask.task.realMatchesOnly && !match.IsRealMatch() )
+      if ( roomAndTask.task.realMatchesOnly && ( !match.IsRealMatch() || match.GetGameState() < GAME_STATE.GAME_STATE_PLAYING ) )
          continue
 
       let assignment = new Assignment( roomAndTask.room.name, roomAndTask.task.name )
@@ -1165,6 +1200,9 @@ export function AssignAllTasks( player: Player, match: Match )
             assignments.push( assignment )
             break
       }
+
+      if ( DEV_1_TASK )
+         break
    }
 
    match.assignments.set( player, assignments )
@@ -1201,16 +1239,7 @@ function DistributePointsToPlayers( players: Array<Player>, score: number )
 
 function PlayerBecomesSpectatorAndDistributesCoins( player: Player, match: Match )
 {
-   switch ( match.GetPlayerRole( player ) )
-   {
-      case ROLE.ROLE_CAMPER:
-         match.SetPlayerRole( player, ROLE.ROLE_SPECTATOR_CAMPER )
-         break
-
-      case ROLE.ROLE_IMPOSTOR:
-         match.SetPlayerRole( player, ROLE.ROLE_SPECTATOR_IMPOSTOR )
-         break
-   }
+   BecomeSpectator( player, match )
 
    switch ( match.GetGameState() )
    {

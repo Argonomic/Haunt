@@ -1,4 +1,4 @@
-import { AddCallback_OnPlayerCharacterAncestryChanged, SetPlayerWalkSpeed } from "shared/sh_onPlayerConnect";
+import { AddCallback_OnPlayerCharacterAdded, AddCallback_OnPlayerCharacterAncestryChanged, SetPlayerWalkSpeed } from "shared/sh_onPlayerConnect";
 import { FLAG_RESERVED_SERVER } from "shared/sh_settings";
 import { Tween } from "shared/sh_tween";
 import { CloneChild, GetExistingFirstChildWithNameAndClassName, GetLocalPlayer, Thread } from "shared/sh_utils";
@@ -16,6 +16,7 @@ class File
    baseFrameTemplate: Editor_MatchScreenBaseFrame | undefined
 
    reservedServerRelease = false
+   lastMatchScreen: MatchScreenFrame | undefined
 }
 
 let file = new File()
@@ -73,7 +74,10 @@ class MatchScreenFrame
       this.viewportFrame = viewportFrame
       this.viewportCamera = viewportCamera
 
+      file.lastMatchScreen = this
+
       let thisThread = coroutine.running()
+      let matchscreen = this
 
       Thread(
          function ()
@@ -82,6 +86,8 @@ class MatchScreenFrame
             {
                if ( coroutine.status( thisThread ) === "dead" )
                {
+                  if ( file.lastMatchScreen === matchscreen )
+                     file.lastMatchScreen = undefined
                   Thread( function ()
                   {
                      wait( 2 ) // give the frame a chance to fade away
@@ -120,7 +126,7 @@ export function WaitForMatchScreenFrame( str: string ): MatchScreenFrame
          print( "waiting for thread release: " + file.threadQueue.size() )
       }
 
-      wait( 0.1 )
+      wait()
    }
 
    print( "Starting matchscreen: " + str + ".." )
@@ -218,8 +224,22 @@ export function CL_MatchScreenSetup()
       function ()
       {
          file.matchScreenUI.Parent = undefined
-      } )
 
+         // workaround for roblox bug where camera turns off when player character recycles
+         let lastMatchScreen = file.lastMatchScreen
+         if ( lastMatchScreen !== undefined )
+         {
+            lastMatchScreen.titleFrame.Visible = false
+            wait()
+            for ( ; ; )
+            {
+               if ( LOCAL_PLAYER.Character !== undefined )
+                  break
+               wait()
+            }
+            lastMatchScreen.titleFrame.Visible = true
+         }
+      } )
 }
 
 export function ReservedServerRelease()
