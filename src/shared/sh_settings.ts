@@ -4,7 +4,7 @@ const LOCAL = RunService.IsStudio()
 const TEST = game.PlaceId === 5954656113
 print( "TEST is " + TEST )
 
-export const DEV_SKIP_INTRO = LOCAL && true
+export const DEV_SKIP_INTRO = LOCAL && false
 export const DEV_1_TASK = LOCAL && true
 export let DEV_FAST_TIMERS = DEV_SKIP_INTRO
 
@@ -17,7 +17,7 @@ if ( LOCAL && true || TEST )
 {
    MATCHMAKE_PLAYERCOUNT_FALLBACK = 3
    MATCHMAKE_PLAYERCOUNT_STARTSERVER = 4
-   DEV_FAST_TIMERS = true
+   //DEV_FAST_TIMERS = true
 }
 
 //let results = pcall( MarketplaceService.GetProductInfo, MarketplaceService, DataModel )
@@ -47,7 +47,7 @@ export const PLAYER_WALKSPEED_SPECTATOR = 16 * 1.5
 export const SPAWN_ROOM = "Foyer"
 export const KILL_DIST = 6.5
 export const REPORT_DIST = 5
-export const MEETING_VOTE_TIME = 45
+export const MEETING_VOTE_TIME = 60
 export const MEETING_VOTE_RESULTS = 8
 export const SUDDEN_DEATH_TIME = 90
 export const SPECTATOR_TRANS = 0.6
@@ -83,4 +83,4 @@ export const PLAYER_COLORS =
 
 export const ADMINS = ["Argonomic", "ArgonomicDev"]
 
-print( "SRV 1.21.21" )
+print( "SRV 1.22.21 c" )

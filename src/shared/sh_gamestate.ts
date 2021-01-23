@@ -724,6 +724,9 @@ export class Match
       let players = this.GetAllPlayers()
       return players.filter( function ( player )
       {
+         if ( player.Character === undefined )
+            return false
+
          return PlayerHasClone( player )
       } )
    }

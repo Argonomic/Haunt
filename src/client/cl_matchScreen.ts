@@ -184,7 +184,9 @@ export function CL_MatchScreenSetup()
             */
             if ( IsReservedServer() )
             {
+               wait( 1 )
                frame.TitleFrame.SubTitle.Text = "Starting.."
+               frame.TitleFrame.SubTitle.TextTransparency = 1
                Tween( frame.TitleFrame.SubTitle, { TextTransparency: 0 }, 3.5 )
 
                for ( ; ; )

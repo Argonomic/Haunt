@@ -306,9 +306,6 @@ function CLGameStateChanged( match: Match, oldGameState: number, newGameState: n
             let impostors = match.GetImpostors()
             let impostorCount = impostors.size()
 
-            let campers = match.GetCampers()
-            Assert( campers.size() > 0, "campers.size() > 0" )
-
             let foundLocalImpostor = false
             if ( impostors.size() )
             {

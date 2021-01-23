@@ -18,6 +18,7 @@ import { GetPlayerPersistence_Number, SetPlayerPersistence } from "./sv_persiste
 import { ServerAttemptToFindReadyPlayersOfPlayerCount } from "./sv_matchmaking"
 import { IsReservedServer } from "shared/sh_reservedServer"
 import { GetPosition } from "shared/sh_utils_geometry"
+import { ReportEvent } from "./sv_analytics"
 
 const LOCAL = RunService.IsStudio()
 const MSLBL = "MATCHMAKE_CALL"
@@ -198,10 +199,6 @@ export function SV_GameStateSetup()
 
          if ( match.IsRealMatch() )
          {
-            match.RemovePlayer( player )
-         }
-         else
-         {
             // don't remove quitters from real games because their info is still valid and needed
             if ( !match.IsSpectator( player ) )
             {
@@ -215,6 +212,10 @@ export function SV_GameStateSetup()
                }
             }
             return
+         }
+         else
+         {
+            match.RemovePlayer( player )
          }
 
          match.UpdateGame()
@@ -368,6 +369,7 @@ function SV_GameStateChanged( match: Match, oldGameState: GAME_STATE )
             Assert( players.size() <= MATCHMAKE_PLAYERCOUNT_STARTSERVER, "Too many players" )
             if ( players.size() < MATCHMAKE_PLAYERCOUNT_FALLBACK )
             {
+               ReportEvent( "NotEnoughPlayers", "count: " + players.size() )
                print( "Not enough players, return to lobby" )
                TeleportPlayersToLobby( players, "Need more players" )
                return
