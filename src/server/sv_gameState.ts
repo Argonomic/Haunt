@@ -20,6 +20,7 @@ import { IsReservedServer } from "shared/sh_reservedServer"
 import { GetPosition } from "shared/sh_utils_geometry"
 import { ReportEvent } from "./sv_analytics"
 import { GetSharedVarInt, SetSharedVarInt } from "shared/sh_sharedVar"
+import { GetPlayerSpawnLocation } from "./sv_playerSpawnLocation"
 
 const LOCAL = RunService.IsStudio()
 const MSLBL = "MATCHMAKE_CALL"
@@ -179,10 +180,11 @@ export function SV_GameStateSetup()
       let match = PlayerToMatch( player )
       match.Shared_OnGameStateChanged_PerPlayer( player, match )
 
-      if ( !match.playerToSpawnLocation.has( player ) )
+      let _spawnPos = GetPlayerSpawnLocation( player )
+      if ( _spawnPos === undefined )
          return
+      let spawnPos = _spawnPos as Vector3
 
-      let spawnPos = match.playerToSpawnLocation.get( player ) as Vector3
       let character = player.Character as Model
       let part = character.PrimaryPart as BasePart
       Thread( function ()

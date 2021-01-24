@@ -288,7 +288,6 @@ export class Match
    timeNextWaitingCoins = 0
 
    gameThread: thread | undefined
-   playerToSpawnLocation = new Map<Player, Vector3>()
    startingImpostorCount = 0
    highestVotedScore = 0
    realMatch = false

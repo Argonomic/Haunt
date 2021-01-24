@@ -30,6 +30,7 @@ import { SH_ReservedServerSetup } from "shared/sh_reservedServer";
 import { SV_MatchMakingSetup } from "./sv_matchmaking";
 import { SH_UtilsGeometrySetup } from "../shared/sh_utils_geometry";
 import { SH_SharedVarSetup } from "shared/sh_sharedVar";
+import { SV_PlayerSpawnLocationSetup } from "./sv_playerSpawnLocation";
 
 class File
 {
@@ -72,6 +73,7 @@ SV_PersistenceSetup()
 SV_UseSetup()
 SV_ScoreSetup()
 SV_MatchMakingSetup()
+SV_PlayerSpawnLocationSetup()
 SH_UtilsGeometrySetup()
 
 DoneCreatingNVs()

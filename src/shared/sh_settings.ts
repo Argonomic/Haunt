@@ -19,7 +19,7 @@ export let MATCHMAKE_PLAYERCOUNT_STARTSERVER = 10
 if ( LOCAL && true || TEST )
 {
    MATCHMAKE_PLAYERCOUNT_FALLBACK = 3
-   MATCHMAKE_PLAYERCOUNT_STARTSERVER = 4
+   MATCHMAKE_PLAYERCOUNT_STARTSERVER = 5
    //DEV_FAST_TIMERS = true
 }
 print( "DEV_FAST_TIMERS: " + DEV_FAST_TIMERS )
@@ -94,3 +94,4 @@ export const PLAYER_COLORS =
 export const ADMINS = ["Argonomic", "ArgonomicDev"]
 
 print( "SRV 1.23.21 6 - chat resize" )
+print( " " )

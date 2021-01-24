@@ -10,6 +10,7 @@ import { GetNetVar_Number, SetNetVar } from "shared/sh_player_netvars"
 import { PlayerDropsCoinsWithTrajectory } from "server/sv_coins"
 import { CanCallMeeting } from "shared/content/sh_use_content"
 import { GetPosition } from "shared/sh_utils_geometry"
+import { SetPlayerSpawnLocation } from "server/sv_playerSpawnLocation"
 
 export function SV_UseContentSetup()
 {
@@ -92,7 +93,7 @@ export function SV_UseContentSetup()
          let camper = usedThing as Player
 
          match.corpses.push( new Corpse( camper, GetPosition( camper ) ) )
-         match.playerToSpawnLocation.set( camper, GetPosition( camper ) )
+         SetPlayerSpawnLocation( camper, GetPosition( camper ) )
          PlayerDropsCoinsWithTrajectory( camper, GetPosition( player ) )
          match.SetPlayerRole( camper, ROLE.ROLE_SPECTATOR_CAMPER )
          match.SetPlayerKilled( camper )
