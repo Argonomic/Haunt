@@ -385,6 +385,20 @@ function SV_GameStateChanged( match: Match, oldGameState: GAME_STATE )
          }
    }
 
+   switch ( match.GetGameState() )
+   {
+      case GAME_STATE.GAME_STATE_MEETING_DISCUSS:
+      case GAME_STATE.GAME_STATE_MEETING_VOTE:
+      case GAME_STATE.GAME_STATE_MEETING_RESULTS:
+         Assert( match.GetMeetingDetails() !== undefined, "No meeting details during a meeting" )
+         break
+
+      default:
+         match.ClearMeetingDetails()
+         break
+   }
+
+
    // entering this match state
    switch ( match.GetGameState() )
    {
@@ -894,6 +908,7 @@ function GameStateThink( match: Match )
 
             if ( votingFinished )
             {
+               Assert( match.GetMeetingDetails() !== undefined, "No meeting details" )
                match.SetGameState( GAME_STATE.GAME_STATE_MEETING_RESULTS )
                return
             }
@@ -1186,6 +1201,8 @@ export function AssignTasks( player: Player, match: Match )
       GraphCapped( playerCount,
          MATCHMAKE_PLAYERCOUNT_FALLBACK, MATCHMAKE_PLAYERCOUNT_STARTSERVER,
          MIN_TASKLIST_SIZE, MAX_TASKLIST_SIZE ) )
+
+   //TASK_COUNT = 2
 
    AssignTasksCount( player, match, assignments, TASK_COUNT )
 }

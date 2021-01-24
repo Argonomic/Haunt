@@ -46,10 +46,8 @@ export function SV_UseContentSetup()
          {
             if ( corpse.pos.sub( pos ).Magnitude < 1 ) // dunno if we can just compare vectors directly and I dunno if it drops any precision
             {
-               //print( "Set meeting caller to " + player.Name )
-               SetMeetingCaller( match, player )
-               match.meetingBody = corpse.player
-               match.meetingType = MEETING_TYPE.MEETING_REPORT
+               let meetingCallerRoomName = GetCurrentRoom( player ).name
+               match.SetMeetingDetails( player, MEETING_TYPE.MEETING_REPORT, meetingCallerRoomName, corpse.player )
                match.SetGameState( GAME_STATE.GAME_STATE_MEETING_DISCUSS )
                return
             }
@@ -181,15 +179,11 @@ export function SV_UseContentSetup()
 
             let meetingsCalled = GetNetVar_Number( player, NETVAR_MEETINGS_CALLED )
             SetNetVar( player, NETVAR_MEETINGS_CALLED, meetingsCalled + 1 )
-            SetMeetingCaller( match, player )
-            match.meetingType = MEETING_TYPE.MEETING_EMERGENCY
+
+            let meetingCallerRoomName = GetCurrentRoom( player ).name
+            match.SetMeetingDetails( player, MEETING_TYPE.MEETING_EMERGENCY, meetingCallerRoomName, undefined )
             match.SetGameState( GAME_STATE.GAME_STATE_MEETING_DISCUSS )
          }
    }
 }
 
-function SetMeetingCaller( match: Match, player: Player )
-{
-   match.meetingCaller = player
-   match.meetingCallerRoomName = GetCurrentRoom( player ).name
-}

@@ -383,42 +383,46 @@ function CLGameStateChanged( match: Match, oldGameState: number, newGameState: n
          match.ClearVotes()
          WaitThread( function ()
          {
-            if ( match.meetingType !== undefined && match.meetingCaller !== undefined )
+            let meetingDetails = match.GetMeetingDetails()
+            if ( meetingDetails === undefined )
             {
-               let report = false
-               let body: Player | undefined = match.meetingBody
-               switch ( match.meetingType )
-               {
-                  case MEETING_TYPE.MEETING_EMERGENCY:
-                     body = undefined
-                     break
-
-                  case MEETING_TYPE.MEETING_REPORT:
-                     let room: Room
-                     if ( match.meetingCallerRoomName !== undefined )
-                        room = GetRoom( match.meetingCallerRoomName )
-                     else
-                        room = GetCurrentRoom( match.meetingCaller )
-
-                     report = true
-                     Thread(
-                        function ()
-                        {
-                           wait( 2 ) // wait for match screen to fade out
-                           SetLocalViewToRoom( room )
-                        } )
-                     break
-
-                  default:
-                     Assert( false, "Unhandled meeting type " + match.meetingType )
-                     break
-               }
-
-               DrawMatchScreen_EmergencyMeeting( match.meetingType, match.meetingCaller, body )
-
-               if ( report && !DEV_SKIP_INTRO )
-                  wait( 4 ) // time to look at crime scene
+               Assert( false, "No meeting details" )
+               throw undefined
             }
+
+            let meetingType = meetingDetails.meetingType
+            let meetingCaller = meetingDetails.meetingCaller
+
+            let report = false
+            let body = meetingDetails.meetingBody
+            let meetingCallerRoomName = meetingDetails.meetingCallerRoomName
+            switch ( meetingType )
+            {
+               case MEETING_TYPE.MEETING_EMERGENCY:
+                  body = undefined
+                  break
+
+               case MEETING_TYPE.MEETING_REPORT:
+                  let room = GetRoom( meetingCallerRoomName )
+
+                  report = true
+                  Thread(
+                     function ()
+                     {
+                        wait( 2 ) // wait for match screen to fade out
+                        SetLocalViewToRoom( room )
+                     } )
+                  break
+
+               default:
+                  Assert( false, "Unhandled meeting type " + meetingType )
+                  break
+            }
+
+            DrawMatchScreen_EmergencyMeeting( meetingType, meetingCaller, body )
+
+            if ( report && !DEV_SKIP_INTRO )
+               wait( 4 ) // time to look at crime scene
          } )
          break
 

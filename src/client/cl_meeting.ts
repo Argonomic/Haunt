@@ -302,7 +302,13 @@ class ActiveMeeting
       playerButtonTemplate.Visible = false
 
       let visible = true
-      frame.CrimeScene.Visible = match.meetingType === MEETING_TYPE.MEETING_REPORT
+      let meetingDetails = match.GetMeetingDetails()
+      if ( meetingDetails === undefined )
+      {
+         Assert( false, "No meeting details" )
+         throw undefined
+      }
+      frame.CrimeScene.Visible = meetingDetails.meetingType === MEETING_TYPE.MEETING_REPORT
       frame.CrimeScene.Label.MouseButton1Click.Connect(
          function ()
          {
@@ -646,14 +652,12 @@ export function UpdateMeeting( match: Match, lastGameState: GAME_STATE )
       if ( meetingUITemplate === undefined )
          return false
 
-      let meetingCaller = match.meetingCaller
-      if ( meetingCaller === undefined )
-         return false
-
       if ( lastGameState === GAME_STATE.GAME_STATE_SUDDEN_DEATH )
          return false
 
-      let activeMeeting = file.activeMeeting
+      let meetingDetails = match.GetMeetingDetails()
+      if ( meetingDetails === undefined )
+         return false
 
       if ( lastGameState === GAME_STATE.GAME_STATE_PLAYING )
          DestroyActiveMeeting()
@@ -663,9 +667,11 @@ export function UpdateMeeting( match: Match, lastGameState: GAME_STATE )
          case GAME_STATE.GAME_STATE_MEETING_DISCUSS:
          case GAME_STATE.GAME_STATE_MEETING_VOTE:
          case GAME_STATE.GAME_STATE_MEETING_RESULTS:
+
+            let activeMeeting = file.activeMeeting
             if ( activeMeeting === undefined )
             {
-               activeMeeting = new ActiveMeeting( match, meetingUITemplate, meetingCaller )
+               activeMeeting = new ActiveMeeting( match, meetingUITemplate, meetingDetails.meetingCaller )
                file.activeMeeting = activeMeeting
             }
 

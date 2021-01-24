@@ -230,6 +230,22 @@ export class PlayerVote
    }
 }
 
+class MeetingDetails
+{
+   readonly meetingCaller: Player
+   readonly meetingType: MEETING_TYPE
+   readonly meetingCallerRoomName: string
+   readonly meetingBody: Player | undefined
+
+   constructor( meetingCaller: Player, meetingType: MEETING_TYPE, meetingCallerRoomName: string, meetingBody: Player | undefined )
+   {
+      this.meetingCaller = meetingCaller
+      this.meetingType = meetingType
+      this.meetingCallerRoomName = meetingCallerRoomName
+      this.meetingBody = meetingBody
+   }
+}
+
 export class Match
 {
    constructor()
@@ -265,10 +281,8 @@ export class Match
    //////////////////////////////////////////////////////
    assignments = new Map<Player, Array<Assignment>>()
 
-   meetingCaller: Player | undefined
-   meetingCallerRoomName: string | undefined
-   meetingType: MEETING_TYPE | undefined
-   meetingBody: Player | undefined
+   private meetingDetails: MeetingDetails | undefined
+
    roundsPassed = 0 // whenever a meeting is called and there is a new kill, a round passes
    previouslyLivingCampers = 0
    timeNextWaitingCoins = 0
@@ -278,8 +292,6 @@ export class Match
    startingImpostorCount = 0
    highestVotedScore = 0
    realMatch = false
-
-   //   coins: Array<Coin> = []
 
    public UpdateGame() 
    {
@@ -296,6 +308,21 @@ export class Match
 
       if ( coroutine.status( this.gameThread ) === "suspended" )
          Resume( this.gameThread )
+   }
+
+   public ClearMeetingDetails()
+   {
+      this.meetingDetails = undefined
+   }
+
+   public GetMeetingDetails(): MeetingDetails | undefined
+   {
+      return this.meetingDetails
+   }
+
+   public SetMeetingDetails( caller: Player, meetingType: MEETING_TYPE, meetingCallerRoomName: string, body: Player | undefined )
+   {
+      this.meetingDetails = new MeetingDetails( caller, meetingType, meetingCallerRoomName, body )
    }
 
    public GetGameResults_ParityAllowed(): GAMERESULTS
@@ -432,23 +459,33 @@ export class Match
                gs.voteTargetScore = GetMatchScore( results.highestRecipients[0] )
          }
 
-         gs.meetingType = this.meetingType
-
-         if ( this.meetingCaller )
+         let meetingDetails = this.GetMeetingDetails()
+         if ( meetingDetails !== undefined )
          {
-            gs.meetingCallerUserId = this.meetingCaller.UserId
-            gs.meetingCallerRoomName = this.meetingCallerRoomName
-         }
-         else
-         {
-            gs.meetingCallerUserId = undefined
-            gs.meetingCallerRoomName = undefined
+            gs.meetingType = meetingDetails.meetingType
+            gs.meetingCallerUserId = meetingDetails.meetingCaller.UserId
+            gs.meetingCallerRoomName = meetingDetails.meetingCallerRoomName
+
+            if ( meetingDetails.meetingBody !== undefined )
+               gs.meetingBodyUserId = meetingDetails.meetingBody.UserId
+            else
+               gs.meetingBodyUserId = undefined
          }
 
-         if ( this.meetingBody )
-            gs.meetingBodyUserId = this.meetingBody.UserId
-         else
-            gs.meetingBodyUserId = undefined
+
+         switch ( this.GetGameState() )
+         {
+            case GAME_STATE.GAME_STATE_MEETING_DISCUSS:
+            case GAME_STATE.GAME_STATE_MEETING_VOTE:
+            case GAME_STATE.GAME_STATE_MEETING_RESULTS:
+               Assert( this.GetMeetingDetails() !== undefined, "No meeting details during a meeting" )
+               break
+
+            default:
+               Assert( this.GetMeetingDetails() === undefined, "Not a meeting but tried to transfer meeting details" )
+               break
+         }
+
 
          let json = HttpService.JSONEncode( gs )
          SetNetVar( player, NETVAR_JSON_GAMESTATE, json )
@@ -908,6 +945,13 @@ export class Match
          fullyStockedUserIdToPlayer.set( playerInfo.player.UserId, playerInfo.player )
       }
 
+      // if a player joins late they may not have a player, so fill in with themselves
+      for ( let gsPlayerInfo of gs.netPlayerInfos )
+      {
+         if ( !fullyStockedUserIdToPlayer.has( gsPlayerInfo.userId ) )
+            fullyStockedUserIdToPlayer.set( gsPlayerInfo.userId, LOCAL_PLAYER )
+      }
+
       this.gameState = gs.gameState
       if ( gs.realMatch )
          this.EnableRealMatch()
@@ -993,12 +1037,11 @@ export class Match
       this.votes = []
       this.highestVotedScore = gs.voteTargetScore
 
-
-
       for ( let vote of gs.votes )
       {
          if ( !fullyStockedUserIdToPlayer.has( vote.voterUserId ) )
             continue
+         Assert( fullyStockedUserIdToPlayer.has( vote.voterUserId ), "fullyStockedUserIdToPlayer.has( vote.voterUserId )" )
          let voter = fullyStockedUserIdToPlayer.get( vote.voterUserId ) as Player
 
          let targetUserId = vote.targetUserId
@@ -1013,27 +1056,31 @@ export class Match
          }
       }
 
-      this.meetingType = gs.meetingType
-
-      if ( gs.meetingCallerUserId === undefined )
+      let meetingType = gs.meetingType
+      if ( meetingType === undefined )
       {
-         this.meetingCaller = undefined
+         this.ClearMeetingDetails()
       }
       else
       {
-         let meetingCaller = fullyStockedUserIdToPlayer.get( gs.meetingCallerUserId )
-         this.meetingCaller = meetingCaller
-         this.meetingCallerRoomName = gs.meetingCallerRoomName
-      }
+         let meetingCallerUserId = gs.meetingCallerUserId
+         if ( meetingCallerUserId === undefined )
+         {
+            Assert( false, "gs.meetingCallerUserId undefined" )
+            throw undefined
+         }
 
-      if ( gs.meetingBodyUserId === undefined )
-      {
-         this.meetingBody = undefined
-      }
-      else
-      {
-         let meetingBody = fullyStockedUserIdToPlayer.get( gs.meetingBodyUserId )
-         this.meetingBody = meetingBody
+         Assert( fullyStockedUserIdToPlayer.has( meetingCallerUserId ), "fullyStockedUserIdToPlayer.has( meetingCallerUserId )" )
+
+         let meetingCaller = fullyStockedUserIdToPlayer.get( meetingCallerUserId ) as Player
+         Assert( gs.meetingCallerRoomName !== undefined, "gs.meetingCallerRoomName !== undefined" )
+         let meetingCallerRoomName = gs.meetingCallerRoomName as string
+         let meetingBody: Player | undefined
+
+         if ( gs.meetingBodyUserId !== undefined )
+            meetingBody = fullyStockedUserIdToPlayer.get( gs.meetingBodyUserId )
+
+         this.SetMeetingDetails( meetingCaller, meetingType, meetingCallerRoomName, meetingBody )
       }
    }
 }

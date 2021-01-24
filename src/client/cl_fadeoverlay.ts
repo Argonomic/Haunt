@@ -213,8 +213,14 @@ export function CL_FadeOverlaySetup()
             case GAME_STATE.GAME_STATE_MEETING_DISCUSS:
             case GAME_STATE.GAME_STATE_MEETING_VOTE:
             case GAME_STATE.GAME_STATE_MEETING_RESULTS:
-               if ( match.meetingType === MEETING_TYPE.MEETING_REPORT )
-                  viewPlayer = match.meetingCaller as Player
+               let meetingDetails = match.GetMeetingDetails()
+               if ( meetingDetails === undefined )
+               {
+                  Assert( false, "No meeting details" )
+                  throw undefined
+               }
+
+               viewPlayer = meetingDetails.meetingCaller
                break
          }
 
@@ -302,8 +308,12 @@ export function CL_FadeOverlaySetup()
                pair[1].Destroy()
             }
             visibleCorpsesToLabel.clear()
-         }
 
+            if ( match.IsSpectator( viewPlayer ) )
+               SetPlayerTransparency( viewPlayer, SPECTATOR_TRANS )
+            else
+               SetPlayerTransparency( viewPlayer, 0 )
+         }
 
          let localViewRoom = GetCurrentRoom( viewPlayer )
 
