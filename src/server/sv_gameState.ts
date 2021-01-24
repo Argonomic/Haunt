@@ -440,9 +440,11 @@ function SV_GameStateChanged( match: Match, oldGameState: GAME_STATE )
          let setCampers = players.slice( impostorCount, size )
 
          match.startingImpostorCount = impostorCount
+         print( "match.startingImpostorCount: " + match.startingImpostorCount )
 
          for ( let player of impostorPlayers )
          {
+            print( player.Name + " to Impostor" )
             match.SetPlayerRole( player, ROLE.ROLE_IMPOSTOR )
             ClearAssignments( match, player )
          }
@@ -769,7 +771,7 @@ function GameStateThink( match: Match )
 
          if ( !FLAG_RESERVED_SERVER )
          {
-            if ( searchCount >= MATCHMAKE_PLAYERCOUNT_STARTSERVER )
+            if ( searchCount >= MATCHMAKE_PLAYERCOUNT_FALLBACK )
             {
                match.SetGameState( GAME_STATE.GAME_STATE_COUNTDOWN )
                match.UpdateGame()
@@ -858,7 +860,7 @@ function GameStateThink( match: Match )
             }
             else
             {
-               if ( match.GetAllPlayersWithCharactersCloned().size() < MATCHMAKE_PLAYERCOUNT_STARTSERVER )
+               if ( match.GetAllPlayersWithCharactersCloned().size() < MATCHMAKE_PLAYERCOUNT_FALLBACK )
                {
                   match.SetGameState( GAME_STATE.GAME_STATE_WAITING_FOR_PLAYERS )
                   return
@@ -1019,6 +1021,8 @@ function RPC_FromClient_OnPlayerFinishTask( player: Player, roomName: string, ta
          break
    }
 
+   UpdateTasklistNetvar( player, assignments )
+
    function NoRegularTasksLeft(): boolean
    {
       for ( let assignment of assignments )
@@ -1026,8 +1030,10 @@ function RPC_FromClient_OnPlayerFinishTask( player: Player, roomName: string, ta
          switch ( assignment.taskName )
          {
             case TASK_RESTORE_LIGHTS:
-            case TASK_EXIT:
                break
+
+            case TASK_EXIT:
+               return false
 
             default:
                if ( assignment.status === 0 )
@@ -1176,7 +1182,7 @@ export function AssignTasks( player: Player, match: Match )
    let assignments: Array<Assignment> = []
 
    let playerCount = match.GetAllPlayers().size()
-   const TASK_COUNT = math.floor(
+   let TASK_COUNT = math.floor(
       GraphCapped( playerCount,
          MATCHMAKE_PLAYERCOUNT_FALLBACK, MATCHMAKE_PLAYERCOUNT_STARTSERVER,
          MIN_TASKLIST_SIZE, MAX_TASKLIST_SIZE ) )
