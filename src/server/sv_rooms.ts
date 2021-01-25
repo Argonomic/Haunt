@@ -1,10 +1,7 @@
 import { Room, AddRoomsFromWorkspace, RoomAndTask, AddCallback_OnRoomSetup } from "shared/sh_rooms"
-import { ArrayRandomize, GetPlayerFromDescendant, RandomFloatRange, SetPlayerYaw, Thread } from "shared/sh_utils"
-import { SPAWN_ROOM } from "shared/sh_settings"
-import { SV_SendRPC } from "shared/sh_rpc"
+import { ArrayRandomize, GetPlayerFromDescendant, RandomFloatRange, SetPlayerYaw } from "shared/sh_utils"
 import { AddCallback_OnPlayerConnected } from "shared/sh_onPlayerConnect"
 import { Assert } from "shared/sh_assert"
-import { HttpService, Players } from "@rbxts/services"
 
 class File
 {
@@ -148,8 +145,6 @@ export function GetRoomSpawnLocations( room: Room, count: number ): Array<Vector
 
 export function PutPlayersInRoom( players: Array<Player>, room: Room )
 {
-   TellClientsAboutPlayersInRoom( players, room )
-
    let startpoints = room.startPoints.concat()
    ArrayRandomize( startpoints )
 
@@ -176,37 +171,6 @@ export function PutPlayersInRoom( players: Array<Player>, room: Room )
       SetPlayerYaw( player, RandomFloatRange( 90 - offset, 90 + offset ) )
       file.currentRoom.set( player, room )
    }
-}
-
-export function TellClientsAboutPlayersInRoom( players: Array<Player>, room: Room )
-{
-   let jsonPlayers: Array<number> = []
-   for ( let player of players )
-   {
-      jsonPlayers.push( player.UserId )
-   }
-   let json = HttpService.JSONEncode( jsonPlayers )
-
-   for ( let player of Players.GetPlayers() )
-   {
-      SV_SendRPC( "RPC_FromServer_PutPlayersInRoom", player, json, room.name )
-   }
-}
-
-export function SetPlayerCurrentRoom( player: Player, room: Room )
-{
-   file.currentRoom.set( player, room )
-}
-
-export function PutPlayerInStartRoom( player: Player )
-{
-   let room = GetRoomByName( SPAWN_ROOM )
-   Thread( function ()
-   {
-      wait() // because hey, otherwise the match tries to set the player position somewhere
-      if ( player.Character !== undefined )
-         PutPlayersInRoom( [player], room )
-   } )
 }
 
 export function GetRoomByName( name: string ): Room

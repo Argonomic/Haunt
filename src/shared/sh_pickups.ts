@@ -1,7 +1,7 @@
 import { IsServer, Thread, GraphCapped, RandomFloatRange } from "./sh_utils"
 import { Assert } from "./sh_assert"
 import { AddCallback_OnPlayerCharacterAdded, AddCallback_OnPlayerConnected } from "./sh_onPlayerConnect"
-import { Workspace } from "@rbxts/services"
+import { Workspace, Players } from "@rbxts/services"
 import { Tween } from "./sh_tween"
 import { ArrayDistSorted, GetPosition } from "./sh_utils_geometry"
 
@@ -54,6 +54,22 @@ export function DeleteFilterPlayerPickupsCallback( filterIndex: unknown )
    }
 }
 
+export function DeleteFilterPickupsForPlayer( filterIndex: unknown, player: Player )
+{
+   let callbacksMapByFilterIndex = file.filterPlayerPickupsCallbacks.get( player )
+   if ( callbacksMapByFilterIndex === undefined )
+   {
+      Assert( false, "No file.filterPlayerPickupsCallbacks for " + player.Name )
+      throw undefined
+   }
+
+   for ( let pair of callbacksMapByFilterIndex )
+   {
+      if ( pair[0] === filterIndex )
+         callbacksMapByFilterIndex.delete( pair[0] )
+   }
+}
+
 export function SH_PickupsSetup()
 {
    AddCallback_OnPlayerConnected(
@@ -62,6 +78,12 @@ export function SH_PickupsSetup()
          let callbacks = new Map<unknown, ( part: Part ) => boolean>()
          file.filterPlayerPickupsCallbacks.set( player, callbacks )
          PlayerPickupsEnabled( player )
+      } )
+
+   Players.PlayerRemoving.Connect(
+      function ( player: Player )
+      {
+         file.filterPlayerPickupsCallbacks.delete( player )
       } )
 
    if ( IsServer() )
@@ -148,6 +170,9 @@ function PlayerTriesToPickup_Ammortized( player: Player )
       Assert( false, "No callbacks for " + player.Name )
       throw undefined
    }
+
+   if ( callbacks.size() > 1 )
+      print( "WARNING: " + player.Name + " has " + callbacks.size() + " callbacks" )
 
    for ( let pair of callbacks )
    {

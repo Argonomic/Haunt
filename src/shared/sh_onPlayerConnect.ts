@@ -252,21 +252,6 @@ function OnPlayerConnected( player: Player )
 {
    file.userIdToPlayer.set( player.UserId, player )
 
-   /*
-   Thread( function ()
-   {
-      wait()
-      Assert( finished, "OnPlayerConnected Never finished init" )
-
-      if ( IsServer() )
-      {
-         wait( 5 )
-         //match.playerToSpawnLocation.set( player, spawnLocations[i] )
-         //KillPlayer( player )
-      }
-   } )
-   */
-
    file.aPlayerConnected = true
 
    if ( IsServer() )

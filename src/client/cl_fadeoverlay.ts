@@ -7,7 +7,7 @@ import { GetFirstChildWithNameAndClassName, GetLocalPlayer, GraphCapped, IsAlive
 import { Assert } from "shared/sh_assert"
 import { GetCorpseClientModel, ClientGetAssignmentAssignedTime, ClientHasAssignment, GetLocalMatch, GetLocalIsSpectator, GetLocalRole } from "./cl_gamestate"
 import { AddPlayerGuiFolderExistsCallback, UIORDER } from "./cl_ui"
-import { GetCoins } from "shared/sh_coins"
+import { GetAllCoins, GetCoins } from "shared/sh_coins"
 import { Tween } from "shared/sh_tween";
 import { GetCurrentRoom } from "./cl_rooms"
 import { GetPosition } from "shared/sh_utils_geometry"
@@ -215,6 +215,7 @@ export function CL_FadeOverlaySetup()
 
       //let coinCount = 0
       let oldGameState = -1
+      let oldGameIndex = -1
 
       RunService.RenderStepped.Connect( function ()      
       {
@@ -254,7 +255,6 @@ export function CL_FadeOverlaySetup()
          const VISUAL_DIST = fadeCircle.AbsoluteSize.X * 0.5
 
          let coins = GetCoins( match )
-
          let search = math.min( 30, coins.size() )
          for ( let i = 0; i < search; i++ )
          {
@@ -290,8 +290,17 @@ export function CL_FadeOverlaySetup()
 
 
          let doRefreshFailsafe = Workspace.DistributedGameTime > refreshFailsafe
-         if ( doRefreshFailsafe )
-            refreshFailsafe = Workspace.DistributedGameTime + 5
+         if ( oldGameIndex !== match.shState.gameIndex )
+         {
+            oldGameIndex = match.shState.gameIndex
+            doRefreshFailsafe = true
+
+            let coins = GetAllCoins()
+            for ( let coin of coins )
+            {
+               coin.Transparency = 1
+            }
+         }
 
          if ( oldGameState !== match.GetGameState() )
          {
@@ -300,7 +309,13 @@ export function CL_FadeOverlaySetup()
          }
 
          if ( doRefreshFailsafe )
+            refreshFailsafe = Workspace.DistributedGameTime + 5
+
+         if ( doRefreshFailsafe )
          {
+            // rehide all coins
+            visibleCoins.clear()
+
             for ( let pair of playerToLabel )
             {
                pair[1].Destroy()

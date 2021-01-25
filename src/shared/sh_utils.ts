@@ -689,3 +689,11 @@ export function Wait( time: number )
       wait( remaining )
    }
 }
+
+export function FilterHasCharacters( players: Array<Player> ): Array<Player>
+{
+   return players.filter( function ( player )
+   {
+      return player.Character !== undefined
+   } )
+}

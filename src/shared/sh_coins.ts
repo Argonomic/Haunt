@@ -32,9 +32,7 @@ class File
 {
    coinTypeToData = new Map<COIN_TYPE, CoinData>()
    coinToCoinType = new Map<Part, COIN_TYPE>()
-   allCoins: Array<Part> = []
    coinSpawnLocations: Array<Vector3> = []
-   spawnFolder: Folder | undefined
    coinBaseFolder: Folder | undefined
    coinCreatedCallbacks: Array<( coin: Part ) => void> = []
    matchToFolder = new Map<string, Folder>()
@@ -97,7 +95,6 @@ export function SH_CoinsSetup()
       function ( child: Instance )
       {
          let gameplayFolder = child as EDITOR_GameplayFolder
-         file.spawnFolder = gameplayFolder.Coins
          let children = gameplayFolder.Coins.GetChildren()
 
          for ( let child of children )
@@ -167,6 +164,22 @@ export function GetCoins( match: Match ): Array<Part>
       return []
    let folder = GetCoinFolder( match )
    return folder.GetChildren() as Array<Part>
+}
+
+export function GetAllCoins(): Array<Part>
+{
+   if ( file.coinBaseFolder === undefined )
+   {
+      print( "no coin base folder" )
+      return []
+   }
+
+   let coins: Array<Part> = []
+   for ( let folder of file.coinBaseFolder.GetChildren() )
+   {
+      coins = coins.concat( folder.GetChildren() as Array<Part> )
+   }
+   return coins
 }
 
 export function GetTotalValueOfWorldCoins( match: Match ): number

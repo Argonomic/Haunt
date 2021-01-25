@@ -1,6 +1,6 @@
 import { GetFirstChildWithNameAndClassName, GetLocalPlayer, Thread } from "shared/sh_utils";
 import { GetLocalMatch } from "./cl_gamestate";
-import { ROLE, NETVAR_JSON_GAMESTATE } from "shared/sh_gamestate";
+import { ROLE, NETVAR_JSON_GAMESTATE, IsSpectatorRole } from "shared/sh_gamestate";
 import { AddPlayerGuiFolderExistsCallback, ToggleButton, UIORDER } from "./cl_ui";
 import { AddNetVarChangedCallback } from "shared/sh_player_netvars";
 import { AddCallback_OnPlayerCharacterAncestryChanged } from "shared/sh_onPlayerConnect";
@@ -21,8 +21,7 @@ type Editor_ReturnToLobbyUI = ScreenGui &
 class File
 {
    returnToLobbyUI: Editor_ReturnToLobbyUI | undefined
-   toggleButton: ToggleButton | undefined
-   displayedReturnToQueue = false
+   //toggleButton: ToggleButton | undefined
 }
 
 let file = new File()
@@ -45,6 +44,7 @@ export function CL_ReturnToLobbySetup()
 
       let frame = ReturnToLobbyUI.Frame
 
+      /*
       let toggleButton = new ToggleButton( frame, 180,
          { 'Position': new UDim2( 1, -25, 0.5, -25 ), 'AnchorPoint': new Vector2( 0, 0.75 ) }, // hidden
          { 'Position': new UDim2( 1, -25, 0.5, -25 ), 'AnchorPoint': new Vector2( 1, 0.75 ) }, // visible
@@ -54,16 +54,27 @@ export function CL_ReturnToLobbySetup()
       toggleButton.button.AnchorPoint = new Vector2( 1, 0 )
       file.toggleButton = toggleButton
       toggleButton.SnapClosed()
+      */
 
       frame.Spectate.MouseButton1Click.Connect( function ()
       {
-         toggleButton.Close()
+         //toggleButton.Close()
+         ReturnToLobbyUI.Enabled = false
       } )
 
       frame.LeaveMatch.MouseButton1Click.Connect( function ()
       {
          SendRPC_Client( "RPC_FromClient_RequestLobby" )
+         ReturnToLobbyUI.Enabled = false
+         /*
          toggleButton.Close()
+         Thread(
+            function ()
+            {
+               wait( 1 )
+               ReturnToLobbyUI.Enabled = false
+            } )
+            */
       } )
 
    } )
@@ -75,52 +86,54 @@ export function CL_ReturnToLobbySetup()
             file.returnToLobbyUI.Parent = undefined
       } )
 
+   let lastRole = ROLE.ROLE_CAMPER
    AddNetVarChangedCallback( NETVAR_JSON_GAMESTATE,
       function ()
       {
+         if ( file.returnToLobbyUI === undefined )
+            return
+         let ui = file.returnToLobbyUI as Editor_ReturnToLobbyUI
+
          Thread(
             function ()
             {
                wait() // after it actually state
 
-               wait( 4 )
                let match = GetLocalMatch()
+               //print( "PLAYER IS SPECTATOR: " + match.IsSpectator( LOCAL_PLAYER ) )
+
+               let newRole = match.GetPlayerRole( LOCAL_PLAYER )
+               switch ( newRole )
+               {
+                  case ROLE.ROLE_SPECTATOR_CAMPER:
+                  case ROLE.ROLE_SPECTATOR_CAMPER_ESCAPED:
+                  case ROLE.ROLE_SPECTATOR_IMPOSTOR:
+                     if ( IsSpectatorRole( lastRole ) )
+                        return
+                     lastRole = newRole
+                     break
+
+                  default:
+                     ui.Enabled = false
+                     lastRole = newRole
+                     return
+               }
+
+               lastRole = newRole
+               wait( 4 )
+
                switch ( match.GetPlayerRole( LOCAL_PLAYER ) )
                {
                   case ROLE.ROLE_SPECTATOR_CAMPER:
                   case ROLE.ROLE_SPECTATOR_CAMPER_ESCAPED:
                   case ROLE.ROLE_SPECTATOR_IMPOSTOR:
-                     DisplayReturnToLobby()
+                     ui.Enabled = true
+                     break
+
+                  default:
+                     ui.Enabled = false
                      return
                }
             } )
-      } )
-}
-
-
-function DisplayReturnToLobby()
-{
-   if ( file.displayedReturnToQueue )
-      return
-   file.displayedReturnToQueue = true // don't make it keep popping out
-
-   Thread(
-      function ()
-      {
-         let toggleButton = file.toggleButton
-         if ( toggleButton === undefined )
-            return
-
-         let ui = file.returnToLobbyUI
-         if ( ui === undefined )
-            return
-
-         wait( 4 )
-
-         ui.Enabled = true
-
-         wait() // doesn't open without
-         if ( !toggleButton.EverClicked() )
-            toggleButton.Open()
       } )
 }

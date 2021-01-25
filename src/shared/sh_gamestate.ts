@@ -1,9 +1,9 @@
-import { HttpService, RunService, Workspace } from "@rbxts/services"
-import { AddNetVar, SetNetVar } from "shared/sh_player_netvars"
+import { Workspace } from "@rbxts/services"
+import { AddNetVar } from "shared/sh_player_netvars"
 import { AddCooldown } from "./sh_cooldown"
-import { PlayerHasClone, SetPlayerWalkSpeed, GetPlayerFromUserID, GetPlayerFromUserIDString } from "./sh_onPlayerConnect"
-import { COOLDOWNTIME_MEETING, COOLDOWNTIME_KILL, MEETING_DISCUSS_TIME, MEETING_VOTE_TIME, PLAYER_WALKSPEED_SPECTATOR, PLAYER_WALKSPEED, SUDDEN_DEATH_TIME, DEV_SKIP_INTRO, RESERVEDSERVER_WAITS_FOR_PLAYERS, INTRO_TIME, SKIP_INTRO_TIME, MEETING_VOTE_RESULTS, FLAG_RESERVED_SERVER, START_COUNTDOWN, MATCHMAKE_PLAYERCOUNT_STARTSERVER } from "./sh_settings"
-import { IsServer, Resume, Thread } from "./sh_utils"
+import { SetPlayerWalkSpeed, GetPlayerFromUserID, GetPlayerFromUserIDString } from "./sh_onPlayerConnect"
+import { COOLDOWNTIME_MEETING, COOLDOWNTIME_KILL, MEETING_DISCUSS_TIME, MEETING_VOTE_TIME, PLAYER_WALKSPEED_SPECTATOR, PLAYER_WALKSPEED, SUDDEN_DEATH_TIME, DEV_SKIP_INTRO, RESERVEDSERVER_WAITS_FOR_PLAYERS, INTRO_TIME, SKIP_INTRO_TIME, MEETING_VOTE_RESULTS, FLAG_RESERVED_SERVER, START_COUNTDOWN } from "./sh_settings"
+import { IsServer, Thread } from "./sh_utils"
 import { Assert } from "shared/sh_assert"
 import { GiveAbility, TakeAbility } from "./sh_ability"
 import { ABILITIES } from "./content/sh_ability_content"
@@ -11,13 +11,11 @@ import { PlayerPickupsDisabled, PlayerPickupsEnabled } from "./sh_pickups"
 import { NETVAR_LAST_STASHED, NETVAR_SCORE, NETVAR_STASH } from "./sh_score"
 import { IsReservedServer } from "./sh_reservedServer"
 import { CreateSharedInt, GetSharedVarInt } from "./sh_sharedVar"
-import { CL_GameStartingSetup } from "client/cl_countdown"
 
 export const NETVAR_JSON_ASSIGNMENTS = "JS_TL"
 export const NETVAR_JSON_GAMESTATE = "JS_GS"
 export const NETVAR_MEETINGS_CALLED = "N_MC"
 
-export const SHARED_COUNTDOWN_TIMER = 'CountdownTimer'
 export type USERID = number
 export type USERIDSTRING = string
 export type MATCHINDEX = number
@@ -183,7 +181,7 @@ export class NS_SharedMatchState
 
    meetingDetails: NS_MeetingDetails | undefined
    startingImpostorCount = 0
-   startingPlayerCount = 0
+   dbg_spc = 0
    highestVotedScore = 0
    realMatch = false
    gameIndex: MATCHINDEX = -999
@@ -366,12 +364,6 @@ export class Match
       return playerInfo.killed
    }
 
-   public SetPlayerKilled( player: Player )
-   {
-      let playerInfo = this.GetPlayerInfo( player )
-      playerInfo.killed = true
-   }
-
    public GetPlayerInfoFromUserID( userId: number ): PlayerInfo | undefined
    {
       for ( let pair of this.shState.playerToInfo )
@@ -446,7 +438,7 @@ export class Match
             break
 
          case GAME_STATE.GAME_STATE_COUNTDOWN:
-            timeRemaining = GetSharedVarInt( SHARED_COUNTDOWN_TIMER )
+            timeRemaining = START_COUNTDOWN
             break
 
          default:
@@ -493,6 +485,7 @@ export class Match
 
    public SetPlayerRole( player: Player, role: ROLE ): PlayerInfo
    {
+      //print( "SetPlayerRole " + player.Name + " " + role + " " + IsSpectatorRole( role ) )
       Assert( IsServer(), "IsServer()" )
       let lastRole = this.GetPlayerRole( player )
       //print( "Set player " + player.UserId + " role to " + role )
@@ -529,17 +522,6 @@ export class Match
       return playerInfo
    }
 
-   public GetAllPlayersWithCharactersCloned(): Array<Player>
-   {
-      let players = this.GetAllPlayers()
-      return players.filter( function ( player )
-      {
-         if ( player.Character === undefined )
-            return false
-
-         return PlayerHasClone( player )
-      } )
-   }
 
    public GetAllPlayers(): Array<Player>
    {
@@ -552,13 +534,9 @@ export class Match
       return players
    }
 
-   public GetAllPlayersWithCharacters(): Array<Player>
+   public GetCampers(): Array<Player>
    {
-      let players = this.GetAllPlayers()
-      return players.filter( function ( player )
-      {
-         return player.Character !== undefined
-      } )
+      return this.GetPlayersOfRole( ROLE.ROLE_CAMPER ).concat( this.GetPlayersOfRole( ROLE.ROLE_SPECTATOR_CAMPER ) )
    }
 
    public GetLivingCampers(): Array<Player>
@@ -566,9 +544,14 @@ export class Match
       return this.GetPlayersOfRole( ROLE.ROLE_CAMPER )
    }
 
-   public GetCampers(): Array<Player>
+   public GetLivingCampersCount(): number
    {
-      return this.GetPlayersOfRole( ROLE.ROLE_CAMPER ).concat( this.GetPlayersOfRole( ROLE.ROLE_SPECTATOR_CAMPER ) )
+      return this.GetLivingCampers().size()
+   }
+
+   public GetLivingImpostorsCount(): number
+   {
+      return this.GetLivingImpostors().size()
    }
 
    public GetLivingImpostors(): Array<Player>
@@ -679,8 +662,6 @@ export function SH_GameStateSetup()
    AddNetVar( "number", NETVAR_SCORE, 0 )
    AddNetVar( "number", NETVAR_STASH, 0 )
    AddNetVar( "number", NETVAR_LAST_STASHED, 0 )
-
-   CreateSharedInt( SHARED_COUNTDOWN_TIMER, START_COUNTDOWN )
 
    AddCooldown( COOLDOWN_NAME_KILL, COOLDOWNTIME_KILL )
    AddCooldown( COOLDOWN_NAME_MEETING, COOLDOWNTIME_MEETING )

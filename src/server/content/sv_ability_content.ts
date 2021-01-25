@@ -1,4 +1,4 @@
-import { GiveAssignment, PlayerToMatch, ServerPlayeyHasAssignment } from "server/sv_gameState";
+import { GetAllPlayersInMatch, GiveAssignment, PlayerToMatch, ServerPlayeyHasAssignment } from "server/sv_gameState";
 import { ABILITIES } from "shared/content/sh_ability_content";
 import { SetAbilityCanUseFunc, SetAbilityServerFunc } from "shared/sh_ability";
 import { TASK_RESTORE_LIGHTS, Assignment } from "shared/sh_gamestate";
@@ -16,7 +16,7 @@ export function SV_AbilityContentSetup()
 
          let match = PlayerToMatch( player )
          ResetFuses( match )
-         let players = match.GetAllPlayers()
+         let players = GetAllPlayersInMatch( match )
          for ( let aplayer of players )
          {
             if ( match.IsSpectator( aplayer ) )

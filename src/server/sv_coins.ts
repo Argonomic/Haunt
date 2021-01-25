@@ -2,9 +2,8 @@ import { GetCoinSpawnLocations, GetCoinType, CreateCoin, COIN_TYPE, GetCoinDataF
 import { Match, PICKUPS } from "shared/sh_gamestate"
 import { CreatePickupType } from "shared/sh_pickups"
 import { GetMatchScore } from "shared/sh_score"
-import { ArrayRandomize, RandomFloatRange, RandomInt, Thread, VectorNormalize, Wait } from "shared/sh_utils"
+import { ArrayRandomize, RandomFloatRange, RandomInt, VectorNormalize } from "shared/sh_utils"
 import { COL_GROUP_GEO_ONLY, SetCollisionGroup } from "./sv_collisionGroups"
-import { SV_SendRPC } from "shared/sh_rpc"
 import { RunService } from "@rbxts/services"
 import { ClearMatchScore, IncrementMatchScore } from "./sv_score"
 import { GetPosition } from "shared/sh_utils_geometry"
@@ -16,18 +15,6 @@ const PUSH_Z = 40
 
 export function SV_CoinsSetup()
 {
-   let pickupType = CreatePickupType( PICKUPS.PICKUP_COIN )
-   pickupType.didPickupFunc =
-      function ( player: Player, pickup: Part ): boolean
-      {
-         let coinType = GetCoinType( pickup )
-         SV_SendRPC( "RPC_FromServer_PickupCoin", player, pickup.Position, coinType )
-         let coinData = GetCoinDataFromType( coinType )
-         IncrementMatchScore( player, coinData.value )
-         DeleteCoin( pickup )
-         return true
-      }
-
 
    /*
       if ( LOCAL && false )

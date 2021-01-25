@@ -1,8 +1,7 @@
 import { GetHumanoid, IsAlive, KillPlayer } from "shared/sh_utils"
 import { GAME_STATE, ROLE, NS_Corpse, USETYPES, COOLDOWN_NAME_KILL, MEETING_TYPE, NETVAR_MEETINGS_CALLED, UsableGameState } from "shared/sh_gamestate"
 import { GetUsableByType, USABLETYPES } from "shared/sh_use"
-import { SetGameState, UpdateGame, PlayerHasUnfinishedAssignment, ClearAssignments, PlayerHasAssignments, PlayerToMatch } from "server/sv_gameState"
-import { SV_SendRPC } from "shared/sh_rpc"
+import { SetGameState, UpdateGame, PlayerHasUnfinishedAssignment, ClearAssignments, PlayerHasAssignments, PlayerToMatch, SV_SendRPC, SetPlayerKilled } from "server/sv_gameState"
 import { GetCurrentRoom } from "server/sv_rooms"
 import { ResetCooldownTime } from "shared/sh_cooldown"
 import { SetPlayerWalkSpeed } from "shared/sh_onPlayerConnect"
@@ -77,6 +76,8 @@ export function SV_UseContentSetup()
          {
             if ( !IsAlive( camper ) )
                continue
+            if ( PlayerToMatch( camper ) !== match )
+               continue
 
             let human = GetHumanoid( camper )
             if ( human !== undefined )
@@ -96,13 +97,8 @@ export function SV_UseContentSetup()
 
          match.shState.corpses.push( new NS_Corpse( camper, GetPosition( camper ) ) )
          SetPlayerSpawnLocation( camper, GetPosition( camper ) )
-         PlayerDropsCoinsWithTrajectory( match, camper, GetPosition( player ) )
-         match.SetPlayerRole( camper, ROLE.ROLE_SPECTATOR_CAMPER )
-         match.SetPlayerKilled( camper )
+         SetPlayerKilled( match, camper, player )
          KillPlayer( camper )
-         SV_SendRPC( "RPC_FromServer_CancelTask", player )
-
-         ClearAssignments( match, camper )
 
          UpdateGame( match )
          ResetCooldownTime( player, COOLDOWN_NAME_KILL )
@@ -148,7 +144,7 @@ export function SV_UseContentSetup()
                continue
 
             SetPlayerWalkSpeed( player, 0 )
-            SV_SendRPC( "RPC_FromServer_OnPlayerUseTask", player, room.name, pair[0] )
+            SV_SendRPC( "RPC_FromServer_OnPlayerUseTask", match, player, room.name, pair[0] )
             break
          }
       }

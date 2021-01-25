@@ -378,7 +378,7 @@ function CLGameStateChanged( match: Match, oldGameState: number, newGameState: n
                impostorsRemaining--
          }
 
-         print( "\N STARTING PLAYER COUNT " + match.shState.startingPlayerCount )
+         print( "\N STARTING PLAYER COUNT " + match.shState.dbg_spc )
          print( "Impostors remaining " + impostorsRemaining )
          print( "Players remaining: " + match.GetAllPlayers().size() )
          for ( let player of match.GetAllPlayers() )
