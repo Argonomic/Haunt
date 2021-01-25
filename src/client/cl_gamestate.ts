@@ -41,7 +41,10 @@ class File
 }
 
 let file = new File()
-file.clientMatch.AddPlayer( LOCAL_PLAYER )
+{
+   let playerInfo = new PlayerInfo( LOCAL_PLAYER.UserId )
+   file.clientMatch.shState.playerToInfo.set( LOCAL_PLAYER.UserId + "", playerInfo )
+}
 
 export function GetLocalMatch(): Match
 {
@@ -375,6 +378,14 @@ function CLGameStateChanged( match: Match, oldGameState: number, newGameState: n
                impostorsRemaining--
          }
 
+         print( "\N STARTING PLAYER COUNT " + match.shState.startingPlayerCount )
+         print( "Impostors remaining " + impostorsRemaining )
+         print( "Players remaining: " + match.GetAllPlayers().size() )
+         for ( let player of match.GetAllPlayers() )
+         {
+            print( player.Name + " role " + match.GetPlayerRole( player ) )
+         }
+
          Thread( function ()
          {
             DrawMatchScreen_VoteResults(
@@ -537,6 +548,7 @@ function CLGameStateChanged( match: Match, oldGameState: number, newGameState: n
          }
 
          let role = match.GetPlayerRole( LOCAL_PLAYER )
+         let localWasInGame = role !== ROLE.ROLE_SPECTATOR_LATE_JOINER
          switch ( gameResults )
          {
             case GAMERESULTS.RESULTS_CAMPERS_WIN:
@@ -544,7 +556,7 @@ function CLGameStateChanged( match: Match, oldGameState: number, newGameState: n
                {
                   let impostorsWin = false
                   let myWinningTeam = IsCamperRole( role ) || role === ROLE.ROLE_SPECTATOR_CAMPER_ESCAPED
-                  DrawMatchScreen_Victory( playerInfos, impostorsWin, myWinningTeam, mySurvived, score )
+                  DrawMatchScreen_Victory( playerInfos, impostorsWin, myWinningTeam, mySurvived, score, localWasInGame )
                } )
                break
 
@@ -553,7 +565,7 @@ function CLGameStateChanged( match: Match, oldGameState: number, newGameState: n
                {
                   let impostorsWin = true
                   let myWinningTeam = IsImpostorRole( role ) || role === ROLE.ROLE_SPECTATOR_CAMPER_ESCAPED
-                  DrawMatchScreen_Victory( playerInfos, impostorsWin, myWinningTeam, mySurvived, score )
+                  DrawMatchScreen_Victory( playerInfos, impostorsWin, myWinningTeam, mySurvived, score, localWasInGame )
                } )
                break
          }

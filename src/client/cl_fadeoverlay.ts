@@ -36,6 +36,9 @@ export function CL_FadeOverlaySetup()
 {
    AddCallback_OnPlayerCharacterAdded( function ( player: Player )
    {
+      if ( player !== LOCAL_PLAYER )
+         SetPlayerTransparency( player, 1 )
+
       // cleanup past instances of this player
       for ( let pair of file.characterToPlayer )
       {
@@ -212,6 +215,7 @@ export function CL_FadeOverlaySetup()
 
       //let coinCount = 0
       let oldGameState = -1
+
       RunService.RenderStepped.Connect( function ()      
       {
          let match = GetLocalMatch()
@@ -249,8 +253,7 @@ export function CL_FadeOverlaySetup()
          fadeCircle.Size = new UDim2( 0, dist, 0, dist )
          const VISUAL_DIST = fadeCircle.AbsoluteSize.X * 0.5
 
-
-         let coins = GetCoins()
+         let coins = GetCoins( match )
 
          let search = math.min( 30, coins.size() )
          for ( let i = 0; i < search; i++ )

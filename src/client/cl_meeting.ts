@@ -9,6 +9,7 @@ import { AddPlayerGuiFolderExistsCallback, UIORDER } from "./cl_ui";
 import { SendRPC_Client } from "shared/sh_rpc";
 
 const LOCAL_PLAYER = GetLocalPlayer()
+const MAX_VOTE_SLOTS = 10
 
 class File
 {
@@ -254,6 +255,7 @@ class ButtonGroup
 
 export function CL_MeetingSetup()
 {
+   Assert( MATCHMAKE_PLAYERCOUNT_STARTSERVER <= MAX_VOTE_SLOTS )
    AddPlayerGuiFolderExistsCallback(
       function ( folder: Folder )
       {
@@ -414,7 +416,7 @@ class ActiveMeeting
          this.playerButtonGroups[i].frameButton.ZIndex = zIndex
       }
 
-      let last = MATCHMAKE_PLAYERCOUNT_STARTSERVER - 1
+      let last = MAX_VOTE_SLOTS - 1
       let first = 0
 
       for ( let i = 0; i < this.playerButtonGroups.size(); i++ )

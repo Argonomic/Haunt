@@ -18,6 +18,10 @@ export function Assert( bool: boolean, msg?: string )
    if ( msg === undefined )
       msg = ""
 
+   if ( file.asserted ) // first assert is only one that matters
+      return
+   file.asserted = true
+
    let stack = debug.traceback()
    let output = ""
    output += "\n\n\n"
@@ -26,10 +30,6 @@ export function Assert( bool: boolean, msg?: string )
    output += "\n\n\n"
 
    print( output )
-
-   if ( file.asserted ) // first assert is only one that matters
-      return
-   file.asserted = true
 
    //ReportEvent( "ScriptError", stack )
    if ( IsServer() )

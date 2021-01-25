@@ -11,6 +11,7 @@ import { PlayerPickupsDisabled, PlayerPickupsEnabled } from "./sh_pickups"
 import { NETVAR_LAST_STASHED, NETVAR_SCORE, NETVAR_STASH } from "./sh_score"
 import { IsReservedServer } from "./sh_reservedServer"
 import { CreateSharedInt, GetSharedVarInt } from "./sh_sharedVar"
+import { CL_GameStartingSetup } from "client/cl_countdown"
 
 export const NETVAR_JSON_ASSIGNMENTS = "JS_TL"
 export const NETVAR_JSON_GAMESTATE = "JS_GS"
@@ -19,6 +20,7 @@ export const NETVAR_MEETINGS_CALLED = "N_MC"
 export const SHARED_COUNTDOWN_TIMER = 'CountdownTimer'
 export type USERID = number
 export type USERIDSTRING = string
+export type MATCHINDEX = number
 
 export enum PICKUPS
 {
@@ -98,6 +100,7 @@ class File
 {
    onRoleChangeCallback: Array<( ( player: Player, match: Match ) => void )> = []
    gameCreatedCallbacks: Array<( ( match: Match ) => void )> = []
+   gameIndex: MATCHINDEX = -1
 }
 let file = new File()
 
@@ -180,8 +183,10 @@ export class NS_SharedMatchState
 
    meetingDetails: NS_MeetingDetails | undefined
    startingImpostorCount = 0
+   startingPlayerCount = 0
    highestVotedScore = 0
    realMatch = false
+   gameIndex: MATCHINDEX = -999
 
    _gameStateChangedTime = 0
    corpses: Array<NS_Corpse> = []
@@ -200,7 +205,11 @@ export class Match
 {
    constructor()
    {
+      file.gameIndex++
+
       let match = this
+      match.shState.gameIndex = file.gameIndex
+
       if ( FLAG_RESERVED_SERVER )
       {
          if ( IsServer() )
@@ -371,13 +380,6 @@ export class Match
             return pair[1]
       }
       return undefined
-   }
-
-   public RemovePlayer( player: Player )
-   {
-      print( "RemovePlayer " + player.Name )
-      Assert( this.shState.playerToInfo.has( player.UserId + "" ), "Player is not in match" )
-      this.shState.playerToInfo.delete( player.UserId + "" )
    }
 
    //////////////////////////////////////////////////////
@@ -596,22 +598,6 @@ export class Match
          }
       }
       return players
-   }
-
-   public AddPlayer( player: Player ): PlayerInfo
-   {
-      //Assert( IsServer(), "IsServer()" )
-      Assert( this.GetAllPlayers().size() < MATCHMAKE_PLAYERCOUNT_STARTSERVER, "Too many players" )
-      print( "AddPlayer " + player.Name )
-      Assert( !this.shState.playerToInfo.has( player.UserId + "" ), "Match already has " + player.Name )
-      let playerInfo = new PlayerInfo( player.UserId )
-      this.shState.playerToInfo.set( player.UserId + "", playerInfo )
-
-      let character = player.Character
-      if ( character !== undefined )
-         this.Shared_OnGameStateChanged_PerPlayer( player, this )
-
-      return playerInfo
    }
 
    public IsSpectator( player: Player ): boolean
@@ -851,7 +837,7 @@ export function IsCamperRole( role: ROLE ): boolean
 }
 
 
-export function AddGameCreatedCallback( func: ( match: Match ) => void )
+export function AddMatchCreatedCallback( func: ( match: Match ) => void )
 {
    file.gameCreatedCallbacks.push( func )
 }

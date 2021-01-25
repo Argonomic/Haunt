@@ -13,9 +13,9 @@ export function SV_AbilityContentSetup()
       function ( player: Player )
       {
          print( "ABILITY_SABOTAGE_LIGHTS" )
-         ResetFuses()
 
          let match = PlayerToMatch( player )
+         ResetFuses( match )
          let players = match.GetAllPlayers()
          for ( let aplayer of players )
          {

@@ -96,7 +96,7 @@ export function SV_UseContentSetup()
 
          match.shState.corpses.push( new NS_Corpse( camper, GetPosition( camper ) ) )
          SetPlayerSpawnLocation( camper, GetPosition( camper ) )
-         PlayerDropsCoinsWithTrajectory( camper, GetPosition( player ) )
+         PlayerDropsCoinsWithTrajectory( match, camper, GetPosition( player ) )
          match.SetPlayerRole( camper, ROLE.ROLE_SPECTATOR_CAMPER )
          match.SetPlayerKilled( camper )
          KillPlayer( camper )

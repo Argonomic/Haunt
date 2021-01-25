@@ -663,7 +663,7 @@ export function DrawMatchScreen_EmergencyMeeting( meetingType: MEETING_TYPE, cal
    Tween( baseFrame, { Transparency: 1 }, 1.0 )
 }
 
-export function DrawMatchScreen_Victory( playerInfos: Array<PlayerInfo>, impostorsWin: boolean, myWinningTeam: boolean, mySurvived: boolean, myWinnings: number )
+export function DrawMatchScreen_Victory( playerInfos: Array<PlayerInfo>, impostorsWin: boolean, myWinningTeam: boolean, mySurvived: boolean, myWinnings: number, localWasInGame: boolean )
 {
    print( "DrawMatchScreen_Victory playerInfos:" + playerInfos.size() + " impostorsWin:" + impostorsWin + " myWinningTeam:" + myWinningTeam + " mySurvived:" + mySurvived + " myWinnings:" + myWinnings )
 
@@ -687,10 +687,17 @@ export function DrawMatchScreen_Victory( playerInfos: Array<PlayerInfo>, imposto
    else
       title.Text = "Defeat"
 
-   if ( mySurvived )
-      subTitle.Text = "You survived"
+   if ( localWasInGame )
+   {
+      if ( mySurvived )
+         subTitle.Text = "You survived"
+      else
+         subTitle.Text = "You did not survive"
+   }
    else
-      subTitle.Text = "You did not survive"
+   {
+      subTitle.Text = ""
+   }
 
    lowerTitle.Text = myWinnings + " Coins added to your stash"
 

@@ -3,7 +3,7 @@ import { Assert } from "./sh_assert"
 import { AddCallback_OnPlayerCharacterAdded, AddCallback_OnPlayerConnected } from "./sh_onPlayerConnect"
 import { Workspace } from "@rbxts/services"
 import { Tween } from "./sh_tween"
-import { ArrayDistSorted, Distance, GetPosition } from "./sh_utils_geometry"
+import { ArrayDistSorted, GetPosition } from "./sh_utils_geometry"
 
 type PICKUPS = number
 const PICKUP_DIST = 6
@@ -14,8 +14,10 @@ class File
    pickupTypesByIndex = new Map<PICKUPS, PickupType>()
    partToType = new Map<Part, PICKUPS>()
 
-   //playersCanPickup = true
    playerPickupEnabled = new Map<Player, boolean>()
+
+   filterPlayerPickupsCallbacks = new Map<Player, Map<unknown, ( part: Part ) => boolean>>()
+   filterPickupIndex = 0
 
    doneCreatingPickupTypes = false
 }
@@ -32,11 +34,33 @@ class PickupType
    }
 }
 
+export function AddFilterPlayerPickupsCallback( filterIndex: unknown, player: Player, func: ( part: Part ) => boolean )
+{
+   let callbacks = file.filterPlayerPickupsCallbacks.get( player )
+   if ( callbacks === undefined )
+   {
+      Assert( false, "No file.filterPlayerPickupsCallbacks for " + player.Name )
+      throw undefined
+   }
+   callbacks.set( filterIndex, func )
+}
+
+export function DeleteFilterPlayerPickupsCallback( filterIndex: unknown )
+{
+   for ( let pair of file.filterPlayerPickupsCallbacks )
+   {
+      if ( pair[1].has( filterIndex ) )
+         pair[1].delete( filterIndex )
+   }
+}
+
 export function SH_PickupsSetup()
 {
    AddCallback_OnPlayerConnected(
       function ( player: Player )
       {
+         let callbacks = new Map<unknown, ( part: Part ) => boolean>()
+         file.filterPlayerPickupsCallbacks.set( player, callbacks )
          PlayerPickupsEnabled( player )
       } )
 
@@ -86,19 +110,10 @@ export function CreatePickupType( index: PICKUPS ): PickupType
    return pickupType
 }
 
-/*
-export function SetplayerPickedUpFunc( func: ( player: Player, part: Part, index: PICKUPS ) => boolean )
-{
-   file.playerPickedUpFunc = func
-}
-*/
-
 function PlayerCanPickup( player: Player ): boolean
 {
    if ( !file.playerPickupEnabled.has( player ) )
       return false
-   //   if ( !file.playersCanPickup )
-   //      return false
    if ( player.Character === undefined ) // disconnected?
       return false
    return true
@@ -127,13 +142,27 @@ function PlayerTriesToPickup_Ammortized( player: Player )
       pickups = pickups.concat( pair[1] )
    }
    //print( "Count " + pickups.size() )
+   let callbacks = file.filterPlayerPickupsCallbacks.get( player )
+   if ( callbacks === undefined )
+   {
+      Assert( false, "No callbacks for " + player.Name )
+      throw undefined
+   }
+
+   for ( let pair of callbacks )
+   {
+      pickups = pickups.filter( function ( pickup )
+      {
+         return pair[1]( pickup )
+      } )
+   }
 
    pickups = ArrayDistSorted( GetPosition( player ), pickups, 75 ) as Array<Part>
 
    let searchTime = Workspace.DistributedGameTime + 2
    for ( ; ; )
    {
-      TryToPickup( player, pickups.concat( [] ) )
+      _TryToPickup( player, pickups.concat( [] ) )
       if ( Workspace.DistributedGameTime >= searchTime )
          return
 
@@ -143,7 +172,7 @@ function PlayerTriesToPickup_Ammortized( player: Player )
    }
 }
 
-function TryToPickup( player: Player, withinDist: Array<Part> )
+function _TryToPickup( player: Player, withinDist: Array<Part> )
 {
    withinDist = ArrayDistSorted( GetPosition( player ), withinDist, PICKUP_DIST ) as Array<Part>
 

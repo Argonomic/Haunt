@@ -1,10 +1,12 @@
 import { Workspace } from "@rbxts/services"
 import { Assert } from "./sh_assert"
-import { EDITOR_GameplayFolder, PICKUPS } from "./sh_gamestate"
+import { AddMatchCreatedCallback, EDITOR_GameplayFolder, Match, PICKUPS } from "./sh_gamestate"
 import { GetPosition } from "./sh_utils_geometry"
 import { MakePartIntoPickup } from "./sh_pickups"
 import { COIN_VALUE_GEM, COIN_VALUE_GOLD, COIN_VALUE_SILVER } from "./sh_settings"
 import { ExecOnChildWhenItExists, Thread, IsServer } from "./sh_utils"
+
+const RUNTIME_COINS = "Runtime Coins"
 
 export enum COIN_TYPE
 {
@@ -33,8 +35,9 @@ class File
    allCoins: Array<Part> = []
    coinSpawnLocations: Array<Vector3> = []
    spawnFolder: Folder | undefined
-   runtimeCoinsFolder: Folder | undefined
+   coinBaseFolder: Folder | undefined
    coinCreatedCallbacks: Array<( coin: Part ) => void> = []
+   matchToFolder = new Map<string, Folder>()
 }
 let file = new File()
 
@@ -44,20 +47,28 @@ export function SH_CoinsSetup()
    CreateCoinType( COIN_TYPE.TYPE_GOLD, COIN_VALUE_GOLD, 1.25, new Color3( 1, 1, 0 ) )
    CreateCoinType( COIN_TYPE.TYPE_GEM, COIN_VALUE_GEM, 1.0, new Color3( 256 / 170, 0, 256 / 170 ) )
 
-   const RUNTIME_COINS = "Runtime Coins"
    if ( IsServer() )
    {
       let folder = new Instance( 'Folder' )
       folder.Parent = Workspace
       folder.Name = RUNTIME_COINS
-      file.runtimeCoinsFolder = folder
+      SetCoinBaseRootFolder( folder )
+
+      AddMatchCreatedCallback(
+         function ( match: Match )
+         {
+            let folder = new Instance( 'Folder' )
+            Assert( file.coinBaseFolder !== undefined )
+            folder.Name = RUNTIME_COINS + match.shState.gameIndex
+            folder.Parent = file.coinBaseFolder as Folder
+         } )
    }
    else
    {
       ExecOnChildWhenItExists( Workspace, RUNTIME_COINS,
          function ( folder: Folder )
          {
-            file.runtimeCoinsFolder = folder
+            SetCoinBaseRootFolder( folder )
          } )
    }
 
@@ -97,6 +108,18 @@ export function SH_CoinsSetup()
       } )
 }
 
+export function GetCoinFolder( match: Match ): Folder
+{
+   let folder = file.matchToFolder.get( RUNTIME_COINS + match.shState.gameIndex )
+   if ( folder === undefined )
+   {
+      Assert( false, "No coin folder " + ( RUNTIME_COINS + match.shState.gameIndex ) )
+      throw undefined
+   }
+   return folder
+}
+
+
 export function CreateCoinModel( coinData: CoinData, coinModel: Part ): Part
 {
    let model = coinModel.Clone()
@@ -108,15 +131,8 @@ export function CreateCoinModel( coinData: CoinData, coinModel: Part ): Part
    return model
 }
 
-export function CreateCoin( location: Vector3, coinData: CoinData ): Part
+export function CreateCoin( folder: Folder, location: Vector3, coinData: CoinData ): Part
 {
-   let folder = file.runtimeCoinsFolder
-   if ( folder === undefined )
-   {
-      Assert( false, "CreateCoin" )
-      throw undefined
-   }
-
    let coinModel = coinData.model
    if ( coinModel === undefined )
    {
@@ -129,7 +145,6 @@ export function CreateCoin( location: Vector3, coinData: CoinData ): Part
    model.Parent = folder
 
    file.coinToCoinType.set( model, coinData.coinType )
-   //print( "coins: " + file.allCoins.size() )
    for ( let func of file.coinCreatedCallbacks )
    {
       func( model )
@@ -146,24 +161,26 @@ export function CreateCoin( location: Vector3, coinData: CoinData ): Part
    return model
 }
 
-export function GetCoins(): Array<Part>
+export function GetCoins( match: Match ): Array<Part>
 {
-   if ( file.runtimeCoinsFolder === undefined )
-   {
-      Assert( false, "file.folder === undefined" )
-      throw undefined
-   }
-
-   return file.runtimeCoinsFolder.GetChildren() as Array<Part>
+   if ( !file.matchToFolder.has( RUNTIME_COINS + match.shState.gameIndex ) )
+      return []
+   let folder = GetCoinFolder( match )
+   return folder.GetChildren() as Array<Part>
 }
 
-export function GetTotalValueOfWorldCoins(): number
+export function GetTotalValueOfWorldCoins( match: Match ): number
 {
+   let folder = GetCoinFolder( match )
+
    let total = 0
    for ( let pair of file.coinToCoinType )
    {
-      let coinData = file.coinTypeToData.get( pair[1] ) as CoinData
-      total += coinData.value
+      if ( pair[0].Parent === folder )
+      {
+         let coinData = file.coinTypeToData.get( pair[1] ) as CoinData
+         total += coinData.value
+      }
    }
 
    return total
@@ -261,3 +278,32 @@ export function GetCoinBreakdownForScore( score: number ): Map<COIN_TYPE, number
    mapping.set( silver.coinType, score )
    return mapping
 }
+
+function SetCoinBaseRootFolder( folder: Folder )
+{
+   file.coinBaseFolder = folder
+
+   function AddChild( _child: Instance )
+   {
+      let child = _child as Folder
+      file.matchToFolder.set( child.Name, child )
+   }
+
+   for ( let child of folder.GetChildren() )
+   {
+      AddChild( child )
+   }
+
+   folder.ChildAdded.Connect( AddChild )
+}
+
+export function DestroyCoinFolder( match: Match )
+{
+   let folder = GetCoinFolder( match )
+   for ( let child of folder.GetChildren() )
+   {
+      child.Destroy()
+   }
+   folder.Destroy()
+}
+

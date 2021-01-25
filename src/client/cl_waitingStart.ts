@@ -140,7 +140,7 @@ function UpdateWaitingStartUI()
          break
 
       case GAME_STATE.GAME_STATE_WAITING_FOR_PLAYERS:
-         let players = Players.GetPlayers()
+         let players = match.GetAllPlayersWithCharacters()
          let count = MATCHMAKE_PLAYERCOUNT_STARTSERVER - players.size()
          let text
          if ( count < 1 )

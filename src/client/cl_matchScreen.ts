@@ -123,7 +123,7 @@ export function WaitForMatchScreenFrame( str: string ): MatchScreenFrame
          let firstThread = file.threadQueue[0]
          if ( firstThread === thisThread )
             break
-         print( "waiting for thread release: " + file.threadQueue.size() )
+         //print( "waiting for thread release: " + file.threadQueue.size() )
       }
 
       wait()

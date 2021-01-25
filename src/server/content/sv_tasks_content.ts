@@ -1,12 +1,13 @@
-import { HttpService, Players } from "@rbxts/services";
-import { PlayerHasAssignments, PlayerToMatch, RemoveAssignment } from "server/sv_gameState";
+import { HttpService } from "@rbxts/services";
+import { AddMatchDestroyedCallback, PlayerHasAssignments, PlayerToMatch, RemoveAssignment } from "server/sv_gameState";
 import { SV_SendRPC } from "shared/sh_rpc"
 import { ABILITIES, COOLDOWN_SABOTAGE_LIGHTS } from "shared/content/sh_ability_content";
 import { HasAbility } from "shared/sh_ability";
 import { ResetCooldownTime } from "shared/sh_cooldown";
-import { TASK_RESTORE_LIGHTS } from "shared/sh_gamestate";
+import { AddMatchCreatedCallback, Match, TASK_RESTORE_LIGHTS } from "shared/sh_gamestate";
 import { AddRPC } from "shared/sh_rpc";
 import { ArrayRandomize, RandomInt } from "shared/sh_utils";
+import { Assert } from "shared/sh_assert";
 
 class Fuses
 {
@@ -15,25 +16,45 @@ class Fuses
 
 class File
 {
-   fuses = new Fuses()
+   matchToFuses = new Map<Match, Fuses>()
 }
 let file = new File()
 
+function GetFuses( match: Match ): Fuses
+{
+   let fuses = file.matchToFuses.get( match )
+   if ( fuses === undefined )
+   {
+      Assert( false, "No fuses for match " + match )
+      throw undefined
+   }
+   return fuses
+}
 
 export function SV_TasksContentSetup()
 {
+   AddMatchCreatedCallback( function ( match: Match )
+   {
+      file.matchToFuses.set( match, new Fuses() )
+   } )
+
+   AddMatchDestroyedCallback( function ( match: Match )
+   {
+      file.matchToFuses.delete( match )
+   } )
+
    AddRPC( "RPC_FromClient_RestoreLighting_Fuse", function ( player: Player, fuse: number, status: boolean )
    {
       let match = PlayerToMatch( player )
       if ( match.IsSpectator( player ) )
          return
 
-      let fuses = file.fuses
+      let fuses = GetFuses( match )
 
       if ( fuse < 0 || fuse >= fuses.fuses.size() )
          return
       fuses.fuses[fuse] = status
-      SendFusePositionsToClients()
+      SendFusePositionsToClients( match )
 
       for ( let fuse of fuses.fuses )
       {
@@ -52,20 +73,20 @@ export function SV_TasksContentSetup()
    } )
 }
 
-function SendFusePositionsToClients()
+function SendFusePositionsToClients( match: Match )
 {
-   let fuses = file.fuses
+   let fuses = GetFuses( match )
    let fuseArrayJson = HttpService.JSONEncode( fuses.fuses )
-   for ( let player of Players.GetPlayers() )
+   for ( let player of match.GetAllPlayers() )
    {
       SV_SendRPC( "RPC_FromServer_RestoreLighting_Fuse", player, fuseArrayJson )
    }
 }
 
 
-export function ResetFuses()
+export function ResetFuses( match: Match )
 {
-   let fuses = file.fuses
+   let fuses = GetFuses( match )
 
    let positions: Array<number> = []
    for ( let i = 0; i < fuses.fuses.size(); i++ )
@@ -85,5 +106,5 @@ export function ResetFuses()
       let fuse = positions[i]
       fuses.fuses[fuse] = true
    }
-   SendFusePositionsToClients()
+   SendFusePositionsToClients( match )
 }

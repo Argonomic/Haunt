@@ -1,5 +1,5 @@
-import { GetCoinSpawnLocations, GetCoinType, CreateCoin, COIN_TYPE, GetCoinDataFromType, CoinData, GetCoinBreakdownForScore, DeleteCoin } from "shared/sh_coins"
-import { PICKUPS } from "shared/sh_gamestate"
+import { GetCoinSpawnLocations, GetCoinType, CreateCoin, COIN_TYPE, GetCoinDataFromType, CoinData, GetCoinBreakdownForScore, DeleteCoin, GetCoinFolder } from "shared/sh_coins"
+import { Match, PICKUPS } from "shared/sh_gamestate"
 import { CreatePickupType } from "shared/sh_pickups"
 import { GetMatchScore } from "shared/sh_score"
 import { ArrayRandomize, RandomFloatRange, RandomInt, Thread, VectorNormalize, Wait } from "shared/sh_utils"
@@ -28,23 +28,29 @@ export function SV_CoinsSetup()
          return true
       }
 
-   if ( LOCAL && false )
-   {
-      Thread(
-         function ()
-         {
-            for ( ; ; )
+
+   /*
+      if ( LOCAL && false )
+      {
+         Thread(
+            function ()
             {
-               Wait( 2 )
-               let vec = new Vector3( 58, 3, 50 )
-               CreateCoinExplosion( 33, vec, vec )
-            }
-         } )
-   }
+               for ( ; ; )
+               {
+                  Wait( 2 )
+                  let vec = new Vector3( 58, 3, 50 )
+                  CreateCoinExplosion( 33, vec, vec )
+               }
+            } )
+      }
+      */
+
 }
 
-export function SpawnRandomCoins( count: number ): Array<Part>
+export function SpawnRandomCoins( match: Match, count: number ): Array<Part>
 {
+   let folder = GetCoinFolder( match )
+
    let locations = GetCoinSpawnLocations()
    ArrayRandomize( locations )
    let fraction = math.floor( locations.size() * 0.40 )
@@ -99,7 +105,7 @@ export function SpawnRandomCoins( count: number ): Array<Part>
          else
             coinData = silver
 
-         let coin = _CreateCoin( location, coinData )
+         let coin = _CreateCoin( folder, location, coinData )
          coins.push( coin )
          curCount++
 
@@ -113,15 +119,15 @@ export function SpawnRandomCoins( count: number ): Array<Part>
 
 const PUSH = 25
 
-export function PlayerDropsCoinsWithTrajectory( player: Player, trajectoryPos: Vector3 )
+export function PlayerDropsCoinsWithTrajectory( match: Match, player: Player, trajectoryPos: Vector3 )
 {
    let playerPos = GetPosition( player )
    let score = GetMatchScore( player )
    ClearMatchScore( player )
-   CreateCoinExplosion( score, playerPos, trajectoryPos )
+   CreateCoinExplosion( match, score, playerPos, trajectoryPos )
 }
 
-export function CreateCoinExplosion( score: number, playerPos: Vector3, offsetPos: Vector3 ): Array<Part>
+export function CreateCoinExplosion( match: Match, score: number, playerPos: Vector3, offsetPos: Vector3 ): Array<Part>
 {
    let coins: Array<Part> = []
    let vec = playerPos.sub( offsetPos )
@@ -133,6 +139,8 @@ export function CreateCoinExplosion( score: number, playerPos: Vector3, offsetPo
 
    let breakdown = GetCoinBreakdownForScore( score )
 
+   let folder = GetCoinFolder( match )
+
    for ( let pair of breakdown )
    {
       let coinData = GetCoinDataFromType( pair[0] )
@@ -141,7 +149,7 @@ export function CreateCoinExplosion( score: number, playerPos: Vector3, offsetPo
          let vec2 = vec.add( new Vector3( RandomFloatRange( -15, 15 ), 0, RandomFloatRange( -15, 15 ) ) )
          vec2 = vec2.mul( RandomFloatRange( 1, 2 ) )
 
-         let coin = _CreateCoin( playerPos, coinData )
+         let coin = _CreateCoin( folder, playerPos, coinData )
          coin.Velocity = vec2
          coins.push( coin )
       }
@@ -149,9 +157,9 @@ export function CreateCoinExplosion( score: number, playerPos: Vector3, offsetPo
    return coins
 }
 
-function _CreateCoin( location: Vector3, coinData: CoinData ): Part
+function _CreateCoin( folder: Folder, location: Vector3, coinData: CoinData ): Part
 {
-   let coin = CreateCoin( location, coinData )
+   let coin = CreateCoin( folder, location, coinData )
    SetCollisionGroup( coin, COL_GROUP_GEO_ONLY )
    return coin
 }

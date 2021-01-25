@@ -75,29 +75,26 @@ export function CL_ReturnToLobbySetup()
             file.returnToLobbyUI.Parent = undefined
       } )
 
-   if ( FLAG_RESERVED_SERVER )
-   {
-      AddNetVarChangedCallback( NETVAR_JSON_GAMESTATE,
-         function ()
-         {
-            Thread(
-               function ()
-               {
-                  wait() // after it actually state
+   AddNetVarChangedCallback( NETVAR_JSON_GAMESTATE,
+      function ()
+      {
+         Thread(
+            function ()
+            {
+               wait() // after it actually state
 
-                  wait( 4 )
-                  let match = GetLocalMatch()
-                  switch ( match.GetPlayerRole( LOCAL_PLAYER ) )
-                  {
-                     case ROLE.ROLE_SPECTATOR_CAMPER:
-                     case ROLE.ROLE_SPECTATOR_CAMPER_ESCAPED:
-                     case ROLE.ROLE_SPECTATOR_IMPOSTOR:
-                        DisplayReturnToLobby()
-                        return
-                  }
-               } )
-         } )
-   }
+               wait( 4 )
+               let match = GetLocalMatch()
+               switch ( match.GetPlayerRole( LOCAL_PLAYER ) )
+               {
+                  case ROLE.ROLE_SPECTATOR_CAMPER:
+                  case ROLE.ROLE_SPECTATOR_CAMPER_ESCAPED:
+                  case ROLE.ROLE_SPECTATOR_IMPOSTOR:
+                     DisplayReturnToLobby()
+                     return
+               }
+            } )
+      } )
 }
 
 
