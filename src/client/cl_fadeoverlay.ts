@@ -1,11 +1,11 @@
-import { RunService, Workspace } from "@rbxts/services"
-import { Corpse, TASK_RESTORE_LIGHTS, PlayerNumToGameViewable, ROLE, Match, GAME_STATE, MEETING_TYPE } from "shared/sh_gamestate"
-import { AddCallback_OnPlayerCharacterAdded, AddCallback_OnPlayerCharacterAncestryChanged } from "shared/sh_onPlayerConnect"
+import { Players, RunService, Workspace } from "@rbxts/services"
+import { NS_Corpse, TASK_RESTORE_LIGHTS, PlayerNumToGameViewable, ROLE, Match, GAME_STATE } from "shared/sh_gamestate"
+import { AddCallback_OnPlayerCharacterAdded, AddCallback_OnPlayerCharacterAncestryChanged, GetPlayerFromUserID } from "shared/sh_onPlayerConnect"
 import { PLAYER_COLORS, SPECTATOR_TRANS } from "shared/sh_settings"
 import { TweenPlayerParts } from "shared/sh_tween"
-import { GetFirstChildWithNameAndClassName, GetLocalPlayer, GraphCapped, IsAlive, SetCharacterTransparency, SetPlayerTransparency } from "shared/sh_utils"
+import { GetFirstChildWithNameAndClassName, GetLocalPlayer, GraphCapped, IsAlive, SetCharacterTransparency, SetPlayerTransparency, UserIDToPlayer } from "shared/sh_utils"
 import { Assert } from "shared/sh_assert"
-import { ClientGetAssignmentAssignedTime, ClientHasAssignment, GetLocalMatch, GetLocalIsSpectator, GetLocalRole } from "./cl_gamestate"
+import { GetCorpseClientModel, ClientGetAssignmentAssignedTime, ClientHasAssignment, GetLocalMatch, GetLocalIsSpectator, GetLocalRole } from "./cl_gamestate"
 import { AddPlayerGuiFolderExistsCallback, UIORDER } from "./cl_ui"
 import { GetCoins } from "shared/sh_coins"
 import { Tween } from "shared/sh_tween";
@@ -36,13 +36,28 @@ export function CL_FadeOverlaySetup()
 {
    AddCallback_OnPlayerCharacterAdded( function ( player: Player )
    {
-      let character = player.Character as Model
+      // cleanup past instances of this player
+      for ( let pair of file.characterToPlayer )
+      {
+         if ( pair[1] === player )
+            file.characterToPlayer.delete( pair[0] )
+      }
+
+      let character = player.Character
       if ( character === undefined )
-         return
-      if ( player === undefined )
          return
       file.characterToPlayer.set( character, player )
    } )
+   Players.PlayerRemoving.Connect(
+      function ( player: Player )
+      {
+         let character = player.Character
+         if ( character === undefined )
+            return
+         if ( file.characterToPlayer.has( character ) )
+            file.characterToPlayer.delete( character )
+      } )
+
 
    AddPlayerGuiFolderExistsCallback( function ( folder: Folder )
    {
@@ -172,7 +187,7 @@ export function CL_FadeOverlaySetup()
       let characterChildrenCount = new Map<Model, number>()
       let playerToLabel = new Map<Player, TextLabel>()
       let wasVisiblePlayers = new Map<Player, boolean>()
-      let visibleCorpsesToLabel = new Map<Corpse, TextLabel>()
+      let visibleCorpsesToLabel = new Map<NS_Corpse, TextLabel>()
       let visibleCoins = new Map<Part, Boolean>()
       let knownCoins = new Map<Part, boolean>()
       let coinSearchIndex = 0
@@ -220,7 +235,7 @@ export function CL_FadeOverlaySetup()
                   throw undefined
                }
 
-               viewPlayer = meetingDetails.meetingCaller
+               viewPlayer = GetPlayerFromUserID( meetingDetails.meetingCaller )
                break
          }
 
@@ -236,19 +251,11 @@ export function CL_FadeOverlaySetup()
 
 
          let coins = GetCoins()
-         /*
-         if ( coins.size() !== coinCount )
-         {
-            coinCount = coins.size()
-            print( "COIN COUNT" + coinCount )
-         }
-         */
 
          let search = math.min( 30, coins.size() )
          for ( let i = 0; i < search; i++ )
          {
             let index = ( i + coinSearchIndex ) % coins.size()
-            //print( "index: " + index + " coins " + coins.size() )
 
             let coin = coins[index]
             let [partScreenCenter, _2] = camera.WorldToScreenPoint( coin.Position )
@@ -291,12 +298,6 @@ export function CL_FadeOverlaySetup()
 
          if ( doRefreshFailsafe )
          {
-            //for ( let other of match.GetAllPlayers() )
-            //{
-            //   if ( other !== LOCAL_PLAYER )
-            //      SetPlayerTransparency( other, 1 )
-            //}
-
             for ( let pair of playerToLabel )
             {
                pair[1].Destroy()
@@ -316,16 +317,15 @@ export function CL_FadeOverlaySetup()
          }
 
          let localViewRoom = GetCurrentRoom( viewPlayer )
+         let players = match.GetAllPlayers()
 
-         for ( let pair of file.characterToPlayer )
+         for ( let player of players )
          {
-            let player = pair[1]
-            let character = pair[0]
-            if ( player.Character !== character )
-            {
-               file.characterToPlayer.delete( character )
+            let character = player.Character
+            if ( character === undefined )
                continue
-            }
+            if ( !file.characterToPlayer.has( character ) )
+               continue
 
             let isVisible = false
             let part: BasePart | undefined
@@ -334,6 +334,7 @@ export function CL_FadeOverlaySetup()
             let count = characterChildrenCount.get( character )
             if ( count === undefined || count < character.GetChildren().size() )
             {
+               // refresh character as its parts load
                characterChildrenCount.set( character, character.GetChildren().size() )
                Hide( match, player )
             }
@@ -355,6 +356,7 @@ export function CL_FadeOverlaySetup()
                IsAlive( player ) &&
                dist < VISUAL_DIST &&
                !match.IsSpectator( player )
+
 
             // maintain old behavior when player is viewing themselves, to not overwrite special spectator trans
             let skipPlayerTween = player === viewPlayer && viewPlayer === LOCAL_PLAYER
@@ -394,6 +396,19 @@ export function CL_FadeOverlaySetup()
                      playerToLabel.delete( player )
                   }
                }
+
+               let matchPlayers = match.GetAllPlayers()
+               let hidePlayers = UserIDToPlayer()
+               for ( let player of matchPlayers )
+               {
+                  if ( hidePlayers.has( player.UserId ) )
+                     hidePlayers.delete( player.UserId )
+               }
+
+               for ( let pair of hidePlayers )
+               {
+                  SetPlayerTransparency( pair[1], 1 )
+               }
             }
 
             let textLabel = playerToLabel.get( player )
@@ -411,12 +426,13 @@ export function CL_FadeOverlaySetup()
             }
          }
 
-         for ( let corpse of match.corpses )
+         for ( let corpse of match.shState.corpses )
          {
-            if ( corpse.clientModel === undefined )
+            let corpseModel = GetCorpseClientModel( corpse.userId )
+            if ( corpseModel === undefined )
                continue
 
-            let [partScreenCenter, _2] = camera.WorldToScreenPoint( corpse.pos )
+            let [partScreenCenter, _2] = camera.WorldToScreenPoint( corpseModel.pos )
             let dist = partScreenCenter.sub( screenCenter ).Magnitude
 
             let isVisible = dist < VISUAL_DIST
@@ -434,15 +450,17 @@ export function CL_FadeOverlaySetup()
             if ( isVisible )
             {
                //TweenPlayerParts( corpse, FADE_IN, FADE_TIME )
-               SetCharacterTransparency( corpse.clientModel, 0 )
-               let textLabel = CreatePlayerNum( match, corpse.player )
+               SetCharacterTransparency( corpseModel.model, 0 )
+
+               let textLabel = CreatePlayerNum( match, GetPlayerFromUserID( corpse.userId ) )
                if ( textLabel !== undefined )
                   visibleCorpsesToLabel.set( corpse, textLabel )
             }
             else
             {
                //TweenPlayerParts( corpse, FADE_OUT, FADE_TIME )
-               SetCharacterTransparency( corpse.clientModel, 1 )
+               SetCharacterTransparency( corpseModel.model, 1 )
+
                let textLabel = visibleCorpsesToLabel.get( corpse )
                if ( textLabel !== undefined )
                   textLabel.Destroy()

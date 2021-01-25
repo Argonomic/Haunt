@@ -47,8 +47,6 @@ class File
    draggedButtonRenderStepped: RBXScriptConnection | undefined
    draggedButtonStartPosition: UDim2 | undefined
    playerGuiExistsCallbacks: Array<Function> = []
-
-   ancestorServices: Array<RBXScriptConnection> = []
 }
 
 let file = new File()
@@ -125,14 +123,19 @@ export function AddDraggedButton( button: ImageButton ): RBXScriptConnection
 
       file.pickupSound.Play()
 
-      file.draggedButtonRenderStepped = RunService.RenderStepped.Connect( function ()
+      let draggedButtonRenderStepped = RunService.RenderStepped.Connect( function ()
       {
-         Assert( file.draggedButton !== undefined, "No dragged button!" )
-         let button = file.draggedButton as ImageButtonWithParent
+         let button = file.draggedButton
+         if ( button === undefined )
+         {
+            draggedButtonRenderStepped.Disconnect()
+            return
+         }
 
          if ( CheckOutOfBoundsOfParent( button ) )
             ReleaseDraggedButton()
       } )
+      file.draggedButtonRenderStepped = draggedButtonRenderStepped
    } )
 }
 
@@ -198,17 +201,6 @@ function CheckOutOfBoundsOfParent( button: ImageButtonWithParent ): boolean
 
 export function CL_UISetup()
 {
-   AddCallback_OnPlayerCharacterAncestryChanged(
-      function ()
-      {
-         for ( let service of file.ancestorServices )
-         {
-            service.Disconnect()
-         }
-         file.ancestorServices = []
-      } )
-
-
    AddOnTouchEndedCallback( function ( touchPositions: Array<Vector3>, gameProcessedEvent: boolean )
    {
       ReleaseDraggedButton()
@@ -524,6 +516,7 @@ export type EDITOR_ClickableUI = ScreenGui &
 export function AddClickable( clickUI: EDITOR_ClickableUI, canClickFunc: ( () => boolean ), onClickFunc: ( () => void ), setArt_getClickResults: ( ( imageButton: ImageButton, textButton: TextButton ) => UIClickResults ) )
 {
    clickUI.DisplayOrder = UIORDER.UIORDER_USEBUTTON
+   Assert( clickUI.ResetOnSpawn === false, "Expected clickUI.ResetOnSpawn === false" )
 
    let imageButton = clickUI.ImageButton
    let textButton = imageButton.TextButton
@@ -545,7 +538,7 @@ export function AddClickable( clickUI: EDITOR_ClickableUI, canClickFunc: ( () =>
    const COLOR_GRAY = new Color3( 0.5, 0.5, 0.5 )
    const COLOR_WHITE = new Color3( 1.0, 1.0, 1.0 )
 
-   let service = RunService.RenderStepped.Connect( function ()
+   RunService.RenderStepped.Connect( function ()
    {
       if ( !canClickFunc() )
       {
@@ -593,7 +586,6 @@ export function AddClickable( clickUI: EDITOR_ClickableUI, canClickFunc: ( () =>
       }
       lastResultsType = results.resultsType
    } )
-   file.ancestorServices.push( service )
 }
 
 export function LiveName( elem: ScreenGui )

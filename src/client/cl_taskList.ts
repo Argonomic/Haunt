@@ -221,10 +221,15 @@ function RefreshTaskList()
    let match = GetLocalMatch()
    if ( !FLAG_RESERVED_SERVER )
    {
-      if ( match.GetGameState() < GAME_STATE.GAME_STATE_PLAYING )
+      switch ( match.GetGameState() )
       {
-         existingUI.Enabled = false
-         return
+         case GAME_STATE.GAME_STATE_PLAYING:
+         case GAME_STATE.GAME_STATE_SUDDEN_DEATH:
+            break
+
+         default:
+            existingUI.Enabled = false
+            return
       }
    }
 

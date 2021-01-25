@@ -63,6 +63,24 @@ export function GetPosition( thing: Instance ): Vector3
       return GetLastPlayerPosition( thing ) // player may not have a character
    }
 
+   if ( thing.IsA( 'Model' ) )
+   {
+      let model = thing as Model
+      if ( model.PrimaryPart !== undefined )
+         return model.PrimaryPart.Position
+
+      print( "Model named " + model.Name + " has no primary part" )
+      for ( let child of model.GetChildren() )
+      {
+         if ( child.IsA( 'BasePart' ) )
+            return child.Position
+      }
+      print( "And children count " + model.GetChildren().size() )
+
+      Assert( false, "Model has no position" )
+      throw undefined
+   }
+
    if ( thing.IsA( 'BasePart' ) )
       return thing.Position
 

@@ -2,7 +2,7 @@ import { Chat, HttpService, MessagingService, Players, RunService, TeleportServi
 import { AddRPC } from "shared/sh_rpc"
 import { ArrayFind, ArrayRandomize, GraphCapped, IsAlive, Resume, Thread, UserIDToPlayer, Wait, WaitThread } from "shared/sh_utils"
 import { Assert } from "shared/sh_assert"
-import { Assignment, GAME_STATE, NETVAR_JSON_ASSIGNMENTS, ROLE, Match, GAMERESULTS, GetVoteResults, TASK_EXIT, AssignmentIsSame, TASK_RESTORE_LIGHTS, NETVAR_JSON_GAMESTATE, NETVAR_MEETINGS_CALLED, SetPlayerWalkspeedForGameState, SHARED_COUNTDOWN_TIMER } from "shared/sh_gamestate"
+import { Assignment, GAME_STATE, NETVAR_JSON_ASSIGNMENTS, ROLE, Match, GAMERESULTS, GetVoteResults, TASK_EXIT, AssignmentIsSame, TASK_RESTORE_LIGHTS, NETVAR_JSON_GAMESTATE, NETVAR_MEETINGS_CALLED, SetPlayerWalkspeedForGameState, SHARED_COUNTDOWN_TIMER, USERID, PlayerVote, NS_SharedMatchState } from "shared/sh_gamestate"
 import { MIN_TASKLIST_SIZE, MAX_TASKLIST_SIZE, MATCHMAKE_PLAYERCOUNT_STARTSERVER, SPAWN_ROOM, TASK_VALUE, MATCHMAKE_PLAYERCOUNT_FALLBACK, DEV_1_TASK, ADMINS, FLAG_RESERVED_SERVER, START_COUNTDOWN, COUNTDOWN_TIME_POSTMATCH } from "shared/sh_settings"
 import { ResetNetVar, SetNetVar } from "shared/sh_player_netvars"
 import { AddCallback_OnPlayerCharacterAdded, AddCallback_OnPlayerConnected } from "shared/sh_onPlayerConnect"
@@ -40,12 +40,24 @@ function CreateMatch(): Match
 {
    let match = new Match()
    file.matches.push( match )
-   match.gameThread = coroutine.create(
+
+   Thread(
       function ()
       {
-         ServerGameThread( match )
+         wait() // let other places modify match state before doing thinks. Ideally this would be a waittillframeend
+
+         if ( match.GetGameState() === GAME_STATE.GAME_STATE_COMPLETE )
+            return
+
+         match.gameThread = coroutine.create(
+            function ()
+            {
+               ServerGameThread( match )
+            } )
+         Resume( match.gameThread )
       } )
-   Resume( match.gameThread )
+
+
    return match
 }
 
@@ -224,7 +236,7 @@ export function SV_GameStateSetup()
             match.RemovePlayer( player )
          }
 
-         match.UpdateGame()
+         UpdateGame( match )
       } )
 
    AddRPC( "RPC_FromClient_Skipvote", function ( player: Player )
@@ -233,7 +245,7 @@ export function SV_GameStateSetup()
       if ( match.GetGameState() !== GAME_STATE.GAME_STATE_MEETING_VOTE )
          return
 
-      match.SetVote( player, undefined )
+      SetVote( match, player, undefined )
    } )
 
    AddRPC( "RPC_FromClient_Vote", function ( player: Player, voteUserID: number )
@@ -242,7 +254,7 @@ export function SV_GameStateSetup()
       if ( match.GetGameState() !== GAME_STATE.GAME_STATE_MEETING_VOTE )
          return
 
-      match.SetVote( player, voteUserID )
+      SetVote( match, player, voteUserID )
    } )
 
    if ( FLAG_RESERVED_SERVER )
@@ -338,13 +350,13 @@ function SV_GameStateChanged( match: Match, oldGameState: GAME_STATE )
       switch ( oldGameState )
       {
          case GAME_STATE.GAME_STATE_INTRO:
-            if ( match.GetAllPlayersWithCharactersCloned().size() < MATCHMAKE_PLAYERCOUNT_FALLBACK || match.GetLivingImpostors().size() < match.startingImpostorCount )
+            if ( match.GetAllPlayersWithCharactersCloned().size() < MATCHMAKE_PLAYERCOUNT_FALLBACK || match.GetLivingImpostors().size() < match.shState.startingImpostorCount )
             {
                print( "Failed to leave intro:" )
                print( "match.GetAllPlayersWithCharactersCloned().size(): " + match.GetAllPlayersWithCharactersCloned().size() )
                print( "MATCHMAKE_PLAYERCOUNT_FALLBACK: " + MATCHMAKE_PLAYERCOUNT_FALLBACK )
                print( "match.GetLivingImpostors().size(): " + match.GetLivingImpostors().size() )
-               print( "match.startingImpostorCount: " + match.startingImpostorCount )
+               print( "match.shState.startingImpostorCount: " + match.shState.startingImpostorCount )
                // players left during intro
                DestroyMatch( match )
                return
@@ -382,7 +394,7 @@ function SV_GameStateChanged( match: Match, oldGameState: GAME_STATE )
          print( "SV_GameStateChanged, GAMERESULTS: " + gameResults )
          if ( gameResults !== GAMERESULTS.RESULTS_STILL_PLAYING )
          {
-            match.SetGameState( GAME_STATE.GAME_STATE_COMPLETE )
+            SetGameState( match, GAME_STATE.GAME_STATE_COMPLETE )
             return
          }
    }
@@ -455,8 +467,8 @@ function SV_GameStateChanged( match: Match, oldGameState: GAME_STATE )
          let impostorPlayers = players.slice( 0, impostorCount )
          let setCampers = players.slice( impostorCount, size )
 
-         match.startingImpostorCount = impostorCount
-         print( "match.startingImpostorCount: " + match.startingImpostorCount )
+         match.shState.startingImpostorCount = impostorCount
+         print( "match.shState.startingImpostorCount: " + match.shState.startingImpostorCount )
 
          for ( let player of impostorPlayers )
          {
@@ -499,15 +511,15 @@ function SV_GameStateChanged( match: Match, oldGameState: GAME_STATE )
          match.ClearVotes()
 
          let livingCampers = match.GetLivingCampers().size()
-         if ( match.previouslyLivingCampers === 0 || match.previouslyLivingCampers > livingCampers )
+         if ( match.GetSVState().previouslyLivingCampers === 0 || match.GetSVState().previouslyLivingCampers > livingCampers )
          {
-            let toSpawn = 60 + match.roundsPassed * 60
+            let toSpawn = 60 + match.GetSVState().roundsPassed * 60
             toSpawn -= GetTotalValueOfWorldCoins()
             if ( toSpawn > 0 )
                SpawnRandomCoins( toSpawn )
 
-            match.previouslyLivingCampers = livingCampers
-            match.roundsPassed++
+            match.GetSVState().previouslyLivingCampers = livingCampers
+            match.GetSVState().roundsPassed++
          }
 
          for ( let player of match.GetAllPlayers() )
@@ -627,12 +639,19 @@ function ServerGameThread( match: Match )
                   break
             }
 
-            match.SetGameState( nextState )
-            //match.SetGameState( GAME_STATE.GAME_STATE_PLAYING )
+            switch ( nextState )
+            {
+               case GAME_STATE.GAME_STATE_RESERVED_SERVER_WAITING:
+                  nextState++
+                  break
+            }
+
+            SetGameState( match, nextState )
+            //SetGameState(match,GAME_STATE.GAME_STATE_PLAYING )
             //if ( match.GetGameResults_NoParityAllowed() === GAMERESULTS.RESULTS_STILL_PLAYING )
-            //   match.SetGameState( GAME_STATE.GAME_STATE_PLAYING )
+            //   SetGameState(match,GAME_STATE.GAME_STATE_PLAYING )
             //else
-            //   match.SetGameState( GAME_STATE.GAME_STATE_COMPLETE )
+            //   SetGameState(match,GAME_STATE.GAME_STATE_COMPLETE )
             return
          }
       }
@@ -645,7 +664,7 @@ function ServerGameThread( match: Match )
             delay = math.min( delay, POLL_RATE )
       }
 
-      lastTracker = match.updateTracker
+      lastTracker = match.GetSVState().updateTracker
       if ( delay !== undefined )
       {
          let endTime = Workspace.DistributedGameTime + delay
@@ -653,7 +672,7 @@ function ServerGameThread( match: Match )
          {
             if ( Workspace.DistributedGameTime >= endTime )
                break
-            if ( match.updateTracker !== lastTracker )
+            if ( match.GetSVState().updateTracker !== lastTracker )
                break
             wait()
          }
@@ -662,7 +681,7 @@ function ServerGameThread( match: Match )
       {
          for ( ; ; )
          {
-            if ( match.updateTracker !== lastTracker )
+            if ( match.GetSVState().updateTracker !== lastTracker )
                break
             wait()
          }
@@ -674,7 +693,10 @@ function ServerGameThread( match: Match )
    {
       if ( gameState !== GAME_STATE.GAME_STATE_WAITING_FOR_PLAYERS )
          return true
-      if ( lastTracker !== match.updateTracker )
+
+      //print( "lastTracker: " + lastTracker )
+      //print( "match.GetSVState().updateTracker: " + match.GetSVState().updateTracker )
+      if ( lastTracker !== match.GetSVState().updateTracker )
          return true
       if ( FLAG_RESERVED_SERVER )
       {
@@ -683,6 +705,8 @@ function ServerGameThread( match: Match )
       }
       if ( lastBroadcastGameState !== gameState )
          return true
+
+      //print( "match.GetTimeInGameState(): " + match.GetTimeInGameState() )
       return match.GetTimeInGameState() < 1
    }
 
@@ -704,7 +728,7 @@ function ServerGameThread( match: Match )
       {
          if ( ShouldBroadcastGameState() )
          {
-            match.BroadcastGamestate()
+            BroadcastGamestate( match )
             lastBroadcastGameState = gameState
          }
 
@@ -728,7 +752,7 @@ function GameStateThink( match: Match )
       case GAME_STATE.GAME_STATE_MEETING_VOTE:
          if ( match.GetGameResults_NoParityAllowed() !== GAMERESULTS.RESULTS_STILL_PLAYING )
          {
-            match.SetGameState( GAME_STATE.GAME_STATE_COMPLETE )
+            SetGameState( match, GAME_STATE.GAME_STATE_COMPLETE )
             return
          }
          break
@@ -740,11 +764,11 @@ function GameStateThink( match: Match )
                break
 
             case GAMERESULTS.RESULTS_SUDDEN_DEATH:
-               match.SetGameState( GAME_STATE.GAME_STATE_SUDDEN_DEATH )
+               SetGameState( match, GAME_STATE.GAME_STATE_SUDDEN_DEATH )
                return
 
             default:
-               match.SetGameState( GAME_STATE.GAME_STATE_COMPLETE )
+               SetGameState( match, GAME_STATE.GAME_STATE_COMPLETE )
                return
          }
          break
@@ -752,7 +776,7 @@ function GameStateThink( match: Match )
       case GAME_STATE.GAME_STATE_SUDDEN_DEATH:
          if ( match.GetGameResults_ParityAllowed() !== GAMERESULTS.RESULTS_SUDDEN_DEATH )
          {
-            match.SetGameState( GAME_STATE.GAME_STATE_COMPLETE )
+            SetGameState( match, GAME_STATE.GAME_STATE_COMPLETE )
             return
          }
          break
@@ -766,48 +790,60 @@ function GameStateThink( match: Match )
          if ( FLAG_RESERVED_SERVER )
          {
             if ( IsReservedServer() )
-               match.SetGameState( GAME_STATE.GAME_STATE_RESERVED_SERVER_WAITING )
+               SetGameState( match, GAME_STATE.GAME_STATE_RESERVED_SERVER_WAITING )
             else
-               match.SetGameState( GAME_STATE.GAME_STATE_WAITING_FOR_PLAYERS )
+               SetGameState( match, GAME_STATE.GAME_STATE_WAITING_FOR_PLAYERS )
          }
          else
          {
-            match.SetGameState( GAME_STATE.GAME_STATE_WAITING_FOR_PLAYERS )
+            SetGameState( match, GAME_STATE.GAME_STATE_WAITING_FOR_PLAYERS )
          }
          return
 
       case GAME_STATE.GAME_STATE_WAITING_FOR_PLAYERS:
 
+         if ( match.GetAllPlayers().size() === 0 )
+         {
+            DestroyMatch( match )
+            return
+         }
          let searchCount = match.GetAllPlayersWithCharactersCloned().size()
+
+         if ( match.GetAllPlayers().size() < MATCHMAKE_PLAYERCOUNT_STARTSERVER )
+         {
+            // failsafe for multiple matches waiting for players
+            for ( ; ; )
+            {
+               let movedPlayer = false
+               for ( let otherMatch of file.matches )
+               {
+                  if ( match === otherMatch )
+                     continue
+                  if ( otherMatch.GetGameState() !== GAME_STATE.GAME_STATE_WAITING_FOR_PLAYERS )
+                     continue
+
+                  let players = otherMatch.GetAllPlayers()
+                  if ( players.size() === 0 )
+                     continue
+
+                  TransferPlayer( players[0], otherMatch, match )
+                  movedPlayer = true
+
+                  if ( players.size() === 1 ) // we removed the last player
+                     DestroyMatch( otherMatch )
+               }
+               if ( !movedPlayer )
+                  break
+            }
+         }
+
          if ( file.lastPlayerCount !== searchCount )
          {
             print( "Found " + searchCount + " players, need " + MATCHMAKE_PLAYERCOUNT_STARTSERVER )
             file.lastPlayerCount = searchCount
          }
 
-         if ( !FLAG_RESERVED_SERVER )
-         {
-            if ( searchCount >= MATCHMAKE_PLAYERCOUNT_FALLBACK )
-            {
-               match.SetGameState( GAME_STATE.GAME_STATE_COUNTDOWN )
-               match.UpdateGame()
-            }
-            let countdownTime = GetSharedVarInt( SHARED_COUNTDOWN_TIMER )
-            countdownTime -= POLL_RATE
-            if ( countdownTime < START_COUNTDOWN )
-               countdownTime = START_COUNTDOWN
-            SetSharedVarInt( SHARED_COUNTDOWN_TIMER, countdownTime )
-
-            if ( Workspace.DistributedGameTime > match.timeNextWaitingCoins )
-            {
-               match.timeNextWaitingCoins = Workspace.DistributedGameTime + 60
-               if ( GetTotalValueOfWorldCoins() < 120 )
-               {
-                  SpawnRandomCoins( 60 )
-               }
-            }
-         }
-         else
+         if ( FLAG_RESERVED_SERVER )
          {
             if ( searchCount < MATCHMAKE_PLAYERCOUNT_STARTSERVER )
             {
@@ -817,7 +853,7 @@ function GameStateThink( match: Match )
 
             if ( IsReservedServer() )
             {
-               match.SetGameState( GAME_STATE.GAME_STATE_INTRO )
+               SetGameState( match, GAME_STATE.GAME_STATE_INTRO )
                return
             }
 
@@ -831,8 +867,8 @@ function GameStateThink( match: Match )
             print( "Found enough players for match" )
             if ( LOCAL )
             {
-               match.realMatch = true
-               match.SetGameState( GAME_STATE.GAME_STATE_COUNTDOWN )
+               match.shState.realMatch = true
+               SetGameState( match, GAME_STATE.GAME_STATE_COUNTDOWN )
             }
             else
             {
@@ -844,12 +880,33 @@ function GameStateThink( match: Match )
                   //print( "adding player " + player.Name )
                   let playerMatch = PlayerToMatch( player )
                   Assert( playerMatch === match, "playerMatch === match" )
-                  match.RemovePlayer( player )
-                  newMatch.AddPlayer( player )
+                  TransferPlayer( player, match, newMatch )
                }
 
-               newMatch.SetGameState( GAME_STATE.GAME_STATE_COUNTDOWN )
-               match.UpdateGame()
+               SetGameState( match, GAME_STATE.GAME_STATE_COUNTDOWN )
+               UpdateGame( match )
+            }
+         }
+         else
+         {
+            if ( searchCount >= MATCHMAKE_PLAYERCOUNT_FALLBACK )
+            {
+               SetGameState( match, GAME_STATE.GAME_STATE_COUNTDOWN )
+               UpdateGame( match )
+            }
+            let countdownTime = GetSharedVarInt( SHARED_COUNTDOWN_TIMER )
+            countdownTime -= POLL_RATE
+            if ( countdownTime < START_COUNTDOWN )
+               countdownTime = START_COUNTDOWN
+            SetSharedVarInt( SHARED_COUNTDOWN_TIMER, countdownTime )
+
+            if ( Workspace.DistributedGameTime > match.GetSVState().timeNextWaitingCoins )
+            {
+               match.GetSVState().timeNextWaitingCoins = Workspace.DistributedGameTime + 60
+               if ( GetTotalValueOfWorldCoins() < 120 )
+               {
+                  SpawnRandomCoins( 60 )
+               }
             }
          }
 
@@ -859,7 +916,7 @@ function GameStateThink( match: Match )
          //print( "match.GetAllPlayersWithCharactersCloned().size(): " + match.GetAllPlayersWithCharactersCloned().size() )
          if ( match.GetAllPlayersWithCharactersCloned().size() >= MATCHMAKE_PLAYERCOUNT_STARTSERVER )
          {
-            match.SetGameState( GAME_STATE.GAME_STATE_INTRO )
+            SetGameState( match, GAME_STATE.GAME_STATE_INTRO )
             return
          }
          return
@@ -878,7 +935,7 @@ function GameStateThink( match: Match )
             {
                if ( match.GetAllPlayersWithCharactersCloned().size() < MATCHMAKE_PLAYERCOUNT_FALLBACK )
                {
-                  match.SetGameState( GAME_STATE.GAME_STATE_WAITING_FOR_PLAYERS )
+                  SetGameState( match, GAME_STATE.GAME_STATE_WAITING_FOR_PLAYERS )
                   return
                }
             }
@@ -889,7 +946,7 @@ function GameStateThink( match: Match )
          {
             let userIDToPlayer = UserIDToPlayer()
             let votes = match.GetVotes()
-            let playerVoted = new Map<Player, boolean>()
+            let playerVoted = new Map<USERID, boolean>()
 
             for ( let vote of votes )
             {
@@ -901,7 +958,7 @@ function GameStateThink( match: Match )
             {
                if ( match.IsSpectator( pair[1] ) )
                   continue // cant vote
-               if ( playerVoted.has( pair[1] ) )
+               if ( playerVoted.has( pair[0] ) )
                   continue // already voted
 
                votingFinished = false
@@ -911,7 +968,7 @@ function GameStateThink( match: Match )
             if ( votingFinished )
             {
                Assert( match.GetMeetingDetails() !== undefined, "No meeting details" )
-               match.SetGameState( GAME_STATE.GAME_STATE_MEETING_RESULTS )
+               SetGameState( match, GAME_STATE.GAME_STATE_MEETING_RESULTS )
                return
             }
          }
@@ -928,7 +985,7 @@ function HandleVoteResults( match: Match )
       {
          let voteResults = GetVoteResults( match.GetVotes() )
 
-         match.corpses = [] // clear the corpses
+         match.shState.corpses = [] // clear the corpses
 
          let room = GetRoomByName( 'Great Room' )
          PutPlayersInRoom( match.GetAllPlayersWithCharacters(), room )
@@ -952,7 +1009,7 @@ function HandleVoteResults( match: Match )
          if ( match.GetGameState() === GAME_STATE.GAME_STATE_COMPLETE )
             return
 
-         match.SetGameState( GAME_STATE.GAME_STATE_PLAYING )
+         SetGameState( match, GAME_STATE.GAME_STATE_PLAYING )
       } )
 }
 
@@ -975,10 +1032,10 @@ function RPC_FromClient_OnPlayerFinishTask( player: Player, roomName: string, ta
    let match = PlayerToMatch( player )
    SetPlayerWalkspeedForGameState( player, match )
 
-   if ( !match.assignments.has( player ) )
+   if ( !match.GetSVState().assignments.has( player ) )
       return
 
-   let assignments = match.assignments.get( player ) as Array<Assignment>
+   let assignments = match.GetSVState().assignments.get( player ) as Array<Assignment>
 
    let thisAssignment: Assignment | undefined
 
@@ -1014,7 +1071,7 @@ function RPC_FromClient_OnPlayerFinishTask( player: Player, roomName: string, ta
          print( player.Name + " finishes Exit" )
          match.SetPlayerRole( player, ROLE.ROLE_SPECTATOR_CAMPER_ESCAPED )
          ScoreToStash( player )
-         match.UpdateGame()
+         UpdateGame( match )
          break
 
       case TASK_RESTORE_LIGHTS:
@@ -1031,7 +1088,7 @@ function RPC_FromClient_OnPlayerFinishTask( player: Player, roomName: string, ta
                throw undefined
             }
 
-            let reward = TASK_VALUE + math.floor( ( match.roundsPassed - 1 ) * TASK_VALUE * 0.5 )
+            let reward = TASK_VALUE + math.floor( ( match.GetSVState().roundsPassed - 1 ) * TASK_VALUE * 0.5 )
             IncrementMatchScore( player, reward )
             SV_SendRPC( "RPC_FromServer_GavePoints", player, task.volume.Position, reward )
          }
@@ -1086,7 +1143,7 @@ function RPC_FromClient_OnPlayerFinishTask( player: Player, roomName: string, ta
 
 export function PlayerHasAssignments( player: Player, match: Match ): boolean
 {
-   let assignments = match.assignments.get( player )
+   let assignments = match.GetSVState().assignments.get( player )
    if ( assignments === undefined )
       return false
 
@@ -1098,7 +1155,7 @@ export function ServerPlayeyHasAssignment( player: Player, match: Match, roomNam
    if ( !PlayerHasAssignments( player, match ) )
       return false
 
-   let assignments = match.assignments.get( player )
+   let assignments = match.GetSVState().assignments.get( player )
    if ( assignments === undefined )
       return false
 
@@ -1112,7 +1169,7 @@ export function ServerPlayeyHasAssignment( player: Player, match: Match, roomNam
 
 export function RemoveAssignment( player: Player, match: Match, roomName: string, taskName: string )
 {
-   let assignments = match.assignments.get( player )
+   let assignments = match.GetSVState().assignments.get( player )
    if ( assignments === undefined )
       return
 
@@ -1129,7 +1186,7 @@ export function RemoveAssignment( player: Player, match: Match, roomName: string
 
 export function GiveAssignment( player: Player, match: Match, assignment: Assignment )
 {
-   let assignments = match.assignments.get( player )
+   let assignments = match.GetSVState().assignments.get( player )
    if ( assignments === undefined )
       assignments = []
    assignments.push( assignment )
@@ -1138,7 +1195,7 @@ export function GiveAssignment( player: Player, match: Match, assignment: Assign
 
 export function PlayerHasUnfinishedAssignment( player: Player, match: Match, roomName: string, taskName: string ): boolean
 {
-   let assignments = match.assignments.get( player )
+   let assignments = match.GetSVState().assignments.get( player )
    if ( assignments === undefined )
       return false
 
@@ -1189,7 +1246,7 @@ function AssignTasksCount( player: Player, match: Match, assignments: Array<Assi
    }
 
    print( "Assigned " + assignments.size() + " tasks" )
-   match.assignments.set( player, assignments )
+   match.GetSVState().assignments.set( player, assignments )
    UpdateTasklistNetvar( player, assignments )
 }
 
@@ -1228,7 +1285,7 @@ export function UpdateTasklistNetvar( player: Player, assignments: Array<Assignm
 
 export function ClearAssignments( match: Match, player: Player )
 {
-   match.assignments.set( player, [] )
+   match.GetSVState().assignments.set( player, [] )
    UpdateTasklistNetvar( player, [] )
 }
 
@@ -1302,42 +1359,40 @@ function FindMatchForPlayer( player: Player )
 
 function FindMatchForPlayer_NO_FLAG_RESERVED_SERVER( player: Player )
 {
+   print( "FindMatchForPlayer: " + player.Name )
    if ( PlayerHasMatch( player ) )
+   {
+      print( "Player has match " + GetMatchIndex( PlayerToMatch( player ) ) )
       return
+   }
 
-   let addedPlayer = false
    for ( let match of file.matches )
    {
       let matchState = match.GetGameState()
-      match.AddPlayer( player )
-      if ( matchState <= GAME_STATE.GAME_STATE_WAITING_FOR_PLAYERS )
+      switch ( matchState )
       {
-         match.SetPlayerRole( player, ROLE.ROLE_CAMPER )
-         AssignAllTasks( player, match )
+         case GAME_STATE.GAME_STATE_WAITING_FOR_PLAYERS:
+            if ( match.GetAllPlayers().size() < MATCHMAKE_PLAYERCOUNT_STARTSERVER )
+            {
+               match.AddPlayer( player )
+               match.SetPlayerRole( player, ROLE.ROLE_CAMPER )
+               AssignAllTasks( player, match )
+               UpdateGame( match )
+               print( "Added to match " + GetMatchIndex( PlayerToMatch( player ) ) )
+               return
+            }
+            break
       }
-      else if ( matchState >= GAME_STATE.GAME_STATE_INTRO )
-      {
-         print( "LATE JOINER " + player.Name + " at " + Workspace.DistributedGameTime )
-         match.SetPlayerRole( player, ROLE.ROLE_SPECTATOR_LATE_JOINER )
-
-         let playerInfo = match.GetPlayerInfo( player )
-         playerInfo.playernum = match.GetAllPlayers().size() - 1
-      }
-
-      addedPlayer = true
-      match.UpdateGame()
       break
    }
 
-   if ( !addedPlayer )
-   {
-      // make a new match
-      let match = CreateMatch()
-      match.AddPlayer( player )
-      AssignAllTasks( player, match )
-      match.SetPlayerRole( player, ROLE.ROLE_CAMPER )
-      match.UpdateGame()
-   }
+   print( "Creating new match" )
+   // make a new match
+   let match = CreateMatch()
+   match.AddPlayer( player )
+   AssignAllTasks( player, match )
+   match.SetPlayerRole( player, ROLE.ROLE_CAMPER )
+   UpdateGame( match )
 }
 
 function FindMatchForPlayer_FLAG_RESERVED_SERVER( player: Player )
@@ -1346,7 +1401,7 @@ function FindMatchForPlayer_FLAG_RESERVED_SERVER( player: Player )
    {
       let match = PlayerToMatch( player )
       match.RemovePlayer( player )
-      match.UpdateGame()
+      UpdateGame( match )
    }
 
    let addedPlayer = false
@@ -1366,7 +1421,7 @@ function FindMatchForPlayer_FLAG_RESERVED_SERVER( player: Player )
          }
 
          addedPlayer = true
-         match.UpdateGame()
+         UpdateGame( match )
          break
       }
    }
@@ -1377,7 +1432,7 @@ function FindMatchForPlayer_FLAG_RESERVED_SERVER( player: Player )
          if ( match.GetGameState() <= GAME_STATE.GAME_STATE_WAITING_FOR_PLAYERS )
          {
             match.AddPlayer( player )
-            match.UpdateGame()
+            UpdateGame( match )
             addedPlayer = true
             break
          }
@@ -1389,7 +1444,7 @@ function FindMatchForPlayer_FLAG_RESERVED_SERVER( player: Player )
       // make a new match
       let match = CreateMatch()
       match.AddPlayer( player )
-      match.UpdateGame()
+      UpdateGame( match )
    }
 
    if ( !IsReservedServer() )
@@ -1397,13 +1452,13 @@ function FindMatchForPlayer_FLAG_RESERVED_SERVER( player: Player )
       let match = PlayerToMatch( player )
       AssignAllTasks( player, match )
       match.SetPlayerRole( player, ROLE.ROLE_CAMPER )
-      match.UpdateGame()
+      UpdateGame( match )
    }
 }
 
 function DestroyMatch( match: Match )
 {
-   print( "DestroyMatch " + GetMatchIndex( match ) )
+   print( "DestroyMatch " + GetMatchIndex( match ) + "\n" + debug.traceback() )
    for ( let i = 0; i < file.matches.size(); i++ )
    {
       if ( file.matches[i] === match )
@@ -1424,12 +1479,11 @@ function DestroyMatch( match: Match )
          if ( userIdToPlayer.has( player.UserId ) ) // still in game?
             FindMatchForPlayer( player )
       }
-      match.SetGameState( GAME_STATE.GAME_STATE_COMPLETE )
    }
    else
    {
-      //match.SetGameState( GAME_STATE.GAME_STATE_COMPLETE )
-      //match.UpdateGame()
+      //SetGameState(match,GAME_STATE.GAME_STATE_COMPLETE )
+      //UpdateGame(match)
       for ( let player of match.GetAllPlayers() )
       {
          match.RemovePlayer( player )
@@ -1442,6 +1496,8 @@ function DestroyMatch( match: Match )
          FindMatchForPlayer( player )
       }
    }
+
+   SetGameState( match, GAME_STATE.GAME_STATE_COMPLETE )
 }
 
 
@@ -1604,3 +1660,118 @@ wait( 15 )
 TeleportService.TeleportToPrivateServer( game.PlaceId, code[0], [playr], "none" )
 */
 
+
+function BroadcastGamestate( match: Match )
+{
+   //print( "\nBroadcastGamestate " + match.GetGameState() + " at " + Workspace.DistributedGameTime )
+   //print( "ASD: player count " + match.GetAllPlayerInfo().size() )
+
+   function RevealImpostors( match: Match, player: Player ): boolean
+   {
+      if ( match.GetGameState() >= GAME_STATE.GAME_STATE_COMPLETE )
+         return true
+      if ( match.IsImpostor( player ) )
+         return true
+
+      return false
+   }
+
+   let json = HttpService.JSONEncode( match.shState )
+
+   let revealedImpostor = false
+   for ( let player of match.GetAllPlayers() )
+   {
+      // tell the campers about everyone, but mask the impostors
+      if ( RevealImpostors( match, player ) )
+      {
+         SetNetVar( player, NETVAR_JSON_GAMESTATE, json )
+         revealedImpostor = true
+      }
+      else
+      {
+         // use encode/decode to clone the gamestate
+         let gameState = HttpService.JSONDecode( json ) as NS_SharedMatchState
+
+         for ( let pair of gameState.playerToInfo )
+         {
+            switch ( pair[1].role )
+            {
+               case ROLE.ROLE_IMPOSTOR:
+                  pair[1].role = ROLE.ROLE_CAMPER
+                  break
+            }
+         }
+
+         {
+            let json = HttpService.JSONEncode( gameState )
+            SetNetVar( player, NETVAR_JSON_GAMESTATE, json )
+         }
+      }
+   }
+
+   //print( "revealedImpostor: " + revealedImpostor )
+   //print( "match.winOnlybyEscaping: " + match.winOnlybyEscaping )
+   //print( "Bool: " + ( revealedImpostor || match.winOnlybyEscaping ) )
+
+   revealedImpostor = true
+   Assert( !match.IsRealMatch() || match.GetGameState() < GAME_STATE.GAME_STATE_PLAYING || revealedImpostor, "Didn't reveal impostor" )
+}
+
+function TransferPlayer( player: Player, from: Match, to: Match )
+{
+   from.RemovePlayer( player )
+   to.AddPlayer( player )
+}
+
+
+function SetVote( match: Match, player: Player, voteUserID: number | undefined )
+{
+   if ( match.GetGameState() !== GAME_STATE.GAME_STATE_MEETING_VOTE )
+      return
+
+   Assert( voteUserID === undefined || typeOf( voteUserID ) === 'number', "Expected voteUserID to be number or undefined, but was " + typeOf( voteUserID ) + ", " + voteUserID )
+
+   for ( let vote of match.shState.votes )
+   {
+      // already voted?
+      if ( vote.voter === player.UserId )
+         return
+   }
+
+   let voteTarget: USERID | undefined
+
+   if ( voteUserID !== undefined )
+   {
+      let playerInfo = match.GetPlayerInfoFromUserID( voteUserID )
+      if ( playerInfo !== undefined )
+         voteTarget = playerInfo._userid
+   }
+
+   match.shState.votes.push( new PlayerVote( player.UserId, voteTarget ) )
+   UpdateGame( match )
+}
+
+
+export function SetGameState( match: Match, state: GAME_STATE )
+{
+   print( "\nSet Match State " + state + ", Time since last change: " + math.floor( ( Workspace.DistributedGameTime - match.shState._gameStateChangedTime ) ) )
+   //print( "Stack: " + debug.traceback() )
+
+   Assert( state >= GAME_STATE.GAME_STATE_COMPLETE || match.GetGameState() < GAME_STATE.GAME_STATE_COMPLETE, "Illegal match state setting. Tried to set state " + state + ", but match state was " + match.GetGameState() )
+
+   match.shState._gameStateChangedTime = Workspace.DistributedGameTime
+   match.shState.gameState = state
+
+   let thread = match.gameThread
+   Assert( thread !== undefined, "No match thread!" )
+   if ( thread === coroutine.running() )
+      return
+
+   UpdateGame( match )
+}
+
+
+export function UpdateGame( match: Match )
+{
+   match.GetSVState().updateTracker++
+}

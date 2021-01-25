@@ -1,8 +1,8 @@
 import { RunService, Workspace } from "@rbxts/services";
 import { WaitForMatchScreenFrame } from "client/cl_matchScreen";
 import { AddPlayerGuiFolderExistsCallback } from "client/cl_ui";
-import { IsImpostorRole, MEETING_TYPE, PlayerInfo, ROLE } from "shared/sh_gamestate";
-import { ClonePlayerModel, ClonePlayerModels } from "shared/sh_onPlayerConnect";
+import { IsImpostorRole, MEETING_TYPE, PlayerInfo, ROLE, USERID } from "shared/sh_gamestate";
+import { ClonePlayerModel, ClonePlayerModels, GetPlayerFromUserID } from "shared/sh_onPlayerConnect";
 import { FLAG_RESERVED_SERVER, SPECTATOR_TRANS } from "shared/sh_settings";
 import { Tween, TweenCharacterParts, TweenModel } from "shared/sh_tween";
 import { GetLocalPlayer, Graph, LoadSound, RandomFloatRange, SetCharacterTransparency, SetCharacterYaw, Thread } from "shared/sh_utils";
@@ -62,7 +62,7 @@ AddNetVarChangedCallback( NETVAR_MATCHMAKING_STATUS, function ()
             break
 
          case 1:
-            DrawMatchScreen_EmergencyMeeting( MEETING_TYPE.MEETING_EMERGENCY, LOCAL_PLAYER, undefined )
+            DrawMatchScreen_EmergencyMeeting( MEETING_TYPE.MEETING_EMERGENCY, LOCAL_PLAYER.UserId, undefined )
             break
 
          case 2:
@@ -240,7 +240,7 @@ export function DrawMatchScreen_Intro( foundLocalImpostor: boolean, impostorCoun
 
 function SortLocalPlayerInfo( a: PlayerInfo, b: PlayerInfo ): boolean
 {
-   return a.player === LOCAL_PLAYER && b.player !== LOCAL_PLAYER
+   return a._userid === LOCAL_PLAYER.UserId && b._userid !== LOCAL_PLAYER.UserId
 }
 
 export function DrawMatchScreen_VoteResults( skipTie: boolean, receivedHighestVotes: Array<Player>, receivedVotes: Array<Player>, votedAndReceivedNoVotes: Array<Player>, highestVotedScore: number, wasImpostor: boolean, impostorsRemaining: number )
@@ -621,7 +621,7 @@ export function DrawMatchScreen_VoteResults( skipTie: boolean, receivedHighestVo
    }
 }
 
-export function DrawMatchScreen_EmergencyMeeting( meetingType: MEETING_TYPE, caller: Player, body: Player | undefined )
+export function DrawMatchScreen_EmergencyMeeting( meetingType: MEETING_TYPE, callerId: USERID, bodyId: USERID | undefined )
 {
    file.meetingSound.Play()
 
@@ -636,6 +636,8 @@ export function DrawMatchScreen_EmergencyMeeting( meetingType: MEETING_TYPE, cal
    title.Text = "Emergency Meeting!"
 
    subTitle.TextTransparency = 1
+   let caller = GetPlayerFromUserID( callerId )
+
    switch ( meetingType )
    {
       case MEETING_TYPE.MEETING_EMERGENCY:
@@ -643,8 +645,11 @@ export function DrawMatchScreen_EmergencyMeeting( meetingType: MEETING_TYPE, cal
          break
 
       case MEETING_TYPE.MEETING_REPORT:
-         if ( body !== undefined )
+         if ( bodyId !== undefined )
+         {
+            let body = GetPlayerFromUserID( bodyId )
             subTitle.Text = caller.Name + " found the corpse of " + body.Name
+         }
          break
    }
 
@@ -712,15 +717,16 @@ export function DrawMatchScreen_Victory( playerInfos: Array<PlayerInfo>, imposto
       for ( let i = 0; i < playerInfos.size(); i++ )
       {
          let playerInfo = playerInfos[i]
+         let player = GetPlayerFromUserID( playerInfo._userid )
 
          if ( IsImpostorRole( playerInfo.role ) )
          {
-            impostors.push( playerInfo.player )
+            impostors.push( player )
             impostorPlayerInfos.push( playerInfo )
          }
          else
          {
-            campers.push( playerInfo.player )
+            campers.push( player )
             camperPlayerInfos.push( playerInfo )
          }
       }
@@ -817,7 +823,7 @@ export function DrawMatchScreen_Escaped( playerInfo: PlayerInfo, myWinnings: num
    wait( 0.8 )
    Tween( title, { TextTransparency: 0 }, FADE_IN )
 
-   let lineup = ClonePlayerModels( [playerInfo.player] )
+   let lineup = ClonePlayerModels( [GetPlayerFromUserID( playerInfo._userid )] )
    ArrangeModelsInLineup( lineup, viewportFrame )
 
    let animLineup = new AnimateLineup( viewportFrame, viewportCamera )

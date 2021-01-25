@@ -12,6 +12,8 @@ class File
    aPlayerConnected = false
 
    playerToModel = new Map<Player, Model>()
+
+   userIdToPlayer = new Map<number, Player>()
 }
 
 let file = new File()
@@ -216,10 +218,39 @@ function _CloneCharacter( character: Model ): Model
    return clonedModel
 }
 
+export function GetPlayerFromUserIDString( id: string ): Player
+{
+   let num = tonumber( id )
+   if ( num === undefined )
+   {
+      Assert( false, "Not a legal player id: " + id )
+      throw undefined
+   }
+   return GetPlayerFromUserID( num )
+}
+
+
+export function GetPlayerFromUserID( id: number ): Player
+{
+   //print( "id: " + id )
+   let player = file.userIdToPlayer.get( id )
+   if ( player === undefined )
+   {
+      if ( IsServer() )
+      {
+         Assert( false, "Could not find player with id " + id )
+         throw undefined
+      }
+      return Players.LocalPlayer // defensive failsafe that can happen if you join a game in progress
+   }
+
+   //print( "name: " + player.Name )
+   return player
+}
 
 function OnPlayerConnected( player: Player )
 {
-   let finished = false
+   file.userIdToPlayer.set( player.UserId, player )
 
    /*
    Thread( function ()
@@ -253,8 +284,6 @@ function OnPlayerConnected( player: Player )
 
    if ( player.Character )
       OnPlayerCharacterAdded( player.Character )
-
-   finished = true
 }
 
 export function SetPlayerWalkSpeed( player: Player, walkSpeed: number )

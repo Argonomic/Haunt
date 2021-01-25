@@ -1,7 +1,7 @@
 import { GetHumanoid, IsAlive, KillPlayer } from "shared/sh_utils"
-import { GAME_STATE, ROLE, Corpse, USETYPES, COOLDOWN_NAME_KILL, MEETING_TYPE, NETVAR_MEETINGS_CALLED, UsableGameState, Match } from "shared/sh_gamestate"
+import { GAME_STATE, ROLE, NS_Corpse, USETYPES, COOLDOWN_NAME_KILL, MEETING_TYPE, NETVAR_MEETINGS_CALLED, UsableGameState } from "shared/sh_gamestate"
 import { GetUsableByType, USABLETYPES } from "shared/sh_use"
-import { PlayerHasUnfinishedAssignment, ClearAssignments, PlayerHasAssignments, PlayerToMatch } from "server/sv_gameState"
+import { SetGameState, UpdateGame, PlayerHasUnfinishedAssignment, ClearAssignments, PlayerHasAssignments, PlayerToMatch } from "server/sv_gameState"
 import { SV_SendRPC } from "shared/sh_rpc"
 import { GetCurrentRoom } from "server/sv_rooms"
 import { ResetCooldownTime } from "shared/sh_cooldown"
@@ -27,9 +27,10 @@ export function SV_UseContentSetup()
 
          // are we near a corpse?
          let corpseUsables: Array<Vector3> = []
-         for ( let corpse of match.corpses )
+         for ( let corpse of match.shState.corpses )
          {
-            corpseUsables.push( corpse.pos )
+            let pos = new Vector3( corpse.x, corpse.y, corpse.z )
+            corpseUsables.push( pos )
          }
 
          return corpseUsables
@@ -43,13 +44,14 @@ export function SV_UseContentSetup()
             return
 
          let pos = usedThing as Vector3
-         for ( let corpse of match.corpses )
+         for ( let corpse of match.shState.corpses )
          {
-            if ( corpse.pos.sub( pos ).Magnitude < 1 ) // dunno if we can just compare vectors directly and I dunno if it drops any precision
+            let corpsePos = new Vector3( corpse.x, corpse.y, corpse.z )
+            if ( corpsePos.sub( pos ).Magnitude < 1 ) // dunno if we can just compare vectors directly and I dunno if it drops any precision
             {
                let meetingCallerRoomName = GetCurrentRoom( player ).name
-               match.SetMeetingDetails( player, MEETING_TYPE.MEETING_REPORT, meetingCallerRoomName, corpse.player )
-               match.SetGameState( GAME_STATE.GAME_STATE_MEETING_DISCUSS )
+               match.SetMeetingDetails( player, MEETING_TYPE.MEETING_REPORT, meetingCallerRoomName, corpse.userId )
+               SetGameState( match, GAME_STATE.GAME_STATE_MEETING_DISCUSS )
                return
             }
          }
@@ -92,7 +94,7 @@ export function SV_UseContentSetup()
 
          let camper = usedThing as Player
 
-         match.corpses.push( new Corpse( camper, GetPosition( camper ) ) )
+         match.shState.corpses.push( new NS_Corpse( camper, GetPosition( camper ) ) )
          SetPlayerSpawnLocation( camper, GetPosition( camper ) )
          PlayerDropsCoinsWithTrajectory( camper, GetPosition( player ) )
          match.SetPlayerRole( camper, ROLE.ROLE_SPECTATOR_CAMPER )
@@ -102,7 +104,7 @@ export function SV_UseContentSetup()
 
          ClearAssignments( match, camper )
 
-         match.UpdateGame()
+         UpdateGame( match )
          ResetCooldownTime( player, COOLDOWN_NAME_KILL )
       }
 
@@ -183,7 +185,7 @@ export function SV_UseContentSetup()
 
             let meetingCallerRoomName = GetCurrentRoom( player ).name
             match.SetMeetingDetails( player, MEETING_TYPE.MEETING_EMERGENCY, meetingCallerRoomName, undefined )
-            match.SetGameState( GAME_STATE.GAME_STATE_MEETING_DISCUSS )
+            SetGameState( match, GAME_STATE.GAME_STATE_MEETING_DISCUSS )
          }
    }
 }

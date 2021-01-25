@@ -1,12 +1,14 @@
 import { RunService } from "@rbxts/services";
 import { Match, GAME_STATE, PlayerInfo, PlayerNumToGameViewable, ROLE, MEETING_TYPE } from "shared/sh_gamestate";
-import { ClonePlayerModel } from "shared/sh_onPlayerConnect";
+import { ClonePlayerModel, GetPlayerFromUserID } from "shared/sh_onPlayerConnect";
 import { MATCHMAKE_PLAYERCOUNT_STARTSERVER, PLAYER_COLORS } from "shared/sh_settings";
 import { Tween } from "shared/sh_tween";
 import { GetFirstChildWithNameAndClassName, GetLocalPlayer, LightenColor, SetCharacterTransparency, Thread, SetCharacterYaw } from "shared/sh_utils";
 import { Assert } from "shared/sh_assert"
 import { AddPlayerGuiFolderExistsCallback, UIORDER } from "./cl_ui";
 import { SendRPC_Client } from "shared/sh_rpc";
+
+const LOCAL_PLAYER = GetLocalPlayer()
 
 class File
 {
@@ -334,7 +336,7 @@ class ActiveMeeting
 
          for ( let vote of match.GetVotes() )
          {
-            if ( vote.voter === localPlayer )
+            if ( vote.voter === LOCAL_PLAYER.UserId )
                return // already voted
          }
 
@@ -343,7 +345,7 @@ class ActiveMeeting
             buttonGroup.HideChecks()
          }
 
-         switch ( match.GetPlayerRole( localPlayer ) )
+         switch ( match.GetPlayerRole( LOCAL_PLAYER ) )
          {
             case ROLE.ROLE_IMPOSTOR:
             case ROLE.ROLE_CAMPER:
@@ -512,10 +514,11 @@ class ActiveMeeting
          voteImage.VoteNumber.TextColor3 = PLAYER_COLORS[voterInfo.playernum]
          voteImage.VoteNumber.Text = PlayerNumToGameViewable( voterInfo.playernum )
 
+         let player = GetPlayerFromUserID( voterInfo._userid )
          let baseFrame = this.frame
-         if ( !this.drewVote.has( voterInfo.player ) )
+         if ( !this.drewVote.has( player ) )
          {
-            this.drewVote.set( voterInfo.player, true )
+            this.drewVote.set( player, true )
             Thread( function ()
             {
                let voteRev = voteImage.VoteNumber
@@ -560,12 +563,10 @@ class ActiveMeeting
       print( "RedrawMeeting" )
       let playerToButtonGroup = new Map<Player, PlayerButtonGroup>()
 
-      let localPlayer = GetLocalPlayer()
-
       let didVote = false
       for ( let vote of match.GetVotes() )
       {
-         if ( vote.voter === localPlayer )
+         if ( vote.voter === LOCAL_PLAYER.UserId )
          {
             didVote = true
             break
@@ -586,7 +587,7 @@ class ActiveMeeting
          if ( match.GetGameState() === GAME_STATE.GAME_STATE_MEETING_VOTE )
          {
             this.skipButtonGroup.button.Visible = true
-            if ( match.IsSpectator( localPlayer ) )
+            if ( match.IsSpectator( LOCAL_PLAYER ) )
                this.skipButtonGroup.button.BackgroundColor3 = new Color3( 0.5, 0.5, 0.5 )
             else
                this.skipButtonGroup.button.BackgroundColor3 = new Color3( 1.0, 1.0, 1.0 )
@@ -607,7 +608,7 @@ class ActiveMeeting
       print( "Vote count: " + match.GetVotes().size() )
       for ( let vote of match.GetVotes() )
       {
-         let voter = vote.voter as Player
+         let voter = GetPlayerFromUserID( vote.voter )
          Assert( voter !== undefined, "No voter!" )
 
          let playerButtonGroup = playerToButtonGroup.get( voter ) as PlayerButtonGroup
@@ -637,7 +638,8 @@ class ActiveMeeting
          }
          else
          {
-            let voteTargetButtonGroup = playerToButtonGroup.get( vote.target ) as PlayerButtonGroup
+            let voteTarget = GetPlayerFromUserID( vote.target )
+            let voteTargetButtonGroup = playerToButtonGroup.get( voteTarget ) as PlayerButtonGroup
             this.AddVote( voteTargetButtonGroup.buttonGroup, voterPlayerInfo, voterButtonGroup )
          }
       }
@@ -671,7 +673,7 @@ export function UpdateMeeting( match: Match, lastGameState: GAME_STATE )
             let activeMeeting = file.activeMeeting
             if ( activeMeeting === undefined )
             {
-               activeMeeting = new ActiveMeeting( match, meetingUITemplate, meetingDetails.meetingCaller )
+               activeMeeting = new ActiveMeeting( match, meetingUITemplate, GetPlayerFromUserID( meetingDetails.meetingCaller ) )
                file.activeMeeting = activeMeeting
             }
 

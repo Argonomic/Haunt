@@ -1,24 +1,38 @@
 import { HttpService, Workspace } from "@rbxts/services"
-import { ROLE, Match, NETVAR_JSON_GAMESTATE, USETYPES, GAME_STATE, GetVoteResults, GAMERESULTS, MEETING_TYPE, IsCamperRole, IsImpostorRole, AddRoleChangeCallback, Assignment, AssignmentIsSame, NETVAR_JSON_ASSIGNMENTS, UsableGameState, PlayerInfo } from "shared/sh_gamestate"
-import { AddCallback_OnPlayerCharacterAdded, AddCallback_OnPlayerConnected, ClonePlayerModel, ClonePlayerModels, PlayerHasClone } from "shared/sh_onPlayerConnect"
+import { ROLE, Match, NETVAR_JSON_GAMESTATE, USETYPES, GAME_STATE, GetVoteResults, GAMERESULTS, MEETING_TYPE, IsCamperRole, IsImpostorRole, AddRoleChangeCallback, Assignment, AssignmentIsSame, NETVAR_JSON_ASSIGNMENTS, UsableGameState, PlayerInfo, USERID, NS_SharedMatchState } from "shared/sh_gamestate"
+import { AddCallback_OnPlayerCharacterAdded, AddCallback_OnPlayerConnected, ClonePlayerModel, ClonePlayerModels, GetPlayerFromUserID, PlayerHasClone } from "shared/sh_onPlayerConnect"
 import { AddNetVarChangedCallback, GetNetVar_String } from "shared/sh_player_netvars"
 import { GetUsableByType } from "shared/sh_use"
-import { GetFirstChildWithName, GetLocalPlayer, RandomFloatRange, RecursiveOnChildren, Resume, SetCharacterTransparency, Thread, WaitThread } from "shared/sh_utils"
+import { GetFirstChildWithName, GetLocalPlayer, RandomFloatRange, RecursiveOnChildren, Resume, SetCharacterTransparency, SetPlayerTransparency, Thread, WaitThread } from "shared/sh_utils"
 import { Assert } from "shared/sh_assert"
 import { UpdateMeeting } from "./cl_meeting"
 import { AddPlayerUseDisabledCallback } from "./cl_use"
 import { DrawMatchScreen_EmergencyMeeting, DrawMatchScreen_Escaped, DrawMatchScreen_Intro, DrawMatchScreen_Victory, DrawMatchScreen_VoteResults } from "./content/cl_matchScreen_content"
 import { GetLastStashed } from "shared/sh_score"
-import { DEV_SKIP_INTRO, SKIP_INTRO_TIME } from "shared/sh_settings"
+import { DEV_SKIP_INTRO, FLAG_RESERVED_SERVER, SKIP_INTRO_TIME, SPECTATOR_TRANS } from "shared/sh_settings"
 import { ReservedServerRelease } from "./cl_matchScreen"
-import { SetLocalViewToRoom, GetCurrentRoom, GetRoom } from "./cl_rooms"
-import { Room } from "shared/sh_rooms"
+import { SetLocalViewToRoom, GetRoom } from "./cl_rooms"
+import { GetDeltaTime } from "shared/sh_time"
 
 const LOCAL_PLAYER = GetLocalPlayer()
+
+class ClientCorpseModel
+{
+   model: Model
+   pos: Vector3
+
+   constructor( model: Model, pos: Vector3 )
+   {
+      this.model = model
+      this.pos = pos
+   }
+}
 
 class File
 {
    readonly clientMatch = new Match()
+
+   corpseToCorpseModel = new Map<USERID, ClientCorpseModel>()
 
    localAssignments: Array<Assignment> = []
    gainedAssignmentTime = new Map<string, number>()
@@ -27,6 +41,7 @@ class File
 }
 
 let file = new File()
+file.clientMatch.AddPlayer( LOCAL_PLAYER )
 
 export function GetLocalMatch(): Match
 {
@@ -73,6 +88,21 @@ function ClientGameThread( match: Match )
 
 export function CL_GameStateSetup()
 {
+   /*
+   Thread(
+      function ()
+      {
+         wait( 3 )
+         let corpseModel = CreateCorpse( LOCAL_PLAYER, GetPosition( LOCAL_PLAYER ) )
+         if ( corpseModel !== undefined )
+         {
+            let pos = GetPosition( corpseModel )
+            let d = 3
+         }
+
+      } )
+   */
+
    let match = file.clientMatch
    let gameThread = coroutine.create(
       function ()
@@ -84,7 +114,7 @@ export function CL_GameStateSetup()
 
    AddCallback_OnPlayerConnected( function ( player: Player )
    {
-      file.clientMatch.AddPlayer( player )
+      //file.clientMatch.AddPlayer( player )
    } )
 
    AddNetVarChangedCallback( NETVAR_JSON_ASSIGNMENTS,
@@ -195,26 +225,81 @@ export function CL_GameStateSetup()
             return []
 
          let positions: Array<Vector3> = []
-         for ( let corpse of match.corpses )
+         for ( let corpse of match.shState.corpses )
          {
-            positions.push( corpse.pos )
+            let corpseModel = GetCorpseClientModel( corpse.userId )
+            if ( corpseModel !== undefined )
+               positions.push( corpseModel.pos )
          }
          return positions
       } )
 
    AddNetVarChangedCallback( NETVAR_JSON_GAMESTATE, function ()
    {
-      let json = GetNetVar_String( LOCAL_PLAYER, NETVAR_JSON_GAMESTATE )
-      if ( !json.size() )
-         return
+      print( "client received broadcast gamestate" )
+      let match = GetLocalMatch()
 
-      let match = file.clientMatch
-      match.NetvarToGamestate()
-
-      for ( let corpse of match.corpses )
       {
-         if ( corpse.clientModel === undefined )
-            corpse.clientModel = CreateCorpse( corpse.player, corpse.pos )
+         let json = GetNetVar_String( LOCAL_PLAYER, NETVAR_JSON_GAMESTATE )
+         if ( !json.size() )
+            return
+         Assert( json.size() > 0 )
+
+         let oldCorpses = match.shState.corpses
+         match.shState = HttpService.JSONDecode( json ) as NS_SharedMatchState
+         match.shState._gameStateChangedTime += GetDeltaTime() // modify times for latency
+
+         // update LOCAL TRANSPARENCY
+         {
+            let localSpectator = match.IsSpectator( LOCAL_PLAYER )
+
+            for ( let player of match.GetAllPlayers() )
+            {
+               if ( match.IsSpectator( player ) )
+               {
+                  if ( player === LOCAL_PLAYER )
+                     SetPlayerTransparency( player, SPECTATOR_TRANS )
+                  else if ( localSpectator ) // spectators see spectators
+                     SetPlayerTransparency( player, SPECTATOR_TRANS )
+                  else
+                     SetPlayerTransparency( player, 1 )
+               }
+            }
+         }
+
+         // update CLIENT SIDE CORPSE MODELS
+         {
+            let leftOverCorpses = new Map<USERID, boolean>()
+            for ( let corpse of oldCorpses )
+            {
+               leftOverCorpses.set( corpse.userId, true )
+            }
+
+            // remove corpse models that are no longer sent
+            for ( let corpse of match.shState.corpses )
+            {
+               if ( leftOverCorpses.has( corpse.userId ) )
+                  leftOverCorpses.delete( corpse.userId )
+
+               if ( GetCorpseClientModel( corpse.userId ) === undefined )
+               {
+                  let corpsePos = new Vector3( corpse.x, corpse.y, corpse.z )
+                  let corpseModel = CreateCorpse( GetPlayerFromUserID( corpse.userId ), corpsePos )
+                  if ( corpseModel !== undefined )
+                     file.corpseToCorpseModel.set( corpse.userId, corpseModel )
+               }
+            }
+
+            for ( let pair of leftOverCorpses )
+            {
+               let corpseModel = GetCorpseClientModel( pair[0] )
+               if ( corpseModel !== undefined )
+               {
+                  corpseModel.model.Destroy()
+                  file.corpseToCorpseModel.delete( pair[0] )
+               }
+            }
+         }
       }
 
       if ( match.gameThread === undefined )
@@ -226,6 +311,12 @@ export function CL_GameStateSetup()
       if ( coroutine.status( match.gameThread ) === "suspended" )
          Resume( match.gameThread )
    } )
+}
+
+
+export function GetCorpseClientModel( userId: USERID ): ClientCorpseModel | undefined
+{
+   return file.corpseToCorpseModel.get( userId )
 }
 
 function CLGameStateChanged( match: Match, oldGameState: number, newGameState: number )
@@ -277,7 +368,7 @@ function CLGameStateChanged( match: Match, oldGameState: number, newGameState: n
          if ( voteResults.highestRecipients.size() === 1 )
             wasImpostor = match.IsImpostor( voteResults.highestRecipients[0] )
 
-         let impostorsRemaining = match.startingImpostorCount
+         let impostorsRemaining = match.shState.startingImpostorCount
          for ( let player of match.GetAllPlayers() )
          {
             if ( match.IsImpostor( player ) && match.IsSpectator( player ) )
@@ -291,7 +382,7 @@ function CLGameStateChanged( match: Match, oldGameState: number, newGameState: n
                voteResults.highestRecipients,
                voteResults.receivedAnyVotes,
                votedAndReceivedNoVotes,
-               match.highestVotedScore,
+               match.shState.highestVotedScore,
                wasImpostor,
                impostorsRemaining
             )
@@ -311,7 +402,8 @@ function CLGameStateChanged( match: Match, oldGameState: number, newGameState: n
          if ( DEV_SKIP_INTRO )
          {
             wait( SKIP_INTRO_TIME )
-            ReservedServerRelease()
+            if ( FLAG_RESERVED_SERVER )
+               ReservedServerRelease()
          }
          else
          {
@@ -354,26 +446,28 @@ function CLGameStateChanged( match: Match, oldGameState: number, newGameState: n
                wait()
             }
 
-            ReservedServerRelease()
+            if ( FLAG_RESERVED_SERVER )
+               ReservedServerRelease()
 
             WaitThread(
                function ()
                {
+                  print( "ASD: player count " + match.GetAllPlayerInfo().size() )
                   let playerInfos = match.GetAllPlayerInfo()
                   playerInfos = playerInfos.filter( function ( playerInfo )
                   {
-                     return PlayerHasClone( playerInfo.player )
+                     return PlayerHasClone( GetPlayerFromUserID( playerInfo._userid ) )
                   } )
 
                   playerInfos.sort( SortPlayerInfosByLocalAndImpostor )
                   let all: Array<Player> = []
                   for ( let playerInfo of playerInfos )
                   {
-                     all.push( playerInfo.player )
+                     all.push( GetPlayerFromUserID( playerInfo._userid ) )
                   }
 
                   let lineup = ClonePlayerModels( all )
-                  DrawMatchScreen_Intro( foundLocalImpostor, match.startingImpostorCount, lineup )
+                  DrawMatchScreen_Intro( foundLocalImpostor, match.shState.startingImpostorCount, lineup )
                } )
          }
 
@@ -466,7 +560,7 @@ function CLGameStateChanged( match: Match, oldGameState: number, newGameState: n
    }
 }
 
-function CreateCorpse( player: Player, pos: Vector3 ): Model | undefined
+function CreateCorpse( player: Player, pos: Vector3 ): ClientCorpseModel | undefined
 {
    const PUSH = 10
    const ROTVEL = 36
@@ -509,7 +603,7 @@ function CreateCorpse( player: Player, pos: Vector3 ): Model | undefined
       return false // continue recursion
    } )
 
-   return corpseCharacter
+   return new ClientCorpseModel( corpseCharacter, pos )
 }
 
 export function GetLocalAssignments(): Array<Assignment>
@@ -557,12 +651,12 @@ function GetCompoundNameFromNames( roomName: string, taskName: string ): string
 
 function SortPlayerInfosByLocalAndImpostor( a: PlayerInfo, b: PlayerInfo )
 {
-   if ( a.player === LOCAL_PLAYER && b.player !== LOCAL_PLAYER )
+   if ( a._userid === LOCAL_PLAYER.UserId && b._userid !== LOCAL_PLAYER.UserId )
       return true
-   if ( b.player === LOCAL_PLAYER && a.player !== LOCAL_PLAYER )
+   if ( b._userid === LOCAL_PLAYER.UserId && a._userid !== LOCAL_PLAYER.UserId )
       return false
 
-   let aImp = file.clientMatch.IsImpostor( a.player )
-   let bImp = file.clientMatch.IsImpostor( b.player )
+   let aImp = file.clientMatch.IsImpostor( GetPlayerFromUserID( a._userid ) )
+   let bImp = file.clientMatch.IsImpostor( GetPlayerFromUserID( b._userid ) )
    return aImp && !bImp
 }
