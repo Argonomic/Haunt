@@ -5,7 +5,6 @@ import { AddPlayerGuiFolderExistsCallback, ToggleButton, UIORDER } from "./cl_ui
 import { AddNetVarChangedCallback } from "shared/sh_player_netvars";
 import { AddCallback_OnPlayerCharacterAncestryChanged } from "shared/sh_onPlayerConnect";
 import { SendRPC_Client } from "shared/sh_rpc";
-import { FLAG_RESERVED_SERVER } from "shared/sh_settings";
 
 const LOCAL_PLAYER = GetLocalPlayer()
 
@@ -86,7 +85,7 @@ export function CL_ReturnToLobbySetup()
             file.returnToLobbyUI.Parent = undefined
       } )
 
-   let lastRole = ROLE.ROLE_CAMPER
+   let lastRole = ROLE.ROLE_SPECTATOR_LATE_JOINER
    AddNetVarChangedCallback( NETVAR_JSON_GAMESTATE,
       function ()
       {
@@ -103,23 +102,15 @@ export function CL_ReturnToLobbySetup()
                //print( "PLAYER IS SPECTATOR: " + match.IsSpectator( LOCAL_PLAYER ) )
 
                let newRole = match.GetPlayerRole( LOCAL_PLAYER )
-               switch ( newRole )
-               {
-                  case ROLE.ROLE_SPECTATOR_CAMPER:
-                  case ROLE.ROLE_SPECTATOR_CAMPER_ESCAPED:
-                  case ROLE.ROLE_SPECTATOR_IMPOSTOR:
-                     if ( IsSpectatorRole( lastRole ) )
-                        return
-                     lastRole = newRole
-                     break
+               let wasLastRole = lastRole
+               lastRole = newRole
 
-                  default:
-                     ui.Enabled = false
-                     lastRole = newRole
-                     return
+               if ( !IsSpectatorRole( newRole ) || IsSpectatorRole( wasLastRole ) )
+               {
+                  ui.Enabled = false
+                  return
                }
 
-               lastRole = newRole
                wait( 4 )
 
                switch ( match.GetPlayerRole( LOCAL_PLAYER ) )

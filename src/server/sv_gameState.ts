@@ -2,8 +2,8 @@ import { Chat, HttpService, MessagingService, Players, RunService, TeleportServi
 import { AddRPC, GetRPCRemoteEvent } from "shared/sh_rpc"
 import { FilterHasCharacters, ArrayFind, ArrayRandomize, GraphCapped, IsAlive, Resume, Thread, UserIDToPlayer, Wait, WaitThread } from "shared/sh_utils"
 import { Assert } from "shared/sh_assert"
-import { Assignment, GAME_STATE, NETVAR_JSON_ASSIGNMENTS, ROLE, Match, GAMERESULTS, GetVoteResults, TASK_EXIT, AssignmentIsSame, TASK_RESTORE_LIGHTS, NETVAR_JSON_GAMESTATE, NETVAR_MEETINGS_CALLED, SetPlayerWalkspeedForGameState, USERID, PlayerVote, NS_SharedMatchState, PlayerInfo, AddRoleChangeCallback, PICKUPS } from "shared/sh_gamestate"
-import { MIN_TASKLIST_SIZE, MAX_TASKLIST_SIZE, MATCHMAKE_PLAYERCOUNT_STARTSERVER, SPAWN_ROOM, TASK_VALUE, MATCHMAKE_PLAYERCOUNT_FALLBACK, DEV_1_TASK, ADMINS, FLAG_RESERVED_SERVER, START_COUNTDOWN } from "shared/sh_settings"
+import { Assignment, GAME_STATE, NETVAR_JSON_ASSIGNMENTS, ROLE, Match, GAMERESULTS, GetVoteResults, TASK_EXIT, AssignmentIsSame, TASK_RESTORE_LIGHTS, NETVAR_JSON_GAMESTATE, NETVAR_MEETINGS_CALLED, SetPlayerWalkspeedForGameState, USERID, PlayerVote, NS_SharedMatchState, PlayerInfo, AddRoleChangeCallback, PICKUPS, IsSpectatorRole, ExecRoleChangeCallbacks } from "shared/sh_gamestate"
+import { MIN_TASKLIST_SIZE, MAX_TASKLIST_SIZE, MATCHMAKE_PLAYERCOUNT_STARTSERVER, SPAWN_ROOM, TASK_VALUE, MATCHMAKE_PLAYERCOUNT_FALLBACK, DEV_1_TASK, ADMINS, FLAG_RESERVED_SERVER } from "shared/sh_settings"
 import { ResetNetVar, SetNetVar } from "shared/sh_player_netvars"
 import { AddCallback_OnPlayerCharacterAdded, AddCallback_OnPlayerConnected } from "shared/sh_onPlayerConnect"
 import { GetAllRoomsAndTasks, GetCurrentRoom, GetRoomByName, PlayerHasCurrentRoom, PutPlayersInRoom } from "./sv_rooms"
@@ -19,9 +19,8 @@ import { ServerAttemptToFindReadyPlayersOfPlayerCount } from "./sv_matchmaking"
 import { IsReservedServer } from "shared/sh_reservedServer"
 import { GetPosition } from "shared/sh_utils_geometry"
 import { ReportEvent } from "./sv_analytics"
-import { GetSharedVarInt, SetSharedVarInt } from "shared/sh_sharedVar"
 import { GetPlayerSpawnLocation } from "./sv_playerSpawnLocation"
-import { AddFilterPlayerPickupsCallback, CreatePickupType, DeleteFilterPickupsForPlayer, DeleteFilterPlayerPickupsCallback } from "shared/sh_pickups"
+import { PlayerPickupsDisabled, PlayerPickupsEnabled, AddFilterPlayerPickupsCallback, CreatePickupType, DeleteFilterPickupsForPlayer, DeleteFilterPlayerPickupsCallback } from "shared/sh_pickups"
 import { Room } from "shared/sh_rooms"
 
 const LOCAL = RunService.IsStudio()
@@ -90,24 +89,21 @@ export function SV_GameStateSetup()
          let player = userIdToPlayer.get( a.SpeakerUserId ) as Player
          a.ShouldDeliver = true
 
-         if ( PlayerHasMatch( player ) )
+         if ( file.playerToMatch.has( player ) )
          {
             let match = PlayerToMatch( player )
-            if ( match.IsRealMatch() )
+            switch ( match.GetGameState() )
             {
-               switch ( match.GetGameState() )
-               {
-                  case GAME_STATE.GAME_STATE_PLAYING:
-                  case GAME_STATE.GAME_STATE_SUDDEN_DEATH:
-                     a.ShouldDeliver = match.IsSpectator( player )
-                     break
+               case GAME_STATE.GAME_STATE_PLAYING:
+               case GAME_STATE.GAME_STATE_SUDDEN_DEATH:
+                  a.ShouldDeliver = match.IsSpectator( player )
+                  break
 
-                  //               case GAME_STATE.GAME_STATE_MEETING_DISCUSS:
-                  //               case GAME_STATE.GAME_STATE_MEETING_VOTE:
-                  //               case GAME_STATE.GAME_STATE_MEETING_RESULTS:
-                  //                  a.ShouldDeliver = !match.IsSpectator( player )
-                  //                  break
-               }
+               //               case GAME_STATE.GAME_STATE_MEETING_DISCUSS:
+               //               case GAME_STATE.GAME_STATE_MEETING_VOTE:
+               //               case GAME_STATE.GAME_STATE_MEETING_RESULTS:
+               //                  a.ShouldDeliver = !match.IsSpectator( player )
+               //                  break
             }
          }
 
@@ -166,11 +162,11 @@ export function SV_GameStateSetup()
       }
       else
       {
-         if ( !PlayerHasMatch( player ) )
-         {
-            FindMatchForPlayer( player )
-            return
-         }
+         //if ( !PlayerHasMatch( player ) )
+         //{
+         //   FindMatchForPlayer( player )
+         //   return
+         //}
 
          let currentMatch = PlayerToMatch( player )
          if ( !currentMatch.IsSpectator( player ) )
@@ -189,7 +185,7 @@ export function SV_GameStateSetup()
                continue
 
             AddPlayer( match, player )
-            match.SetPlayerRole( player, ROLE.ROLE_CAMPER )
+            SetPlayerRole( match, player, ROLE.ROLE_CAMPER )
             UpdateGame( match )
             //print( "Added to match " + GetMatchIndex( PlayerToMatch( player ) ) )
             return
@@ -199,7 +195,7 @@ export function SV_GameStateSetup()
          // make a new match
          let match = CreateMatch()
          AddPlayer( match, player )
-         match.SetPlayerRole( player, ROLE.ROLE_CAMPER )
+         SetPlayerRole( match, player, ROLE.ROLE_CAMPER )
          UpdateGame( match )
       }
    } )
@@ -230,12 +226,9 @@ export function SV_GameStateSetup()
             wait()
          }
 
-         if ( PlayerHasMatch( player ) )
-         {
-            let match = PlayerToMatch( player )
-            let room = GetCurrentRoom( player )
-            TellOtherPlayersInMatchThatPlayersPutInRoom( match, [player], room )
-         }
+         let match = PlayerToMatch( player )
+         let room = GetCurrentRoom( player )
+         TellOtherPlayersInMatchThatPlayersPutInRoom( match, [player], room )
       } )
    } )
 
@@ -252,7 +245,6 @@ export function SV_GameStateSetup()
          }
 
          UpdateGame( match )
-         file.playerToMatch.delete( player )
       } )
 
    AddRPC( "RPC_FromClient_Skipvote", function ( player: Player )
@@ -295,8 +287,6 @@ export function SV_GameStateSetup()
    pickupType.didPickupFunc =
       function ( player: Player, pickup: Part ): boolean
       {
-         if ( !PlayerHasMatch( player ) )
-            return false
          let match = PlayerToMatch( player )
          let coinType = GetCoinType( pickup )
 
@@ -321,7 +311,7 @@ export function SV_GameStateSetup()
                   let players = Players.GetPlayers()
                   for ( let player of players )
                   {
-                     if ( !PlayerHasMatch( player ) )
+                     //if ( !PlayerHasMatch( player ) )
                      {
                         print( "FAILSAFE: " + player.Name + " had no match!" )
                         FindMatchForPlayer( player )
@@ -514,13 +504,13 @@ function SV_GameStateChanged( match: Match, oldGameState: GAME_STATE )
          for ( let player of impostorPlayers )
          {
             print( player.Name + " to Impostor" )
-            match.SetPlayerRole( player, ROLE.ROLE_IMPOSTOR )
+            SetPlayerRole( match, player, ROLE.ROLE_IMPOSTOR )
             ClearAssignments( match, player )
          }
 
          for ( let player of setCampers )
          {
-            match.SetPlayerRole( player, ROLE.ROLE_CAMPER )
+            SetPlayerRole( match, player, ROLE.ROLE_CAMPER )
             AssignTasks( player, match )
          }
 
@@ -606,7 +596,7 @@ function SV_GameStateChanged( match: Match, oldGameState: GAME_STATE )
             for ( let player of players )
             {
                BecomeSpectator( player, match )
-               if ( PlayerHasMatch( player ) && PlayerToMatch( player ) === match )
+               if ( PlayerToMatch( player ) === match )
                   PlayerDistributesCoins( player, match )
             }
 
@@ -963,16 +953,11 @@ function GameStateThink( match: Match )
                   playerVoted.set( vote.voter, true )
                }
 
-               let userIDToPlayer = UserIDToPlayer()
-               for ( let player of match.GetAllPlayers() )
+               for ( let player of GetAllPlayersInMatchWithCharacters( match ) )
                {
                   if ( match.IsSpectator( player ) )
                      continue // can't vote
-                  if ( playerVoted.has( player.UserId ) )
-                     continue // player already voted
-
-                  // player is still in the game but hasn't voted
-                  if ( userIDToPlayer.has( player.UserId ) )
+                  if ( !playerVoted.has( player.UserId ) )
                      return false
                }
                return true
@@ -1031,11 +1016,11 @@ function BecomeSpectator( player: Player, match: Match )
    switch ( match.GetPlayerRole( player ) )
    {
       case ROLE.ROLE_CAMPER:
-         match.SetPlayerRole( player, ROLE.ROLE_SPECTATOR_CAMPER )
+         SetPlayerRole( match, player, ROLE.ROLE_SPECTATOR_CAMPER )
          break
 
       case ROLE.ROLE_IMPOSTOR:
-         match.SetPlayerRole( player, ROLE.ROLE_SPECTATOR_IMPOSTOR )
+         SetPlayerRole( match, player, ROLE.ROLE_SPECTATOR_IMPOSTOR )
          break
    }
 }
@@ -1082,7 +1067,7 @@ function RPC_FromClient_OnPlayerFinishTask( player: Player, roomName: string, ta
    {
       case TASK_EXIT:
          print( player.Name + " finishes Exit" )
-         match.SetPlayerRole( player, ROLE.ROLE_SPECTATOR_CAMPER_ESCAPED )
+         SetPlayerRole( match, player, ROLE.ROLE_SPECTATOR_CAMPER_ESCAPED )
          ScoreToStash( player )
          UpdateGame( match )
          break
@@ -1230,7 +1215,7 @@ function AssignTasksCount( player: Player, match: Match, assignments: Array<Assi
    {
       if ( DEV_1_TASK && roomAndTask.room.name !== "Great Room" )
          continue
-      if ( roomAndTask.task.realMatchesOnly && ( !match.IsRealMatch() || match.GetGameState() < GAME_STATE.GAME_STATE_PLAYING ) )
+      if ( roomAndTask.task.duringPlayingOnly && match.GetGameState() < GAME_STATE.GAME_STATE_PLAYING )
          continue
 
       let assignment = new Assignment( roomAndTask.room.name, roomAndTask.task.name )
@@ -1372,60 +1357,107 @@ function FindMatchForPlayer( player: Player )
       return
    }
 
-   FindMatchForPlayer_NO_FLAG_RESERVED_SERVER( player )
-}
+   let activeMatchesThatDontHavePlayer: Array<Match> = []
 
-function FindMatchForPlayer_NO_FLAG_RESERVED_SERVER( player: Player )
-{
-   //print( "FindMatchForPlayer: " + player.Name )
-   if ( PlayerHasMatch( player ) )
    {
-      //print( "Player has match " + GetMatchIndex( PlayerToMatch( player ) ) )
-      return
+      let activeMatchesThatHavePlayer = file.matches.filter( function ( match )
+      {
+         if ( match.GetGameState() >= GAME_STATE.GAME_STATE_COMPLETE )
+            return false
+         let players = match.GetAllPlayers()
+         for ( let otherPlayer of players )
+         {
+            if ( otherPlayer === player )
+               return true
+         }
+         activeMatchesThatDontHavePlayer.push( match )
+         return false
+      } )
+
+      for ( let match of activeMatchesThatHavePlayer )
+      {
+         if ( match.IsSpectator( player ) )
+            continue
+
+         // rejoin game as active player
+         file.playerToMatch.set( player, match )
+         UpdateGame( match )
+         return
+      }
+
+      for ( let match of activeMatchesThatHavePlayer )
+      {
+         // rejoin game as a spectator
+         file.playerToMatch.set( player, match )
+         UpdateGame( match )
+         return
+      }
    }
 
-   // any matches waiting for players?
-   for ( let match of file.matches )
    {
-      if ( GetAllPlayersInMatch( match ).size() >= MATCHMAKE_PLAYERCOUNT_STARTSERVER )
-         continue
+      class ActiveMatch
+      {
+         activePlayerCount: number
+         match: Match
+         constructor( activePlayerCount: number, match: Match )
+         {
+            this.activePlayerCount = activePlayerCount
+            this.match = match
+         }
+      }
 
-      if ( match.GetGameState() > GAME_STATE.GAME_STATE_COUNTDOWN )
-         continue
+      let activeMatchesWithOpenSlots: Array<ActiveMatch> = []
+      for ( let match of activeMatchesThatDontHavePlayer )
+      {
+         let players = GetAllPlayersInMatch( match )
+         if ( players.size() >= MATCHMAKE_PLAYERCOUNT_STARTSERVER )
+            continue
+         activeMatchesWithOpenSlots.push( new ActiveMatch( players.size(), match ) )
+      }
 
-      AddPlayer( match, player )
-      match.SetPlayerRole( player, ROLE.ROLE_CAMPER )
-      UpdateGame( match )
-      //print( "Added to match " + GetMatchIndex( PlayerToMatch( player ) ) )
-      return
-   }
+      function ActiveMatchSort( a: ActiveMatch, b: ActiveMatch )
+      {
+         return a.activePlayerCount > b.activePlayerCount
+      }
 
-   // any matches in progress?
-   for ( let match of file.matches )
-   {
-      if ( GetAllPlayersInMatch( match ).size() >= MATCHMAKE_PLAYERCOUNT_STARTSERVER )
-         continue
+      activeMatchesWithOpenSlots.sort( ActiveMatchSort )
 
-      if ( match.GetGameState() >= GAME_STATE.GAME_STATE_COMPLETE )
-         continue
+      // any matches waiting for players?
+      for ( let activeMatch of activeMatchesWithOpenSlots )
+      {
+         let match = activeMatch.match
 
-      AddPlayer( match, player )
-      match.SetPlayerRole( player, ROLE.ROLE_SPECTATOR_LATE_JOINER )
-      UpdateGame( match )
-      return
+         if ( match.GetGameState() > GAME_STATE.GAME_STATE_COUNTDOWN )
+            continue
+
+         AddPlayer( match, player )
+         SetPlayerRole( match, player, ROLE.ROLE_CAMPER )
+         UpdateGame( match )
+         return
+      }
+
+      // any matches in progress?
+      for ( let activeMatch of activeMatchesWithOpenSlots )
+      {
+         let match = activeMatch.match
+         AddPlayer( match, player )
+         SetPlayerRole( match, player, ROLE.ROLE_SPECTATOR_LATE_JOINER )
+         UpdateGame( match )
+         return
+      }
    }
 
    print( "Creating new match" )
    // make a new match
    let match = CreateMatch()
    AddPlayer( match, player )
-   match.SetPlayerRole( player, ROLE.ROLE_CAMPER )
+   SetPlayerRole( match, player, ROLE.ROLE_CAMPER )
    UpdateGame( match )
 }
 
 function FindMatchForPlayer_FLAG_RESERVED_SERVER( player: Player )
 {
-   if ( PlayerHasMatch( player ) )
+   //if ( PlayerHasMatch( player ) )
    {
       let match = PlayerToMatch( player )
       //RemovePlayer( match, player )
@@ -1442,7 +1474,7 @@ function FindMatchForPlayer_FLAG_RESERVED_SERVER( player: Player )
          if ( matchState >= GAME_STATE.GAME_STATE_INTRO )
          {
             print( "LATE JOINER " + player.Name + " at " + Workspace.DistributedGameTime )
-            match.SetPlayerRole( player, ROLE.ROLE_CAMPER )
+            SetPlayerRole( match, player, ROLE.ROLE_CAMPER )
             AssignTasks( player, match )
             let playerInfo = match.GetPlayerInfo( player )
             playerInfo.playernum = match.GetAllPlayers().size() - 1
@@ -1478,7 +1510,7 @@ function FindMatchForPlayer_FLAG_RESERVED_SERVER( player: Player )
    if ( !IsReservedServer() )
    {
       let match = PlayerToMatch( player )
-      match.SetPlayerRole( player, ROLE.ROLE_CAMPER )
+      SetPlayerRole( match, player, ROLE.ROLE_CAMPER )
       UpdateGame( match )
    }
 }
@@ -1486,15 +1518,10 @@ function FindMatchForPlayer_FLAG_RESERVED_SERVER( player: Player )
 function DestroyMatch( match: Match )
 {
    //   print( "DestroyMatch " + GetMatchIndex( match ) + " " + debug.traceback() )
-   for ( let i = 0; i < file.matches.size(); i++ )
+   file.matches = file.matches.filter( function ( otherMatch )
    {
-      if ( file.matches[i] === match )
-      {
-         //print( "REMOVED " + i )
-         file.matches.remove( i )
-         i--
-      }
-   }
+      return otherMatch !== match
+   } )
 
    if ( FLAG_RESERVED_SERVER )
    {
@@ -1767,8 +1794,7 @@ function BroadcastGamestate( match: Match )
    //print( "match.winOnlybyEscaping: " + match.winOnlybyEscaping )
    //print( "Bool: " + ( revealedImpostor || match.winOnlybyEscaping ) )
 
-   revealedImpostor = true
-   Assert( !match.IsRealMatch() || match.GetGameState() < GAME_STATE.GAME_STATE_PLAYING || revealedImpostor, "Didn't reveal impostor" )
+   Assert( match.GetGameState() < GAME_STATE.GAME_STATE_PLAYING || revealedImpostor, "Didn't reveal impostor" )
 }
 
 
@@ -1836,8 +1862,6 @@ function PutPlayerInStartRoom( player: Player )
       wait() // because hey, otherwise the match tries to set the player position somewhere
       if ( player.Character === undefined )
          return
-      if ( !PlayerHasMatch( player ) )
-         return
       let match = PlayerToMatch( player )
       let room = GetRoomByName( SPAWN_ROOM )
       MatchPutPlayersInRoom( match, [player], room )
@@ -1868,8 +1892,6 @@ function TellOtherPlayersInMatchThatPlayersPutInRoom( match: Match, players: Arr
 
 export function SV_SendRPC( name: string, match: Match, player: Player, ...args: Array<unknown> ): void
 {
-   if ( !PlayerHasMatch( player ) )
-      return
    if ( PlayerToMatch( player ) !== match )
       return
 
@@ -1892,11 +1914,9 @@ function AddPlayer( match: Match, player: Player ): PlayerInfo
    //   print( "AddPlayer " + player.Name + " to " + GetMatchIndex( match ) )
    {
       // on left match
-      if ( PlayerHasMatch( player ) )
-      {
-         Assert( PlayerToMatch( player ) !== match, "Player already in this match" )
+      // delete your last known pickup filter
+      if ( file.playerToMatch.has( player ) )
          DeleteFilterPickupsForPlayer( PlayerToMatch( player ), player )
-      }
 
       /*
       for ( let otherMatch of file.matches )
@@ -1932,17 +1952,6 @@ function AddPlayer( match: Match, player: Player ): PlayerInfo
    return playerInfo
 }
 
-export function PlayerHasMatch( player: Player ): boolean
-{
-   let match = file.playerToMatch.get( player )
-   for ( let otherMatch of file.matches )
-   {
-      if ( otherMatch === match )
-         return true
-   }
-   return false
-}
-
 export function PlayerToMatch( player: Player ): Match
 {
    let match = file.playerToMatch.get( player )
@@ -1957,7 +1966,7 @@ export function GetAllPlayersInMatch( match: Match ): Array<Player>
 {
    return match.GetAllPlayers().filter( function ( player )
    {
-      return PlayerHasMatch( player ) && PlayerToMatch( player ) === match
+      return PlayerToMatch( player ) === match
    } )
 }
 
@@ -1965,7 +1974,7 @@ function GetAllPlayersInMatchWithCharacters( match: Match ): Array<Player>
 {
    let players = match.GetAllPlayers().filter( function ( player )
    {
-      return PlayerHasMatch( player ) && PlayerToMatch( player ) === match
+      return PlayerToMatch( player ) === match
    } )
 
    return FilterHasCharacters( players )
@@ -1977,9 +1986,41 @@ export function SetPlayerKilled( match: Match, player: Player, killer?: Player )
    playerInfo.killed = true
    BecomeSpectator( player, match )
 
-   if ( PlayerHasMatch( player ) && PlayerToMatch( player ) === match )
+   if ( PlayerToMatch( player ) === match )
    {
       PlayerDistributesCoins( player, match, killer )
       SV_SendRPC( "RPC_FromServer_CancelTask", match, player )
    }
+}
+
+
+function SetPlayerRole( match: Match, player: Player, role: ROLE ): PlayerInfo
+{
+   //print( "SetPlayerRole " + player.Name + " " + role + " " + IsSpectatorRole( role ) )
+   let lastRole = match.GetPlayerRole( player )
+
+   if ( role === ROLE.ROLE_SPECTATOR_CAMPER )
+      Assert( lastRole === ROLE.ROLE_CAMPER, "Bad role assignment" )
+   else if ( role === ROLE.ROLE_SPECTATOR_IMPOSTOR )
+      Assert( lastRole === ROLE.ROLE_IMPOSTOR, "Bad role assignment" )
+
+   if ( IsSpectatorRole( lastRole ) )
+      Assert( IsSpectatorRole( role ), "Tried to go from spectator role " + lastRole + " to role " + role )
+
+   Assert( match.shState.playerToInfo.has( player.UserId + "" ), "SetPlayerRole: Match does not have " + player.Name )
+   let playerInfo = match.shState.playerToInfo.get( player.UserId + "" ) as PlayerInfo
+   playerInfo.role = role
+   match.shState.playerToInfo.set( player.UserId + "", playerInfo )
+
+   if ( PlayerToMatch( player ) === match )
+   {
+      ExecRoleChangeCallbacks( player, match )
+
+      if ( match.IsSpectator( player ) )
+         PlayerPickupsDisabled( player )
+      else
+         PlayerPickupsEnabled( player )
+   }
+
+   return playerInfo
 }

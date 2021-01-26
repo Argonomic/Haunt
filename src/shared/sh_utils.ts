@@ -396,6 +396,18 @@ export function SetPlayerTransparency( player: Player, value: number )
 
 export function SetCharacterTransparency( char: Model, value: number )
 {
+   /*
+   {
+      for ( let player of Players.GetPlayers() )
+      {
+         if ( player.Character === char )
+         {
+            print( "SetCharacterTransparency " + player.Name + " " + value + " " + debug.traceback() )
+            break
+         }
+      }
+   }
+   */
    let head = char.FindFirstChild( "Head" )
    if ( head )
    {

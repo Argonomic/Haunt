@@ -1,5 +1,5 @@
 import { HttpService, Workspace } from "@rbxts/services"
-import { ROLE, Match, NETVAR_JSON_GAMESTATE, USETYPES, GAME_STATE, GetVoteResults, GAMERESULTS, MEETING_TYPE, IsCamperRole, IsImpostorRole, AddRoleChangeCallback, Assignment, AssignmentIsSame, NETVAR_JSON_ASSIGNMENTS, UsableGameState, PlayerInfo, USERID, NS_SharedMatchState } from "shared/sh_gamestate"
+import { ROLE, Match, NETVAR_JSON_GAMESTATE, USETYPES, GAME_STATE, GetVoteResults, GAMERESULTS, MEETING_TYPE, IsCamperRole, IsImpostorRole, AddRoleChangeCallback, Assignment, AssignmentIsSame, NETVAR_JSON_ASSIGNMENTS, UsableGameState, PlayerInfo, USERID, NS_SharedMatchState, ExecRoleChangeCallbacks } from "shared/sh_gamestate"
 import { AddCallback_OnPlayerCharacterAdded, AddCallback_OnPlayerConnected, ClonePlayerModel, ClonePlayerModels, GetPlayerFromUserID, PlayerHasClone } from "shared/sh_onPlayerConnect"
 import { AddNetVarChangedCallback, GetNetVar_String } from "shared/sh_player_netvars"
 import { GetUsableByType } from "shared/sh_use"
@@ -63,14 +63,10 @@ export function GetLocalIsSpectator(): boolean
    return file.clientMatch.IsSpectator( GetLocalPlayer() )
 }
 
-function SortLocalPlayer( a: Player, b: Player ): boolean
-{
-   return a === LOCAL_PLAYER && b !== LOCAL_PLAYER
-}
-
 function ClientGameThread( match: Match )
 {
    let lastGameState = match.GetGameState()
+   let playersToLastKnownRole = new Map<Player, ROLE>()
 
    for ( ; ; )
    {
@@ -84,6 +80,18 @@ function ClientGameThread( match: Match )
       }
 
       UpdateMeeting( match, lastGameStateForMeeting )
+
+      for ( let player of match.GetAllPlayers() )
+      {
+         let role = match.GetPlayerRole( player )
+         if ( !playersToLastKnownRole.has( player ) )
+            playersToLastKnownRole.set( player, role )
+
+         let lastRole = playersToLastKnownRole.get( player ) as ROLE
+         if ( lastRole !== role )
+            ExecRoleChangeCallbacks( player, match )
+         playersToLastKnownRole.set( player, role )
+      }
 
       coroutine.yield() // wait until something says update again
    }

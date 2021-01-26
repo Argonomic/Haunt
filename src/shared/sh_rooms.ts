@@ -66,13 +66,13 @@ export class Task
 {
    readonly name: string
    readonly volume: BasePart
-   readonly realMatchesOnly: boolean
+   readonly duringPlayingOnly: boolean
 
-   constructor( name: string, volume: BasePart, realMatchesOnly: boolean )
+   constructor( name: string, volume: BasePart, duringPlayingOnly: boolean )
    {
       this.name = name
       this.volume = volume
-      this.realMatchesOnly = realMatchesOnly
+      this.duringPlayingOnly = duringPlayingOnly
    }
 }
 
@@ -104,8 +104,8 @@ function CreateRoomFromFolder( folder: Folder ): Room
          case "usable_task":
             {
                let childPart = child as BasePart
-               let realMatchesOnly = GetFirstChildWithName( childPart, "not_in_lobby" ) !== undefined
-               realMatchesOnly = realMatchesOnly || GetFirstChildWithName( childPart, "not_in_npe" ) !== undefined
+               let duringPlayingOnly = GetFirstChildWithName( childPart, "not_in_lobby" ) !== undefined
+               duringPlayingOnly = duringPlayingOnly || GetFirstChildWithName( childPart, "not_in_npe" ) !== undefined
 
                Assert( childPart.ClassName === "Part", "usable_task should be a Part" )
 
@@ -113,7 +113,7 @@ function CreateRoomFromFolder( folder: Folder ): Room
                childPart.Transparency = 1.0
 
                let taskRef = childPart as EDITOR_UsableTask
-               let task = new Task( taskRef.taskName.Value, taskRef, realMatchesOnly )
+               let task = new Task( taskRef.taskName.Value, taskRef, duringPlayingOnly )
 
                Assert( !room.tasks.has( task.name ), "Room already has task " + task.name )
                room.tasks.set( task.name, task )

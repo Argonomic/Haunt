@@ -3,7 +3,7 @@ import { NS_Corpse, TASK_RESTORE_LIGHTS, PlayerNumToGameViewable, ROLE, Match, G
 import { AddCallback_OnPlayerCharacterAdded, AddCallback_OnPlayerCharacterAncestryChanged, GetPlayerFromUserID } from "shared/sh_onPlayerConnect"
 import { PLAYER_COLORS, SPECTATOR_TRANS } from "shared/sh_settings"
 import { TweenPlayerParts } from "shared/sh_tween"
-import { GetFirstChildWithNameAndClassName, GetLocalPlayer, GraphCapped, IsAlive, SetCharacterTransparency, SetPlayerTransparency, UserIDToPlayer } from "shared/sh_utils"
+import { GetFirstChildWithNameAndClassName, GetLocalPlayer, GraphCapped, IsAlive, SetCharacterTransparency, SetPlayerTransparency, Thread, UserIDToPlayer } from "shared/sh_utils"
 import { Assert } from "shared/sh_assert"
 import { GetCorpseClientModel, ClientGetAssignmentAssignedTime, ClientHasAssignment, GetLocalMatch, GetLocalIsSpectator, GetLocalRole } from "./cl_gamestate"
 import { AddPlayerGuiFolderExistsCallback, UIORDER } from "./cl_ui"
@@ -37,7 +37,24 @@ export function CL_FadeOverlaySetup()
    AddCallback_OnPlayerCharacterAdded( function ( player: Player )
    {
       if ( player !== LOCAL_PLAYER )
-         SetPlayerTransparency( player, 1 )
+      {
+         Thread(
+            function ()
+            {
+               let endTime = Workspace.DistributedGameTime + 0.5
+               let match = GetLocalMatch()
+               for ( ; ; )
+               {
+                  if ( match.HasPlayer( player ) )
+                     break
+                  if ( Workspace.DistributedGameTime >= endTime )
+                     break
+
+                  SetPlayerTransparency( player, 1 )
+                  wait()
+               }
+            } )
+      }
 
       // cleanup past instances of this player
       for ( let pair of file.characterToPlayer )

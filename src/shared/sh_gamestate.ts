@@ -2,15 +2,12 @@ import { Workspace } from "@rbxts/services"
 import { AddNetVar } from "shared/sh_player_netvars"
 import { AddCooldown } from "./sh_cooldown"
 import { SetPlayerWalkSpeed, GetPlayerFromUserID, GetPlayerFromUserIDString } from "./sh_onPlayerConnect"
-import { COOLDOWNTIME_MEETING, COOLDOWNTIME_KILL, MEETING_DISCUSS_TIME, MEETING_VOTE_TIME, PLAYER_WALKSPEED_SPECTATOR, PLAYER_WALKSPEED, SUDDEN_DEATH_TIME, DEV_SKIP_INTRO, RESERVEDSERVER_WAITS_FOR_PLAYERS, INTRO_TIME, SKIP_INTRO_TIME, MEETING_VOTE_RESULTS, FLAG_RESERVED_SERVER, START_COUNTDOWN } from "./sh_settings"
+import { COOLDOWNTIME_MEETING, COOLDOWNTIME_KILL, MEETING_DISCUSS_TIME, MEETING_VOTE_TIME, PLAYER_WALKSPEED_SPECTATOR, PLAYER_WALKSPEED, SUDDEN_DEATH_TIME, DEV_SKIP_INTRO, RESERVEDSERVER_WAITS_FOR_PLAYERS, INTRO_TIME, SKIP_INTRO_TIME, MEETING_VOTE_RESULTS, START_COUNTDOWN } from "./sh_settings"
 import { IsServer, Thread } from "./sh_utils"
 import { Assert } from "shared/sh_assert"
 import { GiveAbility, TakeAbility } from "./sh_ability"
 import { ABILITIES } from "./content/sh_ability_content"
-import { PlayerPickupsDisabled, PlayerPickupsEnabled } from "./sh_pickups"
 import { NETVAR_LAST_STASHED, NETVAR_SCORE, NETVAR_STASH } from "./sh_score"
-import { IsReservedServer } from "./sh_reservedServer"
-import { CreateSharedInt, GetSharedVarInt } from "./sh_sharedVar"
 
 export const NETVAR_JSON_ASSIGNMENTS = "JS_TL"
 export const NETVAR_JSON_GAMESTATE = "JS_GS"
@@ -183,7 +180,6 @@ export class NS_SharedMatchState
    startingImpostorCount = 0
    dbg_spc = 0
    highestVotedScore = 0
-   realMatch = false
    gameIndex: MATCHINDEX = -999
 
    _gameStateChangedTime = 0
@@ -207,16 +203,6 @@ export class Match
 
       let match = this
       match.shState.gameIndex = file.gameIndex
-
-      if ( FLAG_RESERVED_SERVER )
-      {
-         if ( IsServer() )
-            match.shState.realMatch = IsReservedServer()
-      }
-      else
-      {
-         match.shState.realMatch = true
-      }
 
       for ( let func of file.gameCreatedCallbacks )
       {
@@ -288,14 +274,6 @@ export class Match
       let results = func()
       //print( "GetGameResults_ParityAllowed:" + results + ", isserver: " + IsServer() )
       return results
-   }
-
-   public IsRealMatch(): boolean
-   {
-      if ( !FLAG_RESERVED_SERVER )
-         return true
-
-      return this.shState.realMatch
    }
 
    public GetGameResults_NoParityAllowed(): GAMERESULTS
@@ -458,16 +436,6 @@ export class Match
       return this.shState._gameStateChangedTime
    }
 
-   public HasPlayer( player: Player ): boolean
-   {
-      for ( let pair of this.shState.playerToInfo )
-      {
-         if ( tonumber( pair[0] ) === player.UserId )
-            return true
-      }
-      return false
-   }
-
    public CompletedExitTask( player: Player ): boolean
    {
       if ( !this.svState.assignments.has( player ) )
@@ -481,47 +449,6 @@ export class Match
       }
       return false
    }
-
-
-   public SetPlayerRole( player: Player, role: ROLE ): PlayerInfo
-   {
-      //print( "SetPlayerRole " + player.Name + " " + role + " " + IsSpectatorRole( role ) )
-      Assert( IsServer(), "IsServer()" )
-      let lastRole = this.GetPlayerRole( player )
-      //print( "Set player " + player.UserId + " role to " + role )
-      if ( IsServer() )
-      {
-         let lastRole = this.GetPlayerRole( player )
-         if ( role === ROLE.ROLE_SPECTATOR_CAMPER )
-            Assert( lastRole === ROLE.ROLE_CAMPER, "Bad role assignment" )
-         else if ( role === ROLE.ROLE_SPECTATOR_IMPOSTOR )
-            Assert( lastRole === ROLE.ROLE_IMPOSTOR, "Bad role assignment" )
-
-         if ( IsSpectatorRole( lastRole ) )
-            Assert( IsSpectatorRole( role ), "Tried to go from spectator role " + lastRole + " to role " + role )
-      }
-
-      Assert( this.shState.playerToInfo.has( player.UserId + "" ), "SetPlayerRole: Match does not have " + player.Name )
-      let playerInfo = this.shState.playerToInfo.get( player.UserId + "" ) as PlayerInfo
-      playerInfo.role = role
-      this.shState.playerToInfo.set( player.UserId + "", playerInfo )
-
-      if ( lastRole !== role )
-      {
-         for ( let func of file.onRoleChangeCallback )
-         {
-            func( player, this )
-         }
-      }
-
-      if ( this.IsSpectator( player ) )
-         PlayerPickupsDisabled( player )
-      else
-         PlayerPickupsEnabled( player )
-
-      return playerInfo
-   }
-
 
    public GetAllPlayers(): Array<Player>
    {
@@ -611,6 +538,11 @@ export class Match
       return ( this.shState.playerToInfo.get( player.UserId + "" ) as PlayerInfo ).role
    }
 
+   public HasPlayer( player: Player ): boolean
+   {
+      return this.shState.playerToInfo.has( player.UserId + "" )
+   }
+
    public InActiveGameState()
    {
       switch ( this.GetGameState() )
@@ -689,6 +621,7 @@ export function SH_GameStateSetup()
 
 function UpdatePlayerAbilities( player: Player, match: Match )
 {
+   print( "************ UpdatePlayerAbilities " + IsServer() + " " + debug.traceback() )
    switch ( match.GetGameState() )
    {
       case GAME_STATE.GAME_STATE_PLAYING:
@@ -792,6 +725,18 @@ export function AddRoleChangeCallback( func: ( player: Player, match: Match ) =>
    file.onRoleChangeCallback.push( func )
 }
 
+export function ExecRoleChangeCallbacks( player: Player, match: Match )
+{
+   for ( let func of file.onRoleChangeCallback )
+   {
+      Thread(
+         function ()
+         {
+            func( player, match )
+         } )
+   }
+}
+
 export function IsImpostorRole( role: ROLE ): boolean
 {
    switch ( role )
@@ -854,12 +799,6 @@ export function UsableGameState( match: Match ): boolean
 
 export function SetPlayerWalkspeedForGameState( player: Player, match: Match )
 {
-   if ( !match.IsRealMatch() )
-   {
-      SetPlayerWalkSpeed( player, PLAYER_WALKSPEED )
-      return
-   }
-
    switch ( match.GetGameState() )
    {
       case GAME_STATE.GAME_STATE_INIT:
