@@ -7,7 +7,7 @@ const TEST = game.PlaceId === 5954656113
 print( "TEST is " + TEST )
 
 export const DEV_SKIP_INTRO = LOCAL && false
-export const DEV_1_TASK = ( LOCAL || TEST ) && false
+export const DEV_1_TASK = ( LOCAL || TEST ) && true
 print( "DEV_1_TASK: " + DEV_1_TASK )
 export let DEV_FAST_TIMERS: boolean = ( LOCAL || TEST ) && true
 
@@ -18,8 +18,8 @@ export let MATCHMAKE_PLAYERCOUNT_STARTSERVER = 10
 
 if ( ( LOCAL || TEST ) && true )
 {
-   MATCHMAKE_PLAYERCOUNT_FALLBACK = 5
-   MATCHMAKE_PLAYERCOUNT_STARTSERVER = 7
+   MATCHMAKE_PLAYERCOUNT_FALLBACK = 3
+   //MATCHMAKE_PLAYERCOUNT_STARTSERVER = 4
    //DEV_FAST_TIMERS = true
 }
 print( "DEV_FAST_TIMERS: " + DEV_FAST_TIMERS )
@@ -33,7 +33,7 @@ export const MATCHMAKE_PLAYER_CAN_MATCHMAKE_TIME = 1
 export const MATCHMAKE_PLAYER_WAITING_FOR_FRIEND_TIME = 45
 export const MATCHMAKE_PLAYER_OPENED_FRIEND_INVITE = 30
 
-export let START_COUNTDOWN = 30
+export let START_COUNTDOWN = 20
 export const RESERVEDSERVER_WAITS_FOR_PLAYERS = 10
 
 // POINTS
@@ -88,5 +88,5 @@ export const PLAYER_COLORS =
 
 export const ADMINS = ["Argonomic", "ArgonomicDev"]
 
-print( "SRV 1.23.21 6 - chat resize" )
+print( "SRV 1.26.21 2.4" )
 print( " " )

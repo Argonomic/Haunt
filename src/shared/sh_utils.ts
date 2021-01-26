@@ -680,16 +680,6 @@ function Assert( bool: boolean, msg: string )
    assert( false, msg )
 }
 
-export function PlayerExists( player: Player )
-{
-   for ( let other of Players.GetPlayers() )
-   {
-      if ( other === player )
-         return true
-   }
-   return false
-}
-
 export function Wait( time: number )
 {
    let endTime = Workspace.DistributedGameTime + time

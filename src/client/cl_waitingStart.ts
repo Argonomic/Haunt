@@ -2,10 +2,9 @@ import { AddCallback_OnPlayerCharacterAncestryChanged } from "shared/sh_onPlayer
 import { AddNetVarChangedCallback } from "shared/sh_player_netvars";
 import { FilterHasCharacters, GetFirstChildWithNameAndClassName, GetLocalPlayer, Thread } from "shared/sh_utils";
 import { AddPlayerGuiFolderExistsCallback, ToggleButton, UIORDER } from "./cl_ui";
-import { Players, SocialService } from "@rbxts/services";
-import { GAME_STATE, NETVAR_JSON_GAMESTATE } from "shared/sh_gamestate";
+import { SocialService } from "@rbxts/services";
+import { GetMinPlayersForGame, GAME_STATE, NETVAR_JSON_GAMESTATE } from "shared/sh_gamestate";
 import { GetLocalMatch } from "./cl_gamestate";
-import { MATCHMAKE_PLAYERCOUNT_FALLBACK, MATCHMAKE_PLAYERCOUNT_STARTSERVER } from "shared/sh_settings";
 import { SendRPC_Client } from "shared/sh_rpc";
 
 const LOCAL_PLAYER = GetLocalPlayer()
@@ -141,7 +140,7 @@ function UpdateWaitingStartUI()
 
       case GAME_STATE.GAME_STATE_WAITING_FOR_PLAYERS:
          let players = FilterHasCharacters( match.GetAllPlayers() )
-         let count = MATCHMAKE_PLAYERCOUNT_FALLBACK - players.size()
+         let count = GetMinPlayersForGame() - players.size()
          let text
          if ( count < 1 )
             text = "Starting New Match Soon"

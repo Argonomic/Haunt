@@ -1,6 +1,6 @@
 import { Players, RunService } from "@rbxts/services";
 import { AssignDefaultNVs } from "shared/sh_player_netvars"
-import { GetExistingFirstChildWithNameAndClassName, ExecOnChildWhenItExists, GetPlayerFromCharacter, IsServer, Thread, GetLocalPlayer, GetFirstChildWithNameAndClassName, ArrayRandomize } from "./sh_utils";
+import { GetExistingFirstChildWithNameAndClassName, ExecOnChildWhenItExists, GetPlayerFromCharacter, IsServer, Thread, GetLocalPlayer, GetFirstChildWithNameAndClassName, ArrayRandomize, GetChildrenWithName } from "./sh_utils";
 import { Assert } from "shared/sh_assert"
 
 const LOCAL = RunService.IsStudio()
@@ -273,14 +273,15 @@ function OnPlayerConnected( player: Player )
 
 export function SetPlayerWalkSpeed( player: Player, walkSpeed: number )
 {
-   Assert( player.Character !== undefined, "Player does not have character yet" )
-   let character = player.Character as Model
+   let character = player.Character
+   if ( character === undefined )
+      return
 
-   ExecOnChildWhenItExists( character, "Humanoid", function ( instance: Instance )
-   {
-      let human = instance as Humanoid
-      human.WalkSpeed = walkSpeed
-   } )
+   let _humanoid = GetFirstChildWithNameAndClassName( character, 'Humanoid', 'Humanoid' )
+   if ( _humanoid === undefined )
+      return
+   let human = _humanoid as Humanoid
+   human.WalkSpeed = walkSpeed
 }
 
 export function GetPlayerWalkSpeed( player: Player ): number

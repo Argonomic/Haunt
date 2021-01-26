@@ -102,10 +102,12 @@ export function CL_ReturnToLobbySetup()
                //print( "PLAYER IS SPECTATOR: " + match.IsSpectator( LOCAL_PLAYER ) )
 
                let newRole = match.GetPlayerRole( LOCAL_PLAYER )
+               //print( "New role: " + newRole + " last role " + lastRole )
+
                let wasLastRole = lastRole
                lastRole = newRole
 
-               if ( !IsSpectatorRole( newRole ) || IsSpectatorRole( wasLastRole ) )
+               if ( !IsSpectatorRole( newRole ) )
                {
                   ui.Enabled = false
                   return
@@ -118,12 +120,9 @@ export function CL_ReturnToLobbySetup()
                   case ROLE.ROLE_SPECTATOR_CAMPER:
                   case ROLE.ROLE_SPECTATOR_CAMPER_ESCAPED:
                   case ROLE.ROLE_SPECTATOR_IMPOSTOR:
-                     ui.Enabled = true
+                     if ( !IsSpectatorRole( wasLastRole ) )
+                        ui.Enabled = true
                      break
-
-                  default:
-                     ui.Enabled = false
-                     return
                }
             } )
       } )

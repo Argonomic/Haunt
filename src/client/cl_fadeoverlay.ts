@@ -309,10 +309,12 @@ export function CL_FadeOverlaySetup()
          let doRefreshFailsafe = Workspace.DistributedGameTime > refreshFailsafe
          if ( oldGameIndex !== match.shState.gameIndex )
          {
+            print( "FADEOVERLAY MATCHINDEX OLD:" + oldGameIndex + " NEW:" + match.shState.gameIndex )
             oldGameIndex = match.shState.gameIndex
             doRefreshFailsafe = true
 
             let coins = GetAllCoins()
+            print( "Found " + coins.size() + " coins" )
             for ( let coin of coins )
             {
                coin.Transparency = 1

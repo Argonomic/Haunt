@@ -117,7 +117,6 @@ class PlayerButtonGroup
       if ( !this.alive )
          this.frameButton.Transparency = 0.75
 
-
       let viewportFrame = new Instance( "ViewportFrame" ) as ViewportFrame
       viewportFrame.Size = new UDim2( 1.0, 0, 1.0, 0 )
       viewportFrame.Position = new UDim2( 0, 0, 0, 0 )
@@ -613,8 +612,10 @@ class ActiveMeeting
          let voter = GetPlayerFromUserID( vote.voter )
          Assert( voter !== undefined, "No voter!" )
 
+         if ( !playerToButtonGroup.has( voter ) )
+            continue
+
          let playerButtonGroup = playerToButtonGroup.get( voter ) as PlayerButtonGroup
-         Assert( playerButtonGroup !== undefined, "playerButtonGroup !== undefined" )
 
          if ( !playerButtonGroup.voted.Visible )
          {
