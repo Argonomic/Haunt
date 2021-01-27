@@ -34,7 +34,6 @@ export function SV_PersistenceSetup()
    {
       if ( ArrayFind( ADMINS, player.Name ) === undefined )
          return
-      IncrementServerVersion()
 
       FlushServer()
    } )
@@ -51,13 +50,6 @@ export function SV_PersistenceSetup()
             } )
          return
       }
-
-      if ( !LobbyUpToDate() )
-      {
-         player.Kick( "1 Updating server - reconnect please" )
-         return
-      }
-
    } )
 
    AddCallback_OnPlayerConnected(
@@ -259,8 +251,7 @@ export function SetPlayerPersistence( player: Player, field: string, value: unkn
 export function FlushServer()
 {
    let players = Players.GetPlayers()
-   let msg = "Updating server - reconnect please (3)"
-   print( "Teleport " + players.size() + " players to lobby" )
+   print( "Flushing " + players.size() + " players" )
 
    Thread( function ()
    {
@@ -274,15 +265,9 @@ export function FlushServer()
                {
                   code = TeleportService.ReserveServer( game.PlaceId )
                } )
+
             if ( !pair2[0] || code === undefined )
-            {
-               for ( let player of players )
-               {
-                  if ( player.Character !== undefined )
-                     player.Kick( msg )
-               }
                return
-            }
 
             pcall(
                function ()
@@ -293,22 +278,5 @@ export function FlushServer()
                   TeleportService.TeleportToPrivateServer( game.PlaceId, code[0], players, "none" )
                } )
          } )
-   } )
-
-
-   Thread( function ()
-   {
-      Wait( 3.5 )
-
-      for ( ; ; )
-      {
-         // failsafe
-         for ( let player of Players.GetPlayers() )
-         {
-            if ( player.Character !== undefined )
-               player.Kick( msg )
-         }
-         Wait( 1 )
-      }
    } )
 }

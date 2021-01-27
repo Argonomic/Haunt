@@ -123,6 +123,17 @@ export function CL_TasksSetup()
          switch ( gameState )
          {
             case GAME_STATE.GAME_STATE_MEETING_DISCUSS:
+               Thread(
+                  function ()
+                  {
+                     // for latency, in case we issued a request just after the game state changed
+                     for ( let i = 0; i < 5; i++ )
+                     {
+                        CancelAnyOpenTask()
+                        wait( 0.5 )
+                     }
+                  } )
+
             case GAME_STATE.GAME_STATE_MEETING_VOTE:
             case GAME_STATE.GAME_STATE_MEETING_RESULTS:
             case GAME_STATE.GAME_STATE_COMPLETE:
@@ -160,7 +171,7 @@ export function GetTaskUI( name: TASK_UI ): ScreenGui
 }
 
 
-function CancelAnyOpenTask()
+export function CancelAnyOpenTask()
 {
    let activeTaskStatus = file.activeTaskStatus
    if ( activeTaskStatus === undefined )

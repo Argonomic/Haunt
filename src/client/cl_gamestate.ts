@@ -13,7 +13,6 @@ import { ReservedServerRelease } from "./cl_matchScreen"
 import { SetLocalViewToRoom, GetRoom } from "./cl_rooms"
 import { GetDeltaTime } from "shared/sh_time"
 import { CanKill, CanReportBody } from "shared/content/sh_use_content"
-import { Task } from "shared/sh_rooms"
 
 const LOCAL_PLAYER = GetLocalPlayer()
 

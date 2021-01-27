@@ -87,7 +87,6 @@ export function CanUseTask( match: Match, player: Player ): boolean
       case GAME_STATE.GAME_STATE_SUDDEN_DEATH:
       case GAME_STATE.GAME_STATE_COUNTDOWN:
       case GAME_STATE.GAME_STATE_INIT:
-      case GAME_STATE.GAME_STATE_INTRO:
          return true
    }
    return false

@@ -296,7 +296,7 @@ class ActiveMeeting
          Assert( false, "No meeting details" )
          throw undefined
       }
-      frame.CrimeScene.Visible = meetingDetails.meetingType === MEETING_TYPE.MEETING_REPORT
+      frame.CrimeScene.Visible = true // = meetingDetails.meetingType === MEETING_TYPE.MEETING_REPORT
       frame.CrimeScene.Label.MouseButton1Click.Connect(
          function ()
          {
