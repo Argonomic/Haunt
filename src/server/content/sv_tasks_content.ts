@@ -1,5 +1,5 @@
 import { HttpService } from "@rbxts/services";
-import { GetAllPlayersInMatch, AddMatchDestroyedCallback, PlayerHasAssignments, PlayerToMatch, RemoveAssignment, SV_SendRPC } from "server/sv_gameState";
+import { GetAllConnectedPlayersInMatch, AddMatchDestroyedCallback, PlayerHasAssignments, PlayerToMatch, RemoveAssignment, SV_SendRPC } from "server/sv_gameState";
 import { ABILITIES, COOLDOWN_SABOTAGE_LIGHTS } from "shared/content/sh_ability_content";
 import { HasAbility } from "shared/sh_ability";
 import { ResetCooldownTime } from "shared/sh_cooldown";
@@ -61,7 +61,7 @@ export function SV_TasksContentSetup()
             return
       }
 
-      for ( let aplayer of GetAllPlayersInMatch( match ) )
+      for ( let aplayer of GetAllConnectedPlayersInMatch( match ) )
       {
          if ( PlayerHasAssignments( aplayer, match ) )
             RemoveAssignment( aplayer, match, 'Garage', TASK_RESTORE_LIGHTS )
@@ -76,7 +76,7 @@ function SendFusePositionsToClients( match: Match )
 {
    let fuses = GetFuses( match )
    let fuseArrayJson = HttpService.JSONEncode( fuses.fuses )
-   for ( let player of GetAllPlayersInMatch( match ) )
+   for ( let player of GetAllConnectedPlayersInMatch( match ) )
    {
       SV_SendRPC( "RPC_FromServer_RestoreLighting_Fuse", match, player, fuseArrayJson )
    }

@@ -10,34 +10,29 @@ class File
 {
    template: EDITOR_ClickableUI | undefined
    guis: Array<EDITOR_ClickableUI> = []
-   folder: Folder | undefined
 }
 let file = new File()
 
 
 export function CL_Ability_Setup()
 {
+   let lastFolder: Folder | undefined
    AddPlayerGuiFolderExistsCallback( function ( folder: Folder )
    {
+      lastFolder = folder
       if ( file.template !== undefined )
+      {
+         RedrawAbilityUIs( folder )
          return
+      }
 
-      file.folder = folder
       let ui = GetExistingFirstChildWithNameAndClassName( folder, 'AbilityUI', 'ScreenGui' ) as EDITOR_ClickableUI
       file.template = ui
       ui.Parent = undefined
       ui.Enabled = false
-      RedrawAbilityUIs()
+      ui.ResetOnSpawn = false
+      RedrawAbilityUIs( folder )
    } )
-
-   AddCallback_OnPlayerCharacterAncestryChanged(
-      function () 
-      {
-         for ( let ui of file.guis )
-         {
-            ui.Destroy()
-         }
-      } )
 
    let localPlayer = GetLocalPlayer()
    AddAbilitiesChangedCallback(
@@ -46,16 +41,14 @@ export function CL_Ability_Setup()
          if ( player !== localPlayer )
             return
 
-         RedrawAbilityUIs()
+         if ( lastFolder !== undefined )
+            RedrawAbilityUIs( lastFolder )
       } )
 }
 
-export function RedrawAbilityUIs()
+export function RedrawAbilityUIs( folder: Folder )
 {
-   let folder = file.folder
-   if ( folder === undefined )
-      return
-
+   print( "RedrawAbilityUIs" )
    let template = file.template
    if ( template === undefined )
       return
@@ -80,10 +73,13 @@ export function RedrawAbilityUIs()
       return true
    }
 
+   print( "abilityIndices: " + abilityIndices.size() )
+
    for ( let index of abilityIndices )
    {
       let ability = GetAbility( index )
       let ui = template.Clone()
+      ui.Name = ui.Name + " Clone"
       ui.Enabled = true
       ui.Parent = folder
 
@@ -92,10 +88,8 @@ export function RedrawAbilityUIs()
 
       function OnClickFunc(): void 
       {
-         print( "OnClickFunc" )
          if ( !CanUseAbility( player, ability.abilityIndex ) )
             return
-         print( "OnClickFunc succeeded" )
 
          SendRPC_Client( "RPC_FromClient_UseAbility", index )
       }

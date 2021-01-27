@@ -31,6 +31,7 @@ import { SV_MatchMakingSetup } from "./sv_matchmaking";
 import { SH_UtilsGeometrySetup } from "../shared/sh_utils_geometry";
 import { SH_SharedVarSetup } from "shared/sh_sharedVar";
 import { SV_PlayerSpawnLocationSetup } from "./sv_playerSpawnLocation";
+import { SV_ChatSetup } from "./sv_chat";
 
 class File
 {
@@ -75,6 +76,7 @@ SV_ScoreSetup()
 SV_MatchMakingSetup()
 SV_PlayerSpawnLocationSetup()
 SH_UtilsGeometrySetup()
+SV_ChatSetup()
 
 DoneCreatingNVs()
 SH_OnPlayerConnectSetup()

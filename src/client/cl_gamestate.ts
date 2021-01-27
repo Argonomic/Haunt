@@ -247,7 +247,6 @@ export function CL_GameStateSetup()
 
    AddNetVarChangedCallback( NETVAR_JSON_GAMESTATE, function ()
    {
-      print( "client received broadcast gamestate" )
       let match = GetLocalMatch()
 
       {

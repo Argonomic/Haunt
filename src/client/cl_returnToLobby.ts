@@ -1,6 +1,6 @@
 import { GetFirstChildWithNameAndClassName, GetLocalPlayer, Thread } from "shared/sh_utils";
 import { GetLocalMatch } from "./cl_gamestate";
-import { ROLE, NETVAR_JSON_GAMESTATE, IsSpectatorRole } from "shared/sh_gamestate";
+import { ROLE, NETVAR_JSON_GAMESTATE, IsSpectatorRole, GAME_STATE } from "shared/sh_gamestate";
 import { AddPlayerGuiFolderExistsCallback, ToggleButton, UIORDER } from "./cl_ui";
 import { AddNetVarChangedCallback } from "shared/sh_player_netvars";
 import { AddCallback_OnPlayerCharacterAncestryChanged } from "shared/sh_onPlayerConnect";
@@ -107,13 +107,16 @@ export function CL_ReturnToLobbySetup()
                let wasLastRole = lastRole
                lastRole = newRole
 
-               if ( !IsSpectatorRole( newRole ) )
+               if ( !IsSpectatorRole( newRole ) || match.GetGameState() >= GAME_STATE.GAME_STATE_COMPLETE )
                {
                   ui.Enabled = false
                   return
                }
 
                wait( 4 )
+
+               if ( match.GetGameState() >= GAME_STATE.GAME_STATE_COMPLETE )
+                  return
 
                switch ( match.GetPlayerRole( LOCAL_PLAYER ) )
                {

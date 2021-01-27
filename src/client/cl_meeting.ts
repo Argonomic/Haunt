@@ -102,21 +102,6 @@ class PlayerButtonGroup
          playerNumber.Visible = false
       }
 
-      this.alive = this.connected
-
-      if ( match.GetPlayerRole( player ) === ROLE.ROLE_SPECTATOR_CAMPER_ESCAPED )
-      {
-         this.alive = false
-      }
-      else if ( match.GetPlayerKilled( player ) )
-      {
-         this.alive = false
-         dead.Visible = true
-      }
-
-      if ( !this.alive )
-         this.frameButton.Transparency = 0.75
-
       let viewportFrame = new Instance( "ViewportFrame" ) as ViewportFrame
       viewportFrame.Size = new UDim2( 1.0, 0, 1.0, 0 )
       viewportFrame.Position = new UDim2( 0, 0, 0, 0 )
@@ -595,6 +580,27 @@ class ActiveMeeting
          }
       }
 
+      for ( let playerButtonGroup of this.playerButtonGroups )
+      {
+         playerButtonGroup.alive = playerButtonGroup.connected
+         let player = playerButtonGroup.player
+
+         //if ( match.GetPlayerRole( player ) === ROLE.ROLE_SPECTATOR_CAMPER_ESCAPED )
+         if ( match.IsSpectator( player ) )
+         {
+            playerButtonGroup.alive = false
+         }
+         else if ( match.GetPlayerKilled( player ) )
+         {
+            playerButtonGroup.alive = false
+            playerButtonGroup.frameButton.ClipFrame.dead.Visible = true
+         }
+
+         if ( !playerButtonGroup.alive )
+            playerButtonGroup.frameButton.Transparency = 0.75
+      }
+
+
       // hide all the checkboxes
       this.HideVoteImages( this.skipButtonGroup )
 
@@ -603,6 +609,7 @@ class ActiveMeeting
          playerToButtonGroup.set( playerButtonGroup.player, playerButtonGroup )
          this.HideVoteImages( playerButtonGroup.buttonGroup )
       }
+
 
       const TIME = 0.6
       let dif = 0.3
@@ -646,6 +653,7 @@ class ActiveMeeting
             this.AddVote( voteTargetButtonGroup.buttonGroup, voterPlayerInfo, voterButtonGroup )
          }
       }
+
    }
 }
 

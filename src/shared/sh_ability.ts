@@ -1,6 +1,7 @@
 import { Assert } from "./sh_assert"
 import { GetPlayerCooldownTimeRemaining } from "./sh_cooldown"
 import { AddCallback_OnPlayerConnected } from "./sh_onPlayerConnect"
+import { IsServer } from "./sh_utils"
 
 export const ABILITY_COOLDOWNS = "ABILITY_COOLDOWNS"
 
@@ -51,6 +52,8 @@ export function GiveAbility( player: Player, ability: ABILITIES )
    if ( HasAbility( player, ability ) )
       return
 
+   //print( "GiveAbility " + player.Name + " " + IsServer() + " " + debug.traceback() )
+
    let abilities = file.playerAbilities.get( player )
    if ( abilities === undefined )
    {
@@ -85,6 +88,7 @@ export function TakeAbility( player: Player, ability: ABILITIES )
       if ( abilities[i] !== ability )
          continue
 
+      //print( "TakeAbility " + player.Name + " " + IsServer() + " " + debug.traceback() )
       abilities.remove( i )
       i--
       changed = true

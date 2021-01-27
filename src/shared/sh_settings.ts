@@ -3,31 +3,23 @@ const LOCAL = RunService.IsStudio()
 
 export const FLAG_RESERVED_SERVER = false
 
-const TEST = game.PlaceId === 5954656113
-print( "TEST is " + TEST )
+const TEST = LOCAL || game.PlaceId === 5954656113
 
-export const DEV_SKIP_INTRO = LOCAL && false
-export const DEV_1_TASK = ( LOCAL || TEST ) && true
-print( "DEV_1_TASK: " + DEV_1_TASK )
-export let DEV_FAST_TIMERS: boolean = ( LOCAL || TEST ) && true
+export const DEV_SKIP_INTRO = TEST && true
+export const DEV_1_TASK = TEST && true
+export let DEV_FAST_TIMERS: boolean = TEST && true
 
 // MATCHMAKING
 export const MATCHMAKE_SERVER_VERSION = 1
 export let MATCHMAKE_PLAYERCOUNT_FALLBACK = 5
 export let MATCHMAKE_PLAYERCOUNT_STARTSERVER = 10
 
-if ( ( LOCAL || TEST ) && true )
+if ( TEST && true )
 {
    MATCHMAKE_PLAYERCOUNT_FALLBACK = 3
-   //MATCHMAKE_PLAYERCOUNT_STARTSERVER = 4
+   MATCHMAKE_PLAYERCOUNT_STARTSERVER = 4
    //DEV_FAST_TIMERS = true
 }
-print( "DEV_FAST_TIMERS: " + DEV_FAST_TIMERS )
-
-//let results = pcall( MarketplaceService.GetProductInfo, MarketplaceService, DataModel )
-//if isSuccessful then
-//print( info.Name )-- > Jailbreak
-//end
 
 export const MATCHMAKE_PLAYER_CAN_MATCHMAKE_TIME = 1
 export const MATCHMAKE_PLAYER_WAITING_FOR_FRIEND_TIME = 45
@@ -68,7 +60,7 @@ if ( DEV_FAST_TIMERS )
    COOLDOWNTIME_SABOTAGE_LIGHTS = 4
    COOLDOWNTIME_MEETING = 0
    MEETING_DISCUSS_TIME = 2
-   START_COUNTDOWN = 8
+   START_COUNTDOWN = 3
    print( "********** DEV_FAST_TIMERS ***********" )
 }
 
@@ -88,5 +80,5 @@ export const PLAYER_COLORS =
 
 export const ADMINS = ["Argonomic", "ArgonomicDev"]
 
-print( "SRV 1.26.21 2.4" )
+print( "SRV 1.26.21 2.8" )
 print( " " )

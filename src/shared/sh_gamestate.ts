@@ -336,6 +336,21 @@ export class Match
       return this.shState.playerToInfo.get( id ) as PlayerInfo
    }
 
+   public RemovePlayersNotInList( players: Array<Player> )
+   {
+      let userids = new Map<USERIDSTRING, boolean>()
+      for ( let player of players )
+      {
+         userids.set( player.UserId + "", true )
+      }
+
+      for ( let pair of this.shState.playerToInfo )
+      {
+         if ( !userids.has( pair[0] ) )
+            this.shState.playerToInfo.delete( pair[0] )
+      }
+   }
+
    public GetPlayerKilled( player: Player ): boolean
    {
       let playerInfo = this.GetPlayerInfo( player )
@@ -577,7 +592,6 @@ export class Match
       return false
    }
 
-
    public Shared_OnGameStateChanged_PerPlayer( player: Player, match: Match )
    {
       SetPlayerWalkspeedForGameState( player, match )
@@ -599,24 +613,6 @@ export function SH_GameStateSetup()
    AddCooldown( COOLDOWN_NAME_MEETING, COOLDOWNTIME_MEETING )
 
    AddRoleChangeCallback( UpdatePlayerAbilities )
-   /*
-      function ( player: Player, role: ROLE, lastRole: ROLE )
-      {
-         if ( IsImpostorRole( role ) )
-         {
-            if ( !IsImpostorRole( lastRole ) )
-            {
-               // became an impostor
-               GiveAbility( player, ABILITIES.ABILITY_SABOTAGE_LIGHTS )
-            }
-         }
-         else if ( IsImpostorRole( lastRole ) )
-         {
-            // became not an impostor
-            TakeAbility( player, ABILITIES.ABILITY_SABOTAGE_LIGHTS )
-         }
-      } )
-   */
 }
 
 function UpdatePlayerAbilities( player: Player, match: Match )
