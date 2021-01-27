@@ -1,6 +1,7 @@
 import { ABILITY_COOLDOWNS, CanUseAbility, CreateAbility, GetAbility } from "shared/sh_ability";
 import { Assert } from "shared/sh_assert";
 import { AddCooldown } from "shared/sh_cooldown";
+import { Match } from "shared/sh_gamestate";
 import { AddRPC } from "shared/sh_rpc";
 import { COOLDOWNTIME_SABOTAGE_LIGHTS } from "shared/sh_settings";
 import { IsServer } from "shared/sh_utils";
@@ -39,8 +40,8 @@ function RPC_FromClient_UseAbility( player: Player, ability: ABILITIES )
       throw undefined
    }
 
-   if ( abilityData.serverFunc === undefined )
+   if ( abilityData.svAbilitySuccessFunc === undefined )
       return
 
-   abilityData.serverFunc( player )
+   abilityData.svAbilitySuccessFunc( player )
 }

@@ -1,9 +1,8 @@
 import { RunService } from "@rbxts/services"
-const LOCAL = RunService.IsStudio()
 
 export const FLAG_RESERVED_SERVER = false
 
-const TEST = LOCAL || game.PlaceId === 5954656113
+const TEST = ( RunService.IsStudio() || game.PlaceId === 5954656113 ) && true
 
 export const DEV_SKIP_INTRO = TEST && true
 export const DEV_1_TASK = TEST && true
@@ -16,8 +15,8 @@ export let MATCHMAKE_PLAYERCOUNT_STARTSERVER = 10
 
 if ( TEST && true )
 {
-   MATCHMAKE_PLAYERCOUNT_FALLBACK = 3
-   MATCHMAKE_PLAYERCOUNT_STARTSERVER = 4
+   MATCHMAKE_PLAYERCOUNT_FALLBACK = 7
+   MATCHMAKE_PLAYERCOUNT_STARTSERVER = 7
    //DEV_FAST_TIMERS = true
 }
 
@@ -57,7 +56,7 @@ export let COOLDOWNTIME_MEETING = 20
 if ( DEV_FAST_TIMERS )
 {
    COOLDOWNTIME_KILL = 0
-   COOLDOWNTIME_SABOTAGE_LIGHTS = 4
+   COOLDOWNTIME_SABOTAGE_LIGHTS = 6
    COOLDOWNTIME_MEETING = 0
    MEETING_DISCUSS_TIME = 2
    START_COUNTDOWN = 3
@@ -80,5 +79,5 @@ export const PLAYER_COLORS =
 
 export const ADMINS = ["Argonomic", "ArgonomicDev"]
 
-print( "SRV 1.26.21 2.8" )
+print( "SRV 1.27.21 1.0" )
 print( " " )

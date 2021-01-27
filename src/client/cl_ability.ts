@@ -1,8 +1,7 @@
 import { GetAbility, AddAbilitiesChangedCallback, GetPlayerAbilities, CanUseAbility, ABILITY_COOLDOWNS } from "shared/sh_ability";
 import { GetRenderedCooldownTimeRemaining } from "shared/sh_cooldown";
-import { AddCallback_OnPlayerCharacterAncestryChanged } from "shared/sh_onPlayerConnect";
 import { SendRPC_Client } from "shared/sh_rpc";
-import { GetExistingFirstChildWithNameAndClassName, GetLocalPlayer } from "shared/sh_utils";
+import { GetExistingFirstChildWithNameAndClassName, GetLocalPlayer, Thread } from "shared/sh_utils";
 import { AddClickable, AddPlayerGuiFolderExistsCallback, EDITOR_ClickableUI, UIClickResults, UI_CLICK_RESULTS_TYPE } from "./cl_ui";
 import { GetUseUIForReference } from "./cl_use";
 
@@ -92,6 +91,15 @@ export function RedrawAbilityUIs( folder: Folder )
             return
 
          SendRPC_Client( "RPC_FromClient_UseAbility", index )
+
+         let clAbilitySuccessFunc = ability.clAbilitySuccessFunc as () => void
+         if ( clAbilitySuccessFunc !== undefined )
+         {
+            Thread( function ()
+            {
+               clAbilitySuccessFunc()
+            } )
+         }
       }
 
       let setImage = false

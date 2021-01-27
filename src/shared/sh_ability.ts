@@ -1,7 +1,6 @@
 import { Assert } from "./sh_assert"
 import { GetPlayerCooldownTimeRemaining } from "./sh_cooldown"
 import { AddCallback_OnPlayerConnected } from "./sh_onPlayerConnect"
-import { IsServer } from "./sh_utils"
 
 export const ABILITY_COOLDOWNS = "ABILITY_COOLDOWNS"
 
@@ -10,15 +9,16 @@ class Ability
    name: string
    abilityIndex: ABILITIES
    icon: string
-   serverFunc: undefined | ( ( player: Player ) => void )
-   canUseFunc: ( ( player: Player ) => boolean )
+   svAbilitySuccessFunc: undefined | ( ( player: Player ) => void )
+   clAbilitySuccessFunc: undefined | ( () => void )
+   canUseAbilityFunc: ( ( player: Player ) => boolean )
 
    constructor( abilityIndex: ABILITIES, name: string, icon: string )
    {
       this.abilityIndex = abilityIndex
       this.name = name
       this.icon = icon
-      this.canUseFunc = function ( player: Player ) { return true }
+      this.canUseAbilityFunc = function ( player: Player ) { return true }
    }
 }
 
@@ -128,7 +128,7 @@ export function CanUseAbility( player: Player, abilityIndex: ABILITIES ): boolea
       return false
 
    let ability = GetAbility( abilityIndex )
-   return ability.canUseFunc( player )
+   return ability.canUseAbilityFunc( player )
 }
 
 export function GetAbility( abilityIndex: ABILITIES ): Ability
@@ -146,13 +146,19 @@ export function GetAbility( abilityIndex: ABILITIES ): Ability
 export function SetAbilityServerFunc( abilityIndex: ABILITIES, func: ( ( player: Player ) => void ) )
 {
    let abilityData = GetAbility( abilityIndex )
-   abilityData.serverFunc = func
+   abilityData.svAbilitySuccessFunc = func
+}
+
+export function SetAbilityClientFunc( abilityIndex: ABILITIES, func: ( () => void ) )
+{
+   let abilityData = GetAbility( abilityIndex )
+   abilityData.clAbilitySuccessFunc = func
 }
 
 export function SetAbilityCanUseFunc( abilityIndex: ABILITIES, func: ( ( player: Player ) => boolean ) )
 {
    let abilityData = GetAbility( abilityIndex )
-   abilityData.canUseFunc = func
+   abilityData.canUseAbilityFunc = func
 }
 
 export function AddAbilitiesChangedCallback( func: ( ( player: Player ) => void ) )

@@ -11,7 +11,7 @@ import { GetUsableByType } from "shared/sh_use"
 import { GetLocalAssignments, GetLocalMatch } from "./cl_gamestate"
 import { AddCallback_OnPlayerCharacterAncestryChanged } from "shared/sh_onPlayerConnect"
 import { Tween } from "shared/sh_tween"
-import { CanCallMeeting } from "shared/content/sh_use_content"
+import { CanCallMeeting, CanUseTask } from "shared/content/sh_use_content"
 import { IsReservedServer } from "shared/sh_reservedServer"
 import { FLAG_RESERVED_SERVER } from "shared/sh_settings";
 
@@ -51,44 +51,6 @@ let file = new File()
 
 export function CL_TaskListSetup()
 {
-   GetUsableByType( USETYPES.USETYPE_TASK ).DefineGetter(
-      function ( player: Player ): Array<BasePart>
-      {
-         let parts: Array<BasePart> = []
-         let room = GetCurrentRoom( LOCAL_PLAYER )
-         let assignments = GetLocalAssignments()
-         for ( let assignment of assignments )
-         {
-            if ( assignment.roomName !== room.name )
-               continue
-            if ( assignment.status !== 0 )
-               continue
-
-            Assert( room.tasks.has( assignment.taskName ), "Room " + room.name + " has no task " + assignment.taskName )
-            let task = room.tasks.get( assignment.taskName ) as Task
-            parts.push( task.volume )
-         }
-
-         //print( "parts.size() " + parts.size() )
-         return parts
-      } )
-
-
-   GetUsableByType( USETYPES.USETYPE_MEETING ).DefineGetter(
-      function ( player: Player ): Array<BasePart>
-      {
-         let match = GetLocalMatch()
-
-         if ( !CanCallMeeting( match, LOCAL_PLAYER ) )
-            return []
-
-         let room = GetCurrentRoom( LOCAL_PLAYER )
-         if ( room.meetingTrigger !== undefined )
-            return [room.meetingTrigger]
-
-         return []
-      } )
-
    AddNetVarChangedCallback( NETVAR_JSON_ASSIGNMENTS,
       function ()
       {

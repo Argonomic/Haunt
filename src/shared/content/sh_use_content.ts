@@ -1,4 +1,4 @@
-import { GAME_STATE, Match, NETVAR_MEETINGS_CALLED, UsableGameState, USETYPES } from "shared/sh_gamestate";
+import { GAME_STATE, Match, NETVAR_MEETINGS_CALLED, USETYPES } from "shared/sh_gamestate";
 import { GetPosition, PlayerTouchesPart } from "shared/sh_utils_geometry";
 import { GetNetVar_Number } from "shared/sh_player_netvars";
 import { KILL_DIST, REPORT_DIST } from "shared/sh_settings";
@@ -45,9 +45,6 @@ export function SH_UseContentSetup()
 
 export function CanCallMeeting( match: Match, player: Player ): boolean
 {
-   if ( !UsableGameState( match ) )
-      return false
-
    switch ( match.GetGameState() )
    {
       case GAME_STATE.GAME_STATE_PLAYING:
@@ -60,8 +57,46 @@ export function CanCallMeeting( match: Match, player: Player ): boolean
    if ( GetNetVar_Number( player, NETVAR_MEETINGS_CALLED ) > 0 )
       return false
 
+   return !match.IsSpectator( player )
+}
+
+export function CanKill( match: Match, player: Player ): boolean
+{
+   switch ( match.GetGameState() )
+   {
+      case GAME_STATE.GAME_STATE_PLAYING:
+      case GAME_STATE.GAME_STATE_SUDDEN_DEATH:
+         break
+
+      default:
+         return false
+   }
+
    if ( match.IsSpectator( player ) )
       return false
 
-   return true
+   return match.IsImpostor( player )
+}
+
+export function CanUseTask( match: Match, player: Player ): boolean
+{
+   switch ( match.GetGameState() )
+   {
+      case GAME_STATE.GAME_STATE_WAITING_FOR_PLAYERS:
+      case GAME_STATE.GAME_STATE_PLAYING:
+      case GAME_STATE.GAME_STATE_SUDDEN_DEATH:
+      case GAME_STATE.GAME_STATE_COUNTDOWN:
+      case GAME_STATE.GAME_STATE_INIT:
+      case GAME_STATE.GAME_STATE_INTRO:
+         return true
+   }
+   return false
+}
+
+export function CanReportBody( match: Match, player: Player ): boolean
+{
+   if ( match.GetGameState() !== GAME_STATE.GAME_STATE_PLAYING )
+      return false
+
+   return !match.IsSpectator( player )
 }

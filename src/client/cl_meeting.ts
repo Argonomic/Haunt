@@ -388,6 +388,11 @@ class ActiveMeeting
             playerButtonGroup.horn.Visible = true
       }
 
+
+      for ( let playerButtonGroup of this.playerButtonGroups )
+      {
+         playerButtonGroup.alive = !match.IsSpectator( playerButtonGroup.player )
+      }
       this.playerButtonGroups.sort( SortByLiving )
 
       for ( let i = 0; i < this.playerButtonGroups.size(); i++ )
@@ -585,19 +590,14 @@ class ActiveMeeting
          playerButtonGroup.alive = playerButtonGroup.connected
          let player = playerButtonGroup.player
 
-         //if ( match.GetPlayerRole( player ) === ROLE.ROLE_SPECTATOR_CAMPER_ESCAPED )
-         if ( match.IsSpectator( player ) )
-         {
-            playerButtonGroup.alive = false
-         }
-         else if ( match.GetPlayerKilled( player ) )
-         {
-            playerButtonGroup.alive = false
+         if ( match.GetPlayerKilled( player ) )
             playerButtonGroup.frameButton.ClipFrame.dead.Visible = true
-         }
 
-         if ( !playerButtonGroup.alive )
-            playerButtonGroup.frameButton.Transparency = 0.75
+         if ( match.IsSpectator( player ) )
+            playerButtonGroup.alive = false
+
+         if ( !playerButtonGroup.connected || !playerButtonGroup.alive )
+            playerButtonGroup.frameButton.Transparency = 0.666
       }
 
 

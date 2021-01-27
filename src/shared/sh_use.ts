@@ -52,7 +52,7 @@ export class Usable
    testPlayerToBasePart: PlayerBasePart_Boolean | undefined
    testPlayerPosToInstance: Vector3Instance_Boolean | undefined
    testPlayerPosToPos: Vector3Vector3_Boolean | undefined
-   successFunc: ( ( player: Player, usedThing: USABLETYPES ) => void ) | undefined
+   svUseSuccessFunc: ( ( player: Player, usedThing: USABLETYPES ) => void ) | undefined
 
    private getter: USE_GETTER = function ( player: Player ): Array<USABLETYPES>
    {
@@ -93,7 +93,7 @@ export function SH_UseSetup()
             for ( let pair of file.usablesByType )
             {
                let usable = pair[1]
-               Assert( usable.successFunc !== undefined, "usable.successFunc !== undefined" )
+               Assert( usable.svUseSuccessFunc !== undefined, "usable.svUseSuccessFunc !== undefined" )
                Assert( usable.HasGetter(), "usable.HasGetter()" )
             }
          } )

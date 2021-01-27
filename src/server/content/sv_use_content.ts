@@ -1,13 +1,12 @@
 import { GetHumanoid, IsAlive, KillPlayer } from "shared/sh_utils"
-import { GAME_STATE, ROLE, NS_Corpse, USETYPES, COOLDOWN_NAME_KILL, MEETING_TYPE, NETVAR_MEETINGS_CALLED, UsableGameState } from "shared/sh_gamestate"
+import { GAME_STATE, NS_Corpse, USETYPES, COOLDOWN_NAME_KILL, MEETING_TYPE, NETVAR_MEETINGS_CALLED } from "shared/sh_gamestate"
 import { GetUsableByType, USABLETYPES } from "shared/sh_use"
-import { SetGameState, UpdateGame, PlayerHasUnfinishedAssignment, ClearAssignments, PlayerHasAssignments, PlayerToMatch, SV_SendRPC, SetPlayerKilled } from "server/sv_gameState"
+import { SetGameState, UpdateGame, PlayerHasUnfinishedAssignment, PlayerHasAssignments, PlayerToMatch, SV_SendRPC, SetPlayerKilled } from "server/sv_gameState"
 import { GetCurrentRoom } from "server/sv_rooms"
 import { ResetCooldownTime } from "shared/sh_cooldown"
 import { SetPlayerWalkSpeed } from "shared/sh_onPlayerConnect"
 import { GetNetVar_Number, SetNetVar } from "shared/sh_player_netvars"
-import { PlayerDropsCoinsWithTrajectory } from "server/sv_coins"
-import { CanCallMeeting } from "shared/content/sh_use_content"
+import { CanCallMeeting, CanKill, CanReportBody, CanUseTask } from "shared/content/sh_use_content"
 import { GetPosition } from "shared/sh_utils_geometry"
 import { SetPlayerSpawnLocation } from "server/sv_playerSpawnLocation"
 
@@ -18,7 +17,7 @@ export function SV_UseContentSetup()
       function ( player: Player ): Array<USABLETYPES>
       {
          let match = PlayerToMatch( player )
-         if ( !UsableGameState( match ) )
+         if ( !CanReportBody( match, player ) )
             return []
 
          if ( match.GetGameState() === GAME_STATE.GAME_STATE_SUDDEN_DEATH )
@@ -34,13 +33,10 @@ export function SV_UseContentSetup()
 
          return corpseUsables
       } )
-
-   usableReport.successFunc =
+   usableReport.svUseSuccessFunc =
       function ( player: Player, usedThing: USABLETYPES )
       {
          let match = PlayerToMatch( player )
-         if ( !UsableGameState( match ) )
-            return
 
          let pos = usedThing as Vector3
          for ( let corpse of match.shState.corpses )
@@ -56,18 +52,13 @@ export function SV_UseContentSetup()
          }
       }
 
+
    let usableKill = GetUsableByType( USETYPES.USETYPE_KILL )
    usableKill.DefineGetter(
       function ( player: Player ): Array<Player>
       {
          let match = PlayerToMatch( player )
-         if ( !UsableGameState( match ) )
-            return []
-
-         if ( match.IsSpectator( player ) )
-            return []
-
-         if ( !match.IsImpostor( player ) )
+         if ( !CanKill( match, player ) )
             return []
 
          let campers = match.GetLivingCampers()
@@ -85,14 +76,10 @@ export function SV_UseContentSetup()
          }
          return results
       } )
-
-   usableKill.successFunc =
+   usableKill.svUseSuccessFunc =
       function ( player: Player, usedThing: USABLETYPES )
       {
          let match = PlayerToMatch( player )
-         if ( !UsableGameState( match ) )
-            return
-
          let camper = usedThing as Player
 
          match.shState.corpses.push( new NS_Corpse( camper, GetPosition( camper ) ) )
@@ -104,6 +91,7 @@ export function SV_UseContentSetup()
          ResetCooldownTime( player, COOLDOWN_NAME_KILL )
       }
 
+
    let usableTask = GetUsableByType( USETYPES.USETYPE_TASK )
    usableTask.DefineGetter(
       function ( player: Player ): Array<BasePart>
@@ -113,7 +101,7 @@ export function SV_UseContentSetup()
          let results: Array<BasePart> = []
 
          let match = PlayerToMatch( player )
-         if ( !UsableGameState( match ) )
+         if ( !CanUseTask( match, player ) )
             return []
 
          if ( !PlayerHasAssignments( player, match ) )
@@ -129,13 +117,11 @@ export function SV_UseContentSetup()
 
          return results
       } )
-
-   usableTask.successFunc =
+   usableTask.svUseSuccessFunc =
       function ( player: Player, usedThing: USABLETYPES )
       {
          let match = PlayerToMatch( player )
-         if ( !UsableGameState( match ) )
-            return
+
          let volume = usedThing as BasePart
          let room = GetCurrentRoom( player )
          for ( let pair of room.tasks )
@@ -148,6 +134,7 @@ export function SV_UseContentSetup()
             break
          }
       }
+
 
    {
       let usable = GetUsableByType( USETYPES.USETYPE_MEETING )
@@ -163,13 +150,11 @@ export function SV_UseContentSetup()
                return [room.meetingTrigger]
             return []
          } )
-
-      usable.successFunc =
+      usable.svUseSuccessFunc =
          function ( player: Player, usedThing: USABLETYPES )
          {
             let match = PlayerToMatch( player )
-            if ( !UsableGameState( match ) )
-               return
+
             print( "Meeting called by " + player.Name )
             let volume = usedThing as BasePart
             let room = GetCurrentRoom( player )

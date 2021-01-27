@@ -1,18 +1,19 @@
 import { HttpService, Workspace } from "@rbxts/services"
-import { ROLE, Match, NETVAR_JSON_GAMESTATE, USETYPES, GAME_STATE, GetVoteResults, GAMERESULTS, MEETING_TYPE, IsCamperRole, IsImpostorRole, AddRoleChangeCallback, Assignment, AssignmentIsSame, NETVAR_JSON_ASSIGNMENTS, UsableGameState, PlayerInfo, USERID, NS_SharedMatchState, ExecRoleChangeCallbacks } from "shared/sh_gamestate"
+import { ROLE, Match, NETVAR_JSON_GAMESTATE, USETYPES, GAME_STATE, GetVoteResults, GAMERESULTS, MEETING_TYPE, IsCamperRole, IsImpostorRole, AddRoleChangeCallback, Assignment, AssignmentIsSame, NETVAR_JSON_ASSIGNMENTS, PlayerInfo, USERID, NS_SharedMatchState, ExecRoleChangeCallbacks } from "shared/sh_gamestate"
 import { AddCallback_OnPlayerCharacterAdded, AddCallback_OnPlayerConnected, ClonePlayerModel, ClonePlayerModels, GetPlayerFromUserID, PlayerHasClone } from "shared/sh_onPlayerConnect"
 import { AddNetVarChangedCallback, GetNetVar_String } from "shared/sh_player_netvars"
 import { GetUsableByType } from "shared/sh_use"
 import { GetFirstChildWithName, GetLocalPlayer, RandomFloatRange, RecursiveOnChildren, Resume, SetCharacterTransparency, SetPlayerTransparency, Thread, WaitThread } from "shared/sh_utils"
 import { Assert } from "shared/sh_assert"
 import { UpdateMeeting } from "./cl_meeting"
-import { AddPlayerUseDisabledCallback } from "./cl_use"
 import { DrawMatchScreen_EmergencyMeeting, DrawMatchScreen_Escaped, DrawMatchScreen_Intro, DrawMatchScreen_Victory, DrawMatchScreen_VoteResults } from "./content/cl_matchScreen_content"
 import { GetLastStashed } from "shared/sh_score"
 import { DEV_SKIP_INTRO, FLAG_RESERVED_SERVER, SKIP_INTRO_TIME, SPECTATOR_TRANS } from "shared/sh_settings"
 import { ReservedServerRelease } from "./cl_matchScreen"
 import { SetLocalViewToRoom, GetRoom } from "./cl_rooms"
 import { GetDeltaTime } from "shared/sh_time"
+import { CanKill, CanReportBody } from "shared/content/sh_use_content"
+import { Task } from "shared/sh_rooms"
 
 const LOCAL_PLAYER = GetLocalPlayer()
 
@@ -38,6 +39,8 @@ class File
    gainedAssignmentTime = new Map<string, number>()
 
    currentDynamicArt: Array<BasePart> = []
+
+   onGainedTaskCallback = new Map<string, Array<() => void>>()
 }
 
 let file = new File()
@@ -97,6 +100,14 @@ function ClientGameThread( match: Match )
    }
 }
 
+export function AddGainedTaskCallback( taskName: string, func: () => void )
+{
+   if ( file.onGainedTaskCallback.get( taskName ) === undefined )
+      file.onGainedTaskCallback.set( taskName, [] )
+   let callbacks = file.onGainedTaskCallback.get( taskName ) as Array<() => void>
+   callbacks.push( func )
+}
+
 export function CL_GameStateSetup()
 {
    /*
@@ -128,11 +139,44 @@ export function CL_GameStateSetup()
       //file.clientMatch.AddPlayer( player )
    } )
 
+   let lastAssignments: Array<Assignment> = []
+
    AddNetVarChangedCallback( NETVAR_JSON_ASSIGNMENTS,
       function ()
       {
          let json = GetNetVar_String( LOCAL_PLAYER, NETVAR_JSON_ASSIGNMENTS )
          let assignments = HttpService.JSONDecode( json ) as Array<Assignment>
+         for ( let assignment of assignments )
+         {
+            if ( assignment.status !== 0 )
+               continue
+
+            let foundAssignment = false
+            for ( let lastAssignment of lastAssignments )
+            {
+               if ( AssignmentIsSame( lastAssignment, assignment.roomName, assignment.taskName ) )
+                  continue
+               foundAssignment = true
+               break
+            }
+
+            if ( !foundAssignment )
+            {
+               let callbacks = file.onGainedTaskCallback.get( assignment.taskName )
+               if ( callbacks === undefined )
+                  continue
+
+               for ( let callback of callbacks )
+               {
+                  Thread(
+                     function ()
+                     {
+                        callback()
+                     } )
+               }
+            }
+         }
+
          file.localAssignments = assignments
 
          let lostAssignments = new Map<string, boolean>()
@@ -188,12 +232,6 @@ export function CL_GameStateSetup()
 
       } )
 
-   AddPlayerUseDisabledCallback( function ()
-   {
-      let match = GetLocalMatch()
-      return !UsableGameState( match )
-   } )
-
    AddCallback_OnPlayerCharacterAdded( function ( player: Player )
    {
       let match = GetLocalMatch()
@@ -206,21 +244,17 @@ export function CL_GameStateSetup()
       usable.forceVisibleTest =
          function ()
          {
-            return GetLocalRole() === ROLE.ROLE_IMPOSTOR
+            return CanKill( GetLocalMatch(), LOCAL_PLAYER )
          }
 
       usable.DefineGetter(
          function ( player: Player ): Array<Player>
          {
             let match = GetLocalMatch()
+            if ( !CanKill( GetLocalMatch(), LOCAL_PLAYER ) )
+               return []
 
-            switch ( match.GetPlayerRole( player ) )
-            {
-               case ROLE.ROLE_IMPOSTOR:
-                  return match.GetLivingCampers()
-            }
-
-            return []
+            return match.GetLivingCampers()
          } )
    }
 
@@ -229,10 +263,7 @@ export function CL_GameStateSetup()
       {
          let match = GetLocalMatch()
 
-         if ( match.IsSpectator( player ) )
-            return []
-
-         if ( match.GetGameState() === GAME_STATE.GAME_STATE_SUDDEN_DEATH )
+         if ( !CanReportBody( match, player ) )
             return []
 
          let positions: Array<Vector3> = []

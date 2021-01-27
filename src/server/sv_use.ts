@@ -18,18 +18,17 @@ export function SV_UseSetup()
 
 function RPC_FromClient_OnUse( player: Player )
 {
-   print( "RPC_FromClient_OnUse " + player.Name )
+   //print( "RPC_FromClient_OnUse " + player.Name )
 
    let useResults = GetUseResultsForAttempt( player )
    if ( useResults === undefined )
    {
-      EnableDebug()
-      GetUseResultsForAttempt( player )
-      let buffer = GetDebugBuffer()
-      ReportEvent( "USE_FAILED", buffer )
-      DisableDebug()
-
-      print( "no useResults: " + buffer )
+      //EnableDebug()
+      //GetUseResultsForAttempt( player )
+      //let buffer = GetDebugBuffer()
+      //ReportEvent( "USE_FAILED", buffer )
+      //DisableDebug()
+      //print( "no useResults: " + buffer )
       return
    }
    if ( useResults.usedThing === undefined )
@@ -41,11 +40,11 @@ function RPC_FromClient_OnUse( player: Player )
       return
    }
 
-   let successFunc = useResults.usable.successFunc
-   if ( successFunc === undefined )
+   let svUseSuccessFunc = useResults.usable.svUseSuccessFunc
+   if ( svUseSuccessFunc === undefined )
    {
       print( "no success func" )
       return
    }
-   successFunc( player, useResults.usedThing )
+   svUseSuccessFunc( player, useResults.usedThing )
 }

@@ -777,21 +777,6 @@ export function IsSpectatorRole( role: ROLE ): boolean
    return false
 }
 
-export function UsableGameState( match: Match ): boolean
-{
-   switch ( match.GetGameState() )
-   {
-      case GAME_STATE.GAME_STATE_WAITING_FOR_PLAYERS:
-      case GAME_STATE.GAME_STATE_PLAYING:
-      case GAME_STATE.GAME_STATE_SUDDEN_DEATH:
-      case GAME_STATE.GAME_STATE_COUNTDOWN:
-      case GAME_STATE.GAME_STATE_INIT:
-      case GAME_STATE.GAME_STATE_INTRO:
-         return true
-   }
-   return false
-}
-
 export function SetPlayerWalkspeedForGameState( player: Player, match: Match )
 {
    switch ( match.GetGameState() )

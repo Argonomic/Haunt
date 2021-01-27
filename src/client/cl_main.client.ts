@@ -43,6 +43,7 @@ import { CL_DynamicArtSetup } from "./cl_dynamicArt"
 import { CL_WaitingStartSetup } from "./cl_waitingStart"
 import { SH_ReservedServerSetup } from "shared/sh_reservedServer"
 import { SH_SharedVarSetup } from "shared/sh_sharedVar"
+import { CL_UseContentSetup } from "./content/cl_use_content"
 
 class File
 {
@@ -101,6 +102,7 @@ CL_AdminSetup()
 CL_GameStartingSetup()
 CL_DynamicArtSetup()
 CL_WaitingStartSetup()
+CL_UseContentSetup()
 SH_OnPlayerConnectSetup()
 
 file.finishedInit = true

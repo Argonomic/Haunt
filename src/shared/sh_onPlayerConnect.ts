@@ -31,7 +31,7 @@ export function SH_OnPlayerConnectSetup()
 
 export function AddCallback_OnPlayerConnected( func: Function )
 {
-   Assert( !file.aPlayerConnected, "Tried to add a player connection callback after a player connected" )
+   Assert( LOCAL || !file.aPlayerConnected, "Tried to add a player connection callback after a player connected" )
    file.onPlayerConnected.push( func )
 }
 

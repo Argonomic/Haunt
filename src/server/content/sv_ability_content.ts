@@ -1,11 +1,10 @@
 import { GetAllConnectedPlayersInMatch, GiveAssignment, PlayerToMatch, ServerPlayeyHasAssignment } from "server/sv_gameState";
-import { ABILITIES } from "shared/content/sh_ability_content";
+import { ABILITIES, COOLDOWN_SABOTAGE_LIGHTS } from "shared/content/sh_ability_content";
 import { SetAbilityCanUseFunc, SetAbilityServerFunc } from "shared/sh_ability";
+import { ResetCooldownTime } from "shared/sh_cooldown";
 import { TASK_RESTORE_LIGHTS, Assignment } from "shared/sh_gamestate";
-import { LoadSound } from "shared/sh_utils";
 import { ResetFuses } from "./sv_tasks_content";
 
-let LIGHTS_OUT_SOUND = LoadSound( 2028346649 )
 
 export function SV_AbilityContentSetup()
 {
@@ -27,9 +26,7 @@ export function SV_AbilityContentSetup()
             GiveAssignment( aplayer, match, assignment )
          }
 
-         print( "Give restore lights task" )
-         LIGHTS_OUT_SOUND.Volume = 0.8
-         LIGHTS_OUT_SOUND.Play()
+         ResetCooldownTime( player, COOLDOWN_SABOTAGE_LIGHTS )
       } )
 
    SetAbilityCanUseFunc( ABILITIES.ABILITY_SABOTAGE_LIGHTS,
