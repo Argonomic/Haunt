@@ -3,7 +3,7 @@ import { AddRPC, GetRPCRemoteEvent } from "shared/sh_rpc"
 import { FilterHasCharacters, ArrayRandomize, GraphCapped, IsAlive, Resume, Thread, UserIDToPlayer, Wait, WaitThread, TeleportPlayersToLobby } from "shared/sh_utils"
 import { Assert } from "shared/sh_assert"
 import { Assignment, GAME_STATE, NETVAR_JSON_ASSIGNMENTS, ROLE, Match, GAMERESULTS, GetVoteResults, TASK_EXIT, AssignmentIsSame, TASK_RESTORE_LIGHTS, NETVAR_JSON_GAMESTATE, NETVAR_MEETINGS_CALLED, SetPlayerWalkspeedForGameState, USERID, PlayerVote, NS_SharedMatchState, PlayerInfo, AddRoleChangeCallback, PICKUPS, IsSpectatorRole, ExecRoleChangeCallbacks, GetMinPlayersForGame } from "shared/sh_gamestate"
-import { MIN_TASKLIST_SIZE, MAX_TASKLIST_SIZE, MATCHMAKE_PLAYERCOUNT_STARTSERVER, SPAWN_ROOM, TASK_VALUE, DEV_1_TASK, FLAG_RESERVED_SERVER, MATCHMAKE_PLAYERCOUNT_FALLBACK } from "shared/sh_settings"
+import { MIN_TASKLIST_SIZE, MAX_TASKLIST_SIZE, MATCHMAKE_PLAYERCOUNT_STARTSERVER, SPAWN_ROOM, TASK_VALUE, DEV_1_TASK, FLAG_RESERVED_SERVER, MATCHMAKE_PLAYERCOUNT_MINPLAYERS } from "shared/sh_settings"
 import { ResetNetVar, SetNetVar } from "shared/sh_player_netvars"
 import { AddCallback_OnPlayerCharacterAdded, AddCallback_OnPlayerConnected } from "shared/sh_onPlayerConnect"
 import { GetAllRoomsAndTasks, GetCurrentRoom, GetRoomByName, PlayerHasCurrentRoom, PutPlayersInRoom } from "./sv_rooms"
@@ -300,11 +300,11 @@ function SV_GameStateChanged( match: Match, oldGameState: GAME_STATE )
       switch ( oldGameState )
       {
          case GAME_STATE.GAME_STATE_INTRO:
-            if ( GetAllPlayersInMatchWithCharacters( match ).size() < MATCHMAKE_PLAYERCOUNT_FALLBACK || match.GetLivingImpostorsCount() <= 0 )
+            if ( GetAllPlayersInMatchWithCharacters( match ).size() < MATCHMAKE_PLAYERCOUNT_MINPLAYERS || match.GetLivingImpostorsCount() <= 0 )
             {
                print( "Failed to leave intro:" )
                print( "GetAllPlayersInMatchWithCharacters(match).size(): " + GetAllPlayersInMatchWithCharacters( match ).size() )
-               print( "MATCHMAKE_PLAYERCOUNT_FALLBACK: " + MATCHMAKE_PLAYERCOUNT_FALLBACK )
+               print( "MATCHMAKE_PLAYERCOUNT_MINPLAYERS: " + MATCHMAKE_PLAYERCOUNT_MINPLAYERS )
                print( "match.GetLivingImpostorsCount(): " + match.GetLivingImpostorsCount() )
                print( "match.shState.startingImpostorCount: " + match.shState.startingImpostorCount )
                // players left during intro
@@ -776,6 +776,7 @@ function GameStateThink( match: Match )
             file.lastPlayerCount.set( match, searchCount )
          }
 
+         //print( "searchCount:" + searchCount + ", GetMinPlayersForGame():" + GetMinPlayersForGame() )
          if ( searchCount >= GetMinPlayersForGame() )
          {
             SetGameState( match, GAME_STATE.GAME_STATE_COUNTDOWN )
@@ -796,7 +797,7 @@ function GameStateThink( match: Match )
 
       case GAME_STATE.GAME_STATE_COUNTDOWN:
          {
-            if ( GetAllConnectedPlayersInMatch( match ).size() < MATCHMAKE_PLAYERCOUNT_FALLBACK )
+            if ( GetAllConnectedPlayersInMatch( match ).size() < MATCHMAKE_PLAYERCOUNT_MINPLAYERS )
             {
                SetGameState( match, GAME_STATE.GAME_STATE_WAITING_FOR_PLAYERS )
                return
@@ -1116,7 +1117,7 @@ export function AssignTasks( player: Player, match: Match )
    let playerCount = GetAllConnectedPlayersInMatch( match ).size()
    let TASK_COUNT = math.floor(
       GraphCapped( playerCount,
-         MATCHMAKE_PLAYERCOUNT_FALLBACK, MATCHMAKE_PLAYERCOUNT_STARTSERVER,
+         MATCHMAKE_PLAYERCOUNT_MINPLAYERS, MATCHMAKE_PLAYERCOUNT_STARTSERVER,
          MIN_TASKLIST_SIZE, MAX_TASKLIST_SIZE ) )
 
    //TASK_COUNT = 2

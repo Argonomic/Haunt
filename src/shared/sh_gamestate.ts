@@ -2,8 +2,8 @@ import { Players, Workspace } from "@rbxts/services"
 import { AddNetVar } from "shared/sh_player_netvars"
 import { AddCooldown } from "./sh_cooldown"
 import { SetPlayerWalkSpeed, GetPlayerFromUserID, GetPlayerFromUserIDString } from "./sh_onPlayerConnect"
-import { COOLDOWNTIME_MEETING, COOLDOWNTIME_KILL, MEETING_DISCUSS_TIME, MEETING_VOTE_TIME, PLAYER_WALKSPEED_SPECTATOR, PLAYER_WALKSPEED, SUDDEN_DEATH_TIME, DEV_SKIP_INTRO, RESERVEDSERVER_WAITS_FOR_PLAYERS, INTRO_TIME, SKIP_INTRO_TIME, MEETING_VOTE_RESULTS, START_COUNTDOWN, MATCHMAKE_PLAYERCOUNT_STARTSERVER, MATCHMAKE_PLAYERCOUNT_FALLBACK } from "./sh_settings"
-import { IsServer, Thread } from "./sh_utils"
+import { COOLDOWNTIME_MEETING, COOLDOWNTIME_KILL, MEETING_DISCUSS_TIME, MEETING_VOTE_TIME, PLAYER_WALKSPEED_SPECTATOR, PLAYER_WALKSPEED, SUDDEN_DEATH_TIME, DEV_SKIP_INTRO, RESERVEDSERVER_WAITS_FOR_PLAYERS, INTRO_TIME, SKIP_INTRO_TIME, MEETING_VOTE_RESULTS, TEST, START_COUNTDOWN, MATCHMAKE_PLAYERCOUNT_MINPLAYERS } from "./sh_settings"
+import { GraphCapped, IsServer, Thread } from "./sh_utils"
 import { Assert } from "shared/sh_assert"
 import { GiveAbility, TakeAbility } from "./sh_ability"
 import { ABILITIES } from "./content/sh_ability_content"
@@ -808,7 +808,8 @@ export function SetPlayerWalkspeedForGameState( player: Player, match: Match )
 
 export function GetMinPlayersForGame(): number
 {
-   return MATCHMAKE_PLAYERCOUNT_FALLBACK
-   //let playerMax = math.min( MATCHMAKE_PLAYERCOUNT_STARTSERVER, Players.GetPlayers().size() )
-   //return math.max( MATCHMAKE_PLAYERCOUNT_FALLBACK, playerMax )
+   if ( TEST )
+      return MATCHMAKE_PLAYERCOUNT_MINPLAYERS
+
+   return math.floor( GraphCapped( Players.GetPlayers().size(), MATCHMAKE_PLAYERCOUNT_MINPLAYERS, 7, MATCHMAKE_PLAYERCOUNT_MINPLAYERS, 7 ) )
 }

@@ -142,9 +142,7 @@ function UpdateWaitingStartUI()
          let players = FilterHasCharacters( match.GetAllPlayers() )
          let count = GetMinPlayersForGame() - players.size()
          let text
-         if ( count < 1 )
-            text = "Starting New Match Soon"
-         else if ( count === 1 )
+         if ( count <= 1 )
             text = "Waiting for 1 more player"
          else
             text = "Waiting for " + count + " more players"

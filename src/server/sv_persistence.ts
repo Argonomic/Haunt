@@ -19,6 +19,8 @@ class File
    serverVersion = -1
    cachedServerVersion = -1
 
+   lobbyUpToDate = true
+
    nextServerVersionCheckTime = Workspace.DistributedGameTime + CHECK_UPTODATE_TIME
 }
 let file = new File()
@@ -39,21 +41,23 @@ export function SV_PersistenceSetup()
 
    AddCallback_OnPlayerConnected( function ( player: Player )
    {
-      if ( !LobbyUpToDate() )
-      {
-         if ( ArrayFind( ADMINS, player.Name ) === undefined )
-            player.Kick( "1 Updating server - reconnect please" )
-      }
-
       if ( IsReservedServer() )
       {
          Thread(
             function ()
             {
                wait( 6 )
-               TeleportPlayersToLobby( [player], "2 Updating server - reconnect please" )
+               TeleportPlayersToLobby( [player], "Updating server - reconnect please (2)" )
             } )
+         return
       }
+
+      if ( !LobbyUpToDate() )
+      {
+         player.Kick( "1 Updating server - reconnect please" )
+         return
+      }
+
    } )
 
    AddCallback_OnPlayerConnected(
@@ -89,7 +93,7 @@ export function SV_PersistenceSetup()
                      file.globalPersistence.SetAsync( GP_SERVER_VERSION, MATCHMAKE_SERVER_VERSION )
                   }
                   file.cachedServerVersion = file.serverVersion
-                  print( "SERVER VERSION IS " + file.serverVersion )
+                  print( "Server version is " + file.serverVersion )
                }
                else
                {
@@ -106,6 +110,10 @@ function IncrementServerVersion()
    if ( LOCAL )
       return
 
+   // just punt local players
+   file.serverVersion = -50
+
+   /*
    file.nextServerVersionCheckTime = 0
    print( "\nIncrementServerVersion" )
 
@@ -135,6 +143,7 @@ function IncrementServerVersion()
          print( "...done!\n" )
          file.nextServerVersionCheckTime = 0
       } )
+      */
 }
 
 function LobbyUpToDate(): boolean
@@ -250,7 +259,7 @@ export function SetPlayerPersistence( player: Player, field: string, value: unkn
 export function FlushServer()
 {
    let players = Players.GetPlayers()
-   let msg = "3 Updating server - reconnect please"
+   let msg = "Updating server - reconnect please (3)"
    print( "Teleport " + players.size() + " players to lobby" )
 
    Thread( function ()
