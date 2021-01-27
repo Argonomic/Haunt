@@ -1,8 +1,8 @@
-import { USETYPES } from "shared/sh_gamestate"
+import { CanUseTask, USETYPES } from "shared/sh_gamestate"
 import { Assert } from "shared/sh_assert"
 import { Task } from "shared/sh_rooms"
 import { GetUsableByType } from "shared/sh_use"
-import { CanCallMeeting, CanUseTask } from "shared/content/sh_use_content"
+import { CanCallMeeting } from "shared/content/sh_use_content"
 import { GetLocalAssignments, GetLocalMatch } from "client/cl_gamestate"
 import { GetCurrentRoom } from "client/cl_rooms"
 

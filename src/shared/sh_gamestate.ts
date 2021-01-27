@@ -813,3 +813,18 @@ export function GetMinPlayersForGame(): number
 
    return math.floor( GraphCapped( Players.GetPlayers().size(), MATCHMAKE_PLAYERCOUNT_MINPLAYERS, 7, MATCHMAKE_PLAYERCOUNT_MINPLAYERS, 7 ) )
 }
+
+export function CanUseTask( match: Match, player: Player ): boolean
+{
+   switch ( match.GetGameState() )
+   {
+      case GAME_STATE.GAME_STATE_INIT:
+      case GAME_STATE.GAME_STATE_WAITING_FOR_PLAYERS:
+      case GAME_STATE.GAME_STATE_COUNTDOWN:
+      case GAME_STATE.GAME_STATE_PLAYING:
+      case GAME_STATE.GAME_STATE_SUDDEN_DEATH:
+         return true
+   }
+   return false
+}
+

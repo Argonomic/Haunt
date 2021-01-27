@@ -1,5 +1,5 @@
 import { RunService } from "@rbxts/services";
-import { Match, GAME_STATE, PlayerInfo, PlayerNumToGameViewable, ROLE, MEETING_TYPE } from "shared/sh_gamestate";
+import { Match, GAME_STATE, PlayerInfo, PlayerNumToGameViewable, ROLE } from "shared/sh_gamestate";
 import { ClonePlayerModel, GetPlayerFromUserID } from "shared/sh_onPlayerConnect";
 import { MATCHMAKE_PLAYERCOUNT_STARTSERVER, PLAYER_COLORS } from "shared/sh_settings";
 import { Tween } from "shared/sh_tween";

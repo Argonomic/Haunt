@@ -2,7 +2,7 @@ import { RunService } from "@rbxts/services"
 
 export const FLAG_RESERVED_SERVER = false
 
-export const TEST = ( RunService.IsStudio() || game.PlaceId === 5954656113 ) && true
+export const TEST = ( RunService.IsStudio() || game.PlaceId === 5954656113 ) && false
 
 export const DEV_SKIP_INTRO = TEST && true
 export const DEV_1_TASK = TEST && true
@@ -72,5 +72,5 @@ export const PLAYER_COLORS =
 
 export const ADMINS = ["Argonomic", "ArgonomicDev"]
 
-print( "SRV 1.27.21 4.1" )
+print( "SRV 1.27.21 4.3" )
 print( " " )

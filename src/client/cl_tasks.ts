@@ -1,5 +1,5 @@
 import { AddRPC, SendRPC_Client } from "shared/sh_rpc"
-import { Assignment, AssignmentIsSame, GAME_STATE, NETVAR_JSON_ASSIGNMENTS, NETVAR_JSON_GAMESTATE, SetPlayerWalkspeedForGameState } from "shared/sh_gamestate"
+import { Assignment, AssignmentIsSame, CanUseTask, GAME_STATE, NETVAR_JSON_ASSIGNMENTS, NETVAR_JSON_GAMESTATE, SetPlayerWalkspeedForGameState } from "shared/sh_gamestate"
 import { AddNetVarChangedCallback, GetNetVar_String } from "shared/sh_player_netvars"
 import { ReleaseDraggedButton, AddCallback_MouseClick } from "client/cl_ui"
 import { GetLocalPlayer, LoadSound, Thread } from "shared/sh_utils"
@@ -9,6 +9,8 @@ import { AddPlayerUseDisabledCallback, SetUseDebounceTime } from "./cl_use"
 import { Tween } from "shared/sh_tween"
 import { HttpService } from "@rbxts/services"
 import { GetLocalMatch } from "./cl_gamestate"
+
+const LOCAL_PLAYER = GetLocalPlayer()
 
 export enum TASK_UI
 {
@@ -94,7 +96,7 @@ export function CL_TasksSetup()
          if ( activeTaskStatus === undefined )
             return
 
-         let json = GetNetVar_String( GetLocalPlayer(), NETVAR_JSON_ASSIGNMENTS )
+         let json = GetNetVar_String( LOCAL_PLAYER, NETVAR_JSON_ASSIGNMENTS )
          let assignments = HttpService.JSONDecode( json ) as Array<Assignment>
          for ( let assignment of assignments )
          {
@@ -112,35 +114,8 @@ export function CL_TasksSetup()
       function ()
       {
          wait() // for gamestate to update
-         let match = GetLocalMatch()
-         let gameState = match.GetGameState()
-
-         if ( lastKnownGameState === gameState )
-            return // game state did not change
-         lastKnownGameState = gameState
-
-         // entering this game state
-         switch ( gameState )
-         {
-            case GAME_STATE.GAME_STATE_MEETING_DISCUSS:
-               Thread(
-                  function ()
-                  {
-                     // for latency, in case we issued a request just after the game state changed
-                     for ( let i = 0; i < 5; i++ )
-                     {
-                        CancelAnyOpenTask()
-                        wait( 0.5 )
-                     }
-                  } )
-
-            case GAME_STATE.GAME_STATE_MEETING_VOTE:
-            case GAME_STATE.GAME_STATE_MEETING_RESULTS:
-            case GAME_STATE.GAME_STATE_COMPLETE:
-            case GAME_STATE.GAME_STATE_INTRO:
-               CancelAnyOpenTask()
-               break
-         }
+         if ( !CanUseTask( GetLocalMatch(), LOCAL_PLAYER ) )
+            CancelAnyOpenTask()
       } )
 
 }
@@ -187,8 +162,10 @@ export function RPC_FromServer_CancelTask()
 
 export function RPC_FromServer_OnPlayerUseTask( roomName: string, taskName: string )
 {
-   let localPlayer = GetLocalPlayer()
-   SetPlayerWalkSpeed( localPlayer, 0 )
+   if ( !CanUseTask( GetLocalMatch(), LOCAL_PLAYER ) )
+      return
+
+   SetPlayerWalkSpeed( LOCAL_PLAYER, 0 )
 
    let taskUIController = GetTaskUI( TASK_UI.TASK_CONTROLLER ) as EDITOR_TaskUI
 
@@ -209,14 +186,13 @@ export function RPC_FromServer_OnPlayerUseTask( roomName: string, taskName: stri
    newFrame.Visible = true
    newFrame.Parent = taskSpec.frame.Parent
 
-   //SetPlayerState( GetLocalPlayer(), Enum.HumanoidStateType.Running, false )
-
    taskUIController.Frame.Header.Text = taskSpec.title
    taskUIController.Enabled = true
    let closeButton = taskUIController.Frame.CloseButton
 
    let activeTaskStatus = new TaskStatus( taskSpec, roomName, taskName )
    file.activeTaskStatus = activeTaskStatus
+   print( "CREATED TASK" )
 
    let closeFunction = function ()
    {
@@ -227,9 +203,8 @@ export function RPC_FromServer_OnPlayerUseTask( roomName: string, taskName: stri
          SetUseDebounceTime( 1 ) // hide use for a second
       }
 
-      SetPlayerWalkspeedForGameState( GetLocalPlayer(), GetLocalMatch() )
+      SetPlayerWalkspeedForGameState( LOCAL_PLAYER, GetLocalMatch() )
 
-      //SetPlayerState( GetLocalPlayer(), Enum.HumanoidStateType.Running, true )
       let think = activeTaskStatus.think
       if ( think !== undefined )
          think.Disconnect()
@@ -249,6 +224,7 @@ export function RPC_FromServer_OnPlayerUseTask( roomName: string, taskName: stri
          taskUIController.Enabled = false;
          ReleaseDraggedButton()
          newFrame.Destroy()
+         print( "DESTROYED TASK" )
       } )
    }
 

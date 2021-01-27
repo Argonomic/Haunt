@@ -78,20 +78,6 @@ export function CanKill( match: Match, player: Player ): boolean
    return match.IsImpostor( player )
 }
 
-export function CanUseTask( match: Match, player: Player ): boolean
-{
-   switch ( match.GetGameState() )
-   {
-      case GAME_STATE.GAME_STATE_WAITING_FOR_PLAYERS:
-      case GAME_STATE.GAME_STATE_PLAYING:
-      case GAME_STATE.GAME_STATE_SUDDEN_DEATH:
-      case GAME_STATE.GAME_STATE_COUNTDOWN:
-      case GAME_STATE.GAME_STATE_INIT:
-         return true
-   }
-   return false
-}
-
 export function CanReportBody( match: Match, player: Player ): boolean
 {
    if ( match.GetGameState() !== GAME_STATE.GAME_STATE_PLAYING )
