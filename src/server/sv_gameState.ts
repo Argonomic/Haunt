@@ -857,13 +857,11 @@ function HandleVoteResults( match: Match )
          }
          else
          {
-            BecomeSpectator( voteResults.highestRecipients[0], match )
-
-            let highestTarget = voteResults.highestRecipients[0]
+            let votedOff = voteResults.highestRecipients[0]
+            match.shState.highestVotedScore = GetMatchScore( votedOff )
+            BecomeSpectator( votedOff, match )
             Wait( 8 ) // delay for vote matchscreen
-            SetPlayerKilled( match, highestTarget )
-
-            print( "Player " + highestTarget.Name + " was voted off" )
+            SetPlayerKilled( match, votedOff )
          }
 
          if ( match.GetGameState() === GAME_STATE.GAME_STATE_COMPLETE )
