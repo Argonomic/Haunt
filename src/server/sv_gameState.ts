@@ -1,9 +1,9 @@
 import { HttpService, MessagingService, Players, RunService, TeleportService, Workspace } from "@rbxts/services"
 import { AddRPC, GetRPCRemoteEvent } from "shared/sh_rpc"
-import { FilterHasCharacters, ArrayFind, ArrayRandomize, GraphCapped, IsAlive, Resume, Thread, UserIDToPlayer, Wait, WaitThread } from "shared/sh_utils"
+import { FilterHasCharacters, ArrayRandomize, GraphCapped, IsAlive, Resume, Thread, UserIDToPlayer, Wait, WaitThread, TeleportPlayersToLobby } from "shared/sh_utils"
 import { Assert } from "shared/sh_assert"
 import { Assignment, GAME_STATE, NETVAR_JSON_ASSIGNMENTS, ROLE, Match, GAMERESULTS, GetVoteResults, TASK_EXIT, AssignmentIsSame, TASK_RESTORE_LIGHTS, NETVAR_JSON_GAMESTATE, NETVAR_MEETINGS_CALLED, SetPlayerWalkspeedForGameState, USERID, PlayerVote, NS_SharedMatchState, PlayerInfo, AddRoleChangeCallback, PICKUPS, IsSpectatorRole, ExecRoleChangeCallbacks, GetMinPlayersForGame } from "shared/sh_gamestate"
-import { MIN_TASKLIST_SIZE, MAX_TASKLIST_SIZE, MATCHMAKE_PLAYERCOUNT_STARTSERVER, SPAWN_ROOM, TASK_VALUE, DEV_1_TASK, ADMINS, FLAG_RESERVED_SERVER, MATCHMAKE_PLAYERCOUNT_FALLBACK } from "shared/sh_settings"
+import { MIN_TASKLIST_SIZE, MAX_TASKLIST_SIZE, MATCHMAKE_PLAYERCOUNT_STARTSERVER, SPAWN_ROOM, TASK_VALUE, DEV_1_TASK, FLAG_RESERVED_SERVER, MATCHMAKE_PLAYERCOUNT_FALLBACK } from "shared/sh_settings"
 import { ResetNetVar, SetNetVar } from "shared/sh_player_netvars"
 import { AddCallback_OnPlayerCharacterAdded, AddCallback_OnPlayerConnected } from "shared/sh_onPlayerConnect"
 import { GetAllRoomsAndTasks, GetCurrentRoom, GetRoomByName, PlayerHasCurrentRoom, PutPlayersInRoom } from "./sv_rooms"
@@ -72,18 +72,6 @@ export function SV_GameStateSetup()
    print( "Placeid: " + game.PlaceId )
    print( "Jobid: " + game.JobId )
 
-   AddRPC( "RPC_FromClient_AdminClick", function ( player: Player )
-   {
-      if ( ArrayFind( ADMINS, player.Name ) === undefined )
-         return
-
-      //IncrementServerVersion()
-      for ( let player of Players.GetPlayers() )
-      {
-         player.Kick( "Restarting server - reconnect please" )
-      }
-   } )
-
    AddCallback_OnPlayerConnected( function ( player: Player )
    {
       FindMatchForPlayer( player )
@@ -151,11 +139,7 @@ export function SV_GameStateSetup()
    AddCallback_OnPlayerCharacterAdded( function ( player: Player )
    {
       if ( IsReservedServer() )
-      {
-         // should never be on reserved server
-         TeleportPlayersToLobby( [player], "Need more players" )
          return
-      }
 
       if ( !PlayerHasCurrentRoom( player ) )
          PutPlayerInStartRoom( player )
@@ -262,7 +246,7 @@ export function SV_GameStateSetup()
             {
                for ( ; ; )
                {
-                  wait( 10 )
+                  Wait( 10 )
                   let players = Players.GetPlayers()
                   for ( let player of players )
                   {
@@ -442,7 +426,7 @@ function SV_GameStateChanged( match: Match, oldGameState: GAME_STATE )
          }
          Thread( function ()
          {
-            wait( 1.5 ) // wait for fade out
+            Wait( 1.5 ) // wait for fade out
             let room = GetRoomByName( SPAWN_ROOM )
             let players = GetAllPlayersInMatchWithCharacters( match )
             MatchPutPlayersInRoom( match, players, room )
@@ -1203,29 +1187,6 @@ function PlayerDistributesCoins( player: Player, match: Match, killer?: Player )
    }
 }
 
-
-function TeleportPlayersToLobby( players: Array<Player>, msg: string )
-{
-   if ( !FLAG_RESERVED_SERVER )
-      return
-   print( "Teleport " + players.size() + " players to lobby" )
-
-   Thread( function ()
-   {
-      players = players.filter( function ( player )
-      {
-         return player.Name !== "Argonomic"
-      } )
-      TeleportService.TeleportPartyAsync( game.PlaceId, players )
-      Wait( 10 )
-      // failsafe
-      for ( let player of players )
-      {
-         player.Kick( msg )
-      }
-   } )
-}
-
 function FindMatchForPlayer( player: Player )
 {
    print( "FindMatchForPlayer for " + player.Name ) // + " " + debug.traceback() )
@@ -1630,17 +1591,6 @@ function TryToSendPlayersToNewReservedServer( match: Match )
             } )
       } )
 }
-/*
-let playr = players[1]
-players = players.filter( function ( player )
-{
-   return player !== playr
-} )
-TeleportService.TeleportToPrivateServer( game.PlaceId, code[0], players, "none" )
-wait( 15 )
-TeleportService.TeleportToPrivateServer( game.PlaceId, code[0], [playr], "none" )
-*/
-
 
 function BroadcastGamestate( match: Match )
 {

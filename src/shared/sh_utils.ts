@@ -1,4 +1,4 @@
-import { Players } from "@rbxts/services";
+import { Players, TeleportService } from "@rbxts/services";
 import { Workspace } from "@rbxts/services";
 import { ReplicatedStorage } from "@rbxts/services"
 
@@ -697,5 +697,36 @@ export function FilterHasCharacters( players: Array<Player> ): Array<Player>
    return players.filter( function ( player )
    {
       return player.Character !== undefined
+   } )
+}
+
+export function TeleportPlayersToLobby( players: Array<Player>, msg: string )
+{
+   print( "Teleport " + players.size() + " players to lobby" )
+
+   Thread( function ()
+   {
+      //players = players.filter( function ( player )
+      //{
+      //   return player.Name !== "Argonomic"
+      //} )
+      let pair = pcall(
+         function ()
+         {
+            TeleportService.TeleportPartyAsync( game.PlaceId, players )
+            wait( 2 )
+         } )
+
+      if ( pair[0] )
+         Wait( 10 )
+      else
+         print( "TeleportPlayersToLobby failed!" )
+
+      // failsafe
+      for ( let player of players )
+      {
+         if ( player.Character !== undefined )
+            player.Kick( msg )
+      }
    } )
 }

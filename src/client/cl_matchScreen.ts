@@ -208,6 +208,17 @@ export function CL_MatchScreenSetup()
                   }
                }
             }
+            else
+            {
+               if ( IsReservedServer() )
+               {
+                  wait( 0.5 )
+                  frame.TitleFrame.SubTitle.Text = "Updating Server.."
+                  frame.TitleFrame.SubTitle.TextTransparency = 1
+                  Tween( frame.TitleFrame.SubTitle, { TextTransparency: 0 }, 0.5 )
+                  return
+               }
+            }
 
             print( "CLIENT GAME STARTED" )
 

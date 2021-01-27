@@ -1,8 +1,10 @@
-import { DataStoreService, RunService, Workspace } from "@rbxts/services";
+import { DataStoreService, Players, RunService, TeleportService, Workspace } from "@rbxts/services";
 import { Assert } from "shared/sh_assert";
 import { AddCallback_OnPlayerConnected } from "shared/sh_onPlayerConnect";
-import { MATCHMAKE_SERVER_VERSION } from "shared/sh_settings";
-import { Thread } from "shared/sh_utils";
+import { IsReservedServer } from "shared/sh_reservedServer";
+import { AddRPC } from "shared/sh_rpc";
+import { ADMINS, MATCHMAKE_SERVER_VERSION } from "shared/sh_settings";
+import { ArrayFind, TeleportPlayersToLobby, Thread, Wait } from "shared/sh_utils";
 
 const LOCAL = RunService.IsStudio()
 const PPRSTYPE_META = "PERSISTENCE"
@@ -25,6 +27,34 @@ export function SV_PersistenceSetup()
 {
    if ( LOCAL )
       return
+
+   AddRPC( "RPC_FromClient_AdminClick", function ( player: Player )
+   {
+      if ( ArrayFind( ADMINS, player.Name ) === undefined )
+         return
+      IncrementServerVersion()
+
+      FlushServer()
+   } )
+
+   AddCallback_OnPlayerConnected( function ( player: Player )
+   {
+      if ( !LobbyUpToDate() )
+      {
+         if ( ArrayFind( ADMINS, player.Name ) === undefined )
+            player.Kick( "1 Updating server - reconnect please" )
+      }
+
+      if ( IsReservedServer() )
+      {
+         Thread(
+            function ()
+            {
+               wait( 6 )
+               TeleportPlayersToLobby( [player], "2 Updating server - reconnect please" )
+            } )
+      }
+   } )
 
    AddCallback_OnPlayerConnected(
       function ( player: Player )
@@ -71,7 +101,7 @@ export function SV_PersistenceSetup()
    Assert( !LOCAL, "!LOCAL" )
 }
 
-export function IncrementServerVersion()
+function IncrementServerVersion()
 {
    if ( LOCAL )
       return
@@ -107,7 +137,7 @@ export function IncrementServerVersion()
       } )
 }
 
-export function LobbyUpToDate(): boolean
+function LobbyUpToDate(): boolean
 {
    if ( LOCAL )
       return true
@@ -213,4 +243,63 @@ export function SetPlayerPersistence( player: Player, field: string, value: unkn
                   ds.SetAsync( field, value )
             } )
       } )
+}
+
+
+
+export function FlushServer()
+{
+   let players = Players.GetPlayers()
+   let msg = "3 Updating server - reconnect please"
+   print( "Teleport " + players.size() + " players to lobby" )
+
+   Thread( function ()
+   {
+      pcall(
+         function ()
+         {
+            let code: LuaTuple<[string, string]> | undefined
+
+            let pair2 = pcall(
+               function ()
+               {
+                  code = TeleportService.ReserveServer( game.PlaceId )
+               } )
+            if ( !pair2[0] || code === undefined )
+            {
+               for ( let player of players )
+               {
+                  if ( player.Character !== undefined )
+                     player.Kick( msg )
+               }
+               return
+            }
+
+            pcall(
+               function ()
+               {
+                  if ( code === undefined )
+                     return
+
+                  TeleportService.TeleportToPrivateServer( game.PlaceId, code[0], players, "none" )
+               } )
+         } )
+   } )
+
+
+   Thread( function ()
+   {
+      Wait( 3.5 )
+
+      for ( ; ; )
+      {
+         // failsafe
+         for ( let player of Players.GetPlayers() )
+         {
+            if ( player.Character !== undefined )
+               player.Kick( msg )
+         }
+         Wait( 1 )
+      }
+   } )
 }

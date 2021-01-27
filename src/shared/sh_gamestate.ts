@@ -808,6 +808,7 @@ export function SetPlayerWalkspeedForGameState( player: Player, match: Match )
 
 export function GetMinPlayersForGame(): number
 {
-   let playerMax = math.min( MATCHMAKE_PLAYERCOUNT_STARTSERVER, Players.GetPlayers().size() )
-   return math.max( MATCHMAKE_PLAYERCOUNT_FALLBACK, playerMax )
+   return MATCHMAKE_PLAYERCOUNT_FALLBACK
+   //let playerMax = math.min( MATCHMAKE_PLAYERCOUNT_STARTSERVER, Players.GetPlayers().size() )
+   //return math.max( MATCHMAKE_PLAYERCOUNT_FALLBACK, playerMax )
 }

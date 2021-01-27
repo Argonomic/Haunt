@@ -2,7 +2,7 @@ import { Chat, Players, ServerScriptService } from "@rbxts/services"
 import { Assert } from "shared/sh_assert"
 import { AddRoleChangeCallback, GAME_STATE, IsSpectatorRole, Match } from "shared/sh_gamestate"
 import { AddCallback_OnPlayerConnected } from "shared/sh_onPlayerConnect"
-import { Thread, UserIDToPlayer } from "shared/sh_utils"
+import { Thread, UserIDToPlayer, Wait } from "shared/sh_utils"
 import { PlayerHasMatch, PlayerToMatch } from "./sv_gameState"
 
 const PREFIX = "Match"
@@ -90,7 +90,7 @@ export function SV_ChatSetup()
             {
                Thread( function ()
                {
-                  wait( 3 ) // give chat a chance to load
+                  Wait( 3 ) // give chat a chance to load
                   if ( player.Character === undefined )
                      return
                   if ( !PlayerHasMatch( player ) )
