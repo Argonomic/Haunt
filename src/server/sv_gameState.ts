@@ -2,7 +2,7 @@ import { HttpService, Players, Workspace } from "@rbxts/services"
 import { AddRPC, GetRPCRemoteEvent } from "shared/sh_rpc"
 import { FilterHasCharacters, ArrayRandomize, GraphCapped, Resume, Thread, UserIDToPlayer, Wait } from "shared/sh_utils"
 import { Assert } from "shared/sh_assert"
-import { Assignment, GAME_STATE, NETVAR_JSON_ASSIGNMENTS, ROLE, Match, GetVoteResults, TASK_EXIT, AssignmentIsSame, TASK_RESTORE_LIGHTS, NETVAR_JSON_GAMESTATE, SetPlayerWalkspeedForGameState, USERID, PlayerVote, NS_SharedMatchState, PlayerInfo, AddRoleChangeCallback, PICKUPS, IsSpectatorRole, ExecRoleChangeCallbacks, GetMinPlayersForGame, SHAREDVAR_GAMEMODE_CANREQLOBBY } from "shared/sh_gamestate"
+import { Assignment, GAME_STATE, NETVAR_JSON_ASSIGNMENTS, ROLE, Match, GetVoteResults, TASK_EXIT, AssignmentIsSame, TASK_RESTORE_LIGHTS, NETVAR_JSON_GAMESTATE, SetPlayerWalkspeedForGameState, USERID, PlayerVote, NS_SharedMatchState, PlayerInfo, AddRoleChangeCallback, PICKUPS, IsSpectatorRole, ExecRoleChangeCallbacks, GetMinPlayersForGame, SHAREDVAR_GAMEMODE_CANREQLOBBY, GameStateFuncs } from "shared/sh_gamestate"
 import { MIN_TASKLIST_SIZE, MAX_TASKLIST_SIZE, MATCHMAKE_PLAYERCOUNT_STARTSERVER, SPAWN_ROOM, TASK_VALUE, DEV_1_TASK, MATCHMAKE_PLAYERCOUNT_MINPLAYERS } from "shared/sh_settings"
 import { SetNetVar } from "shared/sh_player_netvars"
 import { AddCallback_OnPlayerCharacterAdded, AddCallback_OnPlayerConnected } from "shared/sh_onPlayerConnect"
@@ -30,8 +30,7 @@ class File
    matchDestroyedCallbacks: Array<( ( match: Match ) => void )> = []
    lastPlayerCount = new Map<Match, number>()
 
-   gameStateChangedFunc: ( ( match: Match, lastGameState: number ) => void ) | undefined
-   gameStateThinkFunc: ( ( match: Match ) => void ) | undefined
+   gameStateFuncs: GameStateFuncs | undefined
 }
 
 let file = new File()
@@ -295,9 +294,8 @@ function ServerGameThread( match: Match )
       }
    }
 
-   let gameStateChanged = file.gameStateChangedFunc
-   let gameStateThink = file.gameStateThinkFunc
-   if ( gameStateChanged === undefined || gameStateThink === undefined )
+   let gameStateFuncs = file.gameStateFuncs
+   if ( gameStateFuncs === undefined )
    {
       Assert( false, "No game mode specified" )
       throw undefined
@@ -310,11 +308,20 @@ function ServerGameThread( match: Match )
       if ( gameState !== lastGameState )
       {
          print( "\nSERVER " + GetMatchIndex( match ) + " GAME STATE CHANGED FROM " + lastGameState + " TO " + gameState )
-         gameStateChanged( match, lastGameState )
+         {
+            let players = GetAllConnectedPlayersInMatch( match )
+            for ( let player of players )
+            {
+               if ( player.Character !== undefined )
+                  match.Shared_OnGameStateChanged_PerPlayer( player, match )
+            }
+         }
+
+         gameStateFuncs.gameStateChanged( match, lastGameState )
       }
       lastGameState = gameState
 
-      gameStateThink( match )
+      gameStateFuncs.gameStateThink( match )
       GameStateThink( match )
 
       if ( gameState === match.GetGameState() )
@@ -336,10 +343,6 @@ function GameStateThink( match: Match )
 
    switch ( match.GetGameState() )
    {
-      case GAME_STATE.GAME_STATE_INIT:
-         SetGameState( match, GAME_STATE.GAME_STATE_WAITING_FOR_PLAYERS )
-         return
-
       case GAME_STATE.GAME_STATE_WAITING_FOR_PLAYERS:
 
          if ( Workspace.DistributedGameTime > match.GetSVState().timeNextWaitingCoins )
@@ -464,10 +467,8 @@ export function HandleVoteResults( match: Match )
             SetPlayerKilled( match, votedOff )
          }
 
-         if ( match.GetGameState() === GAME_STATE.GAME_STATE_COMPLETE )
-            return
-
-         SetGameState( match, GAME_STATE.GAME_STATE_PLAYING )
+         if ( match.GetGameState() !== GAME_STATE.GAME_STATE_COMPLETE )
+            SetGameState( match, GAME_STATE.GAME_STATE_PLAYING )
       } )
 }
 
@@ -950,7 +951,6 @@ export function AddMatchDestroyedCallback( func: ( match: Match ) => void )
    file.matchDestroyedCallbacks.push( func )
 }
 
-
 function PutPlayerInStartRoom( player: Player )
 {
    Thread( function ()
@@ -1166,11 +1166,7 @@ function MatchStealsFromOtherWaitingMatches( match: Match )
    }
 }
 
-export function SetGameStateFuncs(
-   gameStateChangedFunc: ( match: Match, lastGameState: number ) => void,
-   gameStateThinkFunc: ( match: Match ) => void
-)
+export function SetGameStateFuncs( gameStateFuncs: GameStateFuncs )
 {
-   file.gameStateChangedFunc = gameStateChangedFunc
-   file.gameStateThinkFunc = gameStateThinkFunc
+   file.gameStateFuncs = gameStateFuncs
 }

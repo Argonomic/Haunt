@@ -44,6 +44,8 @@ import { CL_WaitingStartSetup } from "./cl_waitingStart"
 import { SH_ReservedServerSetup } from "shared/sh_reservedServer"
 import { SH_SharedVarSetup } from "shared/sh_sharedVar"
 import { CL_UseContentSetup } from "./content/cl_use_content"
+import { CL_GameMode_RoundBasedSetup } from "./content/cl_gameMode_roundBased"
+import { GAMEMODES, GAME_MODE } from "shared/sh_settings"
 
 class File
 {
@@ -91,6 +93,22 @@ CL_UseSetup()
 CL_Ability_Setup()
 CL_AbilityContentSetup()
 CL_MeetingSetup()
+
+switch ( GAME_MODE )
+{
+   case GAMEMODES.GAMETYPE_ROUNDBASE:
+      CL_GameMode_RoundBasedSetup()
+      break
+
+   //case GAMEMODES.GAMETYPE_PERSISTENT:
+   //  SV_GameMode_PersistentSetup()
+   // break
+
+   default:
+      Assert( false, "No known game mode: " + GAME_MODE )
+      break
+}
+
 CL_GameStateSetup()
 CL_ChatSetup()
 CL_MatchScreenSetup()

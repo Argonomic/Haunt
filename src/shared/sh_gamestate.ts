@@ -19,6 +19,19 @@ export type USERID = number
 export type USERIDSTRING = string
 export type MATCHINDEX = number
 
+export class GameStateFuncs
+{
+   gameStateChanged: ( ( match: Match, lastGameState: number ) => void )
+   gameStateThink: ( ( match: Match ) => void )
+
+   constructor( gameStateChanged: ( ( match: Match, lastGameState: number ) => void ),
+      gameStateThink: ( ( match: Match ) => void ) )
+   {
+      this.gameStateChanged = gameStateChanged
+      this.gameStateThink = gameStateThink
+   }
+}
+
 export enum PICKUPS
 {
    PICKUP_COIN = 0,

@@ -34,6 +34,7 @@ import { SV_PlayerSpawnLocationSetup } from "./sv_playerSpawnLocation";
 import { SV_ChatSetup } from "./sv_chat";
 import { GAMEMODES, GAME_MODE } from "shared/sh_settings";
 import { SV_GameMode_RoundBasedSetup } from "./content/sv_gameMode_roundBased";
+import { SV_GameMode_PersistentSetup } from "./content/sv_gameMode_persistent";
 
 class File
 {
@@ -84,6 +85,10 @@ switch ( GAME_MODE )
 {
    case GAMEMODES.GAMETYPE_ROUNDBASE:
       SV_GameMode_RoundBasedSetup()
+      break
+
+   case GAMEMODES.GAMETYPE_PERSISTENT:
+      SV_GameMode_PersistentSetup()
       break
 
    default:

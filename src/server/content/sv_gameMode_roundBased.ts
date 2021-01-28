@@ -1,6 +1,6 @@
 import { IsAlive, ArrayRandomize, Thread, Wait } from "shared/sh_utils"
 import { Assert } from "shared/sh_assert"
-import { GAME_STATE, NETVAR_JSON_ASSIGNMENTS, ROLE, Match, GAMERESULTS, NETVAR_MEETINGS_CALLED, SHAREDVAR_GAMEMODE_CANREQLOBBY } from "shared/sh_gamestate"
+import { GAME_STATE, NETVAR_JSON_ASSIGNMENTS, ROLE, Match, GAMERESULTS, NETVAR_MEETINGS_CALLED, SHAREDVAR_GAMEMODE_CANREQLOBBY, GameStateFuncs } from "shared/sh_gamestate"
 import { SPAWN_ROOM, MATCHMAKE_PLAYERCOUNT_MINPLAYERS } from "shared/sh_settings"
 import { ResetNetVar } from "shared/sh_player_netvars"
 import { GetRoomByName } from "../sv_rooms"
@@ -13,7 +13,7 @@ import { SetSharedVarInt } from "shared/sh_sharedVar"
 
 export function SV_GameMode_RoundBasedSetup()
 {
-   SetGameStateFuncs( GameStateChanged, GameStateThink )
+   SetGameStateFuncs( new GameStateFuncs( GameStateChanged, GameStateThink ) )
    SetSharedVarInt( SHAREDVAR_GAMEMODE_CANREQLOBBY, 1 )
 }
 
@@ -24,6 +24,10 @@ function GameStateThink( match: Match )
    // quick check on whether or not match is even still going
    switch ( match.GetGameState() )
    {
+      case GAME_STATE.GAME_STATE_INIT:
+         SetGameState( match, GAME_STATE.GAME_STATE_WAITING_FOR_PLAYERS )
+         return
+
       case GAME_STATE.GAME_STATE_MEETING_DISCUSS:
       case GAME_STATE.GAME_STATE_MEETING_VOTE:
          if ( match.GetGameResults_NoParityAllowed() !== GAMERESULTS.RESULTS_STILL_PLAYING )
@@ -66,14 +70,6 @@ function GameStateThink( match: Match )
 
 function GameStateChanged( match: Match, oldGameState: GAME_STATE )
 {
-   {
-      let players = GetAllConnectedPlayersInMatch( match )
-      for ( let player of players )
-      {
-         if ( player.Character !== undefined )
-            match.Shared_OnGameStateChanged_PerPlayer( player, match )
-      }
-   }
    // leaving this match state
    switch ( oldGameState )
    {

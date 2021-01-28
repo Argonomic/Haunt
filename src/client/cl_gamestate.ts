@@ -1,5 +1,5 @@
 import { HttpService, Workspace } from "@rbxts/services"
-import { ROLE, Match, NETVAR_JSON_GAMESTATE, USETYPES, GAME_STATE, GetVoteResults, GAMERESULTS, MEETING_TYPE, IsCamperRole, IsImpostorRole, AddRoleChangeCallback, Assignment, AssignmentIsSame, NETVAR_JSON_ASSIGNMENTS, PlayerInfo, USERID, NS_SharedMatchState, ExecRoleChangeCallbacks } from "shared/sh_gamestate"
+import { ROLE, Match, NETVAR_JSON_GAMESTATE, USETYPES, GAME_STATE, GetVoteResults, GAMERESULTS, MEETING_TYPE, IsCamperRole, IsImpostorRole, AddRoleChangeCallback, Assignment, AssignmentIsSame, NETVAR_JSON_ASSIGNMENTS, PlayerInfo, USERID, NS_SharedMatchState, ExecRoleChangeCallbacks, GameStateFuncs } from "shared/sh_gamestate"
 import { AddCallback_OnPlayerCharacterAdded, AddCallback_OnPlayerConnected, ClonePlayerModel, ClonePlayerModels, GetPlayerFromUserID, PlayerHasClone } from "shared/sh_onPlayerConnect"
 import { AddNetVarChangedCallback, GetNetVar_String } from "shared/sh_player_netvars"
 import { GetUsableByType } from "shared/sh_use"
@@ -9,7 +9,6 @@ import { UpdateMeeting } from "./cl_meeting"
 import { DrawMatchScreen_EmergencyMeeting, DrawMatchScreen_Escaped, DrawMatchScreen_Intro, DrawMatchScreen_Victory, DrawMatchScreen_VoteResults } from "./content/cl_matchScreen_content"
 import { GetLastStashed } from "shared/sh_score"
 import { DEV_SKIP_INTRO, SKIP_INTRO_TIME, SPECTATOR_TRANS } from "shared/sh_settings"
-import { ReservedServerRelease } from "./cl_matchScreen"
 import { SetLocalViewToRoom, GetRoom } from "./cl_rooms"
 import { GetDeltaTime } from "shared/sh_time"
 import { CanKill, CanReportBody } from "shared/content/sh_use_content"
@@ -35,6 +34,7 @@ class ClientCorpseModel
 
 class File
 {
+   gameStateFuncs: GameStateFuncs | undefined
    readonly clientMatch = new Match()
 
    corpseToCorpseModel = new Map<USERID, ClientCorpseModel>()
@@ -86,6 +86,14 @@ function ClientGameThread( match: Match )
    let lastGameState = match.GetGameState()
    let playersToLastKnownRole = new Map<Player, ROLE>()
 
+   let gameStateFuncs = file.gameStateFuncs
+   if ( gameStateFuncs === undefined )
+   {
+      Assert( false, "No game mode" )
+      throw undefined
+   }
+
+
    for ( ; ; )
    {
       let gameState = match.GetGameState()
@@ -93,9 +101,13 @@ function ClientGameThread( match: Match )
       let lastGameStateForMeeting = lastGameState
       if ( gameState !== lastGameState )
       {
-         CLGameStateChanged( match, lastGameState, gameState )
+         CLGameStateChanged( match, lastGameState )
+         gameStateFuncs.gameStateChanged( match, lastGameState )
+
          lastGameState = gameState
       }
+
+      gameStateFuncs.gameStateThink( match )
 
       UpdateMeeting( match, lastGameStateForMeeting )
 
@@ -470,8 +482,9 @@ export function GetCorpseClientModel( userId: USERID ): ClientCorpseModel | unde
    return file.corpseToCorpseModel.get( userId )
 }
 
-function CLGameStateChanged( match: Match, oldGameState: number, newGameState: number )
+function CLGameStateChanged( match: Match, oldGameState: number )
 {
+   let newGameState = match.GetGameState()
    print( "\nGAME STATE CHANGED FROM " + oldGameState + " TO " + newGameState )
 
    for ( let player of match.GetAllPlayers() )
@@ -553,80 +566,6 @@ function CLGameStateChanged( match: Match, oldGameState: number, newGameState: n
    // entering this match state
    switch ( newGameState )
    {
-      case GAME_STATE.GAME_STATE_INTRO:
-
-         print( "" )
-         print( "Entering INTRO at " + Workspace.DistributedGameTime )
-
-         if ( DEV_SKIP_INTRO )
-         {
-            wait( SKIP_INTRO_TIME )
-         }
-         else
-         {
-            let impostors = match.GetImpostors()
-
-            let foundLocalImpostor = false
-            if ( impostors.size() )
-            {
-               for ( let player of impostors )
-               {
-                  if ( LOCAL_PLAYER === player )
-                  {
-                     foundLocalImpostor = true
-                     break
-                  }
-               }
-               Assert( foundLocalImpostor, "DrawMatchScreen_Intro had impostors players but local player is not impostors" )
-            }
-
-            print( "wait for all players loaded at " + Workspace.DistributedGameTime )
-
-            let timeOut = Workspace.DistributedGameTime + 5
-            for ( ; ; )
-            {
-               let allPlayersLoaded = true
-               if ( Workspace.DistributedGameTime > timeOut )
-                  break
-
-               for ( let player of match.GetAllPlayers() )
-               {
-                  if ( !PlayerHasClone( player ) )
-                  {
-                     allPlayersLoaded = false
-                     break
-                  }
-               }
-               if ( allPlayersLoaded )
-                  break
-
-               wait()
-            }
-
-            WaitThread(
-               function ()
-               {
-                  print( "ASD: player count " + match.GetAllPlayerInfo().size() )
-                  let playerInfos = match.GetAllPlayerInfo()
-                  playerInfos = playerInfos.filter( function ( playerInfo )
-                  {
-                     return PlayerHasClone( GetPlayerFromUserID( playerInfo._userid ) )
-                  } )
-
-                  playerInfos.sort( SortPlayerInfosByLocalAndImpostor )
-                  let all: Array<Player> = []
-                  for ( let playerInfo of playerInfos )
-                  {
-                     all.push( GetPlayerFromUserID( playerInfo._userid ) )
-                  }
-
-                  let lineup = ClonePlayerModels( all )
-                  DrawMatchScreen_Intro( foundLocalImpostor, match.shState.startingImpostorCount, lineup )
-               } )
-         }
-
-         break
-
       case GAME_STATE.GAME_STATE_MEETING_DISCUSS:
          match.ClearVotes()
          WaitThread( function ()
@@ -674,44 +613,6 @@ function CLGameStateChanged( match: Match, oldGameState: number, newGameState: n
          } )
          break
 
-      case GAME_STATE.GAME_STATE_COMPLETE:
-
-         let playerInfos = match.GetAllPlayerInfo()
-         let gameResults = match.GetGameResults_NoParityAllowed()
-
-         let score = GetLastStashed( LOCAL_PLAYER )
-         let mySurvived = false
-         switch ( GetLocalRole() )
-         {
-            case ROLE.ROLE_CAMPER:
-            case ROLE.ROLE_IMPOSTOR:
-            case ROLE.ROLE_SPECTATOR_CAMPER_ESCAPED:
-               mySurvived = true
-               break
-         }
-
-         let role = match.GetPlayerRole( LOCAL_PLAYER )
-         let localWasInGame = role !== ROLE.ROLE_SPECTATOR_LATE_JOINER
-         switch ( gameResults )
-         {
-            case GAMERESULTS.RESULTS_CAMPERS_WIN:
-               WaitThread( function ()
-               {
-                  let impostorsWin = false
-                  let myWinningTeam = IsCamperRole( role ) || role === ROLE.ROLE_SPECTATOR_CAMPER_ESCAPED
-                  DrawMatchScreen_Victory( playerInfos, impostorsWin, myWinningTeam, mySurvived, score, localWasInGame )
-               } )
-               break
-
-            case GAMERESULTS.RESULTS_IMPOSTORS_WIN:
-               WaitThread( function ()
-               {
-                  let impostorsWin = true
-                  let myWinningTeam = IsImpostorRole( role ) || role === ROLE.ROLE_SPECTATOR_CAMPER_ESCAPED
-                  DrawMatchScreen_Victory( playerInfos, impostorsWin, myWinningTeam, mySurvived, score, localWasInGame )
-               } )
-               break
-         }
    }
 }
 
@@ -804,14 +705,7 @@ function GetCompoundNameFromNames( roomName: string, taskName: string ): string
    return roomName + taskName
 }
 
-function SortPlayerInfosByLocalAndImpostor( a: PlayerInfo, b: PlayerInfo )
+export function SetGameStateFuncs( gameStateFuncs: GameStateFuncs )
 {
-   if ( a._userid === LOCAL_PLAYER.UserId && b._userid !== LOCAL_PLAYER.UserId )
-      return true
-   if ( b._userid === LOCAL_PLAYER.UserId && a._userid !== LOCAL_PLAYER.UserId )
-      return false
-
-   let aImp = file.clientMatch.IsImpostor( GetPlayerFromUserID( a._userid ) )
-   let bImp = file.clientMatch.IsImpostor( GetPlayerFromUserID( b._userid ) )
-   return aImp && !bImp
+   file.gameStateFuncs = gameStateFuncs
 }
