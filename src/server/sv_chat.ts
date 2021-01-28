@@ -53,6 +53,8 @@ export function SV_ChatSetup()
             if ( speaker === undefined )
                return
 
+            if ( !PlayerHasMatch( player ) )
+               return
             if ( PlayerToMatch( player ) !== match )
                return
             let channelName = GetPlayerChatChannelName( player, match )
@@ -132,6 +134,9 @@ export function SV_ChatSetup()
 
 export function GetPlayerChatChannelName( player: Player, match: Match ): string
 {
+   if ( !PlayerHasMatch( player ) )
+      return PREFIX + "_0"
+
    Assert( PlayerToMatch( player ) === match, "Player is not in match" )
    let role = match.GetPlayerRole( player )
    if ( IsSpectatorRole( role ) && match.GetGameState() !== GAME_STATE.GAME_STATE_COMPLETE )
