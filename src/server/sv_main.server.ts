@@ -32,6 +32,8 @@ import { SH_UtilsGeometrySetup } from "../shared/sh_utils_geometry";
 import { SH_SharedVarSetup } from "shared/sh_sharedVar";
 import { SV_PlayerSpawnLocationSetup } from "./sv_playerSpawnLocation";
 import { SV_ChatSetup } from "./sv_chat";
+import { GAMEMODES, GAME_MODE } from "shared/sh_settings";
+import { SV_GameMode_RoundBasedSetup } from "./content/sv_gameMode_roundBased";
 
 class File
 {
@@ -77,6 +79,17 @@ SV_MatchMakingSetup()
 SV_PlayerSpawnLocationSetup()
 SH_UtilsGeometrySetup()
 SV_ChatSetup()
+
+switch ( GAME_MODE )
+{
+   case GAMEMODES.GAMETYPE_ROUNDBASE:
+      SV_GameMode_RoundBasedSetup()
+      break
+
+   default:
+      Assert( false, "No known game mode: " + GAME_MODE )
+      break
+}
 
 DoneCreatingNVs()
 SH_OnPlayerConnectSetup()

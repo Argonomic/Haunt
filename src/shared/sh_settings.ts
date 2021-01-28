@@ -2,6 +2,13 @@ import { RunService } from "@rbxts/services"
 
 export const TEST = ( RunService.IsStudio() || game.PlaceId === 5954656113 ) && false
 
+export enum GAMEMODES
+{
+   GAMETYPE_ROUNDBASE = 0,
+   GAMETYPE_PERSISTENT,
+}
+export const GAME_MODE: GAMEMODES = GAMEMODES.GAMETYPE_ROUNDBASE
+
 export const DEV_SKIP_INTRO = TEST && true
 export const DEV_1_TASK = TEST && true
 export let DEV_FAST_TIMERS: boolean = TEST && true
@@ -70,5 +77,5 @@ export const PLAYER_COLORS =
 
 export const ADMINS = ["Argonomic", "ArgonomicDev"]
 
-print( "SRV 1.28.21 2.0 de-reservedserver" )
+print( "SRV 1.28.21 2.1" )
 print( " " )

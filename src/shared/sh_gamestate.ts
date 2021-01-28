@@ -8,10 +8,12 @@ import { Assert } from "shared/sh_assert"
 import { GiveAbility, TakeAbility } from "./sh_ability"
 import { ABILITIES } from "./content/sh_ability_content"
 import { NETVAR_LAST_STASHED, NETVAR_SCORE, NETVAR_STASH } from "./sh_score"
+import { CreateSharedInt } from "./sh_sharedVar"
 
 export const NETVAR_JSON_ASSIGNMENTS = "JS_TL"
 export const NETVAR_JSON_GAMESTATE = "JS_GS"
 export const NETVAR_MEETINGS_CALLED = "N_MC"
+export const SHAREDVAR_GAMEMODE_CANREQLOBBY = "SHAREDVAR_GAMEMODE_CANREQLOBBY"
 
 export type USERID = number
 export type USERIDSTRING = string
@@ -59,14 +61,13 @@ export enum GAME_STATE
    GAME_STATE_INIT = 0,
    GAME_STATE_WAITING_FOR_PLAYERS, // 1
    GAME_STATE_COUNTDOWN, // 2
-   GAME_STATE_RESERVED_SERVER_WAITING, // 3
-   GAME_STATE_INTRO, // 4
-   GAME_STATE_PLAYING, // 5
-   GAME_STATE_MEETING_DISCUSS, // 6
-   GAME_STATE_MEETING_VOTE,// 7
-   GAME_STATE_MEETING_RESULTS,// 8
-   GAME_STATE_SUDDEN_DEATH, // 9
-   GAME_STATE_COMPLETE, // 10
+   GAME_STATE_INTRO, // 3
+   GAME_STATE_PLAYING, // 4
+   GAME_STATE_MEETING_DISCUSS, // 5
+   GAME_STATE_MEETING_VOTE,// 6
+   GAME_STATE_MEETING_RESULTS,// 7
+   GAME_STATE_SUDDEN_DEATH, // 8
+   GAME_STATE_COMPLETE, // 9
 }
 
 export enum MEETING_TYPE
@@ -390,7 +391,6 @@ export class Match
       switch ( this.GetGameState() )
       {
          case GAME_STATE.GAME_STATE_WAITING_FOR_PLAYERS:
-         case GAME_STATE.GAME_STATE_RESERVED_SERVER_WAITING:
          case GAME_STATE.GAME_STATE_COUNTDOWN:
             return true
       }
@@ -403,10 +403,6 @@ export class Match
       let timeRemaining = 0
       switch ( this.GetGameState() )
       {
-         case GAME_STATE.GAME_STATE_RESERVED_SERVER_WAITING:
-            timeRemaining = RESERVEDSERVER_WAITS_FOR_PLAYERS
-            break
-
          case GAME_STATE.GAME_STATE_INTRO:
             if ( DEV_SKIP_INTRO )
                timeRemaining = SKIP_INTRO_TIME
@@ -611,6 +607,8 @@ export function SH_GameStateSetup()
 
    AddCooldown( COOLDOWN_NAME_KILL, COOLDOWNTIME_KILL )
    AddCooldown( COOLDOWN_NAME_MEETING, COOLDOWNTIME_MEETING )
+
+   CreateSharedInt( SHAREDVAR_GAMEMODE_CANREQLOBBY, 0 )
 
    AddRoleChangeCallback( UpdatePlayerAbilities )
 }

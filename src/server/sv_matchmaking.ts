@@ -5,9 +5,12 @@ import { AddRPC } from "shared/sh_rpc"
 import { MATCHMAKE_PLAYER_OPENED_FRIEND_INVITE, MATCHMAKE_PLAYER_WAITING_FOR_FRIEND_TIME, MATCHMAKE_PLAYER_CAN_MATCHMAKE_TIME } from "shared/sh_settings"
 import { ArrayRandomize } from "shared/sh_utils"
 
+//const MSLBL = "MATCHMAKE_CALL"
+
 class File
 {
    playerAvailableToMatchmakeTime = new Map<Player, number>()
+   nextCrossCallTime = Workspace.DistributedGameTime + 120
 }
 let file = new File()
 
@@ -259,3 +262,102 @@ function GetPartiesFromPlayers( players: Array<Player> ): Array<Party>
    //print( "Parties created: " + parties.size() )
    return parties
 }
+
+/*
+function CrossServerMatchmakingSetup()
+{
+   if ( 1 )
+      return
+   if ( LOCAL )
+      return
+   if ( IsReservedServer() )
+      return
+
+   Thread(
+      function ()
+      {
+         let pair = pcall(
+            function ()
+            {
+               MessagingService.SubscribeAsync( MSLBL,
+                  function ( message: Message )
+                  {
+                     print( "MessagingService.SubscribeAsync: " + message.Sent )
+
+                     let jobId = message.Data
+                     print( "jobid is " + jobId )
+
+                     let delta = os.time() - math.floor( message.Sent )
+                     print( "Received matchmake request that was " + delta + " seconds old" )
+
+                     if ( jobId === game.JobId ) // this was the sender
+                     {
+                        print( "We were sender" )
+                        return
+                     }
+
+                     file.nextCrossCallTime = Workspace.DistributedGameTime + 120 // don't do our own broadcasts if we are not the leading broadcaster
+
+                     if ( delta > 5 )
+                     {
+                        print( "Message too old" )
+                        return
+                     }
+
+                     if ( jobId.size() <= 2 )
+                     {
+                        print( "jobid weird" )
+                        return
+                     }
+
+                     let players: Array<Player> = []
+
+                     for ( let match of file.matches )
+                     {
+                        if ( match.GetGameState() === GAME_STATE.GAME_STATE_WAITING_FOR_PLAYERS )
+                           players = players.concat( GetAllConnectedPlayersInMatch( match ) )
+                     }
+
+                     print( "Sending " + players.size() + " players to " + game.PlaceId + "/" + jobId )
+
+                     Thread(
+                        function ()
+                        {
+                           for ( let player of players )
+                           {
+                              pcall(
+                                 function ()
+                                 {
+                                    TeleportService.TeleportToPlaceInstance( game.PlaceId, jobId, player )
+                                 } )
+                           }
+                        } )
+                  } )
+            } )
+
+         print( "Subscribe success: " + pair[0] )
+      } )
+}
+
+
+export function CrossServerRequestMorePlayers()
+{
+   if ( LOCAL )
+      return
+   if ( IsReservedServer() )
+      return
+
+   if ( Workspace.DistributedGameTime < file.nextCrossCallTime )
+      return
+
+   print( "CrossServerRequestMorePlayers()" )
+   file.nextCrossCallTime = Workspace.DistributedGameTime + 60
+
+   let pair = pcall( function ()
+   {
+      MessagingService.PublishAsync( MSLBL, game.JobId )
+   } )
+   print( "Broadcasted success: " + pair[0] )
+}
+
+*/
