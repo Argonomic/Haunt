@@ -1,5 +1,5 @@
 import { GetTaskSpec } from "client/cl_tasks"
-import { NETVAR_JSON_GAMESTATE, NETVAR_JSON_ASSIGNMENTS, USETYPES, GAME_STATE } from "shared/sh_gamestate"
+import { NETVAR_JSON_GAMESTATE, NETVAR_JSON_ASSIGNMENTS, GAME_STATE } from "shared/sh_gamestate"
 import { AddNetVarChangedCallback } from "shared/sh_player_netvars"
 import { GetFirstChildWithName, GetLocalPlayer, Graph, Thread } from "shared/sh_utils"
 import { GetMinimapReferencesFrame } from "./cl_minimap"
@@ -7,8 +7,6 @@ import { AddPlayerGuiFolderExistsCallback, ToggleButton, UIORDER } from "./cl_ui
 import { GetLocalAssignments, GetLocalMatch } from "./cl_gamestate"
 import { AddCallback_OnPlayerCharacterAncestryChanged } from "shared/sh_onPlayerConnect"
 import { Tween } from "shared/sh_tween"
-import { IsReservedServer } from "shared/sh_reservedServer"
-import { FLAG_RESERVED_SERVER } from "shared/sh_settings";
 
 const LOCAL_PLAYER = GetLocalPlayer()
 
@@ -135,11 +133,6 @@ export function CL_TaskListSetup()
 
 function RefreshTaskList()
 {
-   if ( FLAG_RESERVED_SERVER )
-   {
-      if ( !IsReservedServer() )
-         return
-   }
    if ( file.existingUI === undefined )
       return
    if ( file.toggleButton === undefined )
@@ -176,18 +169,15 @@ function RefreshTaskList()
    }
 
    let match = GetLocalMatch()
-   if ( !FLAG_RESERVED_SERVER )
+   switch ( match.GetGameState() )
    {
-      switch ( match.GetGameState() )
-      {
-         case GAME_STATE.GAME_STATE_PLAYING:
-         case GAME_STATE.GAME_STATE_SUDDEN_DEATH:
-            break
+      case GAME_STATE.GAME_STATE_PLAYING:
+      case GAME_STATE.GAME_STATE_SUDDEN_DEATH:
+         break
 
-         default:
-            existingUI.Enabled = false
-            return
-      }
+      default:
+         existingUI.Enabled = false
+         return
    }
 
    class DrawTask

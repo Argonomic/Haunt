@@ -1,9 +1,8 @@
 import { RunService, Workspace } from "@rbxts/services";
 import { WaitForMatchScreenFrame } from "client/cl_matchScreen";
 import { AddPlayerGuiFolderExistsCallback } from "client/cl_ui";
-import { IsImpostorRole, MEETING_TYPE, PlayerInfo, ROLE, USERID } from "shared/sh_gamestate";
+import { IsImpostorRole, MEETING_TYPE, PlayerInfo, USERID } from "shared/sh_gamestate";
 import { ClonePlayerModel, ClonePlayerModels, GetPlayerFromUserID } from "shared/sh_onPlayerConnect";
-import { FLAG_RESERVED_SERVER, SPECTATOR_TRANS } from "shared/sh_settings";
 import { Tween, TweenCharacterParts, TweenModel } from "shared/sh_tween";
 import { GetLocalPlayer, Graph, LoadSound, RandomFloatRange, SetCharacterTransparency, SetCharacterYaw, Thread } from "shared/sh_utils";
 import { Assert } from "shared/sh_assert"
@@ -784,23 +783,16 @@ export function DrawMatchScreen_Victory( playerInfos: Array<PlayerInfo>, imposto
       Tween( lowerTitle, { TextTransparency: 0 }, FADE_IN )
    }
 
-   if ( FLAG_RESERVED_SERVER )
-   {
-      wait( 9999 )
-   }
-   else
-   {
-      wait( 3 )
-      const FADE_OUT = 2.0
-      Tween( title, { TextTransparency: 1 }, FADE_OUT * 0.75 )
-      Tween( subTitle, { TextTransparency: 1 }, FADE_OUT * 0.75 )
-      Tween( lowerTitle, { TextTransparency: 1 }, FADE_OUT * 0.75 )
-      wait( 1.0 )
-      Tween( viewportFrame, { ImageTransparency: 1 }, 0.75 )
-      wait( 0.75 )
+   wait( 3 )
+   const FADE_OUT = 2.0
+   Tween( title, { TextTransparency: 1 }, FADE_OUT * 0.75 )
+   Tween( subTitle, { TextTransparency: 1 }, FADE_OUT * 0.75 )
+   Tween( lowerTitle, { TextTransparency: 1 }, FADE_OUT * 0.75 )
+   wait( 1.0 )
+   Tween( viewportFrame, { ImageTransparency: 1 }, 0.75 )
+   wait( 0.75 )
 
-      Tween( baseFrame, { Transparency: 1 }, 1.0 )
-   }
+   Tween( baseFrame, { Transparency: 1 }, 1.0 )
 }
 
 

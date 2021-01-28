@@ -8,7 +8,7 @@ import { Assert } from "shared/sh_assert"
 import { UpdateMeeting } from "./cl_meeting"
 import { DrawMatchScreen_EmergencyMeeting, DrawMatchScreen_Escaped, DrawMatchScreen_Intro, DrawMatchScreen_Victory, DrawMatchScreen_VoteResults } from "./content/cl_matchScreen_content"
 import { GetLastStashed } from "shared/sh_score"
-import { DEV_SKIP_INTRO, FLAG_RESERVED_SERVER, SKIP_INTRO_TIME, SPECTATOR_TRANS } from "shared/sh_settings"
+import { DEV_SKIP_INTRO, SKIP_INTRO_TIME, SPECTATOR_TRANS } from "shared/sh_settings"
 import { ReservedServerRelease } from "./cl_matchScreen"
 import { SetLocalViewToRoom, GetRoom } from "./cl_rooms"
 import { GetDeltaTime } from "shared/sh_time"
@@ -561,8 +561,6 @@ function CLGameStateChanged( match: Match, oldGameState: number, newGameState: n
          if ( DEV_SKIP_INTRO )
          {
             wait( SKIP_INTRO_TIME )
-            if ( FLAG_RESERVED_SERVER )
-               ReservedServerRelease()
          }
          else
          {
@@ -604,9 +602,6 @@ function CLGameStateChanged( match: Match, oldGameState: number, newGameState: n
 
                wait()
             }
-
-            if ( FLAG_RESERVED_SERVER )
-               ReservedServerRelease()
 
             WaitThread(
                function ()

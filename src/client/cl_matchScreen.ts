@@ -1,5 +1,4 @@
-import { AddCallback_OnPlayerCharacterAdded, AddCallback_OnPlayerCharacterAncestryChanged, SetPlayerWalkSpeed } from "shared/sh_onPlayerConnect";
-import { FLAG_RESERVED_SERVER } from "shared/sh_settings";
+import { AddCallback_OnPlayerCharacterAncestryChanged } from "shared/sh_onPlayerConnect";
 import { Tween } from "shared/sh_tween";
 import { CloneChild, GetExistingFirstChildWithNameAndClassName, GetLocalPlayer, Thread } from "shared/sh_utils";
 import { Assert } from "shared/sh_assert"
@@ -188,36 +187,13 @@ export function CL_MatchScreenSetup()
                }
             }
             */
-            if ( FLAG_RESERVED_SERVER )
+            if ( IsReservedServer() )
             {
-               if ( IsReservedServer() )
-               {
-                  wait( 1 )
-                  frame.TitleFrame.SubTitle.Text = "Starting.."
-                  frame.TitleFrame.SubTitle.TextTransparency = 1
-                  Tween( frame.TitleFrame.SubTitle, { TextTransparency: 0 }, 3.5 )
-
-                  for ( ; ; )
-                  {
-                     if ( file.reservedServerRelease )
-                     {
-                        wait( 1 )
-                        break
-                     }
-                     wait()
-                  }
-               }
-            }
-            else
-            {
-               if ( IsReservedServer() )
-               {
-                  wait( 0.5 )
-                  frame.TitleFrame.SubTitle.Text = "Updating Server.."
-                  frame.TitleFrame.SubTitle.TextTransparency = 1
-                  Tween( frame.TitleFrame.SubTitle, { TextTransparency: 0 }, 0.5 )
-                  return
-               }
+               wait( 0.5 )
+               frame.TitleFrame.SubTitle.Text = "Updating Server.."
+               frame.TitleFrame.SubTitle.TextTransparency = 1
+               Tween( frame.TitleFrame.SubTitle, { TextTransparency: 0 }, 0.5 )
+               return
             }
 
             print( "CLIENT GAME STARTED" )

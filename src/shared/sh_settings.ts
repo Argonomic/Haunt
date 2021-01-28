@@ -1,7 +1,5 @@
 import { RunService } from "@rbxts/services"
 
-export const FLAG_RESERVED_SERVER = false
-
 export const TEST = ( RunService.IsStudio() || game.PlaceId === 5954656113 ) && false
 
 export const DEV_SKIP_INTRO = TEST && true
@@ -72,5 +70,5 @@ export const PLAYER_COLORS =
 
 export const ADMINS = ["Argonomic", "ArgonomicDev"]
 
-print( "SRV 1.28.21 1.0" )
+print( "SRV 1.28.21 2.0 de-reservedserver" )
 print( " " )
