@@ -3,7 +3,7 @@ import { ROLE, Match, NETVAR_JSON_GAMESTATE, USETYPES, GAME_STATE, GetVoteResult
 import { AddCallback_OnPlayerCharacterAdded, AddCallback_OnPlayerConnected, ClonePlayerModel, ClonePlayerModels, GetPlayerFromUserID, PlayerHasClone } from "shared/sh_onPlayerConnect"
 import { AddNetVarChangedCallback, GetNetVar_String } from "shared/sh_player_netvars"
 import { GetUsableByType } from "shared/sh_use"
-import { GetFirstChildWithName, GetLocalPlayer, RandomFloatRange, RecursiveOnChildren, Resume, SetCharacterTransparency, SetPlayerTransparency, Thread, WaitThread } from "shared/sh_utils"
+import { ArrayRandom, GetFirstChildWithName, GetFirstChildWithNameAndClassName, GetLocalPlayer, GraphCapped, LoadSound, RandomFloatRange, RecursiveOnChildren, Resume, SetCharacterTransparency, SetPlayerTransparency, Thread, UserIDToPlayer, WaitThread } from "shared/sh_utils"
 import { Assert } from "shared/sh_assert"
 import { UpdateMeeting } from "./cl_meeting"
 import { DrawMatchScreen_EmergencyMeeting, DrawMatchScreen_Escaped, DrawMatchScreen_Intro, DrawMatchScreen_Victory, DrawMatchScreen_VoteResults } from "./content/cl_matchScreen_content"
@@ -13,6 +13,11 @@ import { ReservedServerRelease } from "./cl_matchScreen"
 import { SetLocalViewToRoom, GetRoom } from "./cl_rooms"
 import { GetDeltaTime } from "shared/sh_time"
 import { CanKill, CanReportBody } from "shared/content/sh_use_content"
+import { COIN_TYPE, GetCoinDataFromType, GetCoinFolder } from "shared/sh_coins"
+import { DrawRisingNumberFromWorldPos } from "./cl_coins"
+import { GetPosition } from "shared/sh_utils_geometry"
+import { Tween } from "shared/sh_tween"
+import { AddRPC } from "shared/sh_rpc"
 
 const LOCAL_PLAYER = GetLocalPlayer()
 
@@ -40,6 +45,17 @@ class File
    currentDynamicArt: Array<BasePart> = []
 
    onGainedTaskCallback = new Map<string, Array<() => void>>()
+
+   gemSound = LoadSound( 3147769418 ) // 1369094465 )
+   coinSounds: Array<Sound> = [
+      //LoadSound( 4612374937 ),
+      //LoadSound( 4612375051 ),
+      //LoadSound( 4612374807 ),
+      LoadSound( 607665037 ),
+      LoadSound( 607662191 ),
+      LoadSound( 359628148 ),
+      LoadSound( 4612376715 ),
+   ]
 }
 
 let file = new File()
@@ -274,6 +290,101 @@ export function CL_GameStateSetup()
          }
          return positions
       } )
+
+
+
+   AddRPC( "RPC_FromServer_PickupCoin",
+      function ( userId: number, pickupName: string, coinType: COIN_TYPE )
+      {
+         let userIdToPlayer = UserIDToPlayer()
+         let _player = userIdToPlayer.get( userId )
+         if ( _player === undefined )
+            return
+         let player = _player as Player
+
+
+         let match = GetLocalMatch()
+         let folder = GetCoinFolder( match )
+         let _pickup = GetFirstChildWithNameAndClassName( folder, pickupName, 'MeshPart' )
+         if ( _pickup === undefined )
+            return
+         let pickup = _pickup as MeshPart
+         let pos = pickup.Position.add( new Vector3( 0, 3.5, 0 ) )
+
+         Thread(
+            function ()
+            {
+               let playerOrg = GetPosition( player )
+               pickup.CanCollide = false
+               pickup.Anchored = true
+               let floatTime = 0.5
+               Tween( pickup, { Position: pos, Orientation: new Vector3( RandomFloatRange( -300, 300 ), RandomFloatRange( -300, 300 ), RandomFloatRange( -300, 300 ) ) }, floatTime, Enum.EasingStyle.Quad, Enum.EasingDirection.Out )
+               wait( floatTime * 1.1 )
+
+               let moveTime = 0.35
+               let startTime = Workspace.DistributedGameTime
+               let endTime = Workspace.DistributedGameTime + moveTime
+               let startPos = pickup.Position
+
+               Tween( pickup, { Size: pickup.Size.mul( new Vector3( 0.5, 0.5, 0.5 ) ), Orientation: new Vector3( RandomFloatRange( -300, 300 ), RandomFloatRange( -300, 300 ), RandomFloatRange( -300, 300 ) ) }, moveTime )
+
+               for ( ; ; )
+               {
+                  wait()
+                  if ( player.Character !== undefined )
+                     playerOrg = GetPosition( player )
+
+                  let blend = GraphCapped( Workspace.DistributedGameTime, startTime, endTime, 0, 1 )
+                  pickup.Position = startPos.Lerp( playerOrg, blend )
+
+                  if ( Workspace.DistributedGameTime >= endTime )
+                     break
+               }
+               pickup.Destroy()
+            } )
+
+         if ( player !== LOCAL_PLAYER )
+            return
+
+         let coinData = GetCoinDataFromType( coinType )
+
+         DrawRisingNumberFromWorldPos( pos, coinData.value, coinData.color )
+
+         Thread( function ()
+         {
+            let waittime = RandomFloatRange( 0, 0.25 )
+            if ( waittime > 0 )
+               wait( waittime )
+
+            switch ( coinType )
+            {
+               case COIN_TYPE.TYPE_GEM:
+                  {
+                     let sound = file.gemSound
+                     sound.Volume = 0.75
+                     sound.Play()
+                  }
+                  break
+
+               case COIN_TYPE.TYPE_GOLD:
+                  {
+                     let sound = ArrayRandom( file.coinSounds ) as Sound
+                     sound.Volume = 0.5
+                     sound.Play()
+                  }
+                  break
+
+               case COIN_TYPE.TYPE_SILVER:
+                  {
+                     let sound = ArrayRandom( file.coinSounds ) as Sound
+                     sound.Volume = 0.25
+                     sound.Play()
+                  }
+                  break
+            }
+         } )
+      } )
+
 
    AddNetVarChangedCallback( NETVAR_JSON_GAMESTATE, function ()
    {

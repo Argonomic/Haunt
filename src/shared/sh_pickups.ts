@@ -229,38 +229,7 @@ function _TryToPickup( player: Player, withinDist: Array<Part> )
       Thread(
          function ()
          {
-            let playerOrg = GetPosition( player )
-            pickup.CanCollide = false
-            pickup.Anchored = true
-            //pickup.RotVelocity = new Vector3( RandomFloatRange( -300, 300 ), RandomFloatRange( -300, 300 ), RandomFloatRange( -300, 300 ) )
-
-            //print( "Distance: " + Distance( player, pickup ) )
-
-            let pos = pickup.Position.add( new Vector3( 0, 3.5, 0 ) )
-            let floatTime = 0.5
-            Tween( pickup, { Position: pos, Orientation: new Vector3( RandomFloatRange( -300, 300 ), RandomFloatRange( -300, 300 ), RandomFloatRange( -300, 300 ) ) }, floatTime, Enum.EasingStyle.Quad, Enum.EasingDirection.Out )
-            wait( floatTime * 1.1 )
-
-            let moveTime = 0.35
-            let startTime = Workspace.DistributedGameTime
-            let endTime = Workspace.DistributedGameTime + moveTime
-            let startPos = pickup.Position
-
-            Tween( pickup, { Size: pickup.Size.mul( new Vector3( 0.5, 0.5, 0.5 ) ), Orientation: new Vector3( RandomFloatRange( -300, 300 ), RandomFloatRange( -300, 300 ), RandomFloatRange( -300, 300 ) ) }, moveTime )
-
-            for ( ; ; )
-            {
-               wait()
-
-               if ( player.Character !== undefined )
-                  playerOrg = GetPosition( player )
-
-               let blend = GraphCapped( Workspace.DistributedGameTime, startTime, endTime, 0, 1 )
-               pickup.Position = startPos.Lerp( playerOrg, blend )
-
-               if ( Workspace.DistributedGameTime >= endTime )
-                  break
-            }
+            wait( 10 )
 
             pickup.Destroy()
          } )

@@ -140,6 +140,7 @@ export function CreateCoin( folder: Folder, location: Vector3, coinData: CoinDat
    let model = CreateCoinModel( coinData, coinModel )
    model.Position = location
    model.Parent = folder
+   model.Name = "Coin" + folder.GetChildren().size()
 
    file.coinToCoinType.set( model, coinData.coinType )
    for ( let func of file.coinCreatedCallbacks )
@@ -150,7 +151,7 @@ export function CreateCoin( folder: Folder, location: Vector3, coinData: CoinDat
 
    Thread( function ()
    {
-      wait( 0.6 ) // delay before you can pickup
+      wait( 0.4 ) // delay before you can pickup
       if ( model !== undefined )
          MakePartIntoPickup( model, PICKUPS.PICKUP_COIN )
    } )

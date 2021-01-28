@@ -174,6 +174,9 @@ export function SV_GameStateSetup()
    Players.PlayerRemoving.Connect(
       function ( player: Player )
       {
+         if ( !PlayerHasMatch( player ) )
+            return
+
          let match = PlayerToMatch( player )
 
          // don't remove quitters from real games because their info is still valid and needed
@@ -229,7 +232,11 @@ export function SV_GameStateSetup()
          let match = PlayerToMatch( player )
          let coinType = GetCoinType( pickup )
 
-         SV_SendRPC( "RPC_FromServer_PickupCoin", match, player, pickup.Position, coinType )
+         let players = GetAllConnectedPlayersInMatch( match )
+         for ( let otherPlayer of players )
+         {
+            SV_SendRPC( "RPC_FromServer_PickupCoin", match, otherPlayer, player.UserId, pickup.Name, coinType )
+         }
          let coinData = GetCoinDataFromType( coinType )
          IncrementMatchScore( player, coinData.value )
          DeleteCoin( pickup )

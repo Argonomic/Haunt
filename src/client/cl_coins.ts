@@ -1,12 +1,10 @@
 import { Workspace } from "@rbxts/services";
-import { Assert } from "shared/sh_assert";
-import { COIN_TYPE, GetCoinDataFromType } from "shared/sh_coins";
 import { AddCallback_OnPlayerCharacterAncestryChanged } from "shared/sh_onPlayerConnect";
 import { AddNetVarChangedCallback } from "shared/sh_player_netvars";
 import { AddRPC } from "shared/sh_rpc";
 import { GetMatchScore, GetStashScore, NETVAR_SCORE, NETVAR_STASH } from "shared/sh_score";
 import { Tween } from "shared/sh_tween";
-import { Thread, GetFirstChildWithNameAndClassName, Graph, GetLocalPlayer, LoadSound, ArrayRandom, RandomFloatRange, GraphCapped } from "shared/sh_utils";
+import { Thread, GetFirstChildWithNameAndClassName, Graph, GetLocalPlayer, GraphCapped } from "shared/sh_utils";
 import { AddPlayerGuiFolderExistsCallback, UIORDER } from "./cl_ui";
 
 const LOCAL_PLAYER = GetLocalPlayer()
@@ -30,17 +28,6 @@ class File
    coinUI_Popup: EDITOR_CoinUI | undefined
    coinUI_Gain: EDITOR_CoinUI | undefined
    coinUI_Total: EDITOR_CoinUI | undefined
-
-   gemSound = LoadSound( 3147769418 ) // 1369094465 )
-   coinSounds: Array<Sound> = [
-      //LoadSound( 4612374937 ),
-      //LoadSound( 4612375051 ),
-      //LoadSound( 4612374807 ),
-      LoadSound( 607665037 ),
-      LoadSound( 607662191 ),
-      LoadSound( 359628148 ),
-      LoadSound( 4612376715 ),
-   ]
 }
 let file = new File()
 
@@ -129,47 +116,6 @@ export function CL_CoinsSetup()
    AddNetVarChangedCallback( NETVAR_SCORE, UpdateDisplay )
    AddNetVarChangedCallback( NETVAR_STASH, UpdateDisplay )
 
-   AddRPC( "RPC_FromServer_PickupCoin",
-      function ( pos: Vector3, coinType: COIN_TYPE )
-      {
-         let coinData = GetCoinDataFromType( coinType )
-
-         DrawRisingNumberFromWorldPos( pos, coinData.value, coinData.color )
-
-         Thread( function ()
-         {
-            let waittime = RandomFloatRange( 0, 0.25 )
-            if ( waittime > 0 )
-               wait( waittime )
-
-            switch ( coinType )
-            {
-               case COIN_TYPE.TYPE_GEM:
-                  {
-                     let sound = file.gemSound
-                     sound.Volume = 0.75
-                     sound.Play()
-                  }
-                  break
-
-               case COIN_TYPE.TYPE_GOLD:
-                  {
-                     let sound = ArrayRandom( file.coinSounds ) as Sound
-                     sound.Volume = 0.5
-                     sound.Play()
-                  }
-                  break
-
-               case COIN_TYPE.TYPE_SILVER:
-                  {
-                     let sound = ArrayRandom( file.coinSounds ) as Sound
-                     sound.Volume = 0.25
-                     sound.Play()
-                  }
-                  break
-            }
-         } )
-      } )
 
    AddRPC( "RPC_FromServer_GavePoints", // like completing a task
       function ( pos: Vector3, value: number )
@@ -193,7 +139,7 @@ function CreatePointsElem( value: number, color: Color3 ): TextLabel
    return points
 }
 
-function DrawRisingNumberFromWorldPos( pos: Vector3, value: number, color: Color3 )
+export function DrawRisingNumberFromWorldPos( pos: Vector3, value: number, color: Color3 )
 {
    let coinUI = file.coinUI_Popup
    if ( coinUI === undefined )

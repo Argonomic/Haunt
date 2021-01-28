@@ -533,16 +533,25 @@ class ActiveMeeting
                let time = 1.5
                Tween( flyingNumber, { Position: targetVec, Size: endSizeUDim2 }, time, Enum.EasingStyle.Quart, Enum.EasingDirection.InOut )
                wait( time )
+
                if ( flyingNumber !== undefined )
                   flyingNumber.Destroy()
-               voteImage.Visible = true
-               voteImage.VoteNumber.Visible = true
+               if ( voteImage !== undefined )
+               {
+                  voteImage.Visible = true
+                  if ( voteImage.VoteNumber !== undefined )
+                     voteImage.VoteNumber.Visible = true
+               }
             } )
          }
          else
          {
-            voteImage.Visible = true
-            voteImage.VoteNumber.Visible = true
+            if ( voteImage !== undefined )
+            {
+               voteImage.Visible = true
+               if ( voteImage.VoteNumber !== undefined )
+                  voteImage.VoteNumber.Visible = true
+            }
          }
 
          return
