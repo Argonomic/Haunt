@@ -12,7 +12,7 @@ import { DEV_SKIP_INTRO, SKIP_INTRO_TIME, SPECTATOR_TRANS } from "shared/sh_sett
 import { SetLocalViewToRoom, GetRoom } from "./cl_rooms"
 import { GetDeltaTime } from "shared/sh_time"
 import { CanKill, CanReportBody } from "shared/content/sh_use_content"
-import { COIN_TYPE, GetCoinDataFromType, GetCoinFolder } from "shared/sh_coins"
+import { COIN_TYPE, GetCoinDataFromType, GetCoinFolder, HasCoinFolder } from "shared/sh_coins"
 import { DrawRisingNumberFromWorldPos } from "./cl_coins"
 import { GetPosition } from "shared/sh_utils_geometry"
 import { Tween } from "shared/sh_tween"
@@ -314,8 +314,10 @@ export function CL_GameStateSetup()
             return
          let player = _player as Player
 
-
          let match = GetLocalMatch()
+         if ( !HasCoinFolder( match ) )
+            return
+
          let folder = GetCoinFolder( match )
          let _pickup = GetFirstChildWithNameAndClassName( folder, pickupName, 'MeshPart' )
          if ( _pickup === undefined )
