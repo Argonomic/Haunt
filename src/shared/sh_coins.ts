@@ -105,6 +105,11 @@ export function SH_CoinsSetup()
       } )
 }
 
+export function HasCoinFolder( match: Match ): boolean
+{
+   return file.matchToFolder.has( RUNTIME_COINS + match.shState.gameIndex )
+}
+
 export function GetCoinFolder( match: Match ): Folder
 {
    let folder = file.matchToFolder.get( RUNTIME_COINS + match.shState.gameIndex )
@@ -161,7 +166,7 @@ export function CreateCoin( folder: Folder, location: Vector3, coinData: CoinDat
 
 export function GetCoins( match: Match ): Array<Part>
 {
-   if ( !file.matchToFolder.has( RUNTIME_COINS + match.shState.gameIndex ) )
+   if ( !HasCoinFolder( match ) )
       return []
    let folder = GetCoinFolder( match )
    return folder.GetChildren() as Array<Part>
