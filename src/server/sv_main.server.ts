@@ -67,6 +67,22 @@ SH_GameStateSetup()
 
 SV_CollisionGroupsSetup()
 SV_RoomsSetup()
+
+switch ( GAME_MODE )
+{
+   case GAMEMODES.MODE_ROUNDBASED:
+      SV_GameMode_RoundBasedSetup()
+      break
+
+   case GAMEMODES.MODE_PERSISTENT:
+      SV_GameMode_PersistentSetup()
+      break
+
+   default:
+      Assert( false, "No known game mode: " + GAME_MODE )
+      break
+}
+
 SV_GameStateSetup()
 SV_UseContentSetup()
 SV_AnalyticsSetup()
@@ -80,21 +96,6 @@ SV_MatchMakingSetup()
 SV_PlayerSpawnLocationSetup()
 SH_UtilsGeometrySetup()
 SV_ChatSetup()
-
-switch ( GAME_MODE )
-{
-   case GAMEMODES.GAMETYPE_ROUNDBASE:
-      SV_GameMode_RoundBasedSetup()
-      break
-
-   case GAMEMODES.GAMETYPE_PERSISTENT:
-      SV_GameMode_PersistentSetup()
-      break
-
-   default:
-      Assert( false, "No known game mode: " + GAME_MODE )
-      break
-}
 
 DoneCreatingNVs()
 SH_OnPlayerConnectSetup()

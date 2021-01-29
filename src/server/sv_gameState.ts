@@ -34,7 +34,7 @@ class File
 
 let file = new File()
 
-function CreateMatch(): Match
+export function CreateMatch(): Match
 {
    let match = new Match()
    file.matches.push( match )
@@ -65,9 +65,10 @@ export function SV_GameStateSetup()
    print( "Placeid: " + game.PlaceId )
    print( "Jobid: " + game.JobId )
 
+   let gmc = GetGameModeConsts()
    AddCallback_OnPlayerConnected( function ( player: Player )
    {
-      FindMatchForPlayer( player )
+      gmc.svFindMatchForPlayer( player )
    } )
 
    AddRPC( "RPC_FromClient_OnPlayerFinishTask", RPC_FromClient_OnPlayerFinishTask )
@@ -777,31 +778,6 @@ export function PlayerDistributesCoins( player: Player, match: Match, killer?: P
    }
 }
 
-function FindMatchForPlayer( player: Player )
-{
-   print( "FindMatchForPlayer for " + player.Name ) // + " " + debug.traceback() )
-   // any matches waiting for players?
-   for ( let match of file.matches )
-   {
-      if ( match.GetGameState() > GAME_STATE.GAME_STATE_COUNTDOWN )
-         continue
-      if ( GetAllConnectedPlayersInMatch( match ).size() >= MATCHMAKE_PLAYERCOUNT_STARTSERVER )
-         continue
-
-      AddPlayer( match, player )
-      SetPlayerRole( match, player, ROLE.ROLE_CAMPER )
-      UpdateGame( match )
-      return
-   }
-
-   print( "%%%%%% 2 Creating new match" )
-   // make a new match
-   let match = CreateMatch()
-   AddPlayer( match, player )
-   SetPlayerRole( match, player, ROLE.ROLE_CAMPER )
-   UpdateGame( match )
-}
-
 
 export function DestroyMatch( match: Match )
 {
@@ -825,13 +801,14 @@ export function DestroyMatch( match: Match )
          } )
    }
 
+   let gmc = GetGameModeConsts()
    // put all players into new search
    let userIdToPlayer = UserIDToPlayer()
    let players = GetAllConnectedPlayersInMatch( match )
    for ( let player of players )
    {
       if ( userIdToPlayer.has( player.UserId ) )
-         FindMatchForPlayer( player )
+         gmc.svFindMatchForPlayer( player )
    }
 }
 
@@ -1005,7 +982,7 @@ export function SV_SendRPC( name: string, match: Match, player: Player, ...args:
 }
 
 
-function AddPlayer( match: Match, player: Player ): PlayerInfo
+export function AddPlayer( match: Match, player: Player ): PlayerInfo
 {
    print( "AddPlayer " + player.Name + " to " + GetMatchIndex( match ) )
    //+ " " + debug.traceback() )
@@ -1164,4 +1141,9 @@ function MatchStealsFromOtherWaitingMatches( match: Match )
          return
       }
    }
+}
+
+export function GetMatches(): Array<Match>
+{
+   return file.matches
 }

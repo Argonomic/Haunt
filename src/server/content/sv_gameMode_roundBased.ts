@@ -1,20 +1,24 @@
 import { IsAlive, ArrayRandomize, Thread, Wait } from "shared/sh_utils"
 import { Assert } from "shared/sh_assert"
 import { GAME_STATE, NETVAR_JSON_ASSIGNMENTS, ROLE, Match, GAMERESULTS, NETVAR_MEETINGS_CALLED, SHAREDVAR_GAMEMODE_CANREQLOBBY, } from "shared/sh_gamestate"
-import { SPAWN_ROOM } from "shared/sh_settings"
+import { MATCHMAKE_PLAYERCOUNT_STARTSERVER, SH_GAMEMODE_ROUNDBASED_MINPLAYERS, SPAWN_ROOM } from "shared/sh_settings"
 import { ResetNetVar } from "shared/sh_player_netvars"
 import { GetRoomByName } from "../sv_rooms"
 import { SpawnRandomCoins } from "server/sv_coins"
 import { GetTotalValueOfWorldCoins } from "shared/sh_coins"
 import { ScoreToStash } from "../sv_score"
-import { DistributePointsToPlayers, ClearAssignments, SetPlayerRole, BecomeSpectator, SetGameState, AssignTasks, GetMatchIndex, PlayerDistributesCoins, DestroyMatch, GetAllPlayersInMatchWithCharacters, PlayerToMatch, GetAllConnectedPlayersInMatch, HandleVoteResults, MatchPutPlayersInRoom, SV_SendRPC } from "../sv_gameState"
+import { DistributePointsToPlayers, ClearAssignments, SetPlayerRole, BecomeSpectator, SetGameState, AssignTasks, GetMatchIndex, PlayerDistributesCoins, DestroyMatch, GetAllPlayersInMatchWithCharacters, PlayerToMatch, GetAllConnectedPlayersInMatch, HandleVoteResults, AddPlayer, MatchPutPlayersInRoom, GetMatches, CreateMatch, SV_SendRPC, UpdateGame } from "../sv_gameState"
 import { ResetAllCooldownTimes } from "shared/sh_cooldown"
 import { SetSharedVarInt } from "shared/sh_sharedVar"
 import { GameModeConsts, GetGameModeConsts, SetGameModeConsts } from "shared/sh_gameModeConsts"
 
+
 export function SV_GameMode_RoundBasedSetup()
 {
-   SetGameModeConsts( new GameModeConsts( GameStateChanged, GameStateThink, 4 ) )
+   let gmc = new GameModeConsts( GameStateChanged, GameStateThink )
+   gmc.svFindMatchForPlayer = FindMatchForPlayer
+   gmc.MATCHMAKE_PLAYERCOUNT_MINPLAYERS = SH_GAMEMODE_ROUNDBASED_MINPLAYERS
+   SetGameModeConsts( gmc )
    SetSharedVarInt( SHAREDVAR_GAMEMODE_CANREQLOBBY, 1 )
 }
 
@@ -276,3 +280,30 @@ function GameStateChanged( match: Match, oldGameState: GAME_STATE )
          break
    }
 }
+
+
+function FindMatchForPlayer( player: Player )
+{
+   print( "FindMatchForPlayer for " + player.Name ) // + " " + debug.traceback() )
+   // any matches waiting for players?
+   for ( let match of GetMatches() )
+   {
+      if ( match.GetGameState() > GAME_STATE.GAME_STATE_COUNTDOWN )
+         continue
+      if ( GetAllConnectedPlayersInMatch( match ).size() >= MATCHMAKE_PLAYERCOUNT_STARTSERVER )
+         continue
+
+      AddPlayer( match, player )
+      SetPlayerRole( match, player, ROLE.ROLE_CAMPER )
+      UpdateGame( match )
+      return
+   }
+
+   print( "%%%%%% 2 Creating new match" )
+   // make a new match
+   let match = CreateMatch()
+   AddPlayer( match, player )
+   SetPlayerRole( match, player, ROLE.ROLE_CAMPER )
+   UpdateGame( match )
+}
+

@@ -23,15 +23,14 @@ export function GetGameModeConsts(): GameModeConsts
 
 export class GameModeConsts
 {
-   MATCHMAKE_PLAYERCOUNT_MINPLAYERS: number
-
+   MATCHMAKE_PLAYERCOUNT_MINPLAYERS = 4
    gameStateChanged: ( ( match: Match, lastGameState: number ) => void )
    gameStateThink: ( ( match: Match ) => void )
+   svFindMatchForPlayer: ( player: Player ) => void = function ( player: Player ) { }
 
    constructor( gameStateChanged: ( ( match: Match, lastGameState: number ) => void ),
-      gameStateThink: ( ( match: Match ) => void ), MATCHMAKE_PLAYERCOUNT_MINPLAYERS: number )
+      gameStateThink: ( ( match: Match ) => void ) )
    {
-      this.MATCHMAKE_PLAYERCOUNT_MINPLAYERS = MATCHMAKE_PLAYERCOUNT_MINPLAYERS
       this.gameStateChanged = gameStateChanged
       this.gameStateThink = gameStateThink
    }

@@ -4,10 +4,10 @@ export const TEST = ( RunService.IsStudio() || game.PlaceId === 5954656113 ) && 
 
 export enum GAMEMODES
 {
-   GAMETYPE_ROUNDBASE = 0,
-   GAMETYPE_PERSISTENT,
+   MODE_ROUNDBASED = 0,
+   MODE_PERSISTENT,
 }
-export const GAME_MODE: GAMEMODES = GAMEMODES.GAMETYPE_ROUNDBASE
+export let GAME_MODE: GAMEMODES = GAMEMODES.MODE_ROUNDBASED
 
 export const DEV_SKIP_INTRO = TEST && true
 export const DEV_1_TASK = TEST && true
@@ -78,3 +78,6 @@ export const ADMINS = ["Argonomic", "ArgonomicDev"]
 
 print( "SRV 1.29.21 1.0 merged in coin fixes" )
 print( " " )
+
+export const SH_GAMEMODE_ROUNDBASED_MINPLAYERS = 4
+export const SH_GAMEMODE_PERSISTENT_MINPLAYERS = 5

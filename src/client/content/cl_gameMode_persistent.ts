@@ -11,7 +11,7 @@ import { DrawMatchScreen_Intro, DrawMatchScreen_Victory } from "./cl_matchScreen
 
 const LOCAL_PLAYER = GetLocalPlayer()
 
-export function CL_GameMode_RoundBasedSetup()
+export function CL_GameMode_PersistentSetup()
 {
    let gmc = new GameModeConsts(
       GameStateChanged,
