@@ -10,7 +10,7 @@ import { GetAllRoomsAndTasks, GetCurrentRoom, GetRoomByName, PlayerHasCurrentRoo
 import { ResetAllCooldownTimes, ResetCooldownTime } from "shared/sh_cooldown"
 import { COOLDOWN_SABOTAGE_LIGHTS } from "shared/content/sh_ability_content"
 import { PlayerDropsCoinsWithTrajectory, SpawnRandomCoins } from "server/sv_coins"
-import { DeleteCoin, DestroyCoinFolder, GetCoinDataFromType, GetCoinType } from "shared/sh_coins"
+import { CoinFloatsAway, DeleteCoin, DestroyCoinFolder, GetCoinDataFromType, GetCoins, GetCoinType } from "shared/sh_coins"
 import { GetCoinFolder, GetTotalValueOfWorldCoins } from "shared/sh_coins"
 import { GetMatchScore, NETVAR_SCORE, PPRS_PREMATCH_COINS } from "shared/sh_score"
 import { ClearMatchScore, IncrementMatchScore, ScoreToStash } from "./sv_score"
@@ -240,6 +240,11 @@ export function SV_GameStateSetup()
          let coinData = GetCoinDataFromType( coinType )
          IncrementMatchScore( player, coinData.value )
          DeleteCoin( pickup )
+         Thread(
+            function ()
+            {
+               CoinFloatsAway( player, pickup )
+            } )
          return true
       }
 

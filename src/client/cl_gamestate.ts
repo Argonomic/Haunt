@@ -13,7 +13,7 @@ import { ReservedServerRelease } from "./cl_matchScreen"
 import { SetLocalViewToRoom, GetRoom } from "./cl_rooms"
 import { GetDeltaTime } from "shared/sh_time"
 import { CanKill, CanReportBody } from "shared/content/sh_use_content"
-import { COIN_TYPE, GetCoinDataFromType, GetCoinFolder, HasCoinFolder } from "shared/sh_coins"
+import { CoinFloatsAway, COIN_TYPE, GetCoinDataFromType, GetCoinFolder, GetCoins, HasCoinFolder } from "shared/sh_coins"
 import { DrawRisingNumberFromWorldPos } from "./cl_coins"
 import { GetPosition } from "shared/sh_utils_geometry"
 import { Tween } from "shared/sh_tween"
@@ -302,54 +302,39 @@ export function CL_GameStateSetup()
             return
          let player = _player as Player
 
-         let match = GetLocalMatch()
-         if ( !HasCoinFolder( match ) )
-            return
+         let _pos: Vector3 | undefined
 
-         let folder = GetCoinFolder( match )
-         let _pickup = GetFirstChildWithNameAndClassName( folder, pickupName, 'MeshPart' )
-         if ( _pickup === undefined )
-            return
-         let pickup = _pickup as MeshPart
-         let pos = pickup.Position.add( new Vector3( 0, 3.5, 0 ) )
+         {
+            let match = GetLocalMatch()
+            if ( !HasCoinFolder( match ) )
+               return
 
-         Thread(
-            function ()
-            {
-               let playerOrg = GetPosition( player )
-               pickup.CanCollide = false
-               pickup.Anchored = true
-               let floatTime = 0.5
-               Tween( pickup, { Position: pos, Orientation: new Vector3( RandomFloatRange( -300, 300 ), RandomFloatRange( -300, 300 ), RandomFloatRange( -300, 300 ) ) }, floatTime, Enum.EasingStyle.Quad, Enum.EasingDirection.Out )
-               wait( floatTime * 1.1 )
+            let folder = GetCoinFolder( match )
+            let _pickup = GetFirstChildWithName( folder, pickupName )
+            if ( _pickup === undefined )
+               return
+            if ( _pickup.ClassName !== 'MeshPart' )
+               return
+            let pickup = _pickup as MeshPart
+            _pos = pickup.Position.add( new Vector3( 0, 3.5, 0 ) )
 
-               let moveTime = 0.35
-               let startTime = Workspace.DistributedGameTime
-               let endTime = Workspace.DistributedGameTime + moveTime
-               let startPos = pickup.Position
-
-               Tween( pickup, { Size: pickup.Size.mul( new Vector3( 0.5, 0.5, 0.5 ) ), Orientation: new Vector3( RandomFloatRange( -300, 300 ), RandomFloatRange( -300, 300 ), RandomFloatRange( -300, 300 ) ) }, moveTime )
-
-               for ( ; ; )
+            Thread(
+               function ()
                {
-                  wait()
-                  if ( player.Character !== undefined )
-                     playerOrg = GetPosition( player )
-
-                  let blend = GraphCapped( Workspace.DistributedGameTime, startTime, endTime, 0, 1 )
-                  pickup.Position = startPos.Lerp( playerOrg, blend )
-
-                  if ( Workspace.DistributedGameTime >= endTime )
-                     break
-               }
-               pickup.Destroy()
-            } )
+                  let clone = pickup.Clone()
+                  clone.Parent = Workspace
+                  clone.Name = "clone"
+                  pickup.Destroy()
+                  CoinFloatsAway( player, clone )
+               } )
+         }
 
          if ( player !== LOCAL_PLAYER )
             return
 
          let coinData = GetCoinDataFromType( coinType )
 
+         let pos = _pos as Vector3
          DrawRisingNumberFromWorldPos( pos, coinData.value, coinData.color )
 
          Thread( function ()
