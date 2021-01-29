@@ -77,5 +77,5 @@ export const PLAYER_COLORS =
 
 export const ADMINS = ["Argonomic", "ArgonomicDev"]
 
-print( "SRV 1.28.21 2.1" )
+print( "SRV 1.29.21 1.0 merged in coin fixes" )
 print( " " )

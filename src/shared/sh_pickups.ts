@@ -229,7 +229,7 @@ function _TryToPickup( player: Player, withinDist: Array<Part> )
       Thread(
          function ()
          {
-            wait( 10 )
+            wait( 5 )
 
             pickup.Destroy()
          } )

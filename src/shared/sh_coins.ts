@@ -4,7 +4,8 @@ import { AddMatchCreatedCallback, EDITOR_GameplayFolder, Match, PICKUPS } from "
 import { GetPosition } from "./sh_utils_geometry"
 import { MakePartIntoPickup } from "./sh_pickups"
 import { COIN_VALUE_GEM, COIN_VALUE_GOLD, COIN_VALUE_SILVER } from "./sh_settings"
-import { ExecOnChildWhenItExists, Thread, IsServer } from "./sh_utils"
+import { ExecOnChildWhenItExists, Thread, IsServer, RandomFloatRange, GraphCapped } from "./sh_utils"
+import { Tween } from "./sh_tween"
 
 const RUNTIME_COINS = "Runtime Coins"
 
@@ -326,3 +327,34 @@ export function DestroyCoinFolder( match: Match )
    folder.Destroy()
 }
 
+export function CoinFloatsAway( player: Player, pickup: BasePart )
+{
+   let pos = pickup.Position.add( new Vector3( 0, 3.5, 0 ) )
+   let playerOrg = GetPosition( player )
+   pickup.CanCollide = false
+   pickup.Anchored = true
+   let floatTime = 0.5
+   Tween( pickup, { Position: pos, Orientation: new Vector3( RandomFloatRange( -300, 300 ), RandomFloatRange( -300, 300 ), RandomFloatRange( -300, 300 ) ) }, floatTime, Enum.EasingStyle.Quad, Enum.EasingDirection.Out )
+   wait( floatTime * 1.1 )
+
+   let moveTime = 0.35
+   let startTime = Workspace.DistributedGameTime
+   let endTime = Workspace.DistributedGameTime + moveTime
+   let startPos = pickup.Position
+
+   Tween( pickup, { Size: pickup.Size.mul( new Vector3( 0.5, 0.5, 0.5 ) ), Orientation: new Vector3( RandomFloatRange( -300, 300 ), RandomFloatRange( -300, 300 ), RandomFloatRange( -300, 300 ) ) }, moveTime )
+
+   for ( ; ; )
+   {
+      wait()
+      if ( player.Character !== undefined )
+         playerOrg = GetPosition( player )
+
+      let blend = GraphCapped( Workspace.DistributedGameTime, startTime, endTime, 0, 1 )
+      pickup.Position = startPos.Lerp( playerOrg, blend )
+
+      if ( Workspace.DistributedGameTime >= endTime )
+         break
+   }
+   pickup.Destroy()
+}
