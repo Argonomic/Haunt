@@ -1,19 +1,20 @@
 import { IsAlive, ArrayRandomize, Thread, Wait } from "shared/sh_utils"
 import { Assert } from "shared/sh_assert"
-import { GAME_STATE, NETVAR_JSON_ASSIGNMENTS, ROLE, Match, GAMERESULTS, NETVAR_MEETINGS_CALLED, SHAREDVAR_GAMEMODE_CANREQLOBBY, GameStateFuncs } from "shared/sh_gamestate"
-import { SPAWN_ROOM, MATCHMAKE_PLAYERCOUNT_MINPLAYERS } from "shared/sh_settings"
+import { GAME_STATE, NETVAR_JSON_ASSIGNMENTS, ROLE, Match, GAMERESULTS, NETVAR_MEETINGS_CALLED, SHAREDVAR_GAMEMODE_CANREQLOBBY, } from "shared/sh_gamestate"
+import { SPAWN_ROOM } from "shared/sh_settings"
 import { ResetNetVar } from "shared/sh_player_netvars"
 import { GetRoomByName } from "../sv_rooms"
 import { SpawnRandomCoins } from "server/sv_coins"
 import { GetTotalValueOfWorldCoins } from "shared/sh_coins"
 import { ScoreToStash } from "../sv_score"
-import { DistributePointsToPlayers, ClearAssignments, SetPlayerRole, BecomeSpectator, SetGameState, AssignTasks, GetMatchIndex, PlayerDistributesCoins, DestroyMatch, GetAllPlayersInMatchWithCharacters, PlayerToMatch, GetAllConnectedPlayersInMatch, HandleVoteResults, MatchPutPlayersInRoom, SV_SendRPC, SetGameStateFuncs } from "../sv_gameState"
+import { DistributePointsToPlayers, ClearAssignments, SetPlayerRole, BecomeSpectator, SetGameState, AssignTasks, GetMatchIndex, PlayerDistributesCoins, DestroyMatch, GetAllPlayersInMatchWithCharacters, PlayerToMatch, GetAllConnectedPlayersInMatch, HandleVoteResults, MatchPutPlayersInRoom, SV_SendRPC } from "../sv_gameState"
 import { ResetAllCooldownTimes } from "shared/sh_cooldown"
 import { SetSharedVarInt } from "shared/sh_sharedVar"
+import { GameModeConsts, GetGameModeConsts, SetGameModeConsts } from "shared/sh_gameModeConsts"
 
 export function SV_GameMode_RoundBasedSetup()
 {
-   SetGameStateFuncs( new GameStateFuncs( GameStateChanged, GameStateThink ) )
+   SetGameModeConsts( new GameModeConsts( GameStateChanged, GameStateThink, 4 ) )
    SetSharedVarInt( SHAREDVAR_GAMEMODE_CANREQLOBBY, 1 )
 }
 
@@ -70,6 +71,7 @@ function GameStateThink( match: Match )
 
 function GameStateChanged( match: Match, oldGameState: GAME_STATE )
 {
+   let MATCHMAKE_PLAYERCOUNT_MINPLAYERS = GetGameModeConsts().MATCHMAKE_PLAYERCOUNT_MINPLAYERS
    // leaving this match state
    switch ( oldGameState )
    {

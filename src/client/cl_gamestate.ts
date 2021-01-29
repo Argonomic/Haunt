@@ -1,22 +1,21 @@
 import { HttpService, Workspace } from "@rbxts/services"
-import { ROLE, Match, NETVAR_JSON_GAMESTATE, USETYPES, GAME_STATE, GetVoteResults, GAMERESULTS, MEETING_TYPE, IsCamperRole, IsImpostorRole, AddRoleChangeCallback, Assignment, AssignmentIsSame, NETVAR_JSON_ASSIGNMENTS, PlayerInfo, USERID, NS_SharedMatchState, ExecRoleChangeCallbacks, GameStateFuncs } from "shared/sh_gamestate"
-import { AddCallback_OnPlayerCharacterAdded, AddCallback_OnPlayerConnected, ClonePlayerModel, ClonePlayerModels, GetPlayerFromUserID, PlayerHasClone } from "shared/sh_onPlayerConnect"
+import { ROLE, Match, NETVAR_JSON_GAMESTATE, USETYPES, GAME_STATE, GetVoteResults, MEETING_TYPE, AddRoleChangeCallback, Assignment, AssignmentIsSame, NETVAR_JSON_ASSIGNMENTS, PlayerInfo, USERID, NS_SharedMatchState, ExecRoleChangeCallbacks } from "shared/sh_gamestate"
+import { AddCallback_OnPlayerCharacterAdded, AddCallback_OnPlayerConnected, ClonePlayerModel, GetPlayerFromUserID } from "shared/sh_onPlayerConnect"
 import { AddNetVarChangedCallback, GetNetVar_String } from "shared/sh_player_netvars"
 import { GetUsableByType } from "shared/sh_use"
-import { ArrayRandom, GetFirstChildWithName, GetFirstChildWithNameAndClassName, GetLocalPlayer, GraphCapped, LoadSound, RandomFloatRange, RecursiveOnChildren, Resume, SetCharacterTransparency, SetPlayerTransparency, Thread, UserIDToPlayer, WaitThread } from "shared/sh_utils"
+import { ArrayRandom, GetFirstChildWithName, GetLocalPlayer, LoadSound, RandomFloatRange, RecursiveOnChildren, Resume, SetCharacterTransparency, SetPlayerTransparency, Thread, UserIDToPlayer, WaitThread } from "shared/sh_utils"
 import { Assert } from "shared/sh_assert"
 import { UpdateMeeting } from "./cl_meeting"
-import { DrawMatchScreen_EmergencyMeeting, DrawMatchScreen_Escaped, DrawMatchScreen_Intro, DrawMatchScreen_Victory, DrawMatchScreen_VoteResults } from "./content/cl_matchScreen_content"
+import { DrawMatchScreen_EmergencyMeeting, DrawMatchScreen_Escaped, DrawMatchScreen_VoteResults } from "./content/cl_matchScreen_content"
 import { GetLastStashed } from "shared/sh_score"
-import { DEV_SKIP_INTRO, SKIP_INTRO_TIME, SPECTATOR_TRANS } from "shared/sh_settings"
+import { DEV_SKIP_INTRO, SPECTATOR_TRANS } from "shared/sh_settings"
 import { SetLocalViewToRoom, GetRoom } from "./cl_rooms"
 import { GetDeltaTime } from "shared/sh_time"
 import { CanKill, CanReportBody } from "shared/content/sh_use_content"
-import { CoinFloatsAway, COIN_TYPE, GetCoinDataFromType, GetCoinFolder, GetCoins, HasCoinFolder } from "shared/sh_coins"
+import { CoinFloatsAway, COIN_TYPE, GetCoinDataFromType, GetCoinFolder, HasCoinFolder } from "shared/sh_coins"
 import { DrawRisingNumberFromWorldPos } from "./cl_coins"
-import { GetPosition } from "shared/sh_utils_geometry"
-import { Tween } from "shared/sh_tween"
 import { AddRPC } from "shared/sh_rpc"
+import { GetGameModeConsts } from "shared/sh_gameModeConsts"
 
 const LOCAL_PLAYER = GetLocalPlayer()
 
@@ -34,7 +33,6 @@ class ClientCorpseModel
 
 class File
 {
-   gameStateFuncs: GameStateFuncs | undefined
    readonly clientMatch = new Match()
 
    corpseToCorpseModel = new Map<USERID, ClientCorpseModel>()
@@ -86,7 +84,7 @@ function ClientGameThread( match: Match )
    let lastGameState = match.GetGameState()
    let playersToLastKnownRole = new Map<Player, ROLE>()
 
-   let gameStateFuncs = file.gameStateFuncs
+   let gameStateFuncs = GetGameModeConsts()
    if ( gameStateFuncs === undefined )
    {
       Assert( false, "No game mode" )
@@ -690,9 +688,4 @@ function GetCompoundName( assignment: Assignment ): string
 function GetCompoundNameFromNames( roomName: string, taskName: string ): string
 {
    return roomName + taskName
-}
-
-export function SetGameStateFuncs( gameStateFuncs: GameStateFuncs )
-{
-   file.gameStateFuncs = gameStateFuncs
 }

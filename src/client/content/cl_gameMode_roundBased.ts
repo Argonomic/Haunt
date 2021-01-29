@@ -1,7 +1,8 @@
 import { Workspace } from "@rbxts/services"
-import { SetGameStateFuncs, GetLocalRole, GetLocalMatch } from "client/cl_gamestate"
+import { GetLocalRole, GetLocalMatch } from "client/cl_gamestate"
 import { Assert } from "shared/sh_assert"
-import { GAMERESULTS, GameStateFuncs, GAME_STATE, IsCamperRole, IsImpostorRole, Match, PlayerInfo, ROLE } from "shared/sh_gamestate"
+import { GameModeConsts, SetGameModeConsts } from "shared/sh_gameModeConsts"
+import { GAMERESULTS, GAME_STATE, IsCamperRole, IsImpostorRole, Match, PlayerInfo, ROLE } from "shared/sh_gamestate"
 import { ClonePlayerModels, GetPlayerFromUserID, PlayerHasClone } from "shared/sh_onPlayerConnect"
 import { GetLastStashed } from "shared/sh_score"
 import { DEV_SKIP_INTRO, SKIP_INTRO_TIME } from "shared/sh_settings"
@@ -12,7 +13,11 @@ const LOCAL_PLAYER = GetLocalPlayer()
 
 export function CL_GameMode_RoundBasedSetup()
 {
-   SetGameStateFuncs( new GameStateFuncs( GameStateChanged, GameStateThink ) )
+   SetGameModeConsts( new GameModeConsts(
+      GameStateChanged,
+      GameStateThink,
+      4
+   ) )
 }
 
 function GameStateThink( match: Match )

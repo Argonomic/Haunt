@@ -1,9 +1,9 @@
-import { Players, Workspace } from "@rbxts/services"
+import { Workspace } from "@rbxts/services"
 import { AddNetVar } from "shared/sh_player_netvars"
 import { AddCooldown } from "./sh_cooldown"
 import { SetPlayerWalkSpeed, GetPlayerFromUserID, GetPlayerFromUserIDString } from "./sh_onPlayerConnect"
-import { COOLDOWNTIME_MEETING, COOLDOWNTIME_KILL, MEETING_DISCUSS_TIME, MEETING_VOTE_TIME, PLAYER_WALKSPEED_SPECTATOR, PLAYER_WALKSPEED, SUDDEN_DEATH_TIME, DEV_SKIP_INTRO, RESERVEDSERVER_WAITS_FOR_PLAYERS, INTRO_TIME, SKIP_INTRO_TIME, MEETING_VOTE_RESULTS, TEST, START_COUNTDOWN, MATCHMAKE_PLAYERCOUNT_MINPLAYERS } from "./sh_settings"
-import { GraphCapped, IsServer, Thread } from "./sh_utils"
+import { COOLDOWNTIME_MEETING, COOLDOWNTIME_KILL, MEETING_DISCUSS_TIME, MEETING_VOTE_TIME, PLAYER_WALKSPEED_SPECTATOR, PLAYER_WALKSPEED, SUDDEN_DEATH_TIME, DEV_SKIP_INTRO, INTRO_TIME, SKIP_INTRO_TIME, MEETING_VOTE_RESULTS, START_COUNTDOWN } from "./sh_settings"
+import { IsServer, Thread } from "./sh_utils"
 import { Assert } from "shared/sh_assert"
 import { GiveAbility, TakeAbility } from "./sh_ability"
 import { ABILITIES } from "./content/sh_ability_content"
@@ -18,19 +18,6 @@ export const SHAREDVAR_GAMEMODE_CANREQLOBBY = "SHAREDVAR_GAMEMODE_CANREQLOBBY"
 export type USERID = number
 export type USERIDSTRING = string
 export type MATCHINDEX = number
-
-export class GameStateFuncs
-{
-   gameStateChanged: ( ( match: Match, lastGameState: number ) => void )
-   gameStateThink: ( ( match: Match ) => void )
-
-   constructor( gameStateChanged: ( ( match: Match, lastGameState: number ) => void ),
-      gameStateThink: ( ( match: Match ) => void ) )
-   {
-      this.gameStateChanged = gameStateChanged
-      this.gameStateThink = gameStateThink
-   }
-}
 
 export enum PICKUPS
 {
@@ -816,14 +803,6 @@ export function SetPlayerWalkspeedForGameState( player: Player, match: Match )
    }
 }
 
-
-export function GetMinPlayersForGame(): number
-{
-   if ( TEST )
-      return MATCHMAKE_PLAYERCOUNT_MINPLAYERS
-
-   return math.floor( GraphCapped( Players.GetPlayers().size(), MATCHMAKE_PLAYERCOUNT_MINPLAYERS, 7, MATCHMAKE_PLAYERCOUNT_MINPLAYERS, 7 ) )
-}
 
 export function CanUseTask( match: Match, player: Player ): boolean
 {

@@ -2,15 +2,15 @@ import { HttpService, Players, Workspace } from "@rbxts/services"
 import { AddRPC, GetRPCRemoteEvent } from "shared/sh_rpc"
 import { FilterHasCharacters, ArrayRandomize, GraphCapped, Resume, Thread, UserIDToPlayer, Wait } from "shared/sh_utils"
 import { Assert } from "shared/sh_assert"
-import { Assignment, GAME_STATE, NETVAR_JSON_ASSIGNMENTS, ROLE, Match, GetVoteResults, TASK_EXIT, AssignmentIsSame, TASK_RESTORE_LIGHTS, NETVAR_JSON_GAMESTATE, SetPlayerWalkspeedForGameState, USERID, PlayerVote, NS_SharedMatchState, PlayerInfo, AddRoleChangeCallback, PICKUPS, IsSpectatorRole, ExecRoleChangeCallbacks, GetMinPlayersForGame, SHAREDVAR_GAMEMODE_CANREQLOBBY, GameStateFuncs } from "shared/sh_gamestate"
-import { MIN_TASKLIST_SIZE, MAX_TASKLIST_SIZE, MATCHMAKE_PLAYERCOUNT_STARTSERVER, SPAWN_ROOM, TASK_VALUE, DEV_1_TASK, MATCHMAKE_PLAYERCOUNT_MINPLAYERS } from "shared/sh_settings"
+import { Assignment, GAME_STATE, NETVAR_JSON_ASSIGNMENTS, ROLE, Match, GetVoteResults, TASK_EXIT, AssignmentIsSame, TASK_RESTORE_LIGHTS, NETVAR_JSON_GAMESTATE, SetPlayerWalkspeedForGameState, USERID, PlayerVote, NS_SharedMatchState, PlayerInfo, AddRoleChangeCallback, PICKUPS, IsSpectatorRole, ExecRoleChangeCallbacks, SHAREDVAR_GAMEMODE_CANREQLOBBY, } from "shared/sh_gamestate"
+import { MIN_TASKLIST_SIZE, MAX_TASKLIST_SIZE, MATCHMAKE_PLAYERCOUNT_STARTSERVER, SPAWN_ROOM, TASK_VALUE, DEV_1_TASK, } from "shared/sh_settings"
 import { SetNetVar } from "shared/sh_player_netvars"
 import { AddCallback_OnPlayerCharacterAdded, AddCallback_OnPlayerConnected } from "shared/sh_onPlayerConnect"
 import { GetAllRoomsAndTasks, GetCurrentRoom, GetRoomByName, PlayerHasCurrentRoom, PutPlayersInRoom } from "./sv_rooms"
 import { ResetCooldownTime } from "shared/sh_cooldown"
 import { COOLDOWN_SABOTAGE_LIGHTS } from "shared/content/sh_ability_content"
 import { PlayerDropsCoinsWithTrajectory, SpawnRandomCoins } from "server/sv_coins"
-import { CoinFloatsAway, DeleteCoin, DestroyCoinFolder, GetCoinDataFromType, GetCoins, GetCoinType } from "shared/sh_coins"
+import { CoinFloatsAway, DeleteCoin, DestroyCoinFolder, GetCoinDataFromType, GetCoinType } from "shared/sh_coins"
 import { GetCoinFolder, GetTotalValueOfWorldCoins } from "shared/sh_coins"
 import { GetMatchScore } from "shared/sh_score"
 import { ClearMatchScore, IncrementMatchScore, ScoreToStash } from "./sv_score"
@@ -20,6 +20,7 @@ import { GetPlayerSpawnLocation } from "./sv_playerSpawnLocation"
 import { PlayerPickupsDisabled, PlayerPickupsEnabled, AddFilterPlayerPickupsCallback, CreatePickupType, DeleteFilterPickupsForPlayer, DeleteFilterPlayerPickupsCallback } from "shared/sh_pickups"
 import { Room } from "shared/sh_rooms"
 import { GetSharedVarInt } from "shared/sh_sharedVar"
+import { GetGameModeConsts, GetMinPlayersForGame } from "shared/sh_gameModeConsts"
 
 const POLL_RATE = 1
 
@@ -29,8 +30,6 @@ class File
    playerToMatch = new Map<Player, Match>()
    matchDestroyedCallbacks: Array<( ( match: Match ) => void )> = []
    lastPlayerCount = new Map<Match, number>()
-
-   gameStateFuncs: GameStateFuncs | undefined
 }
 
 let file = new File()
@@ -299,12 +298,7 @@ function ServerGameThread( match: Match )
       }
    }
 
-   let gameStateFuncs = file.gameStateFuncs
-   if ( gameStateFuncs === undefined )
-   {
-      Assert( false, "No game mode specified" )
-      throw undefined
-   }
+   let gameStateFuncs = GetGameModeConsts()
 
    for ( ; ; )
    {
@@ -404,7 +398,7 @@ function GameStateThink( match: Match )
 
       case GAME_STATE.GAME_STATE_COUNTDOWN:
          {
-            if ( GetAllConnectedPlayersInMatch( match ).size() < MATCHMAKE_PLAYERCOUNT_MINPLAYERS )
+            if ( GetAllConnectedPlayersInMatch( match ).size() < GetGameModeConsts().MATCHMAKE_PLAYERCOUNT_MINPLAYERS )
             {
                SetGameState( match, GAME_STATE.GAME_STATE_WAITING_FOR_PLAYERS )
                return
@@ -710,10 +704,11 @@ export function AssignTasks( player: Player, match: Match )
 {
    let assignments: Array<Assignment> = []
 
+   let gameModeData = GetGameModeConsts()
    let playerCount = GetAllConnectedPlayersInMatch( match ).size()
    let TASK_COUNT = math.floor(
       GraphCapped( playerCount,
-         MATCHMAKE_PLAYERCOUNT_MINPLAYERS, MATCHMAKE_PLAYERCOUNT_STARTSERVER,
+         gameModeData.MATCHMAKE_PLAYERCOUNT_MINPLAYERS, MATCHMAKE_PLAYERCOUNT_STARTSERVER,
          MIN_TASKLIST_SIZE, MAX_TASKLIST_SIZE ) )
 
    //TASK_COUNT = 2
@@ -1169,9 +1164,4 @@ function MatchStealsFromOtherWaitingMatches( match: Match )
          return
       }
    }
-}
-
-export function SetGameStateFuncs( gameStateFuncs: GameStateFuncs )
-{
-   file.gameStateFuncs = gameStateFuncs
 }

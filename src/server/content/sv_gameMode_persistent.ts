@@ -1,14 +1,15 @@
 import { Assert } from "shared/sh_assert"
-import { GameStateFuncs, GAME_STATE, Match, SHAREDVAR_GAMEMODE_CANREQLOBBY } from "shared/sh_gamestate"
+import { GAME_STATE, Match, SHAREDVAR_GAMEMODE_CANREQLOBBY } from "shared/sh_gamestate"
 import { SpawnRandomCoins } from "server/sv_coins"
 import { GetTotalValueOfWorldCoins } from "shared/sh_coins"
-import { SetGameState, GetMatchIndex, GetAllPlayersInMatchWithCharacters, GetAllConnectedPlayersInMatch, HandleVoteResults, SV_SendRPC, SetGameStateFuncs } from "../sv_gameState"
+import { SetGameState, GetMatchIndex, GetAllPlayersInMatchWithCharacters, GetAllConnectedPlayersInMatch, HandleVoteResults, SV_SendRPC } from "../sv_gameState"
 import { ResetAllCooldownTimes } from "shared/sh_cooldown"
 import { SetSharedVarInt } from "shared/sh_sharedVar"
+import { GameModeConsts, SetGameModeConsts } from "shared/sh_gameModeConsts"
 
 export function SV_GameMode_PersistentSetup()
 {
-   SetGameStateFuncs( new GameStateFuncs( PersistGameStateChanged, GameStateThink ) )
+   SetGameModeConsts( new GameModeConsts( PersistGameStateChanged, GameStateThink, 4 ) )
    SetSharedVarInt( SHAREDVAR_GAMEMODE_CANREQLOBBY, 1 )
 }
 

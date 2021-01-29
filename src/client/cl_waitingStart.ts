@@ -3,9 +3,10 @@ import { AddNetVarChangedCallback } from "shared/sh_player_netvars";
 import { FilterHasCharacters, GetFirstChildWithNameAndClassName, GetLocalPlayer, Thread } from "shared/sh_utils";
 import { AddPlayerGuiFolderExistsCallback, ToggleButton, UIORDER } from "./cl_ui";
 import { SocialService } from "@rbxts/services";
-import { GetMinPlayersForGame, GAME_STATE, NETVAR_JSON_GAMESTATE } from "shared/sh_gamestate";
+import { GAME_STATE, NETVAR_JSON_GAMESTATE } from "shared/sh_gamestate";
 import { GetLocalMatch } from "./cl_gamestate";
 import { SendRPC_Client } from "shared/sh_rpc";
+import { GetGameModeConsts, GetMinPlayersForGame } from "shared/sh_gameModeConsts";
 
 const LOCAL_PLAYER = GetLocalPlayer()
 
