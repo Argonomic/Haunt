@@ -50,6 +50,14 @@ export function ResetCooldownTime( player: Player, name: string )
    SetNetVar( player, cooldown.netvar, Workspace.DistributedGameTime + cooldown.cooldownTime )
 }
 
+export function DoCooldown( player: Player, name: string, time: number )
+{
+   Assert( IsServer(), "Only server does this" )
+   Assert( file.nameToCooldown.has( name ), "Cooldown " + name + " does not exist" )
+   let cooldown = file.nameToCooldown.get( name ) as Cooldown
+   SetNetVar( player, cooldown.netvar, Workspace.DistributedGameTime + time )
+}
+
 export function ResetAllCooldownTimes( player: Player )
 {
    Assert( IsServer(), "Only server does this" )

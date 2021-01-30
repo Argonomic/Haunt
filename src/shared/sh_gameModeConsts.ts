@@ -24,16 +24,19 @@ export function GetGameModeConsts(): GameModeConsts
 export class GameModeConsts
 {
    MATCHMAKE_PLAYERCOUNT_MINPLAYERS = 4
-   gameStateChanged: ( ( match: Match, lastGameState: number ) => void )
-   gameStateThink: ( ( match: Match ) => void )
-   svFindMatchForPlayer: ( player: Player ) => void = function ( player: Player ) { }
+   gameStateChanged: ( ( match: Match, lastGameState: number ) => void ) = function ( match: Match, lastGameState: number ) { }
+   gameStateThink: ( ( match: Match ) => void ) = function ( match: Match ) { }
+   svFindMatchForPlayer: ( player: Player ) => void = function ( player: Player )
+   { Assert( false, "Game modes must have svFindMatchForPlayer" ) }
 
-   constructor( gameStateChanged: ( ( match: Match, lastGameState: number ) => void ),
-      gameStateThink: ( ( match: Match ) => void ) )
-   {
-      this.gameStateChanged = gameStateChanged
-      this.gameStateThink = gameStateThink
-   }
+   completeTasksBecomeImpostor = false
+   hasPlayerNumber = false
+   hasCorpses = false
+   corpseTimeout: number | undefined
+   canKillImpostors = true
+   spectatorDeathRun = false
+   meetingCooldown = 20
+   cooldownKill = 45
 }
 
 export function GetMinPlayersForGame(): number

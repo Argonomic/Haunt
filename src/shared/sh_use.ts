@@ -1,4 +1,4 @@
-import { IsClient, IsServer, Thread } from "./sh_utils"
+import { IsServer, Thread } from "./sh_utils"
 import { Assert } from "shared/sh_assert"
 import { GetPosition } from "./sh_utils_geometry"
 

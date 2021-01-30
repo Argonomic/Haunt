@@ -11,7 +11,7 @@ import { GetLastStashed } from "shared/sh_score"
 import { DEV_SKIP_INTRO, SPECTATOR_TRANS } from "shared/sh_settings"
 import { SetLocalViewToRoom, GetRoom } from "./cl_rooms"
 import { GetDeltaTime } from "shared/sh_time"
-import { CanKill, CanReportBody } from "shared/content/sh_use_content"
+import { CanKill, CanReportBody, SharedKillGetter } from "shared/content/sh_use_content"
 import { CoinFloatsAway, COIN_TYPE, GetCoinDataFromType, GetCoinFolder, HasCoinFolder } from "shared/sh_coins"
 import { DrawRisingNumberFromWorldPos } from "./cl_coins"
 import { AddRPC } from "shared/sh_rpc"
@@ -275,11 +275,7 @@ export function CL_GameStateSetup()
       usable.DefineGetter(
          function ( player: Player ): Array<Player>
          {
-            let match = GetLocalMatch()
-            if ( !CanKill( GetLocalMatch(), LOCAL_PLAYER ) )
-               return []
-
-            return match.GetLivingCampers()
+            return SharedKillGetter( GetLocalMatch(), player )
          } )
    }
 
@@ -323,9 +319,7 @@ export function CL_GameStateSetup()
             let _pickup = GetFirstChildWithName( folder, pickupName )
             if ( _pickup === undefined )
                return
-            if ( _pickup.ClassName !== 'MeshPart' )
-               return
-            let pickup = _pickup as MeshPart
+            let pickup = _pickup as BasePart
             _pos = pickup.Position.add( new Vector3( 0, 3.5, 0 ) )
 
             Thread(

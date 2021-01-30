@@ -21,7 +21,7 @@ type Editor_ReturnToLobbyUI = ScreenGui &
 class File
 {
    returnToLobbyUI: Editor_ReturnToLobbyUI | undefined
-   //toggleButton: ToggleButton | undefined
+   toggleButton: ToggleButton | undefined
 }
 
 let file = new File()
@@ -44,7 +44,6 @@ export function CL_ReturnToLobbySetup()
 
       let frame = ReturnToLobbyUI.Frame
 
-      /*
       let toggleButton = new ToggleButton( frame, 180,
          { 'Position': new UDim2( 1, -25, 0.5, -25 ), 'AnchorPoint': new Vector2( 0, 0.75 ) }, // hidden
          { 'Position': new UDim2( 1, -25, 0.5, -25 ), 'AnchorPoint': new Vector2( 1, 0.75 ) }, // visible
@@ -54,12 +53,11 @@ export function CL_ReturnToLobbySetup()
       toggleButton.button.AnchorPoint = new Vector2( 1, 0 )
       file.toggleButton = toggleButton
       toggleButton.SnapClosed()
-      */
 
       frame.Spectate.MouseButton1Click.Connect( function ()
       {
-         //toggleButton.Close()
-         ReturnToLobbyUI.Enabled = false
+         toggleButton.Close()
+         //ReturnToLobbyUI.Enabled = false
       } )
 
       frame.LeaveMatch.MouseButton1Click.Connect( function ()
@@ -128,7 +126,12 @@ export function CL_ReturnToLobbySetup()
                   case ROLE.ROLE_SPECTATOR_CAMPER_ESCAPED:
                   case ROLE.ROLE_SPECTATOR_IMPOSTOR:
                      if ( !IsSpectatorRole( wasLastRole ) )
+                     {
                         ui.Enabled = true
+                        let toggleButton = file.toggleButton
+                        if ( toggleButton !== undefined )
+                           toggleButton.Open()
+                     }
                      break
                }
             } )

@@ -1,6 +1,6 @@
 import { Players } from "@rbxts/services"
 import { AddCallback_OnPlayerCharacterAdded, AddCallback_OnPlayerConnected } from "shared/sh_onPlayerConnect"
-import { GetPlayerFromDescendant, GetTouchingParts, Thread } from "shared/sh_utils"
+import { GetPlayerFromDescendant, GetTouchingParts, RandomFloatRange, Thread, VectorNormalize } from "shared/sh_utils"
 import { Assert } from "./sh_assert"
 
 class File
@@ -157,3 +157,25 @@ export function ArrayDistSorted( org: Vector3, baseParts: Array<Instance>, maxDi
    return filtered
 }
 
+export function PushPlayer( player: Player, offsetPos: Vector3 )
+{
+   let character = player.Character
+   if ( character === undefined )
+      return
+   let primaryPart = character.PrimaryPart
+   if ( primaryPart === undefined )
+      return
+
+   let playerPos = GetPosition( primaryPart )
+   let vec = playerPos.sub( offsetPos )
+   vec = new Vector3( vec.X, 0, vec.Z )
+   vec = VectorNormalize( vec )
+   vec = vec.add( new Vector3( 0, 1.8, 0 ) )
+   vec = VectorNormalize( vec )
+   vec = vec.mul( 50 )
+
+   let vec2 = vec.add( new Vector3( RandomFloatRange( -15, 15 ), 0, RandomFloatRange( -15, 15 ) ) )
+   vec2 = vec2.mul( RandomFloatRange( 1, 2 ) )
+
+   primaryPart.Velocity = vec2
+}

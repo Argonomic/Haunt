@@ -1,23 +1,24 @@
-import { IsAlive, ArrayRandomize, Thread, Wait } from "shared/sh_utils"
+import { IsAlive, Thread, Wait } from "shared/sh_utils"
 import { Assert } from "shared/sh_assert"
-import { GAME_STATE, NETVAR_JSON_ASSIGNMENTS, ROLE, Match, GAMERESULTS, NETVAR_MEETINGS_CALLED, SHAREDVAR_GAMEMODE_CANREQLOBBY, } from "shared/sh_gamestate"
-import { MATCHMAKE_PLAYERCOUNT_STARTSERVER, SH_GAMEMODE_ROUNDBASED_MINPLAYERS, SPAWN_ROOM } from "shared/sh_settings"
-import { ResetNetVar } from "shared/sh_player_netvars"
-import { GetRoomByName } from "../sv_rooms"
+import { GAME_STATE, ROLE, Match, GAMERESULTS, SHAREDVAR_GAMEMODE_CANREQLOBBY, } from "shared/sh_gamestate"
+import { MATCHMAKE_PLAYERCOUNT_STARTSERVER } from "shared/sh_settings"
 import { SpawnRandomCoins } from "server/sv_coins"
 import { GetTotalValueOfWorldCoins } from "shared/sh_coins"
 import { ScoreToStash } from "../sv_score"
-import { DistributePointsToPlayers, ClearAssignments, SetPlayerRole, BecomeSpectator, SetGameState, AssignTasks, GetMatchIndex, PlayerDistributesCoins, DestroyMatch, GetAllPlayersInMatchWithCharacters, PlayerToMatch, GetAllConnectedPlayersInMatch, HandleVoteResults, AddPlayer, MatchPutPlayersInRoom, GetMatches, CreateMatch, SV_SendRPC, UpdateGame } from "../sv_gameState"
+import { DistributePointsToPlayers, ClearAssignments, SetPlayerRole, BecomeSpectator, SetGameState, GetMatchIndex, PlayerDistributesCoins, DestroyMatch, GetAllPlayersInMatchWithCharacters, PlayerToMatch, GetAllConnectedPlayersInMatch, HandleVoteResults, AddPlayer, GetMatches, CreateMatch, SV_SendRPC, UpdateGame, StartMatchWithNormalImpostorsAndCampers } from "../sv_gameState"
 import { ResetAllCooldownTimes } from "shared/sh_cooldown"
 import { SetSharedVarInt } from "shared/sh_sharedVar"
-import { GameModeConsts, GetGameModeConsts, SetGameModeConsts } from "shared/sh_gameModeConsts"
+import { GetGameModeConsts, SetGameModeConsts } from "shared/sh_gameModeConsts"
+import { CreateGameModeConsts } from "shared/content/sh_gameModeConsts_content"
 
 
 export function SV_GameMode_RoundBasedSetup()
 {
-   let gmc = new GameModeConsts( GameStateChanged, GameStateThink )
+   let gmc = CreateGameModeConsts()
+   gmc.gameStateChanged = GameStateChanged
+   gmc.gameStateThink = GameStateThink
    gmc.svFindMatchForPlayer = FindMatchForPlayer
-   gmc.MATCHMAKE_PLAYERCOUNT_MINPLAYERS = SH_GAMEMODE_ROUNDBASED_MINPLAYERS
+
    SetGameModeConsts( gmc )
    SetSharedVarInt( SHAREDVAR_GAMEMODE_CANREQLOBBY, 1 )
 }
@@ -110,97 +111,15 @@ function GameStateChanged( match: Match, oldGameState: GAME_STATE )
             SetGameState( match, GAME_STATE.GAME_STATE_COMPLETE )
             return
          }
-   }
-
-   switch ( match.GetGameState() )
-   {
-      case GAME_STATE.GAME_STATE_MEETING_DISCUSS:
-      case GAME_STATE.GAME_STATE_MEETING_VOTE:
-      case GAME_STATE.GAME_STATE_MEETING_RESULTS:
-         Assert( match.GetMeetingDetails() !== undefined, "No meeting details during a meeting" )
-         break
-
-      default:
-         match.ClearMeetingDetails()
          break
    }
-
 
    // entering this match state
    switch ( match.GetGameState() )
    {
       case GAME_STATE.GAME_STATE_INTRO:
-
-         let players = GetAllPlayersInMatchWithCharacters( match )
-         match.RemovePlayersNotInList( players ) // remove matchmaking hangeroners
-
-         for ( let player of players )
-         {
-            Assert( match.GetPlayerRole( player ) !== ROLE.ROLE_SPECTATOR_LATE_JOINER, "Late joiner in intro?" )
-         }
-
-         print( "Starting intro" )
-         match.shState.dbg_spc = players.size()
-
-         for ( let player of players )
-         {
-            ResetNetVar( player, NETVAR_JSON_ASSIGNMENTS )
-            ResetNetVar( player, NETVAR_MEETINGS_CALLED )
-            //ResetNetVar( player, NETVAR_SCORE ) // keep prematch coins collected
-         }
-
-         let impostorCount = 1
-         let size = players.size()
-         if ( size > 11 )
-            impostorCount = 3
-         else if ( size > 6 )
-            impostorCount = 2
-
-
-         ArrayRandomize( players )
-         let impostorPlayers = players.slice( 0, impostorCount )
-         let setCampers = players.slice( impostorCount, size )
-
-         match.shState.startingImpostorCount = impostorCount
-         print( "match.shState.startingImpostorCount: " + match.shState.startingImpostorCount )
-
-         for ( let player of impostorPlayers )
-         {
-            print( player.Name + " to Impostor" )
-            SetPlayerRole( match, player, ROLE.ROLE_IMPOSTOR )
-            ClearAssignments( match, player )
-         }
-
-         for ( let player of setCampers )
-         {
-            SetPlayerRole( match, player, ROLE.ROLE_CAMPER )
-            AssignTasks( player, match )
-         }
-
-         for ( let player of players )
-         {
-            Assert( player.Character !== undefined, "player.Character !== undefined" )
-            Assert( ( player.Character as Model ).PrimaryPart !== undefined, "(player.Character as Model).PrimaryPart !== undefined" )
-         }
-
-         Assert( match.GetLivingImpostorsCount() > 0, "match.GetLivingImpostorsCount > 0" )
-         Assert( match.GetLivingCampersCount() > 1, "match.GetLivingCampers().size > 1" )
-
-         for ( let i = 0; i < players.size(); i++ )
-         {
-            let playerInfo = match.GetPlayerInfo( players[i] )
-            playerInfo.playernum = i
-         }
-         Thread( function ()
-         {
-            Wait( 1.5 ) // wait for fade out
-            let room = GetRoomByName( SPAWN_ROOM )
-            let players = GetAllPlayersInMatchWithCharacters( match )
-            MatchPutPlayersInRoom( match, players, room )
-         } )
-
+         StartMatchWithNormalImpostorsAndCampers( match )
          break
-
 
       case GAME_STATE.GAME_STATE_PLAYING:
          match.ClearVotes()

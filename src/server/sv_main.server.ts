@@ -49,6 +49,21 @@ function FinishCheck()
 }
 Thread( FinishCheck )
 
+switch ( GAME_MODE )
+{
+   case GAMEMODES.MODE_ROUNDBASED:
+      SV_GameMode_RoundBasedSetup()
+      break
+
+   case GAMEMODES.MODE_PERSISTENT:
+      SV_GameMode_PersistentSetup()
+      break
+
+   default:
+      Assert( false, "No known game mode: " + GAME_MODE )
+      break
+}
+
 SH_ReservedServerSetup()
 SH_SharedVarSetup()
 SH_RPCSetup()
@@ -67,22 +82,6 @@ SH_GameStateSetup()
 
 SV_CollisionGroupsSetup()
 SV_RoomsSetup()
-
-switch ( GAME_MODE )
-{
-   case GAMEMODES.MODE_ROUNDBASED:
-      SV_GameMode_RoundBasedSetup()
-      break
-
-   case GAMEMODES.MODE_PERSISTENT:
-      SV_GameMode_PersistentSetup()
-      break
-
-   default:
-      Assert( false, "No known game mode: " + GAME_MODE )
-      break
-}
-
 SV_GameStateSetup()
 SV_UseContentSetup()
 SV_AnalyticsSetup()

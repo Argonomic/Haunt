@@ -2,7 +2,9 @@ import { GAME_STATE, Match, NETVAR_MEETINGS_CALLED, USETYPES } from "shared/sh_g
 import { GetPosition, PlayerTouchesPart } from "shared/sh_utils_geometry";
 import { GetNetVar_Number } from "shared/sh_player_netvars";
 import { KILL_DIST, REPORT_DIST } from "shared/sh_settings";
-import { AddUseType } from "shared/sh_use";
+import { AddUseType, GetUseResultsForAttempt } from "shared/sh_use";
+import { GetGameModeConsts } from "shared/sh_gameModeConsts";
+import { GetHumanoid, IsAlive } from "shared/sh_utils";
 
 const ICON_CORPSE = 'rbxassetid://6080134682'
 const TEXT_CORPSE = "REPORT"
@@ -84,4 +86,25 @@ export function CanReportBody( match: Match, player: Player ): boolean
       return false
 
    return !match.IsSpectator( player )
+}
+
+export function SharedKillGetter( match: Match, player: Player ): Array<Player>
+{
+   if ( !CanKill( match, player ) )
+      return []
+
+   let results: Array<Player>
+   if ( GetGameModeConsts().canKillImpostors )
+      results = match.GetLivingPlayers()
+   else
+      results = match.GetLivingCampers()
+
+   results = results.filter( function ( result )
+   {
+      if ( result === player )
+         return false
+      return IsAlive( result )
+   } )
+
+   return results
 }

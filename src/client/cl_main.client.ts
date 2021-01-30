@@ -61,6 +61,23 @@ function FinishCheck()
 }
 Thread( FinishCheck )
 
+
+switch ( GAME_MODE )
+{
+   case GAMEMODES.MODE_ROUNDBASED:
+      CL_GameMode_RoundBasedSetup()
+      break
+
+   case GAMEMODES.MODE_PERSISTENT:
+      CL_GameMode_PersistentSetup()
+      break
+
+   default:
+      Assert( false, "No known game mode: " + GAME_MODE )
+      break
+}
+
+
 SH_ReservedServerSetup()
 SH_SharedVarSetup()
 SH_RPCSetup()
@@ -94,22 +111,6 @@ CL_UseSetup()
 CL_Ability_Setup()
 CL_AbilityContentSetup()
 CL_MeetingSetup()
-
-switch ( GAME_MODE )
-{
-   case GAMEMODES.MODE_ROUNDBASED:
-      CL_GameMode_RoundBasedSetup()
-      break
-
-   case GAMEMODES.MODE_PERSISTENT:
-      CL_GameMode_PersistentSetup()
-      break
-
-   default:
-      Assert( false, "No known game mode: " + GAME_MODE )
-      break
-}
-
 CL_GameStateSetup()
 CL_ChatSetup()
 CL_MatchScreenSetup()

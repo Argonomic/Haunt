@@ -1,14 +1,15 @@
-import { GetHumanoid, IsAlive, KillPlayer } from "shared/sh_utils"
+import { DamagePlayer, GetHealth, KillPlayer, Thread, Wait, } from "shared/sh_utils"
 import { GAME_STATE, NS_Corpse, USETYPES, COOLDOWN_NAME_KILL, MEETING_TYPE, NETVAR_MEETINGS_CALLED, CanUseTask } from "shared/sh_gamestate"
 import { GetUsableByType, USABLETYPES } from "shared/sh_use"
 import { SetGameState, UpdateGame, PlayerHasUnfinishedAssignment, PlayerHasAssignments, PlayerToMatch, SV_SendRPC, SetPlayerKilled } from "server/sv_gameState"
 import { GetCurrentRoom } from "server/sv_rooms"
-import { ResetCooldownTime } from "shared/sh_cooldown"
+import { DoCooldown, ResetCooldownTime } from "shared/sh_cooldown"
 import { SetPlayerWalkSpeed } from "shared/sh_onPlayerConnect"
 import { GetNetVar_Number, SetNetVar } from "shared/sh_player_netvars"
-import { CanCallMeeting, CanKill, CanReportBody } from "shared/content/sh_use_content"
-import { GetPosition } from "shared/sh_utils_geometry"
+import { CanCallMeeting, CanReportBody, SharedKillGetter } from "shared/content/sh_use_content"
+import { GetPosition, PushPlayer } from "shared/sh_utils_geometry"
 import { SetPlayerSpawnLocation } from "server/sv_playerSpawnLocation"
+import { GetGameModeConsts } from "shared/sh_gameModeConsts"
 
 export function SV_UseContentSetup()
 {
@@ -58,37 +59,54 @@ export function SV_UseContentSetup()
       function ( player: Player ): Array<Player>
       {
          let match = PlayerToMatch( player )
-         if ( !CanKill( match, player ) )
-            return []
-
-         let campers = match.GetLivingCampers()
-         let results: Array<Player> = []
-         for ( let camper of campers )
-         {
-            if ( !IsAlive( camper ) )
-               continue
-            if ( PlayerToMatch( camper ) !== match )
-               continue
-
-            let human = GetHumanoid( camper )
-            if ( human !== undefined )
-               results.push( camper )
-         }
-         return results
+         return SharedKillGetter( match, player )
       } )
    usableKill.svUseSuccessFunc =
       function ( player: Player, usedThing: USABLETYPES )
       {
          let match = PlayerToMatch( player )
-         let camper = usedThing as Player
+         let target = usedThing as Player
 
-         match.shState.corpses.push( new NS_Corpse( camper, GetPosition( camper ) ) )
-         SetPlayerSpawnLocation( camper, GetPosition( camper ) )
-         SetPlayerKilled( match, camper, player )
-         KillPlayer( camper )
+         if ( match.IsCamper( target ) )
+         {
+            KillPlayer( target )
+         }
+         else
+         {
+            // impostor push, red screen
+            DamagePlayer( target, 34 ) // just hurt impostors
+            PushPlayer( target, GetPosition( player ) )
+            DoCooldown( player, COOLDOWN_NAME_KILL, 2.5 )
+         }
+
+         if ( GetHealth( target ) <= 0 )
+         {
+            SetPlayerSpawnLocation( target, GetPosition( target ) )
+            SetPlayerKilled( match, target, player )
+            ResetCooldownTime( player, COOLDOWN_NAME_KILL )
+
+            let gmc = GetGameModeConsts()
+            if ( gmc.hasCorpses )
+            {
+               let corpse = new NS_Corpse( target, GetPosition( target ) )
+               match.shState.corpses.push( corpse )
+               if ( gmc.corpseTimeout !== undefined )
+               {
+                  Thread(
+                     function ()
+                     {
+                        Wait( gmc.corpseTimeout as number )
+                        match.shState.corpses = match.shState.corpses.filter( function ( otherCorpse )
+                        {
+                           return otherCorpse !== corpse
+                        } )
+                        UpdateGame( match )
+                     } )
+               }
+            }
+         }
 
          UpdateGame( match )
-         ResetCooldownTime( player, COOLDOWN_NAME_KILL )
       }
 
 

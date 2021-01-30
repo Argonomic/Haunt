@@ -11,6 +11,7 @@ import { GetAllCoins, GetCoins } from "shared/sh_coins"
 import { Tween } from "shared/sh_tween";
 import { GetCurrentRoom } from "./cl_rooms"
 import { GetPosition } from "shared/sh_utils_geometry"
+import { GetGameModeConsts } from "shared/sh_gameModeConsts"
 
 const FADE_CIRCLE = 'rbxassetid://6006022378'
 const TRANSPARENCY = 0.333
@@ -234,6 +235,8 @@ export function CL_FadeOverlaySetup()
       let oldGameState = -1
       let oldGameIndex = -1
 
+      let gmc = GetGameModeConsts()
+
       RunService.RenderStepped.Connect( function ()      
       {
          let match = GetLocalMatch()
@@ -407,7 +410,7 @@ export function CL_FadeOverlaySetup()
 
                   TweenPlayerParts( player, FADE_IN, FADE_TIME, "FADE_IN" )
 
-                  if ( match.HasPlayer( player ) )
+                  if ( gmc.hasPlayerNumber && match.HasPlayer( player ) )
                   {
                      let textLabel = CreatePlayerNum( match, player )
                      if ( textLabel !== undefined )
@@ -426,11 +429,14 @@ export function CL_FadeOverlaySetup()
                         TweenPlayerParts( player, FADE_OUT, FADE_TIME, "FADE_OUT" )
                   }
 
-                  let textLabel = playerToLabel.get( player )
-                  if ( textLabel !== undefined )
+                  if ( gmc.hasPlayerNumber )
                   {
-                     textLabel.Destroy()
-                     playerToLabel.delete( player )
+                     let textLabel = playerToLabel.get( player )
+                     if ( textLabel !== undefined )
+                     {
+                        textLabel.Destroy()
+                        playerToLabel.delete( player )
+                     }
                   }
                }
 
@@ -489,19 +495,25 @@ export function CL_FadeOverlaySetup()
                //TweenPlayerParts( corpse, FADE_IN, FADE_TIME )
                SetCharacterTransparency( corpseModel.model, 0 )
 
-               let textLabel = CreatePlayerNum( match, GetPlayerFromUserID( corpse.userId ) )
-               if ( textLabel !== undefined )
-                  visibleCorpsesToLabel.set( corpse, textLabel )
+               if ( gmc.hasPlayerNumber )
+               {
+                  let textLabel = CreatePlayerNum( match, GetPlayerFromUserID( corpse.userId ) )
+                  if ( textLabel !== undefined )
+                     visibleCorpsesToLabel.set( corpse, textLabel )
+               }
             }
             else
             {
                //TweenPlayerParts( corpse, FADE_OUT, FADE_TIME )
                SetCharacterTransparency( corpseModel.model, 1 )
 
-               let textLabel = visibleCorpsesToLabel.get( corpse )
-               if ( textLabel !== undefined )
-                  textLabel.Destroy()
-               visibleCorpsesToLabel.delete( corpse )
+               if ( gmc.hasPlayerNumber )
+               {
+                  let textLabel = visibleCorpsesToLabel.get( corpse )
+                  if ( textLabel !== undefined )
+                     textLabel.Destroy()
+                  visibleCorpsesToLabel.delete( corpse )
+               }
             }
          }
       } )

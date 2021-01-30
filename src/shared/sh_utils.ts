@@ -618,6 +618,24 @@ export function KillPlayer( player: Player )
       human.TakeDamage( human.Health )
 }
 
+export function DamagePlayer( player: Player, damage: number )
+{
+   let human = GetHumanoid( player )
+   if ( human )
+   {
+      damage = math.min( damage, human.Health )
+      human.TakeDamage( damage )
+   }
+}
+
+export function GetHealth( player: Player ): number
+{
+   let human = GetHumanoid( player )
+   if ( human )
+      return human.Health
+   return 100
+}
+
 /*
 export function TrimArrayDistSorted( thing: Instance, baseParts: Array<Instance>, maxDist: number )
 {

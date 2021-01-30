@@ -1,11 +1,12 @@
 import { Workspace } from "@rbxts/services"
 import { GetLocalRole, GetLocalMatch } from "client/cl_gamestate"
+import { CreateGameModeConsts } from "shared/content/sh_gameModeConsts_content"
 import { Assert } from "shared/sh_assert"
-import { GameModeConsts, SetGameModeConsts } from "shared/sh_gameModeConsts"
+import { SetGameModeConsts } from "shared/sh_gameModeConsts"
 import { GAMERESULTS, GAME_STATE, IsCamperRole, IsImpostorRole, Match, PlayerInfo, ROLE } from "shared/sh_gamestate"
 import { ClonePlayerModels, GetPlayerFromUserID, PlayerHasClone } from "shared/sh_onPlayerConnect"
 import { GetLastStashed } from "shared/sh_score"
-import { DEV_SKIP_INTRO, SH_GAMEMODE_ROUNDBASED_MINPLAYERS, SKIP_INTRO_TIME } from "shared/sh_settings"
+import { DEV_SKIP_INTRO, SKIP_INTRO_TIME } from "shared/sh_settings"
 import { GetLocalPlayer, WaitThread } from "shared/sh_utils"
 import { DrawMatchScreen_Intro, DrawMatchScreen_Victory } from "./cl_matchScreen_content"
 
@@ -13,11 +14,9 @@ const LOCAL_PLAYER = GetLocalPlayer()
 
 export function CL_GameMode_RoundBasedSetup()
 {
-   let gmc = new GameModeConsts(
-      GameStateChanged,
-      GameStateThink
-   )
-   gmc.MATCHMAKE_PLAYERCOUNT_MINPLAYERS = SH_GAMEMODE_ROUNDBASED_MINPLAYERS
+   let gmc = CreateGameModeConsts()
+   gmc.gameStateChanged = GameStateChanged
+   gmc.gameStateThink = GameStateThink
 
    SetGameModeConsts( gmc )
 }

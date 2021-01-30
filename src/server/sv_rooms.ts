@@ -153,6 +153,10 @@ export function PutPlayersInRoom( players: Array<Player>, room: Room )
    for ( let i = 0; i < players.size(); i++ )
    {
       let player = players[i]
+      file.currentRoom.set( player, room )
+      if ( player.Character === undefined )
+         continue
+
       Assert( player.Character !== undefined, "Player has no character" )
       let character = player.Character as Model
       let part = character.PrimaryPart as BasePart
@@ -169,7 +173,6 @@ export function PutPlayersInRoom( players: Array<Player>, room: Room )
       }
 
       SetPlayerYaw( player, RandomFloatRange( 90 - offset, 90 + offset ) )
-      file.currentRoom.set( player, room )
    }
 }
 

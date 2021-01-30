@@ -1,10 +1,10 @@
 import { HttpService, Players, Workspace } from "@rbxts/services"
 import { AddRPC, GetRPCRemoteEvent } from "shared/sh_rpc"
-import { FilterHasCharacters, ArrayRandomize, GraphCapped, Resume, Thread, UserIDToPlayer, Wait } from "shared/sh_utils"
+import { FilterHasCharacters, ArrayRandomize, GraphCapped, Resume, Thread, UserIDToPlayer, Wait, GetHealth } from "shared/sh_utils"
 import { Assert } from "shared/sh_assert"
-import { Assignment, GAME_STATE, NETVAR_JSON_ASSIGNMENTS, ROLE, Match, GetVoteResults, TASK_EXIT, AssignmentIsSame, TASK_RESTORE_LIGHTS, NETVAR_JSON_GAMESTATE, SetPlayerWalkspeedForGameState, USERID, PlayerVote, NS_SharedMatchState, PlayerInfo, AddRoleChangeCallback, PICKUPS, IsSpectatorRole, ExecRoleChangeCallbacks, SHAREDVAR_GAMEMODE_CANREQLOBBY, } from "shared/sh_gamestate"
+import { Assignment, GAME_STATE, NETVAR_JSON_ASSIGNMENTS, ROLE, Match, GetVoteResults, TASK_EXIT, AssignmentIsSame, TASK_RESTORE_LIGHTS, NETVAR_JSON_GAMESTATE, SetPlayerWalkspeedForGameState, USERID, PlayerVote, NS_SharedMatchState, PlayerInfo, AddRoleChangeCallback, PICKUPS, IsSpectatorRole, ExecRoleChangeCallbacks, SHAREDVAR_GAMEMODE_CANREQLOBBY, NETVAR_MEETINGS_CALLED, } from "shared/sh_gamestate"
 import { MIN_TASKLIST_SIZE, MAX_TASKLIST_SIZE, MATCHMAKE_PLAYERCOUNT_STARTSERVER, SPAWN_ROOM, TASK_VALUE, DEV_1_TASK, } from "shared/sh_settings"
-import { SetNetVar } from "shared/sh_player_netvars"
+import { ResetNetVar, SetNetVar } from "shared/sh_player_netvars"
 import { AddCallback_OnPlayerCharacterAdded, AddCallback_OnPlayerConnected } from "shared/sh_onPlayerConnect"
 import { GetAllRoomsAndTasks, GetCurrentRoom, GetRoomByName, PlayerHasCurrentRoom, PutPlayersInRoom } from "./sv_rooms"
 import { ResetCooldownTime } from "shared/sh_cooldown"
@@ -318,6 +318,21 @@ function ServerGameThread( match: Match )
          }
 
          gameStateFuncs.gameStateChanged( match, lastGameState )
+
+         // entering this match state
+         switch ( match.GetGameState() )
+         {
+            case GAME_STATE.GAME_STATE_MEETING_DISCUSS:
+            case GAME_STATE.GAME_STATE_MEETING_VOTE:
+            case GAME_STATE.GAME_STATE_MEETING_RESULTS:
+               Assert( match.GetMeetingDetails() !== undefined, "No meeting details during a meeting" )
+               break
+
+            default:
+               match.ClearMeetingDetails()
+               break
+         }
+
       }
       lastGameState = gameState
 
@@ -527,8 +542,18 @@ function RPC_FromClient_OnPlayerFinishTask( player: Player, roomName: string, ta
    switch ( taskName )
    {
       case TASK_EXIT:
+
          print( player.Name + " finishes Exit" )
-         SetPlayerRole( match, player, ROLE.ROLE_SPECTATOR_CAMPER_ESCAPED )
+         if ( GetGameModeConsts().spectatorDeathRun )
+         {
+            SetPlayerRole( match, player, ROLE.ROLE_CAMPER )
+            AssignTasks( match, player )
+         }
+         else
+         {
+            SetPlayerRole( match, player, ROLE.ROLE_SPECTATOR_CAMPER_ESCAPED )
+         }
+
          ScoreToStash( player )
          UpdateGame( match )
          break
@@ -580,15 +605,41 @@ function RPC_FromClient_OnPlayerFinishTask( player: Player, roomName: string, ta
    {
       if ( match.GetGameState() >= GAME_STATE.GAME_STATE_PLAYING )
       {
-         let assignment = new Assignment( SPAWN_ROOM, TASK_EXIT )
-         assignments.push( assignment )
-         UpdateTasklistNetvar( player, assignments )
+         GiveExitTask( match, player )
+
+         if ( GetGameModeConsts().completeTasksBecomeImpostor )
+         {
+            if ( !match.IsSpectator( player ) )
+            {
+               print( "become impostor!" )
+               SetPlayerRole( match, player, ROLE.ROLE_IMPOSTOR )
+               UpdateGame( match )
+            }
+         }
       }
       else
       {
-         AssignTasks( player, match ) // 7-10 random tasks
+         AssignTasks( match, player ) // 7-10 random tasks
       }
    }
+}
+
+export function GiveExitTask( match: Match, player: Player )
+{
+   if ( !match.GetSVState().assignments.has( player ) )
+      return
+
+   // has assignment?
+   let assignments = match.GetSVState().assignments.get( player ) as Array<Assignment>
+   for ( let assignment of assignments )
+   {
+      if ( AssignmentIsSame( assignment, SPAWN_ROOM, TASK_EXIT ) )
+         return
+   }
+
+   let assignment = new Assignment( SPAWN_ROOM, TASK_EXIT )
+   assignments.push( assignment )
+   UpdateTasklistNetvar( player, assignments )
 }
 
 export function PlayerHasAssignments( player: Player, match: Match ): boolean
@@ -695,13 +746,13 @@ function AssignTasksCount( player: Player, match: Match, assignments: Array<Assi
       }
    }
 
-   //print( "Assigned " + assignments.size() + " tasks" )
+   print( "Assigned " + assignments.size() + " tasks" )
    match.GetSVState().assignments.set( player, assignments )
    UpdateTasklistNetvar( player, assignments )
 }
 
 
-export function AssignTasks( player: Player, match: Match )
+export function AssignTasks( match: Match, player: Player )
 {
    let assignments: Array<Assignment> = []
 
@@ -1074,15 +1125,17 @@ export function GetAllPlayersInMatchWithCharacters( match: Match ): Array<Player
 
 export function SetPlayerKilled( match: Match, player: Player, killer?: Player )
 {
+   if ( PlayerToMatch( player ) !== match )
+      return
+
    let playerInfo = match.GetPlayerInfo( player )
    playerInfo.killed = true
    BecomeSpectator( player, match )
+   PlayerDistributesCoins( player, match, killer )
+   SV_SendRPC( "RPC_FromServer_CancelTask", match, player )
 
-   if ( PlayerToMatch( player ) === match )
-   {
-      PlayerDistributesCoins( player, match, killer )
-      SV_SendRPC( "RPC_FromServer_CancelTask", match, player )
-   }
+   if ( GetGameModeConsts().spectatorDeathRun )
+      GiveExitTask( match, player )
 }
 
 
@@ -1096,8 +1149,11 @@ export function SetPlayerRole( match: Match, player: Player, role: ROLE ): Playe
    else if ( role === ROLE.ROLE_SPECTATOR_IMPOSTOR )
       Assert( lastRole === ROLE.ROLE_IMPOSTOR, "Bad role assignment" )
 
-   if ( IsSpectatorRole( lastRole ) )
-      Assert( IsSpectatorRole( role ), "Tried to go from spectator role " + lastRole + " to role " + role )
+   if ( !GetGameModeConsts().spectatorDeathRun )
+   {
+      if ( IsSpectatorRole( lastRole ) )
+         Assert( IsSpectatorRole( role ), "Tried to go from spectator role " + lastRole + " to role " + role )
+   }
 
    Assert( match.shState.playerToInfo.has( player.UserId + "" ), "SetPlayerRole: Match does not have " + player.Name )
    let playerInfo = match.shState.playerToInfo.get( player.UserId + "" ) as PlayerInfo
@@ -1146,4 +1202,76 @@ function MatchStealsFromOtherWaitingMatches( match: Match )
 export function GetMatches(): Array<Match>
 {
    return file.matches
+}
+
+
+export function StartMatchWithNormalImpostorsAndCampers( match: Match )
+{
+   let players = GetAllPlayersInMatchWithCharacters( match )
+   match.RemovePlayersNotInList( players ) // remove matchmaking hangeroners
+
+   for ( let player of players )
+   {
+      Assert( match.GetPlayerRole( player ) !== ROLE.ROLE_SPECTATOR_LATE_JOINER, "Late joiner in intro?" )
+   }
+
+   print( "Starting intro" )
+   match.shState.dbg_spc = players.size()
+
+   for ( let player of players )
+   {
+      ResetNetVar( player, NETVAR_JSON_ASSIGNMENTS )
+      ResetNetVar( player, NETVAR_MEETINGS_CALLED )
+      //ResetNetVar( player, NETVAR_SCORE ) // keep prematch coins collected
+   }
+
+   let impostorCount = 1
+   let size = players.size()
+   if ( size > 11 )
+      impostorCount = 3
+   else if ( size > 6 )
+      impostorCount = 2
+
+
+   ArrayRandomize( players )
+   let impostorPlayers = players.slice( 0, impostorCount )
+   let setCampers = players.slice( impostorCount, size )
+
+   match.shState.startingImpostorCount = impostorCount
+   print( "match.shState.startingImpostorCount: " + match.shState.startingImpostorCount )
+
+   for ( let player of impostorPlayers )
+   {
+      print( player.Name + " to Impostor" )
+      SetPlayerRole( match, player, ROLE.ROLE_IMPOSTOR )
+      ClearAssignments( match, player )
+   }
+
+   for ( let player of setCampers )
+   {
+      SetPlayerRole( match, player, ROLE.ROLE_CAMPER )
+      AssignTasks( match, player )
+   }
+
+   for ( let player of players )
+   {
+      Assert( player.Character !== undefined, "player.Character !== undefined" )
+      Assert( ( player.Character as Model ).PrimaryPart !== undefined, "(player.Character as Model).PrimaryPart !== undefined" )
+   }
+
+   Assert( match.GetLivingImpostorsCount() > 0, "match.GetLivingImpostorsCount > 0" )
+   Assert( match.GetLivingCampersCount() > 1, "match.GetLivingCampers().size > 1" )
+
+   for ( let i = 0; i < players.size(); i++ )
+   {
+      let playerInfo = match.GetPlayerInfo( players[i] )
+      playerInfo.playernum = i
+   }
+   Thread( function ()
+   {
+      Wait( 1.5 ) // wait for fade out
+      let room = GetRoomByName( SPAWN_ROOM )
+      let players = GetAllPlayersInMatchWithCharacters( match )
+      MatchPutPlayersInRoom( match, players, room )
+   } )
 }

@@ -1,13 +1,13 @@
 import { RunService } from "@rbxts/services"
 
-export const TEST = ( RunService.IsStudio() || game.PlaceId === 5954656113 ) && false
+export const TEST = ( RunService.IsStudio() || game.PlaceId === 5954656113 ) && true
 
 export enum GAMEMODES
 {
    MODE_ROUNDBASED = 0,
    MODE_PERSISTENT,
 }
-export let GAME_MODE: GAMEMODES = GAMEMODES.MODE_ROUNDBASED
+export const GAME_MODE: GAMEMODES = GAMEMODES.MODE_ROUNDBASED
 
 export const DEV_SKIP_INTRO = TEST && true
 export const DEV_1_TASK = TEST && true
@@ -46,15 +46,11 @@ export const SUDDEN_DEATH_TIME = 90
 export const SPECTATOR_TRANS = 0.6
 
 export let MEETING_DISCUSS_TIME = 10
-export let COOLDOWNTIME_KILL = 45
 export let COOLDOWNTIME_SABOTAGE_LIGHTS = 70
-export let COOLDOWNTIME_MEETING = 20
 
 if ( DEV_FAST_TIMERS )
 {
-   COOLDOWNTIME_KILL = 0
    COOLDOWNTIME_SABOTAGE_LIGHTS = 6
-   COOLDOWNTIME_MEETING = 0
    MEETING_DISCUSS_TIME = 2
    START_COUNTDOWN = 3
    print( "********** DEV_FAST_TIMERS ***********" )
@@ -78,6 +74,3 @@ export const ADMINS = ["Argonomic", "ArgonomicDev"]
 
 print( "SRV 1.29.21 1.0 merged in coin fixes" )
 print( " " )
-
-export const SH_GAMEMODE_ROUNDBASED_MINPLAYERS = 4
-export const SH_GAMEMODE_PERSISTENT_MINPLAYERS = 5

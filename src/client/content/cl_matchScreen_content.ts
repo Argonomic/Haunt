@@ -846,6 +846,52 @@ export function DrawMatchScreen_Escaped( playerInfo: PlayerInfo, myWinnings: num
 
 }
 
+export function DrawMatchScreen_BecameImpostor()
+{
+   let matchScreenFrame = WaitForMatchScreenFrame( "MATCHSCREEN_BECAMEIMPOSTOR" )
+   let baseFrame = matchScreenFrame.baseFrame
+   Tween( baseFrame, { Transparency: 0 }, 1.0 )
+
+   let title = matchScreenFrame.title
+   let subTitle = matchScreenFrame.subTitle
+   let lowerTitle = matchScreenFrame.lowerTitle
+   let viewportFrame = matchScreenFrame.viewportFrame
+   let viewportCamera = matchScreenFrame.viewportCamera
+
+   title.TextTransparency = 1
+   subTitle.TextTransparency = 1
+   lowerTitle.TextTransparency = 1
+   viewportFrame.ImageTransparency = 1
+
+   title.Text = "You become Impostor!"
+   subTitle.Text = "Destroy other Impostors"
+
+   const FADE_IN = 2
+
+   wait( 0.8 )
+   Tween( title, { TextTransparency: 0 }, FADE_IN )
+
+   let lineup = ClonePlayerModels( [LOCAL_PLAYER] )
+   ArrangeModelsInLineup( lineup, viewportFrame )
+
+   let animLineup = new AnimateLineup( viewportFrame, viewportCamera )
+   wait( animLineup.GetArriveTime() * 0.4 )
+
+   wait( 0.5 )
+   Tween( subTitle, { TextTransparency: 0 }, FADE_IN )
+
+   wait( 2.00 )
+
+   const FADE_OUT = 2.0
+   Tween( title, { TextTransparency: 1 }, FADE_OUT * 0.75 )
+   Tween( subTitle, { TextTransparency: 1 }, FADE_OUT * 0.75 )
+   wait( 1.0 )
+   Tween( viewportFrame, { ImageTransparency: 1 }, 0.75 )
+   wait( 0.75 )
+
+   Tween( baseFrame, { Transparency: 1 }, 1.0 )
+}
+
 export function DrawLevelTransition()
 {
    let matchScreenFrame = WaitForMatchScreenFrame( "MATCHSCREEN_LEVELTRANSITION" )
