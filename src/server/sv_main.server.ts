@@ -36,6 +36,8 @@ import { GAMEMODES, GAME_MODE } from "shared/sh_settings";
 import { SV_GameMode_RoundBasedSetup } from "./content/sv_gameMode_roundBased";
 import { SV_GameMode_PersistentSetup } from "./content/sv_gameMode_persistent";
 import { SV_StoreSetup } from "./sv_store";
+import { SV_VentSetup } from "./sv_vent";
+import { SH_RoomsSetup } from "shared/sh_rooms";
 
 class File
 {
@@ -80,8 +82,10 @@ SH_PickupsSetup()
 SH_CoinsSetup()
 SH_ScoreSetup()
 SH_GameStateSetup()
+SH_RoomsSetup()
 
 SV_CollisionGroupsSetup()
+SV_VentSetup()
 SV_RoomsSetup()
 SV_GameStateSetup()
 SV_UseContentSetup()

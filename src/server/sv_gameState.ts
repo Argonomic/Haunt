@@ -1045,7 +1045,7 @@ export function MatchPutPlayersInRoom( match: Match, players: Array<Player>, roo
    TellOtherPlayersInMatchThatPlayersPutInRoom( match, players, room )
 }
 
-function TellOtherPlayersInMatchThatPlayersPutInRoom( match: Match, players: Array<Player>, room: Room )
+export function TellOtherPlayersInMatchThatPlayersPutInRoom( match: Match, players: Array<Player>, room: Room )
 {
    let jsonPlayers: Array<number> = []
    for ( let player of players )
@@ -1346,4 +1346,14 @@ export function StartMatchWithNormalImpostorsAndCampers( match: Match )
       let players = GetAllPlayersInMatchWithCharacters( match )
       MatchPutPlayersInRoom( match, players, room )
    } )
+}
+
+export function BroadcastSound( match: Match, id: number, roomName1: string, roomName2?: string )
+{
+   let players = GetAllConnectedPlayersInMatch( match )
+
+   for ( let otherPlayer of players )
+   {
+      SV_SendRPC( "RPC_FromServer_PlaySound", match, otherPlayer, id, roomName1, roomName2 )
+   }
 }

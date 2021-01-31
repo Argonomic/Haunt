@@ -5,6 +5,7 @@ import { EDITOR_GameplayFolder } from "./sh_gamestate"
 
 export const FAST_ROOM_ITERATION = false
 const DEFAULT_FIELDOFVIEW = 20
+export const VENTSOUNDID = 5771441412
 
 class File
 {
@@ -49,6 +50,7 @@ export class Room
    cameraAspectRatioMultiplier = 1.0
    startPoints: Array<Vector3> = []
    meetingTrigger: BasePart | undefined
+   vent: EDITOR_Vent | undefined
 }
 
 export class RoomAndTask
@@ -60,6 +62,14 @@ export class RoomAndTask
       this.room = room
       this.task = task
    }
+}
+
+export type EDITOR_Vent = Model &
+{
+   Top: Part
+   Union: Part
+   Bottom: Part
+   scr_vent_trigger: Part
 }
 
 export class Task
@@ -74,6 +84,10 @@ export class Task
       this.volume = volume
       this.duringPlayingOnly = duringPlayingOnly
    }
+}
+
+export function SH_RoomsSetup()
+{
 }
 
 function CreateRoomFromFolder( folder: Folder ): Room
@@ -127,6 +141,15 @@ function CreateRoomFromFolder( folder: Folder ): Room
                childPart.CanCollide = false
                childPart.Transparency = 1.0
                room.meetingTrigger = childPart
+            }
+            break
+
+         case "scr_vent":
+            {
+               let model = child as EDITOR_Vent
+               Assert( model.ClassName === "Model", "scr_vent should be a Model" )
+               model.Bottom.CanCollide = true
+               room.vent = model
             }
             break
 

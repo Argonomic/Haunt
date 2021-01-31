@@ -32,7 +32,6 @@ import { SH_AbilitySetup } from "shared/sh_ability"
 import { SH_AbilityContentSetup } from "shared/content/sh_ability_content"
 import { CL_AbilityContentSetup } from "./content/cl_ability_content"
 import { SH_CoinsSetup } from "shared/sh_coins"
-import { SH_PickupsSetup } from "shared/sh_pickups"
 import { CL_CoinsSetup } from "./cl_coins"
 import { SH_ScoreSetup } from "shared/sh_score"
 import { CL_ReturnToLobbySetup } from "./cl_returnToLobby"
@@ -48,6 +47,9 @@ import { CL_GameMode_RoundBasedSetup } from "./content/cl_gameMode_roundBased"
 import { GAMEMODES, GAME_MODE } from "shared/sh_settings"
 import { CL_GameMode_PersistentSetup } from "./content/cl_gameMode_persistent"
 import { CL_StoreSetup } from "./cl_store"
+import { CL_VentSetup } from "./cl_vent"
+import { SH_RoomsSetup } from "shared/sh_rooms"
+import { CL_RemoteSoundSetup } from "./cl_remoteSound"
 
 class File
 {
@@ -94,7 +96,9 @@ SH_AssertSetup()
 SH_CoinsSetup()
 SH_ScoreSetup()
 SH_GameStateSetup()
+SH_RoomsSetup()
 
+CL_VentSetup()
 CL_RoomSetup()
 CL_TasksSetup()
 CL_TasksContentSetup()
@@ -125,6 +129,7 @@ CL_DynamicArtSetup()
 CL_WaitingStartSetup()
 CL_UseContentSetup()
 CL_StoreSetup()
+CL_RemoteSoundSetup()
 
 SH_OnPlayerConnectSetup()
 

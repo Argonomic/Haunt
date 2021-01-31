@@ -3,6 +3,11 @@ import { AddCallback_OnPlayerCharacterAdded, AddCallback_OnPlayerConnected } fro
 import { GetHumanoidRootPart, GetPlayerFromDescendant, GetTouchingParts, RandomFloatRange, Thread, VectorNormalize } from "shared/sh_utils"
 import { Assert } from "./sh_assert"
 
+export const TWOPI = 6.2831853071795865
+export const PI = 3.14159265359
+export const PI180 = PI / 180
+export const RAD2DEG = 57.2957795130823209
+
 class File
 {
    lastPlayerPos = new Map<Player, Vector3>()
@@ -211,4 +216,14 @@ export function PushPlayersApart( player1: Player, player2: Player )
          thrust1.Destroy()
       } )
 
+}
+
+export function GetBearingBetweenPoints( a1: number, a2: number, b1: number, b2: number ) 
+{
+   // if (a1 = b1 and a2 = b2) throw an error 
+   let theta = math.atan2( b1 - a1, a2 - b2 )
+   if ( theta < 0.0 )
+      theta += TWOPI
+
+   return RAD2DEG * theta
 }

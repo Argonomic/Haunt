@@ -268,7 +268,7 @@ export class Match
 
          if ( campers === 0 )
          {
-            if ( gmc.impostorBattle )
+            if ( gmc.lastImpostorStanding )
             {
                if ( impostors === 1 )
                   return GAMERESULTS.RESULTS_IMPOSTORS_WIN
@@ -279,7 +279,7 @@ export class Match
             }
          }
 
-         if ( gmc.suddenDeathEnabled )
+         if ( gmc.suddenDeath )
          {
             if ( impostors >= campers )
                return GAMERESULTS.RESULTS_SUDDEN_DEATH

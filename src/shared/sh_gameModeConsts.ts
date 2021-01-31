@@ -39,8 +39,9 @@ export class GameModeConsts
    meetingCooldown = 20
    cooldownKill = 45
    revealOtherImpostors = false
-   suddenDeathEnabled = false
+   suddenDeath = false
    impostorBattle = true
+   lastImpostorStanding = false
 }
 
 export function GetMinPlayersForGame(): number

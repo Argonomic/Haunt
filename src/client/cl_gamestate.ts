@@ -3,7 +3,7 @@ import { ROLE, Match, NETVAR_JSON_GAMESTATE, USETYPES, GAME_STATE, GetVoteResult
 import { AddCallback_OnPlayerCharacterAdded, AddCallback_OnPlayerConnected, ClonePlayerModel, GetPlayerFromUserID } from "shared/sh_onPlayerConnect"
 import { AddNetVarChangedCallback, GetNetVar_String } from "shared/sh_player_netvars"
 import { GetUsableByType } from "shared/sh_use"
-import { ArrayRandom, GetFirstChildWithName, GetLocalPlayer, LoadSound, RandomFloatRange, RecursiveOnChildren, Resume, SetCharacterTransparency, SetPlayerTransparency, Thread, UserIDToPlayer, WaitThread } from "shared/sh_utils"
+import { ArrayRandom, GetExistingFirstChildWithNameAndClassName, GetFirstChildWithName, GetLocalPlayer, LoadSound, RandomFloatRange, RecursiveOnChildren, Resume, SetCharacterTransparency, SetPlayerTransparency, Thread, UserIDToPlayer, WaitThread } from "shared/sh_utils"
 import { Assert } from "shared/sh_assert"
 import { UpdateMeeting } from "./cl_meeting"
 import { DrawMatchScreen_EmergencyMeeting, DrawMatchScreen_Escaped, DrawMatchScreen_VoteResults } from "./content/cl_matchScreen_content"

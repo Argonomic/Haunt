@@ -1,8 +1,9 @@
 import { Assert } from "shared/sh_assert";
+import { GetGameModeConsts } from "shared/sh_gameModeConsts";
 import { NETVAR_PURCHASED_IMPOSTOR } from "shared/sh_gamestate";
 import { AddCallback_OnPlayerCharacterAncestryChanged } from "shared/sh_onPlayerConnect";
 import { AddNetVarChangedCallback, GetNetVar_Number } from "shared/sh_player_netvars";
-import { AddRPC, SendRPC_Client } from "shared/sh_rpc";
+import { SendRPC_Client } from "shared/sh_rpc";
 import { GetStashScore } from "shared/sh_score";
 import { STORE_BUY_IMPOSTOR } from "shared/sh_settings";
 import { GetFirstChildWithName, GetLocalPlayer } from "shared/sh_utils";
@@ -52,7 +53,15 @@ export function CL_StoreSetup()
       }
 
       file.storeUI = GetFirstChildWithName( folder, 'Store' ) as Editor_StoreUI
-      file.storeUI.Enabled = true
+      if ( GetGameModeConsts().canPurchaseImpostor )
+      {
+         file.storeUI.Enabled = true
+      }
+      else
+      {
+         file.storeUI.Enabled = false
+         return
+      }
       file.storeUI.DisplayOrder = UIORDER.UIORDER_SCORE_TOTAL
 
       ResetText()

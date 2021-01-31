@@ -14,6 +14,8 @@ export function CreateGameModeConsts(): GameModeConsts
          gmc.hasCorpses = true
          gmc.canKillImpostors = true
          gmc.canPurchaseImpostor = true
+         gmc.lastImpostorStanding = true
+         gmc.suddenDeath = false
          break
 
       case GAMEMODES.MODE_PERSISTENT:
