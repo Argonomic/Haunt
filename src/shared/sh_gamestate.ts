@@ -9,11 +9,12 @@ import { GiveAbility, TakeAbility } from "./sh_ability"
 import { ABILITIES } from "./content/sh_ability_content"
 import { NETVAR_LAST_STASHED, NETVAR_SCORE, NETVAR_STASH } from "./sh_score"
 import { CreateSharedInt } from "./sh_sharedVar"
-import { GetGameModeConsts } from "./sh_gameModeConsts"
+import { GameModeConsts, GetGameModeConsts } from "./sh_gameModeConsts"
 
 export const NETVAR_JSON_ASSIGNMENTS = "JS_TL"
 export const NETVAR_JSON_GAMESTATE = "JS_GS"
 export const NETVAR_MEETINGS_CALLED = "N_MC"
+export const NETVAR_PURCHASED_IMPOSTOR = "N_PI"
 export const SHAREDVAR_GAMEMODE_CANREQLOBBY = "SHAREDVAR_GAMEMODE_CANREQLOBBY"
 
 export type USERID = number
@@ -251,6 +252,7 @@ export class Match
    public GetGameResults_ParityAllowed(): GAMERESULTS
    {
       let match = this
+      let gmc = GetGameModeConsts()
 
       function func(): GAMERESULTS
       {
@@ -265,10 +267,23 @@ export class Match
          }
 
          if ( campers === 0 )
-            return GAMERESULTS.RESULTS_IMPOSTORS_WIN
+         {
+            if ( gmc.impostorBattle )
+            {
+               if ( impostors === 1 )
+                  return GAMERESULTS.RESULTS_IMPOSTORS_WIN
+            }
+            else
+            {
+               return GAMERESULTS.RESULTS_IMPOSTORS_WIN
+            }
+         }
 
-         if ( impostors >= campers )
-            return GAMERESULTS.RESULTS_SUDDEN_DEATH
+         if ( gmc.suddenDeathEnabled )
+         {
+            if ( impostors >= campers )
+               return GAMERESULTS.RESULTS_SUDDEN_DEATH
+         }
 
          return GAMERESULTS.RESULTS_STILL_PLAYING
       }
@@ -604,6 +619,7 @@ export function SH_GameStateSetup()
    AddNetVar( "number", NETVAR_MEETINGS_CALLED, 0 )
    AddNetVar( "number", NETVAR_SCORE, 0 )
    AddNetVar( "number", NETVAR_STASH, 0 )
+   AddNetVar( "number", NETVAR_PURCHASED_IMPOSTOR, 0 )
    AddNetVar( "number", NETVAR_LAST_STASHED, 0 )
 
    let gmc = GetGameModeConsts()

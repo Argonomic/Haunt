@@ -28,6 +28,9 @@ class File
    coinUI_Popup: EDITOR_CoinUI | undefined
    coinUI_Gain: EDITOR_CoinUI | undefined
    coinUI_Total: EDITOR_CoinUI | undefined
+
+   stashColor = new Color3( 0, 0, 0 )
+   stashStartPos = new UDim2( 0, 0, 0, 0 )
 }
 let file = new File()
 
@@ -82,9 +85,11 @@ export function CL_CoinsSetup()
 
          let stash = GetStashScore( LOCAL_PLAYER )
          if ( stash <= 0 )
-            coinUI_Total.StashTotal.Text = ""
+            coinUI_Total.StashTotal.Text = "0"
          else
             coinUI_Total.StashTotal.Text = stash + ""
+         file.stashColor = coinUI_Total.StashTotal.TextColor3
+         file.stashStartPos = coinUI_Total.StashTotal.Position
       }
 
       {
@@ -214,6 +219,8 @@ function TweenTextNumber( elem: TextLabel, target: number, preFunc?: () => void,
       let time = Graph( math.abs( ( math.abs( target - startNumber ) ) ), 0, 50, 0, 0.3 )
       if ( time < 0.2 )
          time = 0.2
+      if ( time > 1.0 )
+         time = 1.0
       let endTime = startTime + time
 
       for ( ; ; )
@@ -248,6 +255,46 @@ function GetElemScore( elem: TextLabel ): number
    if ( value !== undefined )
       return value
    return 0
+}
+
+export function DrawBadPurchase()
+{
+   Thread(
+      function ()
+      {
+         let coinUI_Total = file.coinUI_Total
+         if ( coinUI_Total === undefined )
+            return
+
+         let time = 0.3
+         let ui = coinUI_Total.StashTotal
+         let startTime = Workspace.DistributedGameTime
+         let endTime = Workspace.DistributedGameTime + time
+
+         let odd = true
+         let offsetSize = ui.AbsoluteSize.X * 0.025
+         ui.TextColor3 = new Color3( 1, 0, 0 )
+         Tween( ui, { TextColor3: file.stashColor }, 1.2 )
+         for ( ; ; )
+         {
+            if ( Workspace.DistributedGameTime >= endTime )
+               break
+
+            let offset = GraphCapped( Workspace.DistributedGameTime, startTime, endTime, offsetSize, 0 )
+
+            if ( odd )
+               offset *= -1
+
+            odd = !odd
+
+            ui.Position = file.stashStartPos.add( new UDim2( 0, offset, 0, 0 ) )
+            wait()
+         }
+
+         // could play a sound here
+         ui.Position = file.stashStartPos
+      } )
+
 }
 
 function DrawGainedPoints()
@@ -331,9 +378,5 @@ function DrawGainedPoints()
 
 function UpdateDisplay()
 {
-   Thread(
-      function ()
-      {
-         DrawGainedPoints()
-      } )
+   Thread( DrawGainedPoints )
 }

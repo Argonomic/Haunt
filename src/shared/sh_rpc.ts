@@ -44,6 +44,7 @@ export function SH_RPCSetup()
          "RPC_FromClient_OnPlayerUseFromRoom",
          "RPC_FromClient_OnUse",
          "RPC_FromClient_OpenedFriendInvite",
+         "RPC_FromClient_PurchaseImpostor",
          "RPC_FromClient_RequestLobby",
          "RPC_FromClient_RestoreLighting_Fuse",
          "RPC_FromClient_Skipvote",
@@ -53,6 +54,7 @@ export function SH_RPCSetup()
          "RPC_FromServer_GavePoints",
          "RPC_FromServer_OnPlayerUseTask",
          "RPC_FromServer_PickupCoin",
+         "RPC_FromServer_PlayerPush",
          "RPC_FromServer_PutPlayersInRoom",
          "RPC_FromServer_RestoreLighting_Fuse",
       ]

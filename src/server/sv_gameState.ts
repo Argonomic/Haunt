@@ -1,10 +1,10 @@
-import { HttpService, Players, Workspace } from "@rbxts/services"
+import { HttpService, Players, RunService, Workspace } from "@rbxts/services"
 import { AddRPC, GetRPCRemoteEvent } from "shared/sh_rpc"
-import { FilterHasCharacters, ArrayRandomize, GraphCapped, Resume, Thread, UserIDToPlayer, Wait, GetHealth } from "shared/sh_utils"
+import { FilterHasCharacters, ArrayRandomize, GraphCapped, Resume, Thread, UserIDToPlayer, Wait, GetHealth, RandomFloatRange, GetExistingFirstChildWithNameAndClassName, GetFirstChildWithNameAndClassName, SetHealth } from "shared/sh_utils"
 import { Assert } from "shared/sh_assert"
-import { Assignment, GAME_STATE, NETVAR_JSON_ASSIGNMENTS, ROLE, Match, GetVoteResults, TASK_EXIT, AssignmentIsSame, TASK_RESTORE_LIGHTS, NETVAR_JSON_GAMESTATE, SetPlayerWalkspeedForGameState, USERID, PlayerVote, NS_SharedMatchState, PlayerInfo, AddRoleChangeCallback, PICKUPS, IsSpectatorRole, ExecRoleChangeCallbacks, SHAREDVAR_GAMEMODE_CANREQLOBBY, NETVAR_MEETINGS_CALLED, } from "shared/sh_gamestate"
+import { Assignment, GAME_STATE, NETVAR_JSON_ASSIGNMENTS, ROLE, Match, GetVoteResults, TASK_EXIT, AssignmentIsSame, TASK_RESTORE_LIGHTS, NETVAR_JSON_GAMESTATE, SetPlayerWalkspeedForGameState, USERID, PlayerVote, NS_SharedMatchState, PlayerInfo, AddRoleChangeCallback, PICKUPS, IsSpectatorRole, ExecRoleChangeCallbacks, SHAREDVAR_GAMEMODE_CANREQLOBBY, NETVAR_MEETINGS_CALLED, NETVAR_PURCHASED_IMPOSTOR, } from "shared/sh_gamestate"
 import { MIN_TASKLIST_SIZE, MAX_TASKLIST_SIZE, MATCHMAKE_PLAYERCOUNT_STARTSERVER, SPAWN_ROOM, TASK_VALUE, DEV_1_TASK, } from "shared/sh_settings"
-import { ResetNetVar, SetNetVar } from "shared/sh_player_netvars"
+import { GetNetVar_Number, ResetNetVar, SetNetVar } from "shared/sh_player_netvars"
 import { AddCallback_OnPlayerCharacterAdded, AddCallback_OnPlayerConnected } from "shared/sh_onPlayerConnect"
 import { GetAllRoomsAndTasks, GetCurrentRoom, GetRoomByName, PlayerHasCurrentRoom, PutPlayersInRoom } from "./sv_rooms"
 import { ResetCooldownTime } from "shared/sh_cooldown"
@@ -15,13 +15,16 @@ import { GetCoinFolder, GetTotalValueOfWorldCoins } from "shared/sh_coins"
 import { GetMatchScore } from "shared/sh_score"
 import { ClearMatchScore, IncrementMatchScore, ScoreToStash } from "./sv_score"
 import { IsReservedServer } from "shared/sh_reservedServer"
-import { GetPosition } from "shared/sh_utils_geometry"
+import { GetPosition, PushPlayer } from "shared/sh_utils_geometry"
 import { GetPlayerSpawnLocation } from "./sv_playerSpawnLocation"
 import { PlayerPickupsDisabled, PlayerPickupsEnabled, AddFilterPlayerPickupsCallback, CreatePickupType, DeleteFilterPickupsForPlayer, DeleteFilterPlayerPickupsCallback } from "shared/sh_pickups"
 import { Room } from "shared/sh_rooms"
 import { GetSharedVarInt } from "shared/sh_sharedVar"
 import { GetGameModeConsts, GetMinPlayersForGame } from "shared/sh_gameModeConsts"
+import { GetPlayerPersistence_Boolean, SetPlayerPersistence } from "./sv_persistence"
 
+export const PPRS_BUYIMPOSTOR = "_BUYIMP"
+const LOCAL = RunService.IsStudio()
 const POLL_RATE = 1
 
 class File
@@ -61,6 +64,19 @@ export function CreateMatch(): Match
 
 export function SV_GameStateSetup()
 {
+   /*
+   if ( LOCAL && true )
+   {
+      Thread(
+         function ()
+         {
+            Wait( 5 )
+            let match = GetMatches()[0]
+            SpawnRandomCoins( match, 300 )
+         } )
+   }
+      */
+
    print( "Game name: " + game.Name )
    print( "Placeid: " + game.PlaceId )
    print( "Jobid: " + game.JobId )
@@ -299,7 +315,7 @@ function ServerGameThread( match: Match )
       }
    }
 
-   let gameStateFuncs = GetGameModeConsts()
+   let gmc = GetGameModeConsts()
 
    for ( ; ; )
    {
@@ -317,7 +333,7 @@ function ServerGameThread( match: Match )
             }
          }
 
-         gameStateFuncs.gameStateChanged( match, lastGameState )
+         gmc.gameStateChanged( match, lastGameState )
 
          // entering this match state
          switch ( match.GetGameState() )
@@ -332,11 +348,42 @@ function ServerGameThread( match: Match )
                match.ClearMeetingDetails()
                break
          }
+         // entering this match state
+         switch ( match.GetGameState() )
+         {
+            case GAME_STATE.GAME_STATE_MEETING_DISCUSS:
+
+               if ( gmc.canPurchaseImpostor )
+               {
+                  let players = GetAllConnectedPlayersInMatch( match )
+                  if ( players.size() > 2 )
+                  {
+                     // clear the purchased impostor if we made it out of playing
+                     for ( let player of players )
+                     {
+                        if ( GetPlayerPersistence_Boolean( player, PPRS_BUYIMPOSTOR, GetNetVar_Number( player, NETVAR_PURCHASED_IMPOSTOR ) === 1 ) )
+                        {
+                           SetPlayerPersistence( player, PPRS_BUYIMPOSTOR, false )
+                           SetNetVar( player, NETVAR_PURCHASED_IMPOSTOR, 0 )
+                        }
+                     }
+                  }
+               }
+               break
+
+            case GAME_STATE.GAME_STATE_PLAYING:
+               for ( let player of match.GetLivingPlayers() )
+               {
+                  if ( GetHealth( player ) > 0 )
+                     SetHealth( player, 100 )
+               }
+               break
+         }
 
       }
       lastGameState = gameState
 
-      gameStateFuncs.gameStateThink( match )
+      gmc.gameStateThink( match )
       GameStateThink( match )
 
       if ( gameState === match.GetGameState() )
@@ -1234,10 +1281,35 @@ export function StartMatchWithNormalImpostorsAndCampers( match: Match )
 
 
    ArrayRandomize( players )
-   let impostorPlayers = players.slice( 0, impostorCount )
-   let setCampers = players.slice( impostorCount, size )
 
-   match.shState.startingImpostorCount = impostorCount
+   let camperPlayers: Array<Player> = []
+   let impostorPlayers: Array<Player>
+   if ( GetGameModeConsts().canPurchaseImpostor )
+   {
+      impostorPlayers = players.filter( function ( player ) 
+      {
+         if ( GetPlayerPersistence_Boolean( player, PPRS_BUYIMPOSTOR, GetNetVar_Number( player, NETVAR_PURCHASED_IMPOSTOR ) === 1 ) )
+            return true
+
+         camperPlayers.push( player )
+         return false
+      } )
+   }
+   else
+   {
+      impostorPlayers = []
+      camperPlayers = players
+   }
+
+   impostorCount -= impostorPlayers.size()
+
+   if ( impostorCount > 0 )
+   {
+      impostorPlayers = impostorPlayers.concat( camperPlayers.slice( 0, impostorCount ) )
+      camperPlayers = camperPlayers.slice( impostorCount, size )
+   }
+
+   match.shState.startingImpostorCount = impostorPlayers.size()
    print( "match.shState.startingImpostorCount: " + match.shState.startingImpostorCount )
 
    for ( let player of impostorPlayers )
@@ -1247,7 +1319,7 @@ export function StartMatchWithNormalImpostorsAndCampers( match: Match )
       ClearAssignments( match, player )
    }
 
-   for ( let player of setCampers )
+   for ( let player of camperPlayers )
    {
       SetPlayerRole( match, player, ROLE.ROLE_CAMPER )
       AssignTasks( match, player )

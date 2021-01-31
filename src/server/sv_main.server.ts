@@ -35,6 +35,7 @@ import { SV_ChatSetup } from "./sv_chat";
 import { GAMEMODES, GAME_MODE } from "shared/sh_settings";
 import { SV_GameMode_RoundBasedSetup } from "./content/sv_gameMode_roundBased";
 import { SV_GameMode_PersistentSetup } from "./content/sv_gameMode_persistent";
+import { SV_StoreSetup } from "./sv_store";
 
 class File
 {
@@ -95,6 +96,7 @@ SV_MatchMakingSetup()
 SV_PlayerSpawnLocationSetup()
 SH_UtilsGeometrySetup()
 SV_ChatSetup()
+SV_StoreSetup()
 
 DoneCreatingNVs()
 SH_OnPlayerConnectSetup()

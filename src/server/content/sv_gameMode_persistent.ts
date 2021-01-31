@@ -152,3 +152,29 @@ function FindMatchForPlayer( player: Player )
 }
 
 
+/*
+Flow:
+start as innocent in foyer
+complete all tasks
+you become an impostor immediately
+
+Details:
+Dead player is a spectator until they
+   or for 30 seconds?
+   or corpse run?
+   or run to foyer?
+   all tasks reset?
+
+Players can call a meeting 1 time
+   60 second coolup
+
+corpses fade after 60 seconds
+impostors can two shot each other
+   kill still has 30 second cooldown
+   both players are pushed away from each other
+   impostors dont leave a corpse
+
+How do impostors get their money out?
+   Get exit task?
+
+*/

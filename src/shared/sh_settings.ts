@@ -9,7 +9,7 @@ export enum GAMEMODES
 }
 export const GAME_MODE: GAMEMODES = GAMEMODES.MODE_ROUNDBASED
 
-export const DEV_SKIP_INTRO = TEST && true
+export const DEV_SKIP_INTRO = TEST && false
 export const DEV_1_TASK = TEST && true
 export let DEV_FAST_TIMERS: boolean = TEST && true
 
@@ -44,6 +44,7 @@ export const MEETING_VOTE_TIME = 60
 export const MEETING_VOTE_RESULTS = 8
 export const SUDDEN_DEATH_TIME = 90
 export const SPECTATOR_TRANS = 0.6
+export const STORE_BUY_IMPOSTOR = 1000
 
 export let MEETING_DISCUSS_TIME = 10
 export let COOLDOWNTIME_SABOTAGE_LIGHTS = 70
@@ -52,7 +53,7 @@ if ( DEV_FAST_TIMERS )
 {
    COOLDOWNTIME_SABOTAGE_LIGHTS = 6
    MEETING_DISCUSS_TIME = 2
-   START_COUNTDOWN = 3
+   START_COUNTDOWN = 8
    print( "********** DEV_FAST_TIMERS ***********" )
 }
 

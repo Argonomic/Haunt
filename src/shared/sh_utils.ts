@@ -636,6 +636,13 @@ export function GetHealth( player: Player ): number
    return 100
 }
 
+export function SetHealth( player: Player, value: number )
+{
+   let human = GetHumanoid( player )
+   if ( human )
+      human.Health = value
+}
+
 /*
 export function TrimArrayDistSorted( thing: Instance, baseParts: Array<Instance>, maxDist: number )
 {
@@ -747,4 +754,14 @@ export function TeleportPlayersToLobby( players: Array<Player>, msg: string )
             player.Kick( msg )
       }
    } )
+}
+
+export function GetHumanoidRootPart( player: Player ): Part | undefined
+{
+   //PushPlayer( player, new Vector3( 0, 0, 0 ) )
+   let character = player.Character
+   if ( character === undefined )
+      return undefined
+
+   return GetExistingFirstChildWithNameAndClassName( character, "HumanoidRootPart", 'Part' ) as Part
 }

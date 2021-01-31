@@ -1,6 +1,6 @@
 import { Players } from "@rbxts/services"
 import { AddCallback_OnPlayerCharacterAdded, AddCallback_OnPlayerConnected } from "shared/sh_onPlayerConnect"
-import { GetPlayerFromDescendant, GetTouchingParts, RandomFloatRange, Thread, VectorNormalize } from "shared/sh_utils"
+import { GetHumanoidRootPart, GetPlayerFromDescendant, GetTouchingParts, RandomFloatRange, Thread, VectorNormalize } from "shared/sh_utils"
 import { Assert } from "./sh_assert"
 
 class File
@@ -178,4 +178,37 @@ export function PushPlayer( player: Player, offsetPos: Vector3 )
    vec2 = vec2.mul( RandomFloatRange( 1, 2 ) )
 
    primaryPart.Velocity = vec2
+}
+
+export function PushPlayersApart( player1: Player, player2: Player )
+{
+   Thread(
+      function ()
+      {
+         let part1 = GetHumanoidRootPart( player1 )
+         let part2 = GetHumanoidRootPart( player2 )
+         if ( part1 === undefined || part2 === undefined )
+            return
+
+         let dif = part1.Position.sub( part2.Position )
+         dif = VectorNormalize( dif )
+         dif = dif.mul( 15500 )
+         dif = new Vector3( dif.X, 50000, dif.Z )
+         print( "dif: " + dif )
+
+         let thrust1 = new Instance( 'BodyForce' )
+         thrust1.Parent = part1
+         thrust1.Force = dif
+
+         let thrust2 = new Instance( 'BodyForce' )
+         thrust2.Parent = part2
+         let newDif = dif.mul( -0.8 )
+         thrust2.Force = new Vector3( newDif.X, dif.Y, newDif.Z )
+
+         wait( 0.3 )
+         thrust2.Destroy()
+         wait( 0.3 )
+         thrust1.Destroy()
+      } )
+
 }

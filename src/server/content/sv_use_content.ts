@@ -7,7 +7,7 @@ import { DoCooldown, ResetCooldownTime } from "shared/sh_cooldown"
 import { SetPlayerWalkSpeed } from "shared/sh_onPlayerConnect"
 import { GetNetVar_Number, SetNetVar } from "shared/sh_player_netvars"
 import { CanCallMeeting, CanReportBody, SharedKillGetter } from "shared/content/sh_use_content"
-import { GetPosition, PushPlayer } from "shared/sh_utils_geometry"
+import { GetPosition, PushPlayersApart } from "shared/sh_utils_geometry"
 import { SetPlayerSpawnLocation } from "server/sv_playerSpawnLocation"
 import { GetGameModeConsts } from "shared/sh_gameModeConsts"
 
@@ -75,7 +75,7 @@ export function SV_UseContentSetup()
          {
             // impostor push, red screen
             DamagePlayer( target, 34 ) // just hurt impostors
-            PushPlayer( target, GetPosition( player ) )
+            PushPlayersApart( target, player )
             DoCooldown( player, COOLDOWN_NAME_KILL, 2.5 )
          }
 

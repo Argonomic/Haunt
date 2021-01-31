@@ -6,7 +6,7 @@ import { SocialService } from "@rbxts/services";
 import { GAME_STATE, NETVAR_JSON_GAMESTATE } from "shared/sh_gamestate";
 import { GetLocalMatch } from "./cl_gamestate";
 import { SendRPC_Client } from "shared/sh_rpc";
-import { GetGameModeConsts, GetMinPlayersForGame } from "shared/sh_gameModeConsts";
+import { GetMinPlayersForGame } from "shared/sh_gameModeConsts";
 
 const LOCAL_PLAYER = GetLocalPlayer()
 

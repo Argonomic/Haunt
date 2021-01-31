@@ -1,11 +1,10 @@
-import { GetCoinSpawnLocations, GetCoinType, CreateCoin, COIN_TYPE, GetCoinDataFromType, CoinData, GetCoinBreakdownForScore, DeleteCoin, GetCoinFolder } from "shared/sh_coins"
-import { Match, PICKUPS } from "shared/sh_gamestate"
-import { CreatePickupType } from "shared/sh_pickups"
+import { GetCoinSpawnLocations, CreateCoin, COIN_TYPE, GetCoinDataFromType, CoinData, GetCoinBreakdownForScore, GetCoinFolder } from "shared/sh_coins"
+import { Match } from "shared/sh_gamestate"
 import { GetMatchScore } from "shared/sh_score"
-import { ArrayRandomize, RandomFloatRange, RandomInt, VectorNormalize } from "shared/sh_utils"
+import { ArrayRandomize, RandomFloatRange, RandomInt, Thread, VectorNormalize, Wait } from "shared/sh_utils"
 import { COL_GROUP_GEO_ONLY, SetCollisionGroup } from "./sv_collisionGroups"
 import { RunService } from "@rbxts/services"
-import { ClearMatchScore, IncrementMatchScore } from "./sv_score"
+import { ClearMatchScore } from "./sv_score"
 import { GetPosition } from "shared/sh_utils_geometry"
 
 const LOCAL = RunService.IsStudio()
@@ -15,23 +14,6 @@ const PUSH_Z = 40
 
 export function SV_CoinsSetup()
 {
-
-   /*
-      if ( LOCAL && false )
-      {
-         Thread(
-            function ()
-            {
-               for ( ; ; )
-               {
-                  Wait( 2 )
-                  let vec = new Vector3( 58, 3, 50 )
-                  CreateCoinExplosion( 33, vec, vec )
-               }
-            } )
-      }
-      */
-
 }
 
 export function SpawnRandomCoins( match: Match, count: number ): Array<Part>

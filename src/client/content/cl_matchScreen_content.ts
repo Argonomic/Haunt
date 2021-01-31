@@ -7,6 +7,7 @@ import { Tween, TweenCharacterParts, TweenModel } from "shared/sh_tween";
 import { GetLocalPlayer, Graph, LoadSound, RandomFloatRange, SetCharacterTransparency, SetCharacterYaw, Thread } from "shared/sh_utils";
 import { Assert } from "shared/sh_assert"
 import { GetCoinModelsForScore } from "shared/sh_coins";
+import { GetGameModeConsts } from "shared/sh_gameModeConsts";
 
 const LOCAL = RunService.IsStudio()
 const LOCAL_PLAYER = GetLocalPlayer()
@@ -150,13 +151,25 @@ export function DrawMatchScreen_Intro( foundLocalImpostor: boolean, impostorCoun
       subTitle.Text = "You are innocent"
    }
 
+   let gmc = GetGameModeConsts()
+
    let impostorText: string
-   if ( impostorCount === 0 )
-      impostorText = "There are no impostors"
-   else if ( impostorCount === 1 )
-      impostorText = "There is 1 impostor"
+   if ( gmc.revealOtherImpostors )
+   {
+      if ( impostorCount === 0 )
+         impostorText = "There are no impostors"
+      else if ( impostorCount === 1 )
+         impostorText = "There is 1 impostor"
+      else
+         impostorText = "There are " + impostorCount + " impostors"
+   }
    else
-      impostorText = "There are " + impostorCount + " impostors"
+   {
+      if ( foundLocalImpostor )
+         impostorText = "Battle other Impostors"
+      else
+         impostorText = "Avoid Impostors"
+   }
 
    title.TextTransparency = 1
    subTitle.TextTransparency = 1
@@ -206,18 +219,21 @@ export function DrawMatchScreen_Intro( foundLocalImpostor: boolean, impostorCoun
 
       if ( foundLocalImpostor )
       {
-         Thread(
-            function ()
-            {
-               wait( 1.6 )
-               let goal = { Transparency: 1 }
-               let camperModels = lineup.slice( impostorCount )
-               for ( let model of camperModels )
+         if ( GetGameModeConsts().revealOtherImpostors )
+         {
+            Thread(
+               function ()
                {
-                  TweenCharacterParts( model, goal, 1.0 )
-               }
-               Tween( baseFrame, { BackgroundColor3: new Color3( 0.25, 0, 0 ) }, 2 )
-            } )
+                  wait( 1.6 )
+                  let goal = { Transparency: 1 }
+                  let camperModels = lineup.slice( impostorCount )
+                  for ( let model of camperModels )
+                  {
+                     TweenCharacterParts( model, goal, 1.0 )
+                  }
+                  Tween( baseFrame, { BackgroundColor3: new Color3( 0.25, 0, 0 ) }, 2 )
+               } )
+         }
       }
 
       wait( FADE_IN + 2 )

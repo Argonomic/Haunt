@@ -47,6 +47,7 @@ import { CL_UseContentSetup } from "./content/cl_use_content"
 import { CL_GameMode_RoundBasedSetup } from "./content/cl_gameMode_roundBased"
 import { GAMEMODES, GAME_MODE } from "shared/sh_settings"
 import { CL_GameMode_PersistentSetup } from "./content/cl_gameMode_persistent"
+import { CL_StoreSetup } from "./cl_store"
 
 class File
 {
@@ -123,6 +124,8 @@ CL_GameStartingSetup()
 CL_DynamicArtSetup()
 CL_WaitingStartSetup()
 CL_UseContentSetup()
+CL_StoreSetup()
+
 SH_OnPlayerConnectSetup()
 
 file.finishedInit = true
