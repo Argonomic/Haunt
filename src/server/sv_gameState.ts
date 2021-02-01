@@ -19,7 +19,7 @@ import { GetPosition } from "shared/sh_utils_geometry"
 import { GetPlayerSpawnLocation } from "./sv_playerSpawnLocation"
 import { PlayerPickupsDisabled, PlayerPickupsEnabled, AddFilterPlayerPickupsCallback, CreatePickupType, DeleteFilterPickupsForPlayer, DeleteFilterPlayerPickupsCallback } from "shared/sh_pickups"
 import { Room } from "shared/sh_rooms"
-import { GetGameModeConsts, GetMinPlayersForGame } from "shared/sh_gameModeConsts"
+import { GetGameModeConsts, GetMinPlayersToStartGame } from "shared/sh_gameModeConsts"
 import { GetPlayerPersistence_Boolean, SetPlayerPersistence } from "./sv_persistence"
 
 export const PPRS_BUYIMPOSTOR = "_BUYIMP"
@@ -384,7 +384,7 @@ function ServerGameThread( match: Match )
 
                let cooldown = 6
                if ( match.shState.roundNum > 1 )
-                  cooldown = 12
+                  cooldown = 20
 
                let players = match.GetLivingImpostors()
                for ( let player of players )
@@ -443,7 +443,7 @@ function GameStateThink( match: Match )
             for ( ; ; )
             {
                let searchCount = GetAllConnectedPlayersInMatch( match ).size()
-               if ( searchCount >= GetMinPlayersForGame() )
+               if ( searchCount >= GetMinPlayersToStartGame() )
                   break
 
                if ( searchCount === 0 )
@@ -468,12 +468,12 @@ function GameStateThink( match: Match )
          let lastPlayerCount = file.lastPlayerCount.get( match ) as number
          if ( lastPlayerCount !== searchCount )
          {
-            print( "Match " + GetMatchIndex( match ) + " found " + searchCount + " players, need " + GetMinPlayersForGame() )
+            print( "Match " + GetMatchIndex( match ) + " found " + searchCount + " players, need " + GetMinPlayersToStartGame() )
             file.lastPlayerCount.set( match, searchCount )
          }
 
-         //print( "searchCount:" + searchCount + ", GetMinPlayersForGame():" + GetMinPlayersForGame() )
-         if ( searchCount >= GetMinPlayersForGame() )
+         //print( "searchCount:" + searchCount + ", GetMinPlayersToStartGame():" + GetMinPlayersToStartGame() )
+         if ( searchCount >= GetMinPlayersToStartGame() )
          {
             SetGameState( match, GAME_STATE.GAME_STATE_COUNTDOWN )
             UpdateGame( match )
@@ -484,7 +484,7 @@ function GameStateThink( match: Match )
 
       case GAME_STATE.GAME_STATE_COUNTDOWN:
          {
-            if ( GetAllConnectedPlayersInMatch( match ).size() < GetGameModeConsts().MATCHMAKE_PLAYERCOUNT_MINPLAYERS )
+            if ( GetAllConnectedPlayersInMatch( match ).size() < GetGameModeConsts().minPlayersToStartGame )
             {
                SetGameState( match, GAME_STATE.GAME_STATE_WAITING_FOR_PLAYERS )
                return
@@ -830,7 +830,7 @@ export function AssignTasks( match: Match, player: Player )
    let playerCount = GetAllConnectedPlayersInMatch( match ).size()
    let TASK_COUNT = math.floor(
       GraphCapped( playerCount,
-         gameModeData.MATCHMAKE_PLAYERCOUNT_MINPLAYERS, 10,
+         gameModeData.minPlayersToStartGame, 10,
          MIN_TASKLIST_SIZE, MAX_TASKLIST_SIZE ) )
 
    //TASK_COUNT = 2

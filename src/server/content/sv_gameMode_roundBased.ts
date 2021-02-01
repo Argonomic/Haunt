@@ -75,16 +75,16 @@ function GameStateThink( match: Match )
 
 function GameStateChanged( match: Match, oldGameState: GAME_STATE )
 {
-   let MATCHMAKE_PLAYERCOUNT_MINPLAYERS = GetGameModeConsts().MATCHMAKE_PLAYERCOUNT_MINPLAYERS
+   let minPlayersToStartGame = GetGameModeConsts().minPlayersToStartGame
    // leaving this match state
    switch ( oldGameState )
    {
       case GAME_STATE.GAME_STATE_INTRO:
-         if ( GetAllPlayersInMatchWithCharacters( match ).size() < MATCHMAKE_PLAYERCOUNT_MINPLAYERS || match.GetLivingImpostorsCount() <= 0 )
+         if ( GetAllPlayersInMatchWithCharacters( match ).size() < minPlayersToStartGame || match.GetLivingImpostorsCount() <= 0 )
          {
             print( "Failed to leave intro:" )
             print( "GetAllPlayersInMatchWithCharacters(match).size(): " + GetAllPlayersInMatchWithCharacters( match ).size() )
-            print( "MATCHMAKE_PLAYERCOUNT_MINPLAYERS: " + MATCHMAKE_PLAYERCOUNT_MINPLAYERS )
+            print( "minPlayersToStartGame: " + minPlayersToStartGame )
             print( "match.GetLivingImpostorsCount(): " + match.GetLivingImpostorsCount() )
             print( "match.shState.startingImpostorCount: " + match.shState.startingImpostorCount )
             // players left during intro

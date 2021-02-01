@@ -40,11 +40,11 @@ export const PLAYER_WALKSPEED_SPECTATOR = 16 * 1.5
 export const SPAWN_ROOM = "Foyer"
 export const KILL_DIST = 6.5
 export const REPORT_DIST = 5
-export const MEETING_VOTE_TIME = 60
-export const MEETING_VOTE_RESULTS = 8
+export const MEETING_VOTE_TIME = 40
+export const MEETING_VOTE_RESULTS = 6
 export const SUDDEN_DEATH_TIME = 90
-export const SPECTATOR_TRANS = 0.6
-export const STORE_BUY_IMPOSTOR = 1000
+export const SPECTATOR_TRANS = 0.5 // 0.6
+export const STORE_BUY_IMPOSTOR = 250
 
 export let MEETING_DISCUSS_TIME = 10
 export let COOLDOWNTIME_SABOTAGE_LIGHTS = 70

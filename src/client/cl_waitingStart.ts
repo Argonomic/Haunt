@@ -6,7 +6,7 @@ import { SocialService } from "@rbxts/services";
 import { GAME_STATE, NETVAR_JSON_GAMESTATE } from "shared/sh_gamestate";
 import { GetLocalMatch } from "./cl_gamestate";
 import { SendRPC_Client } from "shared/sh_rpc";
-import { GetMinPlayersForGame } from "shared/sh_gameModeConsts";
+import { GetMinPlayersToStartGame } from "shared/sh_gameModeConsts";
 
 const LOCAL_PLAYER = GetLocalPlayer()
 
@@ -141,7 +141,7 @@ function UpdateWaitingStartUI()
 
       case GAME_STATE.GAME_STATE_WAITING_FOR_PLAYERS:
          let players = FilterHasCharacters( match.GetAllPlayers() )
-         let count = GetMinPlayersForGame() - players.size()
+         let count = GetMinPlayersToStartGame() - players.size()
          let text
          if ( count <= 1 )
             text = "Waiting for 1 more player"

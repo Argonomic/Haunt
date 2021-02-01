@@ -150,7 +150,7 @@ function RefreshTaskList()
 
    let assignments = GetLocalAssignments()
    let taskSizeIncrease = assignments.size() - file.lastSize
-   print( "taskSizeIncrease: " + taskSizeIncrease )
+   //print( "taskSizeIncrease: " + taskSizeIncrease )
    file.lastSize = assignments.size()
 
    if ( file.lastAssignmentCount !== assignments.size() )

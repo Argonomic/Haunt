@@ -23,7 +23,7 @@ export function GetGameModeConsts(): GameModeConsts
 
 export class GameModeConsts
 {
-   MATCHMAKE_PLAYERCOUNT_MINPLAYERS = 4
+   minPlayersToStartGame = 4
    gameStateChanged: ( ( match: Match, lastGameState: number ) => void ) = function ( match: Match, lastGameState: number ) { }
    gameStateThink: ( ( match: Match ) => void ) = function ( match: Match ) { }
    svFindMatchForPlayer: ( player: Player ) => void = function ( player: Player )
@@ -46,14 +46,15 @@ export class GameModeConsts
    canReturnToLobby = true
 }
 
-export function GetMinPlayersForGame(): number
+const IDEAL_PLAYERS = 15
+export function GetMinPlayersToStartGame(): number
 {
    let gameModeData = GetGameModeConsts()
-   let MATCHMAKE_PLAYERCOUNT_MINPLAYERS = gameModeData.MATCHMAKE_PLAYERCOUNT_MINPLAYERS
+   let minPlayersToStartGame = gameModeData.minPlayersToStartGame
    if ( TEST )
-      return MATCHMAKE_PLAYERCOUNT_MINPLAYERS
+      return minPlayersToStartGame
 
-   return math.floor( GraphCapped( Players.GetPlayers().size(), MATCHMAKE_PLAYERCOUNT_MINPLAYERS, 7, MATCHMAKE_PLAYERCOUNT_MINPLAYERS, 7 ) )
+   return math.floor( GraphCapped( Players.GetPlayers().size(), minPlayersToStartGame, IDEAL_PLAYERS, minPlayersToStartGame, IDEAL_PLAYERS ) )
 }
 
 export function SetGameModeConsts( gameStateFuncs: GameModeConsts )

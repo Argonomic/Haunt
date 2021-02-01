@@ -8,7 +8,7 @@ export function CreateGameModeConsts(): GameModeConsts
    switch ( GAME_MODE )
    {
       case GAMEMODES.MODE_ROUNDBASED:
-         gmc.MATCHMAKE_PLAYERCOUNT_MINPLAYERS = 4
+         gmc.minPlayersToStartGame = 4
          gmc.canKillImpostors = true
          gmc.canPurchaseImpostor = true
          gmc.completeTasksBecomeImpostor = false
@@ -25,7 +25,7 @@ export function CreateGameModeConsts(): GameModeConsts
          break
 
       case GAMEMODES.MODE_PERSISTENT:
-         gmc.MATCHMAKE_PLAYERCOUNT_MINPLAYERS = 4
+         gmc.minPlayersToStartGame = 4
          gmc.completeTasksBecomeImpostor = true
          gmc.hasPlayerNumber = false
          gmc.hasCorpses = true
