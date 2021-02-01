@@ -681,7 +681,6 @@ function RPC_FromClient_OnPlayerFinishTask( player: Player, roomName: string, ta
          {
             if ( !match.IsSpectator( player ) )
             {
-               print( "become impostor!" )
                SetPlayerRole( match, player, ROLE.ROLE_IMPOSTOR )
                UpdateGame( match )
             }
@@ -1297,7 +1296,7 @@ export function StartMatchWithNormalImpostorsAndCampers( match: Match )
 
    let impostorCount = 1
    let size = players.size()
-   if ( size > 11 )
+   if ( size > 12 )
       impostorCount = 3
    else if ( size > 6 )
       impostorCount = 2
@@ -1305,44 +1304,34 @@ export function StartMatchWithNormalImpostorsAndCampers( match: Match )
 
    ArrayRandomize( players )
 
-   let camperPlayers: Array<Player> = []
-   let impostorPlayers: Array<Player>
+   let impostors = players.slice( 0, impostorCount )
+   let campers = players.slice( impostorCount, size )
+
    if ( GetGameModeConsts().canPurchaseImpostor )
    {
-      impostorPlayers = players.filter( function ( player ) 
+      campers = campers.filter( function ( player )
       {
-         if ( GetPlayerPersistence_Boolean( player, PPRS_BUYIMPOSTOR, GetNetVar_Number( player, NETVAR_PURCHASED_IMPOSTOR ) === 1 ) )
-            return true
+         let impostor = GetPlayerPersistence_Boolean( player, PPRS_BUYIMPOSTOR, GetNetVar_Number( player, NETVAR_PURCHASED_IMPOSTOR ) === 1 )
 
-         camperPlayers.push( player )
-         return false
+         if ( impostor )
+         {
+            impostors.push( player )
+            return false
+         }
+
+         return true
       } )
    }
-   else
+
+   match.shState.startingImpostorCount = impostors.size()
+
+   for ( let player of impostors )
    {
-      impostorPlayers = []
-      camperPlayers = players
-   }
-
-   impostorCount -= impostorPlayers.size()
-
-   if ( impostorCount > 0 )
-   {
-      impostorPlayers = impostorPlayers.concat( camperPlayers.slice( 0, impostorCount ) )
-      camperPlayers = camperPlayers.slice( impostorCount, size )
-   }
-
-   match.shState.startingImpostorCount = impostorPlayers.size()
-   print( "match.shState.startingImpostorCount: " + match.shState.startingImpostorCount )
-
-   for ( let player of impostorPlayers )
-   {
-      print( player.Name + " to Impostor" )
       SetPlayerRole( match, player, ROLE.ROLE_IMPOSTOR )
       ClearAssignments( match, player )
    }
 
-   for ( let player of camperPlayers )
+   for ( let player of campers )
    {
       SetPlayerRole( match, player, ROLE.ROLE_CAMPER )
       AssignTasks( match, player )

@@ -74,5 +74,5 @@ export const PLAYER_COLORS =
 
 export const ADMINS = ["Argonomic", "ArgonomicDev"]
 
-print( "SRV 2.1.21 1.11 kill cooldown" )
+print( "SRV 2.1.21 1.14 higher playercount" )
 print( " " )

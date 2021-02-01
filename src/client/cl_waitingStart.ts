@@ -1,6 +1,6 @@
 import { AddCallback_OnPlayerCharacterAncestryChanged } from "shared/sh_onPlayerConnect";
 import { AddNetVarChangedCallback } from "shared/sh_player_netvars";
-import { FilterHasCharacters, GetFirstChildWithNameAndClassName, GetLocalPlayer, Thread } from "shared/sh_utils";
+import { UserIDToPlayer, GetFirstChildWithNameAndClassName, GetLocalPlayer, Thread } from "shared/sh_utils";
 import { AddPlayerGuiFolderExistsCallback, ToggleButton, UIORDER } from "./cl_ui";
 import { SocialService } from "@rbxts/services";
 import { GAME_STATE, NETVAR_JSON_GAMESTATE } from "shared/sh_gamestate";
@@ -140,8 +140,15 @@ function UpdateWaitingStartUI()
          break
 
       case GAME_STATE.GAME_STATE_WAITING_FOR_PLAYERS:
-         let players = FilterHasCharacters( match.GetAllPlayers() )
-         let count = GetMinPlayersToStartGame() - players.size()
+         let count = GetMinPlayersToStartGame()
+         let userIDToPlayer = UserIDToPlayer()
+         let matchPlayers = match.GetAllPlayers()
+         for ( let player of matchPlayers )
+         {
+            if ( !match.IsSpectator( player ) && userIDToPlayer.has( player.UserId ) )
+               count--
+         }
+
          let text
          if ( count <= 1 )
             text = "Waiting for 1 more player"

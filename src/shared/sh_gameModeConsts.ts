@@ -51,8 +51,6 @@ export function GetMinPlayersToStartGame(): number
 {
    let gameModeData = GetGameModeConsts()
    let minPlayersToStartGame = gameModeData.minPlayersToStartGame
-   if ( TEST )
-      return minPlayersToStartGame
 
    return math.floor( GraphCapped( Players.GetPlayers().size(), minPlayersToStartGame, IDEAL_PLAYERS, minPlayersToStartGame, IDEAL_PLAYERS ) )
 }

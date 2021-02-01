@@ -259,8 +259,6 @@ export function DrawMatchScreen_Intro( foundLocalImpostor: boolean, impostorCoun
          wait( 1 )
          Tween( baseFrame, { Transparency: 1 }, 1.0 )
       } )
-
-   wait( 1.0 )
 }
 
 function SortLocalPlayerInfo( a: PlayerInfo, b: PlayerInfo ): boolean
@@ -719,23 +717,22 @@ export function DrawMatchRound( roundNum: number, value: number, opIntroTitle?: 
    if ( opIntroTitle !== undefined )
    {
       title.Text = opIntroTitle
-      Tween( title, { TextTransparency: 0, TextStrokeTransparency: 0 }, 1.0 )
-      wait( 2 )
-      Tween( title, { TextTransparency: 1, TextStrokeTransparency: 1 }, 1.0 )
-      wait( 1 )
+      Tween( title, { TextTransparency: 0, TextStrokeTransparency: 0 }, 0.7 )
+      wait( 1.5 )
+      Tween( title, { TextTransparency: 1, TextStrokeTransparency: 1 }, 0.7 )
+      wait( 0.7 )
    }
 
    title.Text = "Round " + roundNum
    subTitle.Text = "Tasks are worth " + value + " coins"
-   Tween( title, { TextTransparency: 0, TextStrokeTransparency: 0 }, 1.0 )
-   wait( 2 )
-   Tween( subTitle, { TextTransparency: 0, TextStrokeTransparency: 0 }, 1.0 )
+   Tween( title, { TextTransparency: 0, TextStrokeTransparency: 0 }, 0.5 )
+   wait( 1 )
+   Tween( subTitle, { TextTransparency: 0, TextStrokeTransparency: 0 }, 0.5 )
    wait( 2.0 )
    //Tween( baseFrame, { Transparency: 1 }, 1 )
-   wait( 1 )
 
-   Tween( title, { TextTransparency: 1, TextStrokeTransparency: 1 }, 1 )
-   Tween( subTitle, { TextTransparency: 1, TextStrokeTransparency: 1 }, 1 )
+   Tween( title, { TextTransparency: 1, TextStrokeTransparency: 1 }, 0.5 )
+   Tween( subTitle, { TextTransparency: 1, TextStrokeTransparency: 1 }, 0.5 )
 }
 
 export function DrawMatchScreen_Victory( playerInfos: Array<PlayerInfo>, impostorsWin: boolean, myWinningTeam: boolean, mySurvived: boolean, myWinnings: number, localWasInGame: boolean )
