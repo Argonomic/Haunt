@@ -825,6 +825,7 @@ export function DrawMatchScreen_Victory( playerInfos: Array<PlayerInfo>, imposto
       }
    }
 
+   let trans = new Map<Model, boolean>()
    let lineup: Array<Model> = []
    for ( let i = 0; i < lineupPlayerInfos.size(); i++ )
    {
@@ -838,7 +839,7 @@ export function DrawMatchScreen_Victory( playerInfos: Array<PlayerInfo>, imposto
          {
             case ROLE.ROLE_SPECTATOR_CAMPER:
             case ROLE.ROLE_SPECTATOR_IMPOSTOR:
-               SetCharacterTransparency( model, SPECTATOR_TRANS )
+               trans.set( model, true )
                break
          }
       }
@@ -846,6 +847,10 @@ export function DrawMatchScreen_Victory( playerInfos: Array<PlayerInfo>, imposto
    }
 
    ArrangeModelsInLineup( lineup, viewportFrame )
+   for ( let pair of trans )
+   {
+      SetCharacterTransparency( pair[0], SPECTATOR_TRANS )
+   }
 
    let animLineup = new AnimateLineup( viewportFrame, viewportCamera )
    wait( animLineup.GetArriveTime() )
@@ -870,7 +875,6 @@ export function DrawMatchScreen_Victory( playerInfos: Array<PlayerInfo>, imposto
 
    Tween( baseFrame, { Transparency: 1 }, 1.0 )
 }
-
 
 export function DrawMatchScreen_Escaped( playerInfo: PlayerInfo, myWinnings: number )
 {

@@ -382,13 +382,14 @@ function ServerGameThread( match: Match )
                      SetHealth( player, 100 )
                }
 
-               //if ( match.shState.roundNum <= 1 )
+               let cooldown = 6
+               if ( match.shState.roundNum > 1 )
+                  cooldown = 12
+
+               let players = match.GetLivingImpostors()
+               for ( let player of players )
                {
-                  let players = match.GetLivingImpostors()
-                  for ( let player of players )
-                  {
-                     DoCooldown( player, COOLDOWN_NAME_KILL, 6 )
-                  }
+                  DoCooldown( player, COOLDOWN_NAME_KILL, cooldown )
                }
 
                break
@@ -1376,9 +1377,16 @@ export function BroadcastSound( match: Match, id: number, roomName1: string, roo
 
    let players = GetAllConnectedPlayersInMatch( match )
 
-   for ( let otherPlayer of players )
+   let roomNames = new Map<string, boolean>()
+   roomNames.set( roomName1, true )
+   if ( roomName2 !== undefined )
+      roomNames.set( roomName2, true )
+
+   for ( let player of players )
    {
-      SV_SendRPC( "RPC_FromServer_PlaySound", match, otherPlayer, id, roomName1, roomName2 )
+      let currentRoomName = GetCurrentRoom( player ).name
+      if ( roomNames.has( currentRoomName ) )
+         SV_SendRPC( "RPC_FromServer_PlaySound", match, player, id )
    }
 }
 

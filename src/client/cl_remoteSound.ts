@@ -41,43 +41,39 @@ export function CL_RemoteSoundSetup()
    LoadSound( 260430117 )
 
    AddRPC( "RPC_FromServer_PlaySound",
-      function ( remoteId: number, room: string, room2?: string )
+      function ( remoteId: number )
       {
-         let sounds = GetRemoteSoundFromID( remoteId )
-         let rooms: Array<string> = [room]
-         if ( room2 !== undefined )
-            rooms.push( room2 )
-
-         let myRoom = GetCurrentRoom( LOCAL_PLAYER )
-         for ( let room of rooms )
-         {
-            for ( let soundID of sounds )
-            {
-               Thread(
-                  function ()
-                  {
-                     /*
-                     let part = new Instance( 'Part' )
-                     part.Anchored = true
-                     part.CanCollide = false
-                     part.Size = new Vector3( 5, 5, 5 )
-                     part.Transparency = 1
-                     part.Position = position
-                     part.Parent = Workspace
-                     part.Name = "SoundParent"
-                     */
-
-                     let sound = LoadSound( soundID )
-                     sound.RollOffMaxDistance = 45
-                     sound.Play()
-                     sound.Volume = 0.15
-                     //print( "length: " + sound.TimeLength )
-                     wait( sound.TimeLength )
-                     sound.Destroy()
-                  } )
-            }
-         }
+         PlayRemoteSound( remoteId )
       } )
 
 }
 
+export function PlayRemoteSound( remoteId: number )
+{
+   let sounds = GetRemoteSoundFromID( remoteId )
+   for ( let soundID of sounds )
+   {
+      Thread(
+         function ()
+         {
+            /*
+            let part = new Instance( 'Part' )
+            part.Anchored = true
+            part.CanCollide = false
+            part.Size = new Vector3( 5, 5, 5 )
+            part.Transparency = 1
+            part.Position = position
+            part.Parent = Workspace
+            part.Name = "SoundParent"
+            */
+
+            let sound = LoadSound( soundID )
+            sound.RollOffMaxDistance = 45
+            sound.Play()
+            sound.Volume = 0.15
+            //print( "length: " + sound.TimeLength )
+            wait( sound.TimeLength )
+            sound.Destroy()
+         } )
+   }
+} 

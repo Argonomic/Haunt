@@ -1,6 +1,6 @@
 import { RunService } from "@rbxts/services"
 
-export const TEST = ( RunService.IsStudio() || game.PlaceId === 5954656113 ) && false
+export const TEST = ( RunService.IsStudio() || game.PlaceId === 5954656113 ) && true
 
 export enum GAMEMODES
 {
@@ -11,7 +11,7 @@ export const GAME_MODE: GAMEMODES = GAMEMODES.MODE_ROUNDBASED
 
 export const DEV_SKIP_INTRO = TEST && false
 export const DEV_1_TASK = TEST && true
-export let DEV_FAST_TIMERS: boolean = TEST && true
+export let DEV_FAST_TIMERS: boolean = TEST && false
 
 // MATCHMAKING
 export const MATCHMAKE_SERVER_VERSION = 1
@@ -74,5 +74,5 @@ export const PLAYER_COLORS =
 
 export const ADMINS = ["Argonomic", "ArgonomicDev"]
 
-print( "SRV 2.1.21 1.2" )
+print( "SRV 2.1.21 1.11 kill cooldown" )
 print( " " )

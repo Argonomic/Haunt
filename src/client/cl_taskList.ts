@@ -24,6 +24,7 @@ class File
    taskLabels: Array<TextLabel> = []
    toggleButton: ToggleButton | undefined
    framePosition = new UDim2( 0, 0, 0, 0 )
+   lastSize = 0
 
    lastAssignmentCount = 0
 }
@@ -148,6 +149,9 @@ function RefreshTaskList()
    }
 
    let assignments = GetLocalAssignments()
+   let taskSizeIncrease = assignments.size() - file.lastSize
+   print( "taskSizeIncrease: " + taskSizeIncrease )
+   file.lastSize = assignments.size()
 
    if ( file.lastAssignmentCount !== assignments.size() )
    {
@@ -268,14 +272,11 @@ function RefreshTaskList()
             existingUI.Enabled = false
          } )
    }
-   else if ( !existingUI.Enabled && drawTasksArr.size() > 0 )
+   else if ( !existingUI.Enabled )
    {
-      Thread(
-         function ()
-         {
-            toggleButton.Open()
-            existingUI.Enabled = true
-         } )
-   }
+      existingUI.Enabled = true
 
+      if ( taskSizeIncrease > 0 )
+         toggleButton.Open()
+   }
 }
