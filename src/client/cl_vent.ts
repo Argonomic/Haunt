@@ -1,9 +1,9 @@
 import { Workspace } from "@rbxts/services"
 import { AddCallback_OnPlayerCharacterAncestryChanged } from "shared/sh_onPlayerConnect"
-import { AddCallback_OnRoomSetup, EDITOR_Vent, Room, VENTSOUNDID } from "shared/sh_rooms"
+import { AddCallback_OnRoomSetup, EDITOR_Vent, Room } from "shared/sh_rooms"
 import { GetLocalPlayer, GetPlayerFromDescendant, LoadSound } from "shared/sh_utils"
 import { GetPosition, PI } from "shared/sh_utils_geometry"
-import { AddPlayerGuiFolderExistsCallback } from "./cl_ui"
+import { AddPlayerGuiFolderExistsCallback, UIORDER } from "./cl_ui"
 import { GetBearingBetweenPoints } from "shared/sh_utils_geometry"
 import { SendRPC_Client } from "shared/sh_rpc"
 import { IsImpostorRole } from "shared/sh_gamestate"
@@ -14,8 +14,6 @@ const ARROW = 'rbxassetid://144168163'
 
 export function CL_VentSetup()
 {
-   LoadSound( VENTSOUNDID )
-
    let ui: ScreenGui | undefined
    let folder: Folder | undefined
 
@@ -74,6 +72,7 @@ export function CL_VentSetup()
       ui.Enabled = true
       ui.ResetOnSpawn = false
       ui.Parent = folder
+      ui.DisplayOrder = UIORDER.UIORDER_VENT
 
       let pos = GetPosition( vent.scr_vent_trigger )
       let [screenPos, _1] = camera.WorldToScreenPoint( pos )
@@ -85,8 +84,9 @@ export function CL_VentSetup()
       frame.Size = new UDim2( 0, bounds * 2, 0, bounds * 2 )
       frame.Position = new UDim2( 0, screenPos.X, 0, screenPos.Y )
       frame.AnchorPoint = new Vector2( 0.5, 0.5 )
-      frame.BackgroundTransparency = 0.85
+      frame.BackgroundTransparency = 1.0
 
+      /*
       let textLabel = new Instance( 'TextLabel' )
       textLabel.BackgroundTransparency = 1
       textLabel.Text = math.floor( pos.X ) + " " + math.floor( pos.Z )
@@ -97,6 +97,7 @@ export function CL_VentSetup()
       textLabel.TextScaled = true
       textLabel.TextColor3 = new Color3( 1, 1, 1 )
       textLabel.TextTransparency = 0.7
+      */
 
       //let roomName = ( vent.Parent as Instance ).Name
       //let doPrint = lastRoom !== roomName

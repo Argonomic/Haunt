@@ -52,6 +52,7 @@ class MatchScreenFrame
       Assert( baseFrameTemplate.Parent !== undefined, "1 baseFrameTemplate.Parent !== undefined" )
       let baseFrame = CloneChild( baseFrameTemplate ) as Editor_MatchScreenBaseFrame
       baseFrame.Parent = file.matchScreenUI
+      file.matchScreenUI.DisplayOrder = UIORDER.UIORDER_MATCHSCREEN
       baseFrame.Name = "BaseFrame: " + str
       Assert( baseFrame.ClassName === "Frame", "baseFrame.ClassName === 'Frame'" )
       let titleFrame = baseFrame.TitleFrame

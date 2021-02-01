@@ -198,7 +198,7 @@ export function PushPlayersApart( player1: Player, player2: Player )
          let dif = part1.Position.sub( part2.Position )
          dif = VectorNormalize( dif )
          dif = dif.mul( 15500 )
-         dif = new Vector3( dif.X, 50000, dif.Z )
+         dif = new Vector3( dif.X, 0, dif.Z )
          print( "dif: " + dif )
 
          let thrust1 = new Instance( 'BodyForce' )
@@ -207,12 +207,11 @@ export function PushPlayersApart( player1: Player, player2: Player )
 
          let thrust2 = new Instance( 'BodyForce' )
          thrust2.Parent = part2
-         let newDif = dif.mul( -0.8 )
-         thrust2.Force = new Vector3( newDif.X, dif.Y, newDif.Z )
+         let newDif = dif.mul( -1.0 )
+         thrust2.Force = new Vector3( newDif.X, 0, newDif.Z )
 
-         wait( 0.3 )
+         wait( 0.8 )
          thrust2.Destroy()
-         wait( 0.3 )
          thrust1.Destroy()
       } )
 

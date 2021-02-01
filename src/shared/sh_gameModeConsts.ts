@@ -29,6 +29,7 @@ export class GameModeConsts
    svFindMatchForPlayer: ( player: Player ) => void = function ( player: Player )
    { Assert( false, "Game modes must have svFindMatchForPlayer" ) }
 
+   gameTitle: string | undefined
    canPurchaseImpostor = false
    completeTasksBecomeImpostor = false
    hasPlayerNumber = false
@@ -42,6 +43,7 @@ export class GameModeConsts
    suddenDeath = false
    impostorBattle = true
    lastImpostorStanding = false
+   canReturnToLobby = true
 }
 
 export function GetMinPlayersForGame(): number

@@ -2,31 +2,38 @@ import { Workspace } from "@rbxts/services"
 import { AddNetVar } from "shared/sh_player_netvars"
 import { AddCooldown } from "./sh_cooldown"
 import { SetPlayerWalkSpeed, GetPlayerFromUserID, GetPlayerFromUserIDString } from "./sh_onPlayerConnect"
-import { MEETING_DISCUSS_TIME, MEETING_VOTE_TIME, PLAYER_WALKSPEED_SPECTATOR, PLAYER_WALKSPEED, SUDDEN_DEATH_TIME, DEV_SKIP_INTRO, INTRO_TIME, SKIP_INTRO_TIME, MEETING_VOTE_RESULTS, START_COUNTDOWN } from "./sh_settings"
+import { MEETING_DISCUSS_TIME, MEETING_VOTE_TIME, PLAYER_WALKSPEED_SPECTATOR, PLAYER_WALKSPEED, SUDDEN_DEATH_TIME, DEV_SKIP_INTRO, INTRO_TIME, SKIP_INTRO_TIME, MEETING_VOTE_RESULTS, START_COUNTDOWN, TASK_VALUE } from "./sh_settings"
 import { IsServer, Thread } from "./sh_utils"
 import { Assert } from "shared/sh_assert"
 import { GiveAbility, TakeAbility } from "./sh_ability"
 import { ABILITIES } from "./content/sh_ability_content"
 import { NETVAR_LAST_STASHED, NETVAR_SCORE, NETVAR_STASH } from "./sh_score"
 import { CreateSharedInt } from "./sh_sharedVar"
-import { GameModeConsts, GetGameModeConsts } from "./sh_gameModeConsts"
+import { GetGameModeConsts } from "./sh_gameModeConsts"
 
 export const NETVAR_JSON_ASSIGNMENTS = "JS_TL"
 export const NETVAR_JSON_GAMESTATE = "JS_GS"
 export const NETVAR_MEETINGS_CALLED = "N_MC"
 export const NETVAR_PURCHASED_IMPOSTOR = "N_PI"
-export const SHAREDVAR_GAMEMODE_CANREQLOBBY = "SHAREDVAR_GAMEMODE_CANREQLOBBY"
 
 export type USERID = number
 export type USERIDSTRING = string
 export type MATCHINDEX = number
+
+export enum REMOTESOUNDS
+{
+   REMOTESOUND_VENT = 0,
+   REMOTESOUND_SPLAT,
+   REMOTESOUND_IMPOSTORHIT,
+   REMOTESOUND_SIZE,
+}
 
 export enum PICKUPS
 {
    PICKUP_COIN = 0,
 }
 
-export enum USETYPES 
+export enum USETYPES
 {
    USETYPE_TASK = 0,
    USETYPE_KILL,
@@ -187,12 +194,12 @@ export class NS_SharedMatchState
 
    _gameStateChangedTime = 0
    corpses: Array<NS_Corpse> = []
+   roundNum = 0 // whenever a meeting is called and there is a new kill, a round passes
 }
 
 class ServerOnlyState
 {
    timeNextWaitingCoins = 0
-   roundsPassed = 0 // whenever a meeting is called and there is a new kill, a round passes
    previouslyLivingCampers = 0
    assignments = new Map<Player, Array<Assignment>>()
    updateTracker = 0
@@ -283,6 +290,14 @@ export class Match
          {
             if ( impostors >= campers )
                return GAMERESULTS.RESULTS_SUDDEN_DEATH
+         }
+         else
+         {
+            if ( campers <= impostors )
+            {
+               if ( !gmc.lastImpostorStanding || impostors === 1 )
+                  return GAMERESULTS.RESULTS_IMPOSTORS_WIN
+            }
          }
 
          return GAMERESULTS.RESULTS_STILL_PLAYING
@@ -490,7 +505,18 @@ export class Match
 
    public GetCampers(): Array<Player>
    {
-      return this.GetPlayersOfRole( ROLE.ROLE_CAMPER ).concat( this.GetPlayersOfRole( ROLE.ROLE_SPECTATOR_CAMPER ) )
+      let match = this
+      return match.GetAllPlayers().filter( function ( player )
+      {
+         switch ( match.GetPlayerRole( player ) )
+         {
+            case ROLE.ROLE_CAMPER:
+            case ROLE.ROLE_SPECTATOR_CAMPER:
+            case ROLE.ROLE_SPECTATOR_CAMPER_ESCAPED:
+               return true
+         }
+         return false
+      } )
    }
 
    public GetLivingCampers(): Array<Player>
@@ -625,8 +651,6 @@ export function SH_GameStateSetup()
    let gmc = GetGameModeConsts()
    AddCooldown( COOLDOWN_NAME_KILL, gmc.cooldownKill )
    AddCooldown( COOLDOWN_NAME_MEETING, gmc.meetingCooldown )
-
-   CreateSharedInt( SHAREDVAR_GAMEMODE_CANREQLOBBY, 0 )
 
    AddRoleChangeCallback( UpdatePlayerAbilities )
 }
@@ -836,3 +860,7 @@ export function CanUseTask( match: Match, player: Player ): boolean
    return false
 }
 
+export function GetTaskValueForRound( roundNum: number ): number
+{
+   return math.max( 5, TASK_VALUE + math.floor( ( roundNum - 1 ) * TASK_VALUE ) )
+}

@@ -1,12 +1,12 @@
 import { HttpService, Workspace } from "@rbxts/services"
-import { ROLE, Match, NETVAR_JSON_GAMESTATE, USETYPES, GAME_STATE, GetVoteResults, MEETING_TYPE, AddRoleChangeCallback, Assignment, AssignmentIsSame, NETVAR_JSON_ASSIGNMENTS, PlayerInfo, USERID, NS_SharedMatchState, ExecRoleChangeCallbacks } from "shared/sh_gamestate"
+import { ROLE, Match, NETVAR_JSON_GAMESTATE, USETYPES, GAME_STATE, GetVoteResults, MEETING_TYPE, AddRoleChangeCallback, Assignment, AssignmentIsSame, NETVAR_JSON_ASSIGNMENTS, PlayerInfo, USERID, NS_SharedMatchState, ExecRoleChangeCallbacks, GetTaskValueForRound } from "shared/sh_gamestate"
 import { AddCallback_OnPlayerCharacterAdded, AddCallback_OnPlayerConnected, ClonePlayerModel, GetPlayerFromUserID } from "shared/sh_onPlayerConnect"
 import { AddNetVarChangedCallback, GetNetVar_String } from "shared/sh_player_netvars"
 import { GetUsableByType } from "shared/sh_use"
-import { ArrayRandom, GetExistingFirstChildWithNameAndClassName, GetFirstChildWithName, GetLocalPlayer, LoadSound, RandomFloatRange, RecursiveOnChildren, Resume, SetCharacterTransparency, SetPlayerTransparency, Thread, UserIDToPlayer, WaitThread } from "shared/sh_utils"
+import { ArrayRandom, GetFirstChildWithName, GetLocalPlayer, LoadSound, RandomFloatRange, RecursiveOnChildren, Resume, SetCharacterTransparency, SetPlayerTransparency, Thread, UserIDToPlayer, WaitThread } from "shared/sh_utils"
 import { Assert } from "shared/sh_assert"
 import { UpdateMeeting } from "./cl_meeting"
-import { DrawMatchScreen_EmergencyMeeting, DrawMatchScreen_Escaped, DrawMatchScreen_VoteResults } from "./content/cl_matchScreen_content"
+import { DrawMatchRound, DrawMatchScreen_EmergencyMeeting, DrawMatchScreen_Escaped, DrawMatchScreen_VoteResults } from "./content/cl_matchScreen_content"
 import { GetLastStashed } from "shared/sh_score"
 import { DEV_SKIP_INTRO, SPECTATOR_TRANS } from "shared/sh_settings"
 import { SetLocalViewToRoom, GetRoom } from "./cl_rooms"
@@ -15,7 +15,7 @@ import { CanKill, CanReportBody, SharedKillGetter } from "shared/content/sh_use_
 import { CoinFloatsAway, COIN_TYPE, GetCoinDataFromType, GetCoinFolder, HasCoinFolder } from "shared/sh_coins"
 import { DrawRisingNumberFromWorldPos } from "./cl_coins"
 import { AddRPC } from "shared/sh_rpc"
-import { GetGameModeConsts } from "shared/sh_gameModeConsts"
+import { GameModeConsts, GetGameModeConsts } from "shared/sh_gameModeConsts"
 
 const LOCAL_PLAYER = GetLocalPlayer()
 
@@ -33,6 +33,8 @@ class ClientCorpseModel
 
 class File
 {
+   lastKnownRound = -1
+
    readonly clientMatch = new Match()
 
    corpseToCorpseModel = new Map<USERID, ClientCorpseModel>()
@@ -57,6 +59,7 @@ class File
 }
 
 let file = new File()
+
 {
    let playerInfo = new PlayerInfo( LOCAL_PLAYER.UserId )
    file.clientMatch.shState.playerToInfo.set( LOCAL_PLAYER.UserId + "", playerInfo )
@@ -463,6 +466,7 @@ export function GetCorpseClientModel( userId: USERID ): ClientCorpseModel | unde
 
 function CLGameStateChanged( match: Match, oldGameState: number )
 {
+   let gmc = GetGameModeConsts()
    let newGameState = match.GetGameState()
    print( "\nGAME STATE CHANGED FROM " + oldGameState + " TO " + newGameState )
 
@@ -484,60 +488,63 @@ function CLGameStateChanged( match: Match, oldGameState: number )
 
          break
 
-
       case GAME_STATE.GAME_STATE_MEETING_VOTE:
-         print( "LEAVING GAME STATE GAME_STATE_MEETING_VOTE" )
-         let voteResults = GetVoteResults( match.GetVotes() )
-         let voted = voteResults.voted
-         let votedAndReceivedNoVotesMap = new Map<Player, boolean>()
-         for ( let voter of voted )
+         let newState = match.GetGameState()
+         if ( newState >= GAME_STATE.GAME_STATE_PLAYING )
          {
-            votedAndReceivedNoVotesMap.set( voter, true )
+            print( "LEAVING GAME STATE GAME_STATE_MEETING_VOTE" )
+            let voteResults = GetVoteResults( match.GetVotes() )
+            let voted = voteResults.voted
+            let votedAndReceivedNoVotesMap = new Map<Player, boolean>()
+            for ( let voter of voted )
+            {
+               votedAndReceivedNoVotesMap.set( voter, true )
+            }
+
+            for ( let receiver of voteResults.receivedAnyVotes )
+            {
+               if ( votedAndReceivedNoVotesMap.has( receiver ) )
+                  votedAndReceivedNoVotesMap.delete( receiver )
+            }
+
+            let votedAndReceivedNoVotes: Array<Player> = []
+            for ( let pair of votedAndReceivedNoVotesMap )
+            {
+               votedAndReceivedNoVotes.push( pair[0] )
+            }
+
+            let wasImpostor = false
+            if ( voteResults.highestRecipients.size() === 1 )
+               wasImpostor = match.IsImpostor( voteResults.highestRecipients[0] )
+
+            let impostorsRemaining = match.shState.startingImpostorCount
+            for ( let player of match.GetAllPlayers() )
+            {
+               if ( match.IsImpostor( player ) && match.IsSpectator( player ) )
+                  impostorsRemaining--
+            }
+
+            print( "\N STARTING PLAYER COUNT " + match.shState.dbg_spc )
+            print( "Impostors remaining " + impostorsRemaining )
+            print( "Players remaining: " + match.GetAllPlayers().size() )
+            for ( let player of match.GetAllPlayers() )
+            {
+               print( player.Name + " role " + match.GetPlayerRole( player ) )
+            }
+
+            Thread( function ()
+            {
+               DrawMatchScreen_VoteResults(
+                  voteResults.skipTie,
+                  voteResults.highestRecipients,
+                  voteResults.receivedAnyVotes,
+                  votedAndReceivedNoVotes,
+                  match.shState.highestVotedScore,
+                  wasImpostor,
+                  impostorsRemaining
+               )
+            } )
          }
-
-         for ( let receiver of voteResults.receivedAnyVotes )
-         {
-            if ( votedAndReceivedNoVotesMap.has( receiver ) )
-               votedAndReceivedNoVotesMap.delete( receiver )
-         }
-
-         let votedAndReceivedNoVotes: Array<Player> = []
-         for ( let pair of votedAndReceivedNoVotesMap )
-         {
-            votedAndReceivedNoVotes.push( pair[0] )
-         }
-
-         let wasImpostor = false
-         if ( voteResults.highestRecipients.size() === 1 )
-            wasImpostor = match.IsImpostor( voteResults.highestRecipients[0] )
-
-         let impostorsRemaining = match.shState.startingImpostorCount
-         for ( let player of match.GetAllPlayers() )
-         {
-            if ( match.IsImpostor( player ) && match.IsSpectator( player ) )
-               impostorsRemaining--
-         }
-
-         print( "\N STARTING PLAYER COUNT " + match.shState.dbg_spc )
-         print( "Impostors remaining " + impostorsRemaining )
-         print( "Players remaining: " + match.GetAllPlayers().size() )
-         for ( let player of match.GetAllPlayers() )
-         {
-            print( player.Name + " role " + match.GetPlayerRole( player ) )
-         }
-
-         Thread( function ()
-         {
-            DrawMatchScreen_VoteResults(
-               voteResults.skipTie,
-               voteResults.highestRecipients,
-               voteResults.receivedAnyVotes,
-               votedAndReceivedNoVotes,
-               match.shState.highestVotedScore,
-               wasImpostor,
-               impostorsRemaining
-            )
-         } )
 
          break
    }
@@ -545,6 +552,18 @@ function CLGameStateChanged( match: Match, oldGameState: number )
    // entering this match state
    switch ( newGameState )
    {
+      case GAME_STATE.GAME_STATE_PLAYING:
+         if ( file.lastKnownRound !== match.shState.roundNum )
+         {
+            file.lastKnownRound = match.shState.roundNum
+            Thread(
+               function ()
+               {
+                  DrawMatchRound( match.shState.roundNum, GetTaskValueForRound( match.shState.roundNum ), gmc.gameTitle )
+               } )
+         }
+         break
+
       case GAME_STATE.GAME_STATE_MEETING_DISCUSS:
          match.ClearVotes()
          WaitThread( function ()

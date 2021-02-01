@@ -1,14 +1,12 @@
 import { Assert } from "shared/sh_assert"
-import { GAME_STATE, ROLE, Match, SHAREDVAR_GAMEMODE_CANREQLOBBY, IsCamperRole, IsSpectatorRole, } from "shared/sh_gamestate"
+import { GAME_STATE, ROLE, Match, IsCamperRole, IsSpectatorRole, } from "shared/sh_gamestate"
 import { SpawnRandomCoins } from "server/sv_coins"
 import { GetTotalValueOfWorldCoins } from "shared/sh_coins"
 import { SetPlayerRole, SetGameState, GetMatchIndex, DestroyMatch, GetAllPlayersInMatchWithCharacters, GetAllConnectedPlayersInMatch, HandleVoteResults, AddPlayer, GetMatches, CreateMatch, SV_SendRPC, UpdateGame, StartMatchWithNormalImpostorsAndCampers, AssignTasks, GiveExitTask, MatchPutPlayersInRoom } from "../sv_gameState"
 import { ResetAllCooldownTimes } from "shared/sh_cooldown"
-import { SetSharedVarInt } from "shared/sh_sharedVar"
 import { GetGameModeConsts, SetGameModeConsts } from "shared/sh_gameModeConsts"
 import { CreateGameModeConsts } from "shared/content/sh_gameModeConsts_content"
 import { GetCurrentRoom, PlayerHasCurrentRoom } from "server/sv_rooms"
-import { Players } from "@rbxts/services"
 
 export function SV_GameMode_PersistentSetup()
 {
@@ -18,7 +16,6 @@ export function SV_GameMode_PersistentSetup()
    gmc.svFindMatchForPlayer = FindMatchForPlayer
 
    SetGameModeConsts( gmc )
-   SetSharedVarInt( SHAREDVAR_GAMEMODE_CANREQLOBBY, 1 )
 }
 
 function GameStateThink( match: Match )
@@ -88,7 +85,7 @@ function GameStateChanged( match: Match, oldGameState: GAME_STATE )
       case GAME_STATE.GAME_STATE_PLAYING:
          match.ClearVotes()
 
-         let toSpawn = 100 + match.GetSVState().roundsPassed * 60
+         let toSpawn = 100 + match.shState.roundNum * 60
          toSpawn -= GetTotalValueOfWorldCoins( match )
          if ( toSpawn > 0 )
             SpawnRandomCoins( match, toSpawn )

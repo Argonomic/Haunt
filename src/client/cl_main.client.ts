@@ -50,6 +50,7 @@ import { CL_StoreSetup } from "./cl_store"
 import { CL_VentSetup } from "./cl_vent"
 import { SH_RoomsSetup } from "shared/sh_rooms"
 import { CL_RemoteSoundSetup } from "./cl_remoteSound"
+import { CL_NewsUISetup } from "./cl_newsUI"
 
 class File
 {
@@ -130,6 +131,7 @@ CL_WaitingStartSetup()
 CL_UseContentSetup()
 CL_StoreSetup()
 CL_RemoteSoundSetup()
+CL_NewsUISetup()
 
 SH_OnPlayerConnectSetup()
 

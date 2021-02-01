@@ -1,28 +1,14 @@
-import { AddCallback_OnRoomSetup, EDITOR_Vent, Room, VENTSOUNDID } from "shared/sh_rooms"
+import { REMOTESOUNDS } from "shared/sh_gamestate"
+import { AddCallback_OnRoomSetup, EDITOR_Vent, Room } from "shared/sh_rooms"
 import { AddRPC } from "shared/sh_rpc"
 import { Tween } from "shared/sh_tween"
-import { GetHumanoidRootPart, LoadSound, Thread } from "shared/sh_utils"
+import { GetHumanoidRootPart, Thread } from "shared/sh_utils"
 import { GetPosition } from "shared/sh_utils_geometry"
 import { BroadcastSound, PlayerToMatch, TellOtherPlayersInMatchThatPlayersPutInRoom } from "./sv_gameState"
 import { GetRoomByName } from "./sv_rooms"
 
 export function SV_VentSetup()
 {
-   /*
-   Thread(
-      function ()
-      {
-         let sound = LoadSound( VENTSOUNDID )
-         wait( 5 )
-         for ( ; ; )
-         {
-            sound.Play()
-            wait( 0.1 )
-            print( sound.TimeLength )
-            wait( 2 )
-         }
-      } )
-   */
    let ventsByRoom = new Map<string, EDITOR_Vent>()
    let ventsToPosition = new Map<EDITOR_Vent, CFrame>()
 
@@ -30,7 +16,6 @@ export function SV_VentSetup()
    {
       ventsByRoom.set( room.name, vent )
       ventsToPosition.set( vent, vent.Top.CFrame.add( new Vector3( 0, 0, 0 ) ) )
-      print( "vent.scr_vent_trigger in " + room.name + " is " + vent.scr_vent_trigger.ClassName )
       /*
       vent.scr_vent_trigger.Touched.Connect( function ( toucher )
       {
@@ -98,7 +83,7 @@ export function SV_VentSetup()
                let match = PlayerToMatch( player )
                TellOtherPlayersInMatchThatPlayersPutInRoom( match, [player], room )
 
-               BroadcastSound( match, VENTSOUNDID, fromRoomName, toRoomName )
+               BroadcastSound( match, REMOTESOUNDS.REMOTESOUND_VENT, fromRoomName, toRoomName )
             } )
       } )
 }

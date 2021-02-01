@@ -1,6 +1,6 @@
 import { RunService } from "@rbxts/services"
 
-export const TEST = ( RunService.IsStudio() || game.PlaceId === 5954656113 ) && true
+export const TEST = ( RunService.IsStudio() || game.PlaceId === 5954656113 ) && false
 
 export enum GAMEMODES
 {
@@ -15,7 +15,7 @@ export let DEV_FAST_TIMERS: boolean = TEST && true
 
 // MATCHMAKING
 export const MATCHMAKE_SERVER_VERSION = 1
-export let MATCHMAKE_PLAYERCOUNT_STARTSERVER = 10
+export let MATCHMAKE_PLAYERCOUNT_STARTSERVER = 50
 
 export const MATCHMAKE_PLAYER_CAN_MATCHMAKE_TIME = 1
 export const MATCHMAKE_PLAYER_WAITING_FOR_FRIEND_TIME = 45
@@ -48,6 +48,7 @@ export const STORE_BUY_IMPOSTOR = 1000
 
 export let MEETING_DISCUSS_TIME = 10
 export let COOLDOWNTIME_SABOTAGE_LIGHTS = 70
+export let COOLDOWNTIME_IMPOSTOR_HIT_KILL = 5 // an impostor hits another impostor and gets a lower kill cooldown
 
 if ( DEV_FAST_TIMERS )
 {
@@ -73,5 +74,5 @@ export const PLAYER_COLORS =
 
 export const ADMINS = ["Argonomic", "ArgonomicDev"]
 
-print( "SRV 1.29.21 1.0 merged in coin fixes" )
+print( "SRV 2.1.21 1.2" )
 print( " " )

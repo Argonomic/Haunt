@@ -725,6 +725,16 @@ export function FilterHasCharacters( players: Array<Player> ): Array<Player>
    } )
 }
 
+export function FilterHasCharactersAndPrimaryPart( players: Array<Player> ): Array<Player>
+{
+   return players.filter( function ( player )
+   {
+      if ( player.Character === undefined )
+         return false
+      return player.Character.PrimaryPart !== undefined
+   } )
+}
+
 export function TeleportPlayersToLobby( players: Array<Player>, msg: string )
 {
    print( "Teleport " + players.size() + " players to lobby" )

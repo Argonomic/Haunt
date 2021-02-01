@@ -6,6 +6,9 @@ import { Assert } from "shared/sh_assert"
 import { LiveName, AddPlayerGuiFolderExistsCallback, UIORDER, CreateCalloutStyleTextLabel } from "./cl_ui"
 import { Tween } from "shared/sh_tween"
 import { GetPosition } from "shared/sh_utils_geometry"
+import { AddNetVarChangedCallback } from "shared/sh_player_netvars"
+import { GAME_STATE, NETVAR_JSON_GAMESTATE } from "shared/sh_gamestate"
+import { GetLocalMatch } from "./cl_gamestate"
 
 const SCR_FLOOR = "scr_floor"
 const SCR_FLOOR_NONAME = "scr_floor_noname"
@@ -130,7 +133,16 @@ export function CL_MinimapSetup()
          mapIcon.textLabel.Parent = baseFrame
       }
 
-      minimapUI.Enabled = true
+      minimapUI.Enabled = false
+
+      AddNetVarChangedCallback( NETVAR_JSON_GAMESTATE,
+         function ()
+         {
+            wait() // for gamestate
+            minimapUI.Enabled = GetLocalMatch().GetGameState() >= GAME_STATE.GAME_STATE_PLAYING
+         } )
+
+
       let frames: Array<TextLabel> = []
       let background: Array<TextLabel> = []
       let connectorArt: Array<TextLabel> = []

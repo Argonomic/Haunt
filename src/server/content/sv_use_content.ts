@@ -1,15 +1,16 @@
 import { DamagePlayer, GetHealth, KillPlayer, Thread, Wait, } from "shared/sh_utils"
-import { GAME_STATE, NS_Corpse, USETYPES, COOLDOWN_NAME_KILL, MEETING_TYPE, NETVAR_MEETINGS_CALLED, CanUseTask } from "shared/sh_gamestate"
+import { GAME_STATE, NS_Corpse, USETYPES, COOLDOWN_NAME_KILL, MEETING_TYPE, NETVAR_MEETINGS_CALLED, CanUseTask, REMOTESOUNDS } from "shared/sh_gamestate"
 import { GetUsableByType, USABLETYPES } from "shared/sh_use"
-import { SetGameState, UpdateGame, PlayerHasUnfinishedAssignment, PlayerHasAssignments, PlayerToMatch, SV_SendRPC, SetPlayerKilled } from "server/sv_gameState"
+import { SetGameState, UpdateGame, PlayerHasUnfinishedAssignment, PlayerHasAssignments, PlayerToMatch, SV_SendRPC, SetPlayerKilled, BroadcastSound } from "server/sv_gameState"
 import { GetCurrentRoom } from "server/sv_rooms"
-import { DoCooldown, ResetCooldownTime } from "shared/sh_cooldown"
+import { DoCooldown, GetPlayerCooldownTimeRemaining, ResetCooldownTime } from "shared/sh_cooldown"
 import { SetPlayerWalkSpeed } from "shared/sh_onPlayerConnect"
 import { GetNetVar_Number, SetNetVar } from "shared/sh_player_netvars"
 import { CanCallMeeting, CanReportBody, SharedKillGetter } from "shared/content/sh_use_content"
 import { GetPosition, PushPlayersApart } from "shared/sh_utils_geometry"
 import { SetPlayerSpawnLocation } from "server/sv_playerSpawnLocation"
 import { GetGameModeConsts } from "shared/sh_gameModeConsts"
+import { COOLDOWNTIME_IMPOSTOR_HIT_KILL } from "shared/sh_settings"
 
 export function SV_UseContentSetup()
 {
@@ -74,13 +75,18 @@ export function SV_UseContentSetup()
          else
          {
             // impostor push, red screen
-            DamagePlayer( target, 34 ) // just hurt impostors
+            DamagePlayer( target, 66 ) // just hurt impostors
+            //if ( GetHealth( target ) > 0 )
             PushPlayersApart( target, player )
-            DoCooldown( player, COOLDOWN_NAME_KILL, 2.5 )
+            DoCooldown( player, COOLDOWN_NAME_KILL, COOLDOWNTIME_IMPOSTOR_HIT_KILL )
+            //if ( GetPlayerCooldownTimeRemaining( target, COOLDOWN_NAME_KILL ) > COOLDOWNTIME_IMPOSTOR_HIT_KILL )
+            DoCooldown( target, COOLDOWN_NAME_KILL, COOLDOWNTIME_IMPOSTOR_HIT_KILL )
+            BroadcastSound( match, REMOTESOUNDS.REMOTESOUND_IMPOSTORHIT, GetCurrentRoom( player ).name )
          }
 
          if ( GetHealth( target ) <= 0 )
          {
+            BroadcastSound( match, REMOTESOUNDS.REMOTESOUND_SPLAT, GetCurrentRoom( player ).name )
             SetPlayerSpawnLocation( target, GetPosition( target ) )
             SetPlayerKilled( match, target, player )
             ResetCooldownTime( player, COOLDOWN_NAME_KILL )
@@ -104,9 +110,8 @@ export function SV_UseContentSetup()
                      } )
                }
             }
+            UpdateGame( match )
          }
-
-         UpdateGame( match )
       }
 
 

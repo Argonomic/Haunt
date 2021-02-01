@@ -1,11 +1,11 @@
 import { GetFirstChildWithNameAndClassName, GetLocalPlayer, Thread } from "shared/sh_utils";
 import { GetLocalMatch } from "./cl_gamestate";
-import { ROLE, NETVAR_JSON_GAMESTATE, IsSpectatorRole, GAME_STATE, SHAREDVAR_GAMEMODE_CANREQLOBBY } from "shared/sh_gamestate";
+import { ROLE, NETVAR_JSON_GAMESTATE, IsSpectatorRole, GAME_STATE } from "shared/sh_gamestate";
 import { AddPlayerGuiFolderExistsCallback, ToggleButton, UIORDER } from "./cl_ui";
 import { AddNetVarChangedCallback } from "shared/sh_player_netvars";
 import { AddCallback_OnPlayerCharacterAncestryChanged } from "shared/sh_onPlayerConnect";
 import { SendRPC_Client } from "shared/sh_rpc";
-import { GetSharedVarInt } from "shared/sh_sharedVar";
+import { GetGameModeConsts } from "shared/sh_gameModeConsts";
 
 const LOCAL_PLAYER = GetLocalPlayer()
 
@@ -56,8 +56,8 @@ export function CL_ReturnToLobbySetup()
 
       frame.Spectate.MouseButton1Click.Connect( function ()
       {
-         toggleButton.Close()
-         //ReturnToLobbyUI.Enabled = false
+         ReturnToLobbyUI.Enabled = false
+         //toggleButton.Close()
       } )
 
       frame.LeaveMatch.MouseButton1Click.Connect( function ()
@@ -88,9 +88,8 @@ export function CL_ReturnToLobbySetup()
    AddNetVarChangedCallback( NETVAR_JSON_GAMESTATE,
       function ()
       {
-         if ( GetSharedVarInt( SHAREDVAR_GAMEMODE_CANREQLOBBY ) !== 1 )
+         if ( !GetGameModeConsts().canReturnToLobby )
             return
-
          if ( file.returnToLobbyUI === undefined )
             return
          let ui = file.returnToLobbyUI as Editor_ReturnToLobbyUI

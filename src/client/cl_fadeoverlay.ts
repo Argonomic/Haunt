@@ -331,10 +331,9 @@ export function CL_FadeOverlaySetup()
          }
 
          if ( doRefreshFailsafe )
+         {
             refreshFailsafe = Workspace.DistributedGameTime + 5
 
-         if ( doRefreshFailsafe )
-         {
             // rehide all coins
             visibleCoins.clear()
 
@@ -354,6 +353,26 @@ export function CL_FadeOverlaySetup()
                SetPlayerTransparency( viewPlayer, SPECTATOR_TRANS )
             else
                SetPlayerTransparency( viewPlayer, 0 )
+
+            // hide players that aren't in this game
+            let matchPlayers = match.GetAllPlayers()
+            let hidePlayers = UserIDToPlayer()
+            for ( let player of matchPlayers )
+            {
+               if ( hidePlayers.has( player.UserId ) )
+                  hidePlayers.delete( player.UserId )
+            }
+
+            let hideTrans
+            if ( match.GetGameState() >= GAME_STATE.GAME_STATE_INTRO )
+               hideTrans = 1
+            else
+               hideTrans = SPECTATOR_TRANS
+
+            for ( let pair of hidePlayers )
+            {
+               SetPlayerTransparency( pair[1], hideTrans )
+            }
          }
 
          let localViewRoom = GetCurrentRoom( viewPlayer )
@@ -438,19 +457,6 @@ export function CL_FadeOverlaySetup()
                         playerToLabel.delete( player )
                      }
                   }
-               }
-
-               let matchPlayers = match.GetAllPlayers()
-               let hidePlayers = UserIDToPlayer()
-               for ( let player of matchPlayers )
-               {
-                  if ( hidePlayers.has( player.UserId ) )
-                     hidePlayers.delete( player.UserId )
-               }
-
-               for ( let pair of hidePlayers )
-               {
-                  SetPlayerTransparency( pair[1], 1 )
                }
             }
 

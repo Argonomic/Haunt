@@ -92,21 +92,19 @@ class PlayerButtonGroup
       playerName.Text = player.Name
       let playerInfo = match.GetPlayerInfo( player )
       this.playerInfo = playerInfo
-      if ( playerInfo.playernum >= 0 )
+
+      if ( GetGameModeConsts().hasPlayerNumber && playerInfo.playernum >= 0 && playerInfo.playernum < PLAYER_COLORS.size() )
       {
          let color = PLAYER_COLORS[playerInfo.playernum]
          this.frameButton.BackgroundColor3 = LightenColor( color, 0.75 )
-      }
-
-      if ( GetGameModeConsts().hasPlayerNumber && playerInfo.playernum >= 0 )
-      {
-         let color = PLAYER_COLORS[playerInfo.playernum]
          playerNumber.Text = PlayerNumToGameViewable( playerInfo.playernum )
          playerNumber.TextColor3 = color
       }
       else
       {
          playerNumber.Visible = false
+         if ( playerInfo._userid === LOCAL_PLAYER.UserId )
+            this.frameButton.BackgroundColor3 = new Color3( 1, 1, 0.75 )
       }
 
       let viewportFrame = new Instance( 'ViewportFrame' )
@@ -183,9 +181,6 @@ class ButtonGroup
 
          voteImageClone.Position = new UDim2( voteImage.Position.X.Scale, voteImage.AbsoluteSize.X * ( i * 1.25 ), voteImage.Position.Y.Scale, 0 )
          voteImage.Visible = false
-
-         if ( !hasPlayerNumber )
-            AddPlayerToViewport( voteImageClone.VoteViewport, players[i] )
       }
       voteImage.Destroy()
 
@@ -261,6 +256,7 @@ class ActiveMeeting
       let playerButtonTemplate = GetFirstChildWithNameAndClassName( playerBackground, 'PlayerButton', 'TextButton' ) as EDITOR_PlayerFrameButton
       this.playerButtonTemplate = playerButtonTemplate
       playerButtonTemplate.Visible = false
+      //playerButtonTemplate.Size = new UDim2( 0, playerBackground.AbsoluteSize.X * 0.45, 0, playerBackground.AbsoluteSize.Y * 0.18 )
 
       let visible = true
       let meetingDetails = match.GetMeetingDetails()
@@ -406,8 +402,12 @@ class ActiveMeeting
          let row = math.floor( index / 2 )
 
          let scaleX = this.playerButtonTemplate.Position.X.Scale
-         let scaleY = this.playerButtonTemplate.Position.Y.Scale
+         let scaleY = this.playerButtonTemplate.Position.Y.Scale + row * 0.029
+         if ( odd )
+            scaleX += 0.48
+         playerButtonGroup.frameButton.Position = new UDim2( scaleX, 0, scaleY, 0 )
 
+         /*
          let offsetY = this.playerButtonTemplate.Position.Y.Scale + row * this.playerButtonTemplate.AbsoluteSize.Y
          let offsetX = 0
 
@@ -415,6 +415,7 @@ class ActiveMeeting
             offsetX = this.playerButtonTemplate.AbsoluteSize.X * 1.1
 
          playerButtonGroup.frameButton.Position = new UDim2( scaleX, offsetX, scaleY, offsetY )
+         */
       }
 
       let render = RunService.RenderStepped.Connect( function ()
@@ -495,26 +496,30 @@ class ActiveMeeting
          else
          {
             voteObject = voteImage.VoteViewport
+            AddPlayerToViewport( voteImage.VoteViewport, GetPlayerFromUserID( voterInfo._userid ) )
          }
 
          let player = GetPlayerFromUserID( voterInfo._userid )
          let baseFrame = this.frame
+
          if ( !this.drewVote.has( player ) )
          {
             this.drewVote.set( player, true )
             Thread( function ()
             {
                let pnum = voterButtonGroup.frameButton.PlayerNumber
-               let flyingNumber = voteObject.Clone()
-               flyingNumber.Parent = baseFrame
-               flyingNumber.Visible = true
-               flyingNumber.AnchorPoint = new Vector2( 0.0, 0.0 )
-               flyingNumber.ZIndex = 100
-               let pos = pnum.AbsolutePosition.sub( baseFrame.AbsolutePosition )
-               flyingNumber.Position = new UDim2( 0, pos.X, 0, pos.Y )
+               let flyingVoteObject = voteObject.Clone()
+               flyingVoteObject.Parent = baseFrame
+               flyingVoteObject.Visible = true
+               flyingVoteObject.AnchorPoint = new Vector2( 0.0, 0.0 )
+               flyingVoteObject.ZIndex = 100
 
-               let startSize = pnum.AbsoluteSize
-               flyingNumber.Size = new UDim2( 0, startSize.X, 0, startSize.Y )
+               let pos = voterButtonGroup.frameButton.PlayerImage.AbsolutePosition // pnum.AbsolutePosition
+               pos = pos.sub( baseFrame.AbsolutePosition )
+               flyingVoteObject.Position = new UDim2( 0, pos.X, 0, pos.Y )
+
+               let startSize = voterButtonGroup.frameButton.PlayerImage.AbsoluteSize // pnum.AbsoluteSize
+               flyingVoteObject.Size = new UDim2( 0, startSize.X, 0, startSize.Y )
 
                let targetPos = voteObject.AbsolutePosition.sub( baseFrame.AbsolutePosition )
                let targetVec = new UDim2( 0, targetPos.X, 0, targetPos.Y )
@@ -522,11 +527,11 @@ class ActiveMeeting
                let endSizeUDim2 = new UDim2( 0, endSize.X, 0, endSize.Y )
 
                let time = 1.5
-               Tween( flyingNumber, { Position: targetVec, Size: endSizeUDim2 }, time, Enum.EasingStyle.Quart, Enum.EasingDirection.InOut )
+               Tween( flyingVoteObject, { Position: targetVec, Size: endSizeUDim2 }, time, Enum.EasingStyle.Quart, Enum.EasingDirection.InOut )
                wait( time )
 
-               if ( flyingNumber !== undefined )
-                  flyingNumber.Destroy()
+               if ( flyingVoteObject !== undefined )
+                  flyingVoteObject.Destroy()
                if ( voteImage !== undefined )
                {
                   voteImage.Visible = true
@@ -724,9 +729,27 @@ function SortByLiving( a: PlayerButtonGroup, b: PlayerButtonGroup ): boolean
 
 function AddPlayerToViewport( viewportFrame: ViewportFrame, player: Player )
 {
-   let viewportCamera = new Instance( 'Camera' )
-   viewportFrame.CurrentCamera = viewportCamera
-   viewportCamera.Parent = viewportFrame
+   let children = viewportFrame.GetChildren()
+   let viewportCamera: Camera | undefined
+   for ( let child of children )
+   {
+      switch ( child.ClassName )
+      {
+         case 'Camera':
+            viewportCamera = child as Camera
+            break
+         case 'Model':
+            child.Destroy()
+            break
+      }
+   }
+
+   if ( viewportCamera === undefined )
+   {
+      viewportCamera = new Instance( 'Camera' )
+      viewportFrame.CurrentCamera = viewportCamera
+      viewportCamera.Parent = viewportFrame
+   }
 
    // For rapid iteration
    //      let numVal = new Instance( 'NumberValue' ) as NumberValue

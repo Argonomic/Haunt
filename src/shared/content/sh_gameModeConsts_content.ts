@@ -9,12 +9,18 @@ export function CreateGameModeConsts(): GameModeConsts
    {
       case GAMEMODES.MODE_ROUNDBASED:
          gmc.MATCHMAKE_PLAYERCOUNT_MINPLAYERS = 4
-         gmc.completeTasksBecomeImpostor = false
-         gmc.hasPlayerNumber = true
-         gmc.hasCorpses = true
          gmc.canKillImpostors = true
          gmc.canPurchaseImpostor = true
+         gmc.completeTasksBecomeImpostor = false
+         gmc.gameTitle = "Last Impostor Standing"
+         gmc.cooldownKill = 35
+         gmc.hasCorpses = true
+         gmc.hasPlayerNumber = false
+         gmc.impostorBattle = true
          gmc.lastImpostorStanding = true
+         gmc.meetingCooldown = 30
+         gmc.revealOtherImpostors = false
+         gmc.spectatorDeathRun = false
          gmc.suddenDeath = false
          break
 

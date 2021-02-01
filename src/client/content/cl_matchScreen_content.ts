@@ -1,13 +1,14 @@
 import { RunService, Workspace } from "@rbxts/services";
 import { WaitForMatchScreenFrame } from "client/cl_matchScreen";
-import { AddPlayerGuiFolderExistsCallback } from "client/cl_ui";
-import { IsImpostorRole, MEETING_TYPE, PlayerInfo, USERID } from "shared/sh_gamestate";
+import { AddPlayerGuiFolderExistsCallback, UIORDER } from "client/cl_ui";
+import { IsImpostorRole, MEETING_TYPE, PlayerInfo, ROLE, USERID } from "shared/sh_gamestate";
 import { ClonePlayerModel, ClonePlayerModels, GetPlayerFromUserID } from "shared/sh_onPlayerConnect";
 import { Tween, TweenCharacterParts, TweenModel } from "shared/sh_tween";
 import { GetLocalPlayer, Graph, LoadSound, RandomFloatRange, SetCharacterTransparency, SetCharacterYaw, Thread } from "shared/sh_utils";
 import { Assert } from "shared/sh_assert"
 import { GetCoinModelsForScore } from "shared/sh_coins";
 import { GetGameModeConsts } from "shared/sh_gameModeConsts";
+import { SPECTATOR_TRANS } from "shared/sh_settings";
 
 const LOCAL = RunService.IsStudio()
 const LOCAL_PLAYER = GetLocalPlayer()
@@ -166,7 +167,7 @@ export function DrawMatchScreen_Intro( foundLocalImpostor: boolean, impostorCoun
    else
    {
       if ( foundLocalImpostor )
-         impostorText = "Battle other Impostors"
+         impostorText = "Battle to be the Last Impostor Standing"
       else
          impostorText = "Avoid Impostors"
    }
@@ -188,15 +189,16 @@ export function DrawMatchScreen_Intro( foundLocalImpostor: boolean, impostorCoun
    {
       wait( 0.8 )
       Tween( title, { TextTransparency: 0 }, FADE_IN )
-      wait( 2.0 )
-      Tween( subTitle, { TextTransparency: 0 }, FADE_IN )
-      wait( 0.4 )
-
+      wait( 1.5 )
       Thread(
          function ()
          {
-            wait( 2 )
-            if ( !foundLocalImpostor )
+            wait( 0.5 )
+            Tween( subTitle, { TextTransparency: 0 }, FADE_IN )
+            wait( 0.4 )
+
+            wait( 2.0 )
+            //if ( !foundLocalImpostor )
             {
                Tween( subTitle, { TextTransparency: 1 }, 0.5 )
                wait( 0.5 )
@@ -204,6 +206,7 @@ export function DrawMatchScreen_Intro( foundLocalImpostor: boolean, impostorCoun
                Tween( subTitle, { TextTransparency: 0 }, 0.5 )
             }
          } )
+      wait( 0.3 )
    }
 
    // For rapid iteration
@@ -219,7 +222,7 @@ export function DrawMatchScreen_Intro( foundLocalImpostor: boolean, impostorCoun
 
       if ( foundLocalImpostor )
       {
-         if ( GetGameModeConsts().revealOtherImpostors )
+         if ( gmc.revealOtherImpostors )
          {
             Thread(
                function ()
@@ -237,6 +240,7 @@ export function DrawMatchScreen_Intro( foundLocalImpostor: boolean, impostorCoun
       }
 
       wait( FADE_IN + 2 )
+      wait( 1.1 )
 
       lineupCamera.DollyThrough()
    }
@@ -249,8 +253,14 @@ export function DrawMatchScreen_Intro( foundLocalImpostor: boolean, impostorCoun
    Tween( subTitle, { TextTransparency: 1 }, FADE_OUT * 0.75 )
    wait( 1.0 )
    Tween( viewportFrame, { ImageTransparency: 1 }, 1.5 )
-   wait( 0.75 )
-   Tween( baseFrame, { Transparency: 1 }, 1.0 )
+   Thread(
+      function ()
+      {
+         wait( 1 )
+         Tween( baseFrame, { Transparency: 1 }, 1.0 )
+      } )
+
+   wait( 1.0 )
 }
 
 function SortLocalPlayerInfo( a: PlayerInfo, b: PlayerInfo ): boolean
@@ -609,10 +619,16 @@ export function DrawMatchScreen_VoteResults( skipTie: boolean, receivedHighestVo
 
       if ( impostorsRemaining === 0 )
          subTitle.Text = "0 impostors remain"
+      else
+         subTitle.Text = "At least 1 impostor remains"
+      /*
+      if ( impostorsRemaining === 0 )
+         subTitle.Text = "0 impostors remain"
       else if ( impostorsRemaining === 1 )
          subTitle.Text = "1 impostor remains"
       else
          subTitle.Text = impostorsRemaining + " impostors remain"
+      */
 
       Tween( title, { TextTransparency: 0 }, 1.0 )
       wait( 1.5 )
@@ -627,7 +643,12 @@ export function DrawMatchScreen_VoteResults( skipTie: boolean, receivedHighestVo
    Tween( viewportFrame, { ImageTransparency: 1 }, 1.5 )
    wait( 1.5 )
 
-   Tween( baseFrame, { Transparency: 1 }, 1.0 )
+   Thread(
+      function ()
+      {
+         wait( 1 )
+         Tween( baseFrame, { Transparency: 1 }, 1.0 )
+      } )
 
    done = true
    if ( tween !== undefined )
@@ -678,6 +699,45 @@ export function DrawMatchScreen_EmergencyMeeting( meetingType: MEETING_TYPE, cal
    Tween( baseFrame, { Transparency: 1 }, 1.0 )
 }
 
+export function DrawMatchRound( roundNum: number, value: number, opIntroTitle?: string )
+{
+   print( "DrawMatchRound: " + roundNum )
+
+   let matchScreenFrame = WaitForMatchScreenFrame( "MATCHSCREEN_ROUNDNUM" )
+   wait( 3 );
+
+   ( matchScreenFrame.baseFrame.Parent as ScreenGui ).DisplayOrder = UIORDER.UIORDER_READY
+   //let baseFrame = matchScreenFrame.baseFrame
+   //Tween( baseFrame, { Transparency: 0 }, 1.0 )
+
+   let title = matchScreenFrame.title
+   let subTitle = matchScreenFrame.subTitle
+
+   title.TextTransparency = 1
+   subTitle.TextTransparency = 1
+
+   if ( opIntroTitle !== undefined )
+   {
+      title.Text = opIntroTitle
+      Tween( title, { TextTransparency: 0, TextStrokeTransparency: 0 }, 1.0 )
+      wait( 2 )
+      Tween( title, { TextTransparency: 1, TextStrokeTransparency: 1 }, 1.0 )
+      wait( 1 )
+   }
+
+   title.Text = "Round " + roundNum
+   subTitle.Text = "Tasks are worth " + value + " coins"
+   Tween( title, { TextTransparency: 0, TextStrokeTransparency: 0 }, 1.0 )
+   wait( 2 )
+   Tween( subTitle, { TextTransparency: 0, TextStrokeTransparency: 0 }, 1.0 )
+   wait( 2.0 )
+   //Tween( baseFrame, { Transparency: 1 }, 1 )
+   wait( 1 )
+
+   Tween( title, { TextTransparency: 1, TextStrokeTransparency: 1 }, 1 )
+   Tween( subTitle, { TextTransparency: 1, TextStrokeTransparency: 1 }, 1 )
+}
+
 export function DrawMatchScreen_Victory( playerInfos: Array<PlayerInfo>, impostorsWin: boolean, myWinningTeam: boolean, mySurvived: boolean, myWinnings: number, localWasInGame: boolean )
 {
    print( "DrawMatchScreen_Victory playerInfos:" + playerInfos.size() + " impostorsWin:" + impostorsWin + " myWinningTeam:" + myWinningTeam + " mySurvived:" + mySurvived + " myWinnings:" + myWinnings )
@@ -697,7 +757,7 @@ export function DrawMatchScreen_Victory( playerInfos: Array<PlayerInfo>, imposto
    lowerTitle.TextTransparency = 1
    viewportFrame.ImageTransparency = 1
 
-   if ( myWinningTeam )
+   if ( mySurvived )
       title.Text = "Victory"
    else
       title.Text = "Defeat"
@@ -773,14 +833,14 @@ export function DrawMatchScreen_Victory( playerInfos: Array<PlayerInfo>, imposto
       {
          lineup.push( model )
 
-         //let playerInfo = lineupPlayerInfos[i]
-         //switch ( playerInfo.role )
-         //{
-         //   case ROLE.ROLE_SPECTATOR_CAMPER:
-         //   case ROLE.ROLE_SPECTATOR_IMPOSTOR:
-         //      SetCharacterTransparency( model, SPECTATOR_TRANS )
-         //      break
-         //}
+         let playerInfo = lineupPlayerInfos[i]
+         switch ( playerInfo.role )
+         {
+            case ROLE.ROLE_SPECTATOR_CAMPER:
+            case ROLE.ROLE_SPECTATOR_IMPOSTOR:
+               SetCharacterTransparency( model, SPECTATOR_TRANS )
+               break
+         }
       }
       // escaper did not see any players in an impostor wins sudden death
    }

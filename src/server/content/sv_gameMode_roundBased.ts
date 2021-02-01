@@ -1,6 +1,6 @@
 import { IsAlive, Thread, Wait } from "shared/sh_utils"
 import { Assert } from "shared/sh_assert"
-import { GAME_STATE, ROLE, Match, GAMERESULTS, SHAREDVAR_GAMEMODE_CANREQLOBBY, } from "shared/sh_gamestate"
+import { GAME_STATE, ROLE, Match, GAMERESULTS } from "shared/sh_gamestate"
 import { MATCHMAKE_PLAYERCOUNT_STARTSERVER } from "shared/sh_settings"
 import { SpawnRandomCoins } from "server/sv_coins"
 import { GetTotalValueOfWorldCoins } from "shared/sh_coins"
@@ -20,7 +20,6 @@ export function SV_GameMode_RoundBasedSetup()
    gmc.svFindMatchForPlayer = FindMatchForPlayer
 
    SetGameModeConsts( gmc )
-   SetSharedVarInt( SHAREDVAR_GAMEMODE_CANREQLOBBY, 1 )
 }
 
 function GameStateThink( match: Match )
@@ -127,13 +126,13 @@ function GameStateChanged( match: Match, oldGameState: GAME_STATE )
          let livingCampers = match.GetLivingCampersCount()
          if ( match.GetSVState().previouslyLivingCampers === 0 || match.GetSVState().previouslyLivingCampers > livingCampers )
          {
-            let toSpawn = 60 + match.GetSVState().roundsPassed * 60
+            let toSpawn = 60 + match.shState.roundNum * 60
             toSpawn -= GetTotalValueOfWorldCoins( match )
             if ( toSpawn > 0 )
                SpawnRandomCoins( match, toSpawn )
 
             match.GetSVState().previouslyLivingCampers = livingCampers
-            match.GetSVState().roundsPassed++
+            match.shState.roundNum++
          }
 
          for ( let player of GetAllConnectedPlayersInMatch( match ) )

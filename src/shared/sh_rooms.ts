@@ -5,7 +5,6 @@ import { EDITOR_GameplayFolder } from "./sh_gamestate"
 
 export const FAST_ROOM_ITERATION = false
 const DEFAULT_FIELDOFVIEW = 20
-export const VENTSOUNDID = 5771441412
 
 class File
 {
