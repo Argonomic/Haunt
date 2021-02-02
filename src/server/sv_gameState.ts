@@ -3,7 +3,7 @@ import { AddRPC, GetRPCRemoteEvent } from "shared/sh_rpc"
 import { ArrayRandomize, GraphCapped, Resume, Thread, UserIDToPlayer, Wait, GetHealth, SetHealth, FilterHasCharactersAndPrimaryPart } from "shared/sh_utils"
 import { Assert } from "shared/sh_assert"
 import { Assignment, GAME_STATE, NETVAR_JSON_ASSIGNMENTS, ROLE, Match, GetVoteResults, TASK_EXIT, AssignmentIsSame, TASK_RESTORE_LIGHTS, NETVAR_JSON_GAMESTATE, SetPlayerWalkspeedForGameState, USERID, PlayerVote, NS_SharedMatchState, PlayerInfo, AddRoleChangeCallback, PICKUPS, IsSpectatorRole, ExecRoleChangeCallbacks, NETVAR_MEETINGS_CALLED, NETVAR_PURCHASED_IMPOSTOR, REMOTESOUNDS, GetTaskValueForRound, COOLDOWN_NAME_KILL, } from "shared/sh_gamestate"
-import { MIN_TASKLIST_SIZE, MAX_TASKLIST_SIZE, MATCHMAKE_PLAYERCOUNT_STARTSERVER, SPAWN_ROOM, TASK_VALUE, DEV_1_TASK, } from "shared/sh_settings"
+import { MIN_TASKLIST_SIZE, MAX_TASKLIST_SIZE, MATCHMAKE_PLAYERCOUNT_STARTSERVER, SPAWN_ROOM, DEV_1_TASK, } from "shared/sh_settings"
 import { GetNetVar_Number, ResetNetVar, SetNetVar } from "shared/sh_player_netvars"
 import { AddCallback_OnPlayerCharacterAdded, AddCallback_OnPlayerConnected } from "shared/sh_onPlayerConnect"
 import { GetAllRoomsAndTasks, GetCurrentRoom, GetRoomByName, PlayerHasCurrentRoom, PutPlayersInRoom } from "./sv_rooms"
@@ -203,7 +203,7 @@ export function SV_GameStateSetup()
       if ( match.IsSpectator( player ) )
          ClearAssignments( match, player )
 
-      if ( match.GetGameState() > GAME_STATE.GAME_STATE_WAITING_FOR_PLAYERS )
+      if ( match.GetGameState() >= GAME_STATE.GAME_STATE_INTRO )
          return
 
       switch ( match.GetPlayerRole( player ) )
@@ -382,10 +382,9 @@ function ServerGameThread( match: Match )
                      SetHealth( player, 100 )
                }
 
-               let cooldown = 6
+               let cooldown = 20
                if ( match.shState.roundNum > 1 )
-                  cooldown = 20
-
+                  cooldown += 6
                let players = match.GetLivingImpostors()
                for ( let player of players )
                {
@@ -548,7 +547,8 @@ export function HandleVoteResults( match: Match )
             let votedOff = voteResults.highestRecipients[0]
             match.shState.highestVotedScore = GetMatchScore( votedOff )
             BecomeSpectator( votedOff, match )
-            Wait( 8 ) // delay for vote matchscreen
+            Wait( 5 )
+            PlayerDistributesCoinsToOtherPlayers( match, votedOff )
             SetPlayerKilled( match, votedOff )
          }
 
@@ -815,7 +815,7 @@ function AssignTasksCount( player: Player, match: Match, assignments: Array<Assi
       }
    }
 
-   print( "Assigned " + assignments.size() + " tasks" )
+   //print( "Assigned " + assignments.size() + " tasks" )
    match.GetSVState().assignments.set( player, assignments )
    UpdateTasklistNetvar( player, assignments )
 }
@@ -860,7 +860,7 @@ export function ClearAssignments( match: Match, player: Player )
    UpdateTasklistNetvar( player, [] )
 }
 
-export function DistributePointsToPlayers( players: Array<Player>, score: number )
+export function DistributePointsToPlayers( match: Match, players: Array<Player>, score: number )
 {
    let scorePerPlayer = math.floor( score / players.size() )
    if ( scorePerPlayer < 1 )
@@ -869,6 +869,14 @@ export function DistributePointsToPlayers( players: Array<Player>, score: number
    for ( let player of players )
    {
       IncrementMatchScore( player, scorePerPlayer )
+   }
+
+   if ( match.GetGameState() >= GAME_STATE.GAME_STATE_COMPLETE )
+   {
+      for ( let player of players )
+      {
+         ScoreToStash( player )
+      }
    }
 }
 
@@ -882,12 +890,7 @@ export function PlayerDistributesCoins( player: Player, match: Match, killer?: P
       case GAME_STATE.GAME_STATE_MEETING_VOTE:
       case GAME_STATE.GAME_STATE_MEETING_RESULTS:
       case GAME_STATE.GAME_STATE_COMPLETE:
-         let score = GetMatchScore( player )
-         if ( score > 0 )
-         {
-            ClearMatchScore( player )
-            DistributePointsToPlayers( match.GetLivingPlayers(), score )
-         }
+         PlayerDistributesCoinsToOtherPlayers( match, player )
          return
 
       default:
@@ -896,6 +899,21 @@ export function PlayerDistributesCoins( player: Player, match: Match, killer?: P
          PlayerDropsCoinsWithTrajectory( match, player, GetPosition( killer ) )
          return
    }
+}
+
+export function PlayerDistributesCoinsToOtherPlayers( match: Match, player: Player )
+{
+   let score = GetMatchScore( player )
+   if ( score <= 0 )
+      return
+
+   ClearMatchScore( player )
+   let players = match.GetLivingPlayers().filter( function ( otherPlayer )
+   {
+      return otherPlayer !== player
+   } )
+
+   DistributePointsToPlayers( match, players, score )
 }
 
 
@@ -1021,6 +1039,8 @@ function SetVote( match: Match, player: Player, voteUserID: number | undefined )
 
 export function SetGameState( match: Match, state: GAME_STATE )
 {
+   if ( state === GAME_STATE.GAME_STATE_MEETING_DISCUSS )
+      state = GAME_STATE.GAME_STATE_MEETING_VOTE
    print( "\nSet Match State " + state + ", Time since last change: " + math.floor( ( Workspace.DistributedGameTime - match.shState._gameStateChangedTime ) ) )
    if ( match.GetGameState() >= GAME_STATE.GAME_STATE_COMPLETE )
       print( "Complete: Stack: " + debug.traceback() )
@@ -1143,6 +1163,9 @@ export function AddPlayer( match: Match, player: Player ): PlayerInfo
       {
          return part.Parent === folder
       } )
+
+   //if ( PlayerHasCurrentRoom( player ) )
+   //   TellOtherPlayersInMatchThatPlayersPutInRoom( match, [player], GetCurrentRoom( player ) )
 
    return playerInfo
 }
@@ -1337,11 +1360,13 @@ export function StartMatchWithNormalImpostorsAndCampers( match: Match )
       AssignTasks( match, player )
    }
 
+   /*
    for ( let player of players )
    {
       Assert( player.Character !== undefined, "player.Character !== undefined" )
       Assert( ( player.Character as Model ).PrimaryPart !== undefined, "(player.Character as Model).PrimaryPart !== undefined" )
    }
+   */
 
    Assert( match.GetLivingImpostorsCount() > 0, "match.GetLivingImpostorsCount > 0" )
    Assert( match.GetLivingCampersCount() > 1, "match.GetLivingCampers().size > 1" )

@@ -1,7 +1,7 @@
 import { DamagePlayer, GetHealth, KillPlayer, Thread, Wait, } from "shared/sh_utils"
 import { GAME_STATE, NS_Corpse, USETYPES, COOLDOWN_NAME_KILL, MEETING_TYPE, NETVAR_MEETINGS_CALLED, CanUseTask, REMOTESOUNDS } from "shared/sh_gamestate"
 import { GetUsableByType, USABLETYPES } from "shared/sh_use"
-import { SetGameState, UpdateGame, PlayerHasUnfinishedAssignment, PlayerHasAssignments, PlayerToMatch, SV_SendRPC, SetPlayerKilled, BroadcastSound } from "server/sv_gameState"
+import { SetGameState, UpdateGame, PlayerHasUnfinishedAssignment, PlayerHasAssignments, PlayerToMatch, SV_SendRPC, SetPlayerKilled, BroadcastSound, TellOtherPlayersInMatchThatPlayersPutInRoom } from "server/sv_gameState"
 import { GetCurrentRoom } from "server/sv_rooms"
 import { DoCooldown, GetPlayerCooldownTimeRemaining, ResetCooldownTime } from "shared/sh_cooldown"
 import { SetPlayerWalkSpeed } from "shared/sh_onPlayerConnect"
@@ -46,8 +46,11 @@ export function SV_UseContentSetup()
             let corpsePos = new Vector3( corpse.x, corpse.y, corpse.z )
             if ( corpsePos.sub( pos ).Magnitude < 1 ) // dunno if we can just compare vectors directly and I dunno if it drops any precision
             {
-               let meetingCallerRoomName = GetCurrentRoom( player ).name
+               let room = GetCurrentRoom( player )
+               let meetingCallerRoomName = room.name
                match.SetMeetingDetails( player, MEETING_TYPE.MEETING_REPORT, meetingCallerRoomName, corpse.userId )
+
+               TellOtherPlayersInMatchThatPlayersPutInRoom( match, [player], room )
                SetGameState( match, GAME_STATE.GAME_STATE_MEETING_DISCUSS )
                return
             }

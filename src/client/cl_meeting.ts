@@ -1,9 +1,9 @@
-import { RunService } from "@rbxts/services";
+import { RunService, Workspace } from "@rbxts/services";
 import { Match, GAME_STATE, PlayerInfo, PlayerNumToGameViewable, ROLE } from "shared/sh_gamestate";
 import { ClonePlayerModel, GetPlayerFromUserID } from "shared/sh_onPlayerConnect";
 import { MATCHMAKE_PLAYERCOUNT_STARTSERVER, PLAYER_COLORS } from "shared/sh_settings";
 import { Tween } from "shared/sh_tween";
-import { GetFirstChildWithNameAndClassName, GetLocalPlayer, LightenColor, SetCharacterTransparency, Thread, SetCharacterYaw } from "shared/sh_utils";
+import { GetFirstChildWithNameAndClassName, GetLocalPlayer, LightenColor, SetCharacterTransparency, Thread, SetCharacterYaw, GraphCapped } from "shared/sh_utils";
 import { Assert } from "shared/sh_assert"
 import { AddPlayerGuiFolderExistsCallback, UIORDER } from "./cl_ui";
 import { SendRPC_Client } from "shared/sh_rpc";
@@ -507,37 +507,52 @@ class ActiveMeeting
             this.drewVote.set( player, true )
             Thread( function ()
             {
-               let pnum = voterButtonGroup.frameButton.PlayerNumber
+               //let pnum = voterButtonGroup.frameButton.PlayerNumber
                let flyingVoteObject = voteObject.Clone()
                flyingVoteObject.Parent = baseFrame
                flyingVoteObject.Visible = true
                flyingVoteObject.AnchorPoint = new Vector2( 0.0, 0.0 )
                flyingVoteObject.ZIndex = 100
 
-               let pos = voterButtonGroup.frameButton.PlayerImage.AbsolutePosition // pnum.AbsolutePosition
-               pos = pos.sub( baseFrame.AbsolutePosition )
-               flyingVoteObject.Position = new UDim2( 0, pos.X, 0, pos.Y )
+               let time = 0.75
+               let startTime = Workspace.DistributedGameTime
+               let endTime = startTime + time
 
-               let startSize = voterButtonGroup.frameButton.PlayerImage.AbsoluteSize // pnum.AbsoluteSize
-               flyingVoteObject.Size = new UDim2( 0, startSize.X, 0, startSize.Y )
-
-               let targetPos = voteObject.AbsolutePosition.sub( baseFrame.AbsolutePosition )
-               let targetVec = new UDim2( 0, targetPos.X, 0, targetPos.Y )
-               let endSize = voteObject.AbsoluteSize
-               let endSizeUDim2 = new UDim2( 0, endSize.X, 0, endSize.Y )
-
-               let time = 1.5
-               Tween( flyingVoteObject, { Position: targetVec, Size: endSizeUDim2 }, time, Enum.EasingStyle.Quart, Enum.EasingDirection.InOut )
-               wait( time )
-
-               if ( flyingVoteObject !== undefined )
-                  flyingVoteObject.Destroy()
-               if ( voteImage !== undefined )
+               let connect = RunService.RenderStepped.Connect( function ()
                {
-                  voteImage.Visible = true
-                  if ( voteObject !== undefined )
-                     voteObject.Visible = true
-               }
+                  if ( Workspace.DistributedGameTime >= endTime )
+                  {
+                     connect.Disconnect()
+                     if ( flyingVoteObject !== undefined )
+                        flyingVoteObject.Destroy()
+                     if ( voteImage !== undefined )
+                     {
+                        voteImage.Visible = true
+                        if ( voteObject !== undefined )
+                           voteObject.Visible = true
+                     }
+                     return
+                  }
+
+                  let lerp = GraphCapped( Workspace.DistributedGameTime, startTime, endTime, 0, 1 )
+
+                  let pos = voterButtonGroup.frameButton.PlayerImage.AbsolutePosition // pnum.AbsolutePosition
+                  pos = pos.sub( baseFrame.AbsolutePosition )
+                  let StartPosition = new UDim2( 0, pos.X, 0, pos.Y )
+
+                  let startSize = voterButtonGroup.frameButton.PlayerImage.AbsoluteSize // pnum.AbsoluteSize
+                  let startSizeUDim2 = new UDim2( 0, startSize.X, 0, startSize.Y )
+
+                  let targetPos = voteObject.AbsolutePosition.sub( baseFrame.AbsolutePosition )
+                  let targetVec = new UDim2( 0, targetPos.X, 0, targetPos.Y )
+                  let endSize = voteObject.AbsoluteSize
+                  let endSizeUDim2 = new UDim2( 0, endSize.X, 0, endSize.Y )
+
+                  flyingVoteObject.Position = StartPosition.Lerp( targetVec, lerp )
+                  flyingVoteObject.Size = startSizeUDim2.Lerp( endSizeUDim2, lerp )
+
+                  //Tween( flyingVoteObject, { Position: targetVec, Size: endSizeUDim2 }, time, Enum.EasingStyle.Quart, Enum.EasingDirection.InOut )
+               } )
             } )
          }
          else

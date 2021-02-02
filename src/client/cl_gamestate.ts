@@ -9,13 +9,13 @@ import { UpdateMeeting } from "./cl_meeting"
 import { DrawMatchRound, DrawMatchScreen_EmergencyMeeting, DrawMatchScreen_Escaped, DrawMatchScreen_VoteResults } from "./content/cl_matchScreen_content"
 import { GetLastStashed } from "shared/sh_score"
 import { DEV_SKIP_INTRO, SPECTATOR_TRANS } from "shared/sh_settings"
-import { SetLocalViewToRoom, GetRoom } from "./cl_rooms"
+import { SetLocalViewToRoom, GetRoom, GetCurrentRoom } from "./cl_rooms"
 import { GetDeltaTime } from "shared/sh_time"
 import { CanKill, CanReportBody, SharedKillGetter } from "shared/content/sh_use_content"
 import { CoinFloatsAway, COIN_TYPE, GetCoinDataFromType, GetCoinFolder, HasCoinFolder } from "shared/sh_coins"
 import { DrawRisingNumberFromWorldPos } from "./cl_coins"
 import { AddRPC } from "shared/sh_rpc"
-import { GameModeConsts, GetGameModeConsts } from "shared/sh_gameModeConsts"
+import { GetGameModeConsts } from "shared/sh_gameModeConsts"
 
 const LOCAL_PLAYER = GetLocalPlayer()
 
@@ -265,6 +265,9 @@ export function CL_GameStateSetup()
       let match = GetLocalMatch()
       if ( match.HasPlayer( player ) )
          match.Shared_OnGameStateChanged_PerPlayer( player, match )
+
+      let room = GetCurrentRoom( LOCAL_PLAYER )
+      SetLocalViewToRoom( room )
    } )
 
    {
@@ -525,12 +528,6 @@ function CLGameStateChanged( match: Match, oldGameState: number )
             }
 
             print( "\N STARTING PLAYER COUNT " + match.shState.dbg_spc )
-            print( "Impostors remaining " + impostorsRemaining )
-            print( "Players remaining: " + match.GetAllPlayers().size() )
-            for ( let player of match.GetAllPlayers() )
-            {
-               print( player.Name + " role " + match.GetPlayerRole( player ) )
-            }
 
             Thread( function ()
             {
@@ -550,21 +547,36 @@ function CLGameStateChanged( match: Match, oldGameState: number )
    }
 
    // entering this match state
+   if ( newGameState <= GAME_STATE.GAME_STATE_PLAYING )
+   {
+      // restore local view
+      let room = GetCurrentRoom( LOCAL_PLAYER )
+      SetLocalViewToRoom( room )
+   }
+
+   // entering this match state
    switch ( newGameState )
    {
       case GAME_STATE.GAME_STATE_PLAYING:
+
          if ( file.lastKnownRound !== match.shState.roundNum )
          {
             file.lastKnownRound = match.shState.roundNum
             Thread(
                function ()
                {
-                  DrawMatchRound( match.shState.roundNum, GetTaskValueForRound( match.shState.roundNum ), gmc.gameTitle )
+                  if ( match.shState.roundNum <= 1 )
+                     DrawMatchRound( match.shState.roundNum, GetTaskValueForRound( match.shState.
+                        roundNum ), gmc.gameTitle )
+                  else
+                     DrawMatchRound( match.shState.roundNum, GetTaskValueForRound( match.shState.
+                        roundNum ) )
                } )
          }
          break
 
       case GAME_STATE.GAME_STATE_MEETING_DISCUSS:
+      case GAME_STATE.GAME_STATE_MEETING_VOTE:
          match.ClearVotes()
          WaitThread( function ()
          {
@@ -594,7 +606,7 @@ function CLGameStateChanged( match: Match, oldGameState: number )
                   Thread(
                      function ()
                      {
-                        wait( 2 ) // wait for match screen to fade out
+                        wait( 1 ) // wait for match screen to fade out
                         SetLocalViewToRoom( room )
                      } )
                   break
@@ -607,7 +619,7 @@ function CLGameStateChanged( match: Match, oldGameState: number )
             DrawMatchScreen_EmergencyMeeting( meetingType, meetingCaller, body )
 
             if ( report && !DEV_SKIP_INTRO )
-               wait( 4 ) // time to look at crime scene
+               wait( 2.2 ) // time to look at crime scene
          } )
          break
 

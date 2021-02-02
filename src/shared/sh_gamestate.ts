@@ -661,7 +661,7 @@ function UpdatePlayerAbilities( player: Player, match: Match )
    {
       case GAME_STATE.GAME_STATE_PLAYING:
       case GAME_STATE.GAME_STATE_SUDDEN_DEATH:
-         if ( match.IsImpostor( player ) )
+         if ( match.GetPlayerRole( player ) === ROLE.ROLE_IMPOSTOR )
             GiveAbility( player, ABILITIES.ABILITY_SABOTAGE_LIGHTS )
          else
             TakeAbility( player, ABILITIES.ABILITY_SABOTAGE_LIGHTS )

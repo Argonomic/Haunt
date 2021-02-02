@@ -367,7 +367,7 @@ export function CL_FadeOverlaySetup()
             if ( match.GetGameState() >= GAME_STATE.GAME_STATE_INTRO )
                hideTrans = 1
             else
-               hideTrans = SPECTATOR_TRANS
+               hideTrans = 0.8
 
             for ( let pair of hidePlayers )
             {

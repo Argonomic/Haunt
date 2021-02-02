@@ -12,6 +12,8 @@ import { SPECTATOR_TRANS } from "shared/sh_settings";
 
 const LOCAL = RunService.IsStudio()
 const LOCAL_PLAYER = GetLocalPlayer()
+const IMPOSTOR_COLOR = new Color3( 0.25, 0, 0 )
+const CAMPER_COLOR = new Color3( 0, 0, 0.12 )
 
 class File
 {
@@ -39,8 +41,9 @@ AddNetVarChangedCallback( NETVAR_MATCHMAKING_STATUS, function ()
             {
                for ( ; ; )
                {
-                  wait( 1 )
+                  wait( 2 )
                   TestDraw( 0 )
+                  wait( 2 )
                }
             } )
       } )
@@ -68,34 +71,22 @@ AddNetVarChangedCallback( NETVAR_MATCHMAKING_STATUS, function ()
 
          case 2:
             {
-               print( "drawing 3 skippers" )
-               let skipTie = true
-               let receivedHighestVotes: Array<Player> = []
-               let receivedVotes: Array<Player> = []
-               let votedAndReceivedNoVotes = [LOCAL_PLAYER, LOCAL_PLAYER, LOCAL_PLAYER]
-               let impostorCount = 1
-               //DrawMatchScreen_VoteResults(
-               //skipTie,
-               //   receivedHighestVotes,
-               //   receivedVotes,
-               //   votedAndReceivedNoVotes,
-               //   impostorCount,
-               //   500
-               //)
-            }
-            break
-
-         case 3:
-            {
-               let receivedVotes = [LOCAL_PLAYER, LOCAL_PLAYER, LOCAL_PLAYER, LOCAL_PLAYER, LOCAL_PLAYER]
-               let votedAndReceivedNoVotes: Array<Player> = [LOCAL_PLAYER, LOCAL_PLAYER]
-               let impostorCount = 2
                let skipTie = false
-               let receivedHighestVotes = [LOCAL_PLAYER]
-               //DrawMatchScreen_VoteResults( skipTie, receivedHighestVotes, receivedVotes, votedAndReceivedNoVotes, impostorCount,
-               //500 )
-            }
+               let receivedHighestVotes: Array<Player> = []
+               let receivedVotes: Array<Player> = []// [LOCAL_PLAYER, LOCAL_PLAYER, LOCAL_PLAYER]
+               let votedAndReceivedNoVotes = [LOCAL_PLAYER, LOCAL_PLAYER, LOCAL_PLAYER]
+               let highestVotedScore = 35
+               let impostorsRemaining = 3
+               let wasImpostor = true
+               DrawMatchScreen_VoteResults( skipTie,
+                  receivedHighestVotes,
+                  receivedVotes,
+                  votedAndReceivedNoVotes,
+                  highestVotedScore,
+                  wasImpostor,
+                  impostorsRemaining )
 
+            }
             break
 
          case 4:
@@ -220,24 +211,29 @@ export function DrawMatchScreen_Intro( foundLocalImpostor: boolean, impostorCoun
       ArrangeModelsInLineup( lineup, viewportFrame )
       let lineupCamera = new AnimateLineup( viewportFrame, viewportCamera )
 
-      if ( foundLocalImpostor )
-      {
-         if ( gmc.revealOtherImpostors )
+
+      Thread(
+         function ()
          {
-            Thread(
-               function ()
+            wait( 1.6 )
+            if ( foundLocalImpostor )
+            {
+               let goal = { Transparency: 1 }
+               let camperModels = lineup.slice( impostorCount )
+               if ( gmc.revealOtherImpostors )
                {
-                  wait( 1.6 )
-                  let goal = { Transparency: 1 }
-                  let camperModels = lineup.slice( impostorCount )
                   for ( let model of camperModels )
                   {
                      TweenCharacterParts( model, goal, 1.0 )
                   }
-                  Tween( baseFrame, { BackgroundColor3: new Color3( 0.25, 0, 0 ) }, 2 )
-               } )
-         }
-      }
+               }
+               Tween( baseFrame, { BackgroundColor3: IMPOSTOR_COLOR }, 2 )
+            }
+            else
+            {
+               Tween( baseFrame, { BackgroundColor3: CAMPER_COLOR }, 2 )
+            }
+         } )
 
       wait( FADE_IN + 2 )
       wait( 1.1 )
@@ -251,14 +247,11 @@ export function DrawMatchScreen_Intro( foundLocalImpostor: boolean, impostorCoun
    const FADE_OUT = 2.0
    Tween( title, { TextTransparency: 1 }, FADE_OUT * 0.75 )
    Tween( subTitle, { TextTransparency: 1 }, FADE_OUT * 0.75 )
-   wait( 1.0 )
+   wait( 0.5 )
    Tween( viewportFrame, { ImageTransparency: 1 }, 1.5 )
-   Thread(
-      function ()
-      {
-         wait( 1 )
-         Tween( baseFrame, { Transparency: 1 }, 1.0 )
-      } )
+   wait( 1 )
+   Tween( baseFrame, { Transparency: 1 }, 1.5 )
+   wait( 0.5 )
 }
 
 function SortLocalPlayerInfo( a: PlayerInfo, b: PlayerInfo ): boolean
@@ -273,9 +266,14 @@ export function DrawMatchScreen_VoteResults( skipTie: boolean, receivedHighestVo
    {
       if ( skipTie )
       {
-         if ( receivedHighestVotes.size() > 0 )
+         if ( receivedVotes.size() )
             return ["It's a tie!", "No one was voted off"]
-         return ["No one was voted off"]
+         else
+            return ["No one was voted off"]
+
+         //if ( receivedHighestVotes.size() > 0 )
+         //   return ["It's a tie!", "No one was voted off"]
+         //return ["No one was voted off"]
       }
 
       if ( receivedHighestVotes.size() === 1 )
@@ -288,7 +286,7 @@ export function DrawMatchScreen_VoteResults( skipTie: boolean, receivedHighestVo
 
    let matchScreenFrame = WaitForMatchScreenFrame( "MATCHSCREEN_VOTERESULTS" )
    let baseFrame = matchScreenFrame.baseFrame
-   Tween( baseFrame, { Transparency: 0 }, 1.0 )
+   Tween( baseFrame, { Transparency: 0 }, 0.5 )
 
    let title = matchScreenFrame.title
    let subTitle = matchScreenFrame.subTitle
@@ -301,15 +299,16 @@ export function DrawMatchScreen_VoteResults( skipTie: boolean, receivedHighestVo
    title.Text = "The voters have spoken.."
    title.TextTransparency = 1
 
-   wait( 1.0 )
+   wait( 0.5 )
 
    Thread(
       function ()
       {
-         wait( 1.2 )
-         Tween( title, { TextTransparency: 0 }, 1 )
+         wait( 0.7 )
+         Tween( title, { TextTransparency: 0 }, 0.5 )
       } )
 
+   wait( 0.5 )
    let votedOffModel: Model | undefined
 
    if ( votedAndReceivedNoVotes.size() > 0 || receivedVotes.size() > 0 )
@@ -319,7 +318,6 @@ export function DrawMatchScreen_VoteResults( skipTie: boolean, receivedHighestVo
          let count = 0
          let odd = true
          const dist = 2.5
-
 
          // draw these players with their backs turned
          for ( let i = 0; i < votedAndReceivedNoVotes.size(); i++ )
@@ -447,7 +445,7 @@ export function DrawMatchScreen_VoteResults( skipTie: boolean, receivedHighestVo
             let cameraPosition = vecOffVal
             let vecEnd = cameraPosition
             let vecStart = vecVal.add( cameraPosition )
-            Tween( viewportCamera, { CFrame: new CFrame( vecStart, vecEnd ) }, 1.5, Enum.EasingStyle.Quart, Enum.EasingDirection.Out )
+            Tween( viewportCamera, { CFrame: new CFrame( vecStart, vecEnd ) }, 0.7, Enum.EasingStyle.Quart, Enum.EasingDirection.Out )
          }
       }
 
@@ -480,9 +478,9 @@ export function DrawMatchScreen_VoteResults( skipTie: boolean, receivedHighestVo
 
       let secondCamTime = Workspace.DistributedGameTime
       if ( DO_PAN )
-         secondCamTime += 3.0
+         secondCamTime += 1.5
       else
-         secondCamTime += 1.0
+         secondCamTime += 0.5
 
       {
          Thread(
@@ -499,7 +497,7 @@ export function DrawMatchScreen_VoteResults( skipTie: boolean, receivedHighestVo
                   let cameraPosition = new Vector3( 0, 1, 6.5 )
                   let vecEnd = cameraPosition
                   let vecStart = cameraAngle.add( cameraPosition )
-                  Tween( viewportCamera, { CFrame: new CFrame( vecStart, vecEnd ) }, 1.5, Enum.EasingStyle.Quart, Enum.EasingDirection.InOut )
+                  Tween( viewportCamera, { CFrame: new CFrame( vecStart, vecEnd ) }, 0.75, Enum.EasingStyle.Quart, Enum.EasingDirection.InOut )
                }
             } )
       }
@@ -523,7 +521,7 @@ export function DrawMatchScreen_VoteResults( skipTie: boolean, receivedHighestVo
    }
    else
    {
-      wait( 2 ) // no one voted      
+      wait( 1.8 ) // no one voted      
    }
    //subTitle.TextTransparency = 0
    //subTitle.Text = ""
@@ -538,7 +536,7 @@ export function DrawMatchScreen_VoteResults( skipTie: boolean, receivedHighestVo
    //      subTitle.Text = "..."
    //   } )
 
-   wait( 1.0 )
+   wait( 0.5 )
 
    Tween( subTitle, { TextTransparency: 1 }, 0.5 )
    wait( 0.5 )
@@ -591,11 +589,11 @@ export function DrawMatchScreen_VoteResults( skipTie: boolean, receivedHighestVo
             }
          )
 
-         wait( 1.0 )
+         wait( 0.5 )
       }
    }
 
-   const FADE_OUT = 2.0
+   const FADE_OUT = 1.0
    Tween( title, { TextTransparency: 1 }, FADE_OUT * 0.75 )
    Tween( subTitle, { TextTransparency: 1 }, FADE_OUT * 0.75 )
 
@@ -607,7 +605,7 @@ export function DrawMatchScreen_VoteResults( skipTie: boolean, receivedHighestVo
 
    if ( !skipTie && receivedHighestVotes.size() === 1 )
    {
-      wait( 1.0 )
+      wait( 0.5 )
 
       let name = receivedHighestVotes[0].Name
       if ( wasImpostor )
@@ -628,31 +626,28 @@ export function DrawMatchScreen_VoteResults( skipTie: boolean, receivedHighestVo
          subTitle.Text = impostorsRemaining + " impostors remain"
       */
 
-      Tween( title, { TextTransparency: 0 }, 1.0 )
+      Tween( title, { TextTransparency: 0 }, 0.5 )
+      wait( 1.4 )
+      Tween( subTitle, { TextTransparency: 0 }, 0.5 )
       wait( 1.5 )
-      Tween( subTitle, { TextTransparency: 0 }, 1.0 )
-      wait( 2 )
 
-      Tween( title, { TextTransparency: 1 }, 1.0 )
-      Tween( subTitle, { TextTransparency: 1 }, 1.0 )
+      Tween( title, { TextTransparency: 1 }, 0.5 )
+      Tween( subTitle, { TextTransparency: 1 }, 0.5 )
       wait( 1 )
    }
 
-   Tween( viewportFrame, { ImageTransparency: 1 }, 1.5 )
-   wait( 1.5 )
+   Tween( viewportFrame, { ImageTransparency: 1 }, 0.5 )
+   wait( 0.5 )
 
-   Thread(
-      function ()
-      {
-         wait( 1 )
-         Tween( baseFrame, { Transparency: 1 }, 1.0 )
-      } )
+   Tween( baseFrame, { Transparency: 1 }, 1.0 )
 
    done = true
    if ( tween !== undefined )
    {
       tween.Cancel()
    }
+
+   wait( 0.5 )
 }
 
 export function DrawMatchScreen_EmergencyMeeting( meetingType: MEETING_TYPE, callerId: USERID, bodyId: USERID | undefined )
@@ -663,8 +658,8 @@ export function DrawMatchScreen_EmergencyMeeting( meetingType: MEETING_TYPE, cal
    let baseFrame = matchScreenFrame.baseFrame
    let title = matchScreenFrame.title
    let subTitle = matchScreenFrame.subTitle
-   Tween( baseFrame, { Transparency: 0 }, 0.5 )
-   wait( 0.5 )
+   Tween( baseFrame, { Transparency: 0 }, 0.25 )
+   wait( 0.25 )
 
    title.TextTransparency = 1
    title.Text = "Emergency Meeting!"
@@ -687,14 +682,14 @@ export function DrawMatchScreen_EmergencyMeeting( meetingType: MEETING_TYPE, cal
          break
    }
 
-   Tween( title, { TextTransparency: 0 }, 0.5 )
-   wait( 1 )
-   Tween( subTitle, { TextTransparency: 0 }, 0.5 )
-   wait( 1.5 )
-   Tween( title, { TextTransparency: 1 }, 1.0 )
-   Tween( subTitle, { TextTransparency: 1 }, 1.0 )
-   wait( 1 )
-   Tween( baseFrame, { Transparency: 1 }, 1.0 )
+   Tween( title, { TextTransparency: 0 }, 0.25 )
+   wait( 0.75 )
+   Tween( subTitle, { TextTransparency: 0 }, 0.25 )
+   wait( 1.25 )
+   Tween( title, { TextTransparency: 1 }, 0.5 )
+   Tween( subTitle, { TextTransparency: 1 }, 0.5 )
+   wait( 0.5 )
+   Tween( baseFrame, { Transparency: 1 }, 0.5 )
 }
 
 export function DrawMatchRound( roundNum: number, value: number, opIntroTitle?: string )
@@ -726,9 +721,9 @@ export function DrawMatchRound( roundNum: number, value: number, opIntroTitle?: 
    title.Text = "Round " + roundNum
    subTitle.Text = "Tasks are worth " + value + " coins"
    Tween( title, { TextTransparency: 0, TextStrokeTransparency: 0 }, 0.5 )
-   wait( 1 )
+   wait( 1.5 )
    Tween( subTitle, { TextTransparency: 0, TextStrokeTransparency: 0 }, 0.5 )
-   wait( 2.0 )
+   wait( 1.5 )
    //Tween( baseFrame, { Transparency: 1 }, 1 )
 
    Tween( title, { TextTransparency: 1, TextStrokeTransparency: 1 }, 0.5 )
@@ -780,7 +775,9 @@ export function DrawMatchScreen_Victory( playerInfos: Array<PlayerInfo>, imposto
    Tween( title, { TextTransparency: 0 }, FADE_IN )
 
    if ( impostorsWin )
-      Tween( baseFrame, { BackgroundColor3: new Color3( 0.25, 0, 0 ) }, 2 )
+      Tween( baseFrame, { BackgroundColor3: IMPOSTOR_COLOR }, 2 )
+   else
+      Tween( baseFrame, { BackgroundColor3: CAMPER_COLOR }, 2 )
 
    playerInfos.sort( SortLocalPlayerInfo )
 

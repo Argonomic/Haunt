@@ -181,12 +181,7 @@ function GameStateChanged( match: Match, oldGameState: GAME_STATE )
                   PlayerDistributesCoins( player, match )
             }
 
-            DistributePointsToPlayers( match.GetLivingPlayers(), GetTotalValueOfWorldCoins( match ) )
-
-            for ( let player of match.GetLivingPlayers() )
-            {
-               ScoreToStash( player )
-            }
+            DistributePointsToPlayers( match, match.GetLivingPlayers(), GetTotalValueOfWorldCoins( match ) )
          }
 
          Thread(

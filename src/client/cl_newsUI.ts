@@ -37,15 +37,14 @@ export function CL_NewsUISetup()
 
       file.storeUI = GetFirstChildWithName( folder, 'NewsUI' ) as ScreenGui
       file.storeUI.DisplayOrder = UIORDER.UIORDER_SCORE_TOTAL
+
+      AddNetVarChangedCallback( NETVAR_JSON_GAMESTATE,
+         function ()
+         {
+            wait() // for gamestate
+            GetNewsUI().Enabled = GetLocalMatch().GetGameState() < GAME_STATE.GAME_STATE_INTRO
+         } )
    } )
-
-   AddNetVarChangedCallback( NETVAR_JSON_GAMESTATE,
-      function ()
-      {
-         wait() // for gamestate
-         GetNewsUI().Enabled = GetLocalMatch().GetGameState() < GAME_STATE.GAME_STATE_INTRO
-      } )
-
 
    AddCallback_OnPlayerCharacterAncestryChanged( function ()
    {

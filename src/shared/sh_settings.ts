@@ -22,6 +22,9 @@ export const MATCHMAKE_PLAYER_WAITING_FOR_FRIEND_TIME = 45
 export const MATCHMAKE_PLAYER_OPENED_FRIEND_INVITE = 30
 
 export let START_COUNTDOWN = 40
+if ( TEST )
+   START_COUNTDOWN = 10
+
 export const RESERVEDSERVER_WAITS_FOR_PLAYERS = 10
 
 // POINTS
@@ -40,13 +43,13 @@ export const PLAYER_WALKSPEED_SPECTATOR = 16 * 1.5
 export const SPAWN_ROOM = "Foyer"
 export const KILL_DIST = 6.5
 export const REPORT_DIST = 5
-export const MEETING_VOTE_TIME = 40
-export const MEETING_VOTE_RESULTS = 6
+export const MEETING_VOTE_TIME = 35
+export const MEETING_VOTE_RESULTS = 8
 export const SUDDEN_DEATH_TIME = 90
 export const SPECTATOR_TRANS = 0.5 // 0.6
 export const STORE_BUY_IMPOSTOR = 250
 
-export let MEETING_DISCUSS_TIME = 10
+export let MEETING_DISCUSS_TIME = 0
 export let COOLDOWNTIME_SABOTAGE_LIGHTS = 70
 export let COOLDOWNTIME_IMPOSTOR_HIT_KILL = 5 // an impostor hits another impostor and gets a lower kill cooldown
 
@@ -74,5 +77,5 @@ export const PLAYER_COLORS =
 
 export const ADMINS = ["Argonomic", "ArgonomicDev"]
 
-print( "SRV 2.1.21 1.14 higher playercount" )
+print( "SRV 2.1.21 3.2" )
 print( " " )

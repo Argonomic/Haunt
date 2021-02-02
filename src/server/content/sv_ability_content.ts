@@ -26,7 +26,10 @@ export function SV_AbilityContentSetup()
             GiveAssignment( aplayer, match, assignment )
          }
 
-         ResetCooldownTime( player, COOLDOWN_SABOTAGE_LIGHTS )
+         for ( let aplayer of match.GetImpostors() )
+         {
+            ResetCooldownTime( aplayer, COOLDOWN_SABOTAGE_LIGHTS )
+         }
       } )
 
    SetAbilityCanUseFunc( ABILITIES.ABILITY_SABOTAGE_LIGHTS,

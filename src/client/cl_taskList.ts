@@ -156,8 +156,8 @@ function RefreshTaskList()
    if ( file.lastAssignmentCount !== assignments.size() )
    {
       file.lastAssignmentCount = assignments.size()
-      if ( file.toggleButton !== undefined )
-         file.toggleButton.Open()
+      //if ( file.toggleButton !== undefined )
+      //   file.toggleButton.Open()
    }
 
    let count = 0
@@ -262,7 +262,7 @@ function RefreshTaskList()
       Thread(
          function ()
          {
-            toggleButton.Close()
+            //toggleButton.Close()
 
             let position = file.framePosition
             let newPosition = new UDim2( position.X.Scale - 0.25, position.X.Offset, position.Y.Scale, position.Y.Offset )
@@ -276,7 +276,7 @@ function RefreshTaskList()
    {
       existingUI.Enabled = true
 
-      if ( taskSizeIncrease > 0 )
-         toggleButton.Open()
+      //if ( taskSizeIncrease > 0 )
+      //   toggleButton.Open()
    }
 }
