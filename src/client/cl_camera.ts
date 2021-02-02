@@ -32,7 +32,7 @@ export function CL_CameraSetup()
    AddCallback_OnPlayerCharacterAdded( function ( player: Player )
    {
       let camera = file.camera
-      camera.CameraType = Enum.CameraType.Scriptable
+      //camera.CameraType = Enum.CameraType.Scriptable
 
       if ( true )
          return
@@ -69,6 +69,9 @@ export function SetPlayerCameraToRoom( room: Room )
 
 function ResetCameraForCurrentRoom()
 {
+   if ( 1 )
+      return
+   //ahi
    Assert( file.currentRoom !== undefined, "Current room is not set" )
    let room = file.currentRoom as Room
    file.camera.FieldOfView = room.fieldOfView

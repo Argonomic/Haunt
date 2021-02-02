@@ -143,7 +143,7 @@ function SetCurrentRoom( player: Player, room: Room )
       return
 
    SetPlayerCameraToRoom( room )
-   CreateDynamicArtForRoom( room )
+   //CreateDynamicArtForRoom( room )
    ClearCoinPopUps()
 
    for ( let roomChangedCallback of file.roomChangedCallbacks )
@@ -156,7 +156,7 @@ export function SetLocalViewToRoom( room: Room )
 {
    print( "SetLocalViewToRoom to " + room.name )
    SetPlayerCameraToRoom( room )
-   CreateDynamicArtForRoom( room )
+   //CreateDynamicArtForRoom( room )
 }
 
 function OnTriggerDoorSetup( door: BasePart, room: Room )

@@ -35,6 +35,8 @@ let file = new File( Workspace.CurrentCamera as Camera )
 
 export function CL_FadeOverlaySetup()
 {
+   if ( 1 )
+      return
    AddCallback_OnPlayerCharacterAdded( function ( player: Player )
    {
       if ( player !== LOCAL_PLAYER )
