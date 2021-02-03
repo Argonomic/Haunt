@@ -102,7 +102,8 @@ function GameStateChanged( match: Match, oldGameState: GAME_STATE )
                   }
 
                   let lineup = ClonePlayerModels( all )
-                  DrawMatchScreen_Intro( foundLocalImpostor, match.shState.startingImpostorCount, lineup )
+                  let isDetective = match.IsDetective( LOCAL_PLAYER )
+                  DrawMatchScreen_Intro( foundLocalImpostor, match.shState.startingImpostorCount, lineup, isDetective )
                } )
          }
 

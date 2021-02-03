@@ -536,8 +536,13 @@ function CLGameStateChanged( match: Match, oldGameState: number )
             }
 
             let wasImpostor = false
+            let wasDetective = false
             if ( voteResults.highestRecipients.size() === 1 )
-               wasImpostor = match.IsImpostor( voteResults.highestRecipients[0] )
+            {
+               let votedOff = voteResults.highestRecipients[0]
+               wasImpostor = match.IsImpostor( votedOff )
+               wasDetective = match.IsDetective( votedOff )
+            }
 
             let impostorsRemaining = match.shState.startingImpostorCount
             for ( let player of match.GetAllPlayers() )
@@ -557,7 +562,8 @@ function CLGameStateChanged( match: Match, oldGameState: number )
                   votedAndReceivedNoVotes,
                   match.shState.highestVotedScore,
                   wasImpostor,
-                  impostorsRemaining
+                  impostorsRemaining,
+                  wasDetective,
                )
             } )
          }

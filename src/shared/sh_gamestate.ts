@@ -144,6 +144,7 @@ export class PlayerInfo
    playernum = -1
    _userid: number
    killed = false
+   detective = false
 
    constructor( id: number )
    {
@@ -356,6 +357,11 @@ export class Match
          playerInfos.push( pair[1] )
       }
       return playerInfos
+   }
+
+   public IsDetective( player: Player ): boolean
+   {
+      return this.GetPlayerInfo( player ).detective
    }
 
    public GetPlayerInfo( player: Player ): PlayerInfo

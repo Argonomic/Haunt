@@ -14,6 +14,7 @@ const LOCAL = RunService.IsStudio()
 const LOCAL_PLAYER = GetLocalPlayer()
 const IMPOSTOR_COLOR = new Color3( 0.25, 0, 0 )
 const CAMPER_COLOR = new Color3( 0, 0, 0.12 )
+const COLOR_DETECTIVE = new Color3( 0.5, 0.5, 1.0 )
 
 class File
 {
@@ -61,7 +62,7 @@ AddNetVarChangedCallback( NETVAR_MATCHMAKING_STATUS, function ()
                   players.push( LOCAL_PLAYER )
                }
                let lineup = ClonePlayerModels( players )
-               DrawMatchScreen_Intro( true, 1, lineup )
+               //DrawMatchScreen_Intro( true, 1, lineup )
             }
             break
 
@@ -78,13 +79,13 @@ AddNetVarChangedCallback( NETVAR_MATCHMAKING_STATUS, function ()
                let highestVotedScore = 35
                let impostorsRemaining = 3
                let wasImpostor = true
-               DrawMatchScreen_VoteResults( skipTie,
-                  receivedHighestVotes,
-                  receivedVotes,
-                  votedAndReceivedNoVotes,
-                  highestVotedScore,
-                  wasImpostor,
-                  impostorsRemaining )
+               //DrawMatchScreen_VoteResults( skipTie,
+               //receivedHighestVotes,
+               //   receivedVotes,
+               //   votedAndReceivedNoVotes,
+               //   highestVotedScore,
+               //   wasImpostor,
+               //   impostorsRemaining )
 
             }
             break
@@ -119,7 +120,7 @@ AddNetVarChangedCallback( NETVAR_MATCHMAKING_STATUS, function ()
 
 }
 
-export function DrawMatchScreen_Intro( foundLocalImpostor: boolean, impostorCount: number, lineup: Array<Model> )
+export function DrawMatchScreen_Intro( foundLocalImpostor: boolean, impostorCount: number, lineup: Array<Model>, isDetective: boolean )
 {
    let matchScreenFrame = WaitForMatchScreenFrame( "MATCHSCREEN_INTRO" )
    let baseFrame = matchScreenFrame.baseFrame
@@ -134,34 +135,53 @@ export function DrawMatchScreen_Intro( foundLocalImpostor: boolean, impostorCoun
    if ( foundLocalImpostor )
    {
       if ( impostorCount === 1 )
-         subTitle.Text = "You are the impostor!"
+         subTitle.Text = "You are the Impostor!"
       else
-         subTitle.Text = "You are an impostor!"
+         subTitle.Text = "You are an Impostor!"
    }
    else
    {
-      subTitle.Text = "You are innocent"
+      if ( isDetective )
+      {
+         subTitle.Text = "You are Detective"
+         subTitle.TextColor3 = COLOR_DETECTIVE
+      }
+      else
+         subTitle.Text = "You are Innocent"
    }
 
    let gmc = GetGameModeConsts()
 
    let impostorText: string
-   if ( gmc.revealOtherImpostors )
+   //if ( gmc.revealOtherImpostors )
    {
       if ( impostorCount === 0 )
-         impostorText = "There are no impostors"
+         impostorText = "There are no Impostors"
       else if ( impostorCount === 1 )
-         impostorText = "There is 1 impostor"
+         impostorText = "There is 1 Impostor"
       else
-         impostorText = "There are " + impostorCount + " impostors"
+         impostorText = "There are " + impostorCount + " Impostors"
    }
+   /*
    else
    {
       if ( foundLocalImpostor )
-         impostorText = "Battle to be the Last Impostor Standing"
+      {
+         impostorText = "Don't let the Innocent escape"
+      }
+      else if ( isDetective )
+      {
+         if ( impostorCount > 1 )
+            impostorText = "Discover Impostors before its too late"
+         else
+            impostorText = "Find the Impostor before its too late"
+      }
       else
+      {
          impostorText = "Avoid Impostors"
+      }
    }
+   */
 
    title.TextTransparency = 1
    subTitle.TextTransparency = 1
@@ -169,43 +189,26 @@ export function DrawMatchScreen_Intro( foundLocalImpostor: boolean, impostorCoun
 
    const FADE_IN = 2
 
-   let debugIt = false
-   if ( debugIt )
-   {
-      title.TextTransparency = 0
-      subTitle.TextTransparency = 0
-      wait( 1 )
-   }
-   else
-   {
-      wait( 0.8 )
-      Tween( title, { TextTransparency: 0 }, FADE_IN )
-      wait( 1.5 )
-      Thread(
-         function ()
+   wait( 0.8 )
+   Tween( title, { TextTransparency: 0 }, FADE_IN )
+   wait( 1.5 )
+   Thread(
+      function ()
+      {
+         wait( 0.5 )
+         Tween( subTitle, { TextTransparency: 0 }, FADE_IN )
+         wait( 0.4 )
+
+         wait( 2.0 )
+         if ( !isDetective )
          {
+            Tween( subTitle, { TextTransparency: 1 }, 0.5 )
             wait( 0.5 )
-            Tween( subTitle, { TextTransparency: 0 }, FADE_IN )
-            wait( 0.4 )
-
-            wait( 2.0 )
-            //if ( !foundLocalImpostor )
-            {
-               Tween( subTitle, { TextTransparency: 1 }, 0.5 )
-               wait( 0.5 )
-               subTitle.Text = impostorText
-               Tween( subTitle, { TextTransparency: 0 }, 0.5 )
-            }
-         } )
-      wait( 0.3 )
-   }
-
-   // For rapid iteration
-   //RunService.RenderStepped.Connect(
-   //   SetCamera
-   //)
-
-
+            subTitle.Text = impostorText
+            Tween( subTitle, { TextTransparency: 0 }, 0.5 )
+         }
+      } )
+   wait( 0.3 )
 
    {
       ArrangeModelsInLineup( lineup, viewportFrame )
@@ -236,13 +239,26 @@ export function DrawMatchScreen_Intro( foundLocalImpostor: boolean, impostorCoun
          } )
 
       wait( FADE_IN + 2 )
+
+      if ( isDetective )
+      {
+         wait( 0.5 )
+         Tween( subTitle, { TextTransparency: 1 }, 0.5 )
+         wait( 0.5 )
+
+         if ( impostorCount > 1 )
+            subTitle.Text = "Find " + impostorCount + " Impostors before its too late"
+         else
+            subTitle.Text = "Find the Impostor before its too late"
+
+         Tween( subTitle, { TextTransparency: 0 }, 0.5 )
+         wait( 2 )
+      }
+
       wait( 1.1 )
 
       lineupCamera.DollyThrough()
    }
-
-   if ( debugIt )
-      wait( 2343 )
 
    const FADE_OUT = 2.0
    Tween( title, { TextTransparency: 1 }, FADE_OUT * 0.75 )
@@ -259,7 +275,7 @@ function SortLocalPlayerInfo( a: PlayerInfo, b: PlayerInfo ): boolean
    return a._userid === LOCAL_PLAYER.UserId && b._userid !== LOCAL_PLAYER.UserId
 }
 
-export function DrawMatchScreen_VoteResults( skipTie: boolean, receivedHighestVotes: Array<Player>, receivedVotes: Array<Player>, votedAndReceivedNoVotes: Array<Player>, highestVotedScore: number, wasImpostor: boolean, impostorsRemaining: number )
+export function DrawMatchScreen_VoteResults( skipTie: boolean, receivedHighestVotes: Array<Player>, receivedVotes: Array<Player>, votedAndReceivedNoVotes: Array<Player>, highestVotedScore: number, wasImpostor: boolean, impostorsRemaining: number, wasDetective: boolean )
 {
    print( "DrawMatchScreen_VoteResults, highestVotedScore: " + highestVotedScore )
    function GetResultsText(): Array<string>
@@ -609,9 +625,14 @@ export function DrawMatchScreen_VoteResults( skipTie: boolean, receivedHighestVo
 
       let name = receivedHighestVotes[0].Name
       if ( wasImpostor )
-         title.Text = name + " was an impostor"
+         title.Text = name + " was an Impostor"
+      else if ( wasDetective )
+      {
+         title.Text = name + " was a Detective"
+         title.TextColor3 = COLOR_DETECTIVE
+      }
       else
-         title.Text = name + " was innocent"
+         title.Text = name + " was Innocent"
 
       if ( 0 )
       {

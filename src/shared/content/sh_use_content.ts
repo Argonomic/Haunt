@@ -56,7 +56,11 @@ export function CanCallMeeting( match: Match, player: Player ): boolean
          return false
    }
 
-   if ( GetNetVar_Number( player, NETVAR_MEETINGS_CALLED ) > 0 )
+   let meetingCount = 0
+   if ( match.IsDetective( player ) )
+      meetingCount = match.shState.startingImpostorCount
+
+   if ( GetNetVar_Number( player, NETVAR_MEETINGS_CALLED ) > meetingCount )
       return false
 
    return !match.IsSpectator( player )

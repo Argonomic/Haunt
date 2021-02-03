@@ -172,7 +172,7 @@ export function CL_FadeOverlaySetup()
 
             default:
                const MAX = 200
-               if ( GetLocalIsSpectator() )
+               if ( GetLocalIsSpectator() || match.IsDetective( LOCAL_PLAYER ) )
                   return MAX
 
                switch ( GetLocalRole() )

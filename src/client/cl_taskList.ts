@@ -1,6 +1,6 @@
 import { GetTaskSpec } from "client/cl_tasks"
-import { NETVAR_JSON_GAMESTATE, NETVAR_JSON_ASSIGNMENTS, GAME_STATE } from "shared/sh_gamestate"
-import { AddNetVarChangedCallback } from "shared/sh_player_netvars"
+import { NETVAR_JSON_GAMESTATE, NETVAR_JSON_ASSIGNMENTS, GAME_STATE, NETVAR_MEETINGS_CALLED } from "shared/sh_gamestate"
+import { AddNetVarChangedCallback, GetNetVar_Number } from "shared/sh_player_netvars"
 import { GetFirstChildWithName, GetLocalPlayer, Graph, Thread } from "shared/sh_utils"
 import { GetMinimapReferencesFrame } from "./cl_minimap"
 import { AddPlayerGuiFolderExistsCallback, ToggleButton, UIORDER } from "./cl_ui"
@@ -232,6 +232,16 @@ function RefreshTaskList()
       file.taskLabels[1].Text = "complete their tasks and escape"
       startIndex = 2
    }
+   else if ( match.IsDetective( LOCAL_PLAYER ) )
+   {
+      print( "DETECTIVE match.shState.startingImpostorCount " + match.shState.startingImpostorCount )
+      print( "DETECTIVE GetNetVar_Number( LOCAL_PLAYER, NETVAR_MEETINGS_CALLED ) " + GetNetVar_Number( LOCAL_PLAYER, NETVAR_MEETINGS_CALLED ) )
+      file.taskLabels[0].Text = "You are the Detective."
+      file.taskLabels[1].Text = "Discover the Impostors before it's too late."
+      let remaining = math.max( 0, ( match.shState.startingImpostorCount - GetNetVar_Number( LOCAL_PLAYER, NETVAR_MEETINGS_CALLED ) + 1 ) )
+      file.taskLabels[2].Text = remaining + " emergency meetings remaining."
+      startIndex = 3
+   }
    else
    {
       file.taskLabels[0].Text = "Complete your tasks while avoiding"
@@ -259,6 +269,7 @@ function RefreshTaskList()
 
    if ( existingUI.Enabled && drawTasksArr.size() === 0 )
    {
+      /*
       Thread(
          function ()
          {
@@ -271,6 +282,7 @@ function RefreshTaskList()
             wait( 1.0 )
             existingUI.Enabled = false
          } )
+      */
    }
    else if ( !existingUI.Enabled )
    {

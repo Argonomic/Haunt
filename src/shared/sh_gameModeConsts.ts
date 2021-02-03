@@ -36,6 +36,7 @@ export class GameModeConsts
    hasCorpses = false
    corpseTimeout: number | undefined
    canKillImpostors = true
+   detectivesEnabled = true
    spectatorDeathRun = false
    meetingCooldown = 20
    cooldownKill = 45

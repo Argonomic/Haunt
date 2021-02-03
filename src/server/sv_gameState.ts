@@ -3,7 +3,7 @@ import { AddRPC, GetRPCRemoteEvent } from "shared/sh_rpc"
 import { ArrayRandomize, GraphCapped, Resume, Thread, UserIDToPlayer, Wait, GetHealth, SetHealth, FilterHasCharactersAndPrimaryPart } from "shared/sh_utils"
 import { Assert } from "shared/sh_assert"
 import { Assignment, GAME_STATE, NETVAR_JSON_ASSIGNMENTS, ROLE, Match, GetVoteResults, TASK_EXIT, AssignmentIsSame, TASK_RESTORE_LIGHTS, NETVAR_JSON_GAMESTATE, SetPlayerWalkspeedForGameState, USERID, PlayerVote, NS_SharedMatchState, PlayerInfo, AddRoleChangeCallback, PICKUPS, IsSpectatorRole, ExecRoleChangeCallbacks, NETVAR_MEETINGS_CALLED, NETVAR_PURCHASED_IMPOSTOR, REMOTESOUNDS, GetTaskValueForRound, COOLDOWN_NAME_KILL, } from "shared/sh_gamestate"
-import { MIN_TASKLIST_SIZE, MAX_TASKLIST_SIZE, MATCHMAKE_PLAYERCOUNT_STARTSERVER, SPAWN_ROOM, DEV_1_TASK, DEV_FAST_TIMERS, } from "shared/sh_settings"
+import { MIN_TASKLIST_SIZE, MAX_TASKLIST_SIZE, MATCHMAKE_PLAYERCOUNT_STARTSERVER, SPAWN_ROOM, DEV_1_TASK, DEV_FAST_TIMERS, DETECTIVE_BONUS, } from "shared/sh_settings"
 import { GetNetVar_Number, ResetNetVar, SetNetVar } from "shared/sh_player_netvars"
 import { AddCallback_OnPlayerCharacterAdded, AddCallback_OnPlayerConnected } from "shared/sh_onPlayerConnect"
 import { GetAllRoomsAndTasks, GetCurrentRoom, GetRoomByName, PlayerHasCurrentRoom, PutPlayersInRoom } from "./sv_rooms"
@@ -1233,6 +1233,17 @@ export function SetPlayerKilled( match: Match, player: Player, killer?: Player )
       GiveExitTask( match, player )
 }
 
+export function EnableDetective( match: Match, player: Player )
+{
+   let playerInfo = match.GetPlayerInfo( player )
+   playerInfo.detective = true
+}
+
+export function ClearDetective( match: Match, player: Player )
+{
+   let playerInfo = match.GetPlayerInfo( player )
+   playerInfo.detective = false
+}
 
 export function SetPlayerRole( match: Match, player: Player, role: ROLE ): PlayerInfo
 {
@@ -1318,6 +1329,7 @@ export function StartMatchWithNormalImpostorsAndCampers( match: Match )
       ResetNetVar( player, NETVAR_JSON_ASSIGNMENTS )
       ResetNetVar( player, NETVAR_MEETINGS_CALLED )
       //ResetNetVar( player, NETVAR_SCORE ) // keep prematch coins collected
+      ClearDetective( match, player )
    }
 
    let impostorCount = 1
@@ -1355,6 +1367,19 @@ export function StartMatchWithNormalImpostorsAndCampers( match: Match )
    {
       SetPlayerRole( match, player, ROLE.ROLE_IMPOSTOR )
       ClearAssignments( match, player )
+   }
+
+   if ( GetGameModeConsts().detectivesEnabled )
+   {
+      let detectiveCount = math.floor( campers.size() * 0.25 )
+      let detectives = campers.slice( 0, detectiveCount )
+      campers = campers.slice( detectiveCount )
+
+      for ( let player of detectives )
+      {
+         EnableDetective( match, player )
+         IncrementMatchScore( player, DETECTIVE_BONUS )
+      }
    }
 
    for ( let player of campers )
