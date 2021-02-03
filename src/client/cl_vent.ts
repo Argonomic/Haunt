@@ -28,6 +28,14 @@ export function CL_VentSetup()
    let ventsByRoom = new Map<string, EDITOR_Vent>()
 
 
+   function DestroyUI()
+   {
+      file.touchCount = 0
+      if ( ui === undefined )
+         return
+      ui.Destroy()
+      ui = undefined
+   }
    //let lastRoom = ""
    //print( GetBearingBetweenPoints( 0, 0, 0, 1 ) )
    //print( GetBearingBetweenPoints( 0, 0, 1, 1 ) )
@@ -69,8 +77,7 @@ export function CL_VentSetup()
    let lastVentRoomName: string | undefined
    function RedrawUI()
    {
-      if ( ui !== undefined )
-         ui.Destroy()
+      DestroyUI()
       wait()
       if ( lastVent !== undefined && lastVentRoomName !== undefined )
          DrawUI( lastVent, lastVentRoomName )
@@ -78,8 +85,7 @@ export function CL_VentSetup()
 
    function DrawUI( vent: EDITOR_Vent, ventRoomName: string )
    {
-      if ( ui !== undefined )
-         ui.Destroy()
+      DestroyUI()
       lastVent = vent
       lastVentRoomName = ventRoomName
       print( "DrawUI" )
@@ -144,6 +150,7 @@ export function CL_VentSetup()
             function ()
             {
                SendRPC_Client( "RPC_FromClient_VentTeleport", ventRoomName, roomName )
+               DestroyUI()
             } )
 
          arrows.push( arrow )
@@ -273,7 +280,7 @@ export function CL_VentSetup()
       }
    }
 
-   AddCameraUpdateCallback( RedrawUI )
+   //AddCameraUpdateCallback( RedrawUI )
 
    AddCallback_OnRoomSetup( "scr_vent", function ( vent: EDITOR_Vent, room: Room )
    {
@@ -307,38 +314,43 @@ export function CL_VentSetup()
             return
 
          file.touchCount--
+         if ( file.touchCount < 0 )
+            file.touchCount = 0
+
          if ( file.touchCount > 0 )
             return
 
-         if ( ui !== undefined )
-            ui.Destroy()
+         DestroyUI()
       } )
 
       AddCallback_OnPlayerCharacterAncestryChanged(
          function ()
          {
-            file.touchCount = 0
-
-            if ( ui !== undefined )
-               ui.Destroy()
+            DestroyUI()
          } )
 
    } )
 
+   let lastGameState = -1
    AddNetVarChangedCallback( NETVAR_JSON_GAMESTATE,
       function ()
       {
+         wait()
          let match = GetLocalMatch()
+         let gameState = match.GetGameState()
          switch ( match.GetGameState() )
          {
             case GAME_STATE.GAME_STATE_PLAYING:
             case GAME_STATE.GAME_STATE_SUDDEN_DEATH:
+               if ( gameState !== lastGameState )
+                  DestroyUI()
                break
 
             default:
-               if ( ui !== undefined )
-                  ui.Destroy()
+               DestroyUI()
                return
          }
+         DestroyUI()
+         lastGameState = gameState
       } )
 }

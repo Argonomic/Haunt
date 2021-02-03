@@ -78,5 +78,5 @@ export const PLAYER_COLORS =
 
 export const ADMINS = ["Argonomic", "ArgonomicDev"]
 
-print( "SRV 2.3.21 2.0 Detective" )
+print( "SRV 2.3.21 2.2" )
 print( " " )

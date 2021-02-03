@@ -1371,7 +1371,7 @@ export function StartMatchWithNormalImpostorsAndCampers( match: Match )
 
    if ( GetGameModeConsts().detectivesEnabled )
    {
-      let detectiveCount = math.floor( campers.size() * 0.25 )
+      let detectiveCount = math.floor( campers.size() * 0.15 )
       let detectives = campers.slice( 0, detectiveCount )
       campers = campers.slice( detectiveCount )
 
