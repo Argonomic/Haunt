@@ -133,14 +133,16 @@ export function CL_MinimapSetup()
          mapIcon.textLabel.Parent = baseFrame
       }
 
-      minimapUI.Enabled = false
+      minimapUI.Enabled = true
 
+      /*
       AddNetVarChangedCallback( NETVAR_JSON_GAMESTATE,
          function ()
          {
             wait() // for gamestate
             minimapUI.Enabled = GetLocalMatch().GetGameState() >= GAME_STATE.GAME_STATE_PLAYING
          } )
+      */
 
 
       let frames: Array<TextLabel> = []
