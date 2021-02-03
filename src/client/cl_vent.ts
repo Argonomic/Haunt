@@ -1,18 +1,22 @@
 import { RunService, Workspace } from "@rbxts/services"
 import { AddCallback_OnPlayerCharacterAncestryChanged } from "shared/sh_onPlayerConnect"
 import { AddCallback_OnRoomSetup, EDITOR_Vent, Room } from "shared/sh_rooms"
-import { GetLocalPlayer, GetPlayerFromDescendant, LoadSound } from "shared/sh_utils"
+import { GetLocalPlayer, GetPlayerFromDescendant } from "shared/sh_utils"
 import { GetPosition, PI } from "shared/sh_utils_geometry"
 import { AddPlayerGuiFolderExistsCallback, UIORDER } from "./cl_ui"
 import { GetBearingBetweenPoints } from "shared/sh_utils_geometry"
 import { SendRPC_Client } from "shared/sh_rpc"
-import { GAME_STATE, IsImpostorRole, NETVAR_JSON_GAMESTATE } from "shared/sh_gamestate"
 import { GetLocalMatch } from "./cl_gamestate"
-import { AddNetVarChangedCallback } from "shared/sh_player_netvars"
 import { AddCameraUpdateCallback, IsOverheadCamera } from "./cl_camera"
 
 const LOCAL_PLAYER = GetLocalPlayer()
 const ARROW = 'rbxassetid://144168163'
+
+class File
+{
+   touchCount = 0
+}
+let file = new File()
 
 export function CL_VentSetup()
 {
@@ -20,6 +24,7 @@ export function CL_VentSetup()
    let folder: Folder | undefined
 
    let ventsByRoom = new Map<string, EDITOR_Vent>()
+
 
    //let lastRoom = ""
    //print( GetBearingBetweenPoints( 0, 0, 0, 1 ) )
@@ -111,7 +116,7 @@ export function CL_VentSetup()
 
       let midPoint = new Vector2( viewsize.X * 0.5, viewsize.Y * 0.5 )
 
-      let arrowSize = new UDim2( 0.35, 0, 0.35, 0 )
+      let arrowSize = new UDim2( 0.25, 0, 0.25, 0 )
       let arrows: Array<ImageButton> = []
       let vents: Array<EDITOR_Vent> = []
       let roomNames: Array<string> = []
@@ -155,21 +160,22 @@ export function CL_VentSetup()
          {
             let arrow = arrows[i]
             let otherVent = vents[i]
-            let roomName = roomNames[i]
             let targetPos = GetPosition( otherVent.Union )
             let [ventPos, _1] = camera.WorldToScreenPoint( targetPos )
-            let yaw = GetBearingBetweenPoints( midPoint.X, midPoint.Y, ventPos.X, ventPos.Y )
+            let yaw = GetBearingBetweenPoints( midPoint.X, -midPoint.Y, ventPos.X, -ventPos.Y )
 
-            DrawArrow( arrow, frame.AbsoluteSize.Y, yaw, ventRoomName, roomName )
+            arrow.Rotation = ( 360 - yaw ) - 90
+            //yaw = 360 - yaw
+            yaw -= 90
+
+            DrawArrow( arrow, frame.AbsoluteSize.Y * 0.7, yaw )
          }
       } )
    }
 
-   function DrawArrow( arrow: ImageButton, bounds: number, yaw: number, ventRoomName: string, roomName: string )
+   function DrawArrow( arrow: ImageButton, bounds: number, yaw: number )
    {
       //yaw = ( 360 - yaw )
-      arrow.Rotation = ( 360 - yaw ) - 90
-      yaw -= 90
 
       //print( "Points: " + math.floor( pos.X ) + "/" + math.floor( pos.Z ) + " " + math.floor( targetPos.X ) + "/" + math.floor( targetPos.Z ) + " to yaw " + math.floor( yaw ) )
 
@@ -261,7 +267,7 @@ export function CL_VentSetup()
          arrow.Rotation = ( 360 - yaw ) - 90
          yaw -= 90
 
-         DrawArrow( arrow, bounds, yaw, ventRoomName, roomName )
+         DrawArrow( arrow, bounds, yaw )
       }
    }
 
@@ -290,12 +296,18 @@ export function CL_VentSetup()
             return
 
          DrawUI( vent, room.name )
+         file.touchCount++
       } )
 
       vent.scr_vent_trigger.TouchEnded.Connect( function ( toucher )
       {
          if ( GetPlayerFromDescendant( toucher ) !== LOCAL_PLAYER )
             return
+
+         file.touchCount--
+         if ( file.touchCount > 0 )
+            return
+
          if ( ui !== undefined )
             ui.Destroy()
       } )
@@ -303,28 +315,28 @@ export function CL_VentSetup()
       AddCallback_OnPlayerCharacterAncestryChanged(
          function ()
          {
+            file.touchCount = 0
+
             if ( ui !== undefined )
                ui.Destroy()
          } )
 
    } )
 
-
-   AddNetVarChangedCallback( NETVAR_JSON_GAMESTATE,
-      function ()
-      {
-         let match = GetLocalMatch()
-         switch ( match.GetGameState() )
+      AddNetVarChangedCallback( NETVAR_JSON_GAMESTATE,
+         function ()
          {
-            case GAME_STATE.GAME_STATE_PLAYING:
-            case GAME_STATE.GAME_STATE_SUDDEN_DEATH:
-               break
-
-            default:
-               if ( ui !== undefined )
-                  ui.Destroy()
-               return
-         }
-      } )
-
+            let match = GetLocalMatch()
+            switch ( match.GetGameState() )
+            {
+               case GAME_STATE.GAME_STATE_PLAYING:
+               case GAME_STATE.GAME_STATE_SUDDEN_DEATH:
+                  break
+   
+               default:
+                  if ( ui !== undefined )
+                     ui.Destroy()
+                  return
+            }
+         } )
 }
