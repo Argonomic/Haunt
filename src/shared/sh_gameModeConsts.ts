@@ -52,7 +52,7 @@ export function GetMinPlayersToStartGame(): number
    let gameModeData = GetGameModeConsts()
    let minPlayersToStartGame = gameModeData.minPlayersToStartGame
 
-   let range = math.floor( Players.GetPlayers().size() * 0.825 )
+   let range = math.floor( Players.GetPlayers().size() * 0.5 )
    if ( range < minPlayersToStartGame )
       return minPlayersToStartGame
    if ( range > IDEAL_PLAYERS )

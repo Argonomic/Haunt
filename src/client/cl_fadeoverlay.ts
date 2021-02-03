@@ -92,7 +92,7 @@ export function CL_FadeOverlaySetup()
       fadeCircle.ImageTransparency = TRANSPARENCY
       fadeCircle.BackgroundTransparency = 1.0
       fadeCircle.AnchorPoint = new Vector2( 0.5, 0.5 )
-      fadeCircle.SizeConstraint = Enum.SizeConstraint.RelativeYY
+      //fadeCircle.SizeConstraint = Enum.SizeConstraint.RelativeYY
       fadeCircle.Parent = screenUI
       fadeCircle.Size = new UDim2( 0.25, 0, 0.25, 0 )
 

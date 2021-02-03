@@ -12,7 +12,7 @@ export function CreateGameModeConsts(): GameModeConsts
          gmc.canKillImpostors = false
          gmc.canPurchaseImpostor = false
          gmc.completeTasksBecomeImpostor = false
-         gmc.gameTitle = "Last Impostor Standing"
+         gmc.gameTitle = "Impostor Mansion" // "Last Impostor Standing"
          gmc.cooldownKill = 35
          gmc.hasCorpses = true
          gmc.hasPlayerNumber = false

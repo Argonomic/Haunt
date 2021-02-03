@@ -3,7 +3,7 @@ import { GAME_STATE, NS_Corpse, USETYPES, COOLDOWN_NAME_KILL, MEETING_TYPE, NETV
 import { GetUsableByType, USABLETYPES } from "shared/sh_use"
 import { SetGameState, UpdateGame, PlayerHasUnfinishedAssignment, PlayerHasAssignments, PlayerToMatch, SV_SendRPC, SetPlayerKilled, BroadcastSound, TellOtherPlayersInMatchThatPlayersPutInRoom } from "server/sv_gameState"
 import { GetCurrentRoom } from "server/sv_rooms"
-import { DoCooldown, GetPlayerCooldownTimeRemaining, ResetCooldownTime } from "shared/sh_cooldown"
+import { DoCooldown, ResetCooldownTime } from "shared/sh_cooldown"
 import { SetPlayerWalkSpeed } from "shared/sh_onPlayerConnect"
 import { GetNetVar_Number, SetNetVar } from "shared/sh_player_netvars"
 import { CanCallMeeting, CanReportBody, SharedKillGetter } from "shared/content/sh_use_content"

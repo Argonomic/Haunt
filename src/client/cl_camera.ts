@@ -1,10 +1,12 @@
 import { Room } from "shared/sh_rooms"
 import { Workspace } from "@rbxts/services";
 import { AddCallback_OnPlayerCharacterAdded, AddCallback_OnPlayerCharacterAncestryChanged } from "shared/sh_onPlayerConnect";
-import { GetFirstChildWithNameAndClassName, Thread } from "shared/sh_utils";
+import { GetFirstChildWithNameAndClassName, GetHumanoid, GetLocalPlayer, Thread } from "shared/sh_utils";
 import { Assert } from "shared/sh_assert"
 import { ConvertToDynamicArtInfos, CreateDynamicArt, DynamicArtInfo } from "./cl_dynamicArt";
 import { AddPlayerGuiFolderExistsCallback, UIORDER } from "./cl_ui";
+
+const LOCAL_PLAYER = GetLocalPlayer()
 
 type EDITOR_CameraUI = ScreenGui &
 {
@@ -18,7 +20,6 @@ type EDITOR_CameraUI = ScreenGui &
       CameraButton: TextButton
    }
 }
-
 
 class File
 {
@@ -85,6 +86,9 @@ function UpdatePlayerCamera()
    }
    else
    {
+      let humanoid = GetHumanoid( LOCAL_PLAYER )
+      if ( humanoid !== undefined )
+         file.viewCamera.CameraSubject = humanoid
       file.viewCamera.CameraType = Enum.CameraType.Custom
       file.dynamicArtModels = CreateDynamicArt( file.dynamicArtInfos )
       file.cameraUI.Frame.CameraButton.Text = "Over Shoulder"
@@ -139,6 +143,20 @@ export function CL_CameraSetup()
    AddCallback_OnPlayerCharacterAdded( function ( player: Player )
    {
       UpdatePlayerCamera()
+      Thread(
+         function ()
+         {
+            for ( ; ; )
+            {
+               let humanoid = GetHumanoid( LOCAL_PLAYER )
+               if ( humanoid !== undefined )
+               {
+                  file.viewCamera.CameraSubject = humanoid
+                  break
+               }
+               wait()
+            }
+         } )
    } )
 
    let firstLoad = true

@@ -56,8 +56,8 @@ export function CL_ReturnToLobbySetup()
 
       frame.Spectate.MouseButton1Click.Connect( function ()
       {
-         ReturnToLobbyUI.Enabled = false
-         //toggleButton.Close()
+         //ReturnToLobbyUI.Enabled = false
+         toggleButton.Close()
       } )
 
       frame.LeaveMatch.MouseButton1Click.Connect( function ()

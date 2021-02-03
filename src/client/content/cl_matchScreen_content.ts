@@ -613,18 +613,22 @@ export function DrawMatchScreen_VoteResults( skipTie: boolean, receivedHighestVo
       else
          title.Text = name + " was innocent"
 
-      if ( impostorsRemaining === 0 )
-         subTitle.Text = "0 impostors remain"
+      if ( 0 )
+      {
+         if ( impostorsRemaining === 0 )
+            subTitle.Text = "0 impostors remain"
+         else
+            subTitle.Text = "At least 1 impostor remains"
+      }
       else
-         subTitle.Text = "At least 1 impostor remains"
-      /*
-      if ( impostorsRemaining === 0 )
-         subTitle.Text = "0 impostors remain"
-      else if ( impostorsRemaining === 1 )
-         subTitle.Text = "1 impostor remains"
-      else
-         subTitle.Text = impostorsRemaining + " impostors remain"
-      */
+      {
+         if ( impostorsRemaining === 0 )
+            subTitle.Text = "0 impostors remain"
+         else if ( impostorsRemaining === 1 )
+            subTitle.Text = "1 impostor remains"
+         else
+            subTitle.Text = impostorsRemaining + " impostors remain"
+      }
 
       Tween( title, { TextTransparency: 0 }, 0.5 )
       wait( 1.4 )
