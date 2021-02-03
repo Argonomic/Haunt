@@ -1,62 +1,170 @@
 import { Room } from "shared/sh_rooms"
-import { RunService } from "@rbxts/services";
 import { Workspace } from "@rbxts/services";
-import { AddCallback_OnPlayerCharacterAdded } from "shared/sh_onPlayerConnect";
-import { VectorNormalize } from "shared/sh_utils";
+import { AddCallback_OnPlayerCharacterAdded, AddCallback_OnPlayerCharacterAncestryChanged } from "shared/sh_onPlayerConnect";
+import { GetFirstChildWithNameAndClassName, Thread } from "shared/sh_utils";
 import { Assert } from "shared/sh_assert"
-import { GetPosition } from "shared/sh_utils_geometry";
+import { ConvertToDynamicArtInfos, CreateDynamicArt, DynamicArtInfo } from "./cl_dynamicArt";
+import { AddPlayerGuiFolderExistsCallback, UIORDER } from "./cl_ui";
 
-class File
+type EDITOR_CameraUI = ScreenGui &
 {
-   camera: Camera
-   currentRoom: Room | undefined
-
-   constructor( camera: Camera )
+   Frame: Frame &
    {
-      this.camera = camera
+      InfoFrame: Frame &
+      {
+         Status: TextLabel
+      }
+
+      CameraButton: TextButton
    }
 }
 
+
+class File
+{
+   viewCamera = new Instance( 'Camera' )
+   localCamera = new Instance( 'Camera' )
+
+   currentRoom: Room | undefined
+   cameraUI: EDITOR_CameraUI = new Instance( 'ScreenGui' ) as EDITOR_CameraUI
+
+   overrideCamera = false
+   _overheadCamera = false
+
+   cameraUpdateCallbacks: Array<() => void> = []
+
+   dynamicArtInfos: Array<DynamicArtInfo> = []
+   dynamicArtModels: Array<BasePart> = []
+}
+
+export function EnableCameraModeUI()
+{
+   file.cameraUI.Enabled = true
+}
+
+export function DisableCameraModeUI()
+{
+   file.cameraUI.Enabled = false
+}
+
+export function IsOverheadCamera(): boolean
+{
+   return file._overheadCamera || file.overrideCamera
+}
+
+export function SetOverheadCameraOverride( override: boolean )
+{
+   file.overrideCamera = override
+   UpdatePlayerCamera()
+}
+
+export function ToggleOverheadCamera()
+{
+   file._overheadCamera = !file._overheadCamera
+   UpdatePlayerCamera()
+}
+
+export function AddCameraUpdateCallback( func: () => void )
+{
+   file.cameraUpdateCallbacks.push( func )
+}
+
+function UpdatePlayerCamera()
+{
+   for ( let child of file.dynamicArtModels )
+   {
+      child.Destroy()
+   }
+   file.dynamicArtModels = []
+   file.localCamera.CameraType = Enum.CameraType.Scriptable
+
+   if ( IsOverheadCamera() )
+   {
+      file.viewCamera.CameraType = Enum.CameraType.Scriptable
+      file.cameraUI.Frame.CameraButton.Text = "Overhead"
+   }
+   else
+   {
+      file.viewCamera.CameraType = Enum.CameraType.Custom
+      file.dynamicArtModels = CreateDynamicArt( file.dynamicArtInfos )
+      file.cameraUI.Frame.CameraButton.Text = "Over Shoulder"
+   }
+   for ( let callback of file.cameraUpdateCallbacks )
+   {
+      Thread(
+         function ()
+         {
+            callback()
+         } )
+   }
+   for ( let callback of file.cameraUpdateCallbacks )
+   {
+      Thread(
+         function ()
+         {
+            callback()
+         } )
+   }
+}
+
+export function GetCameraUI(): ScreenGui
+{
+   return file.cameraUI
+}
+
 Assert( Workspace.CurrentCamera !== undefined, "Workspace has no camera" )
-let camera = Workspace.CurrentCamera as Camera
-let file = new File( camera )
+let file = new File()
 
 export function CL_CameraSetup()
 {
-   file.camera.GetPropertyChangedSignal( "ViewportSize" ).Connect( function ()
+   file.viewCamera.Destroy()
+   file.viewCamera = Workspace.CurrentCamera as Camera
+   file.viewCamera.CFrame = new CFrame( new Vector3( 0, 0, 0 ) )
+   file.viewCamera.GetPropertyChangedSignal( "ViewportSize" ).Connect( function ()
    {
       if ( file.currentRoom !== undefined )
          ResetCameraForCurrentRoom()
    } )
 
+
+   let firstPerson = GetFirstChildWithNameAndClassName( Workspace, 'FirstPerson', 'Folder' ) as Folder
+   let baseParts: Array<BasePart> = []
+   for ( let child of firstPerson.GetChildren() )
+   {
+      if ( child.IsA( 'BasePart' ) )
+         baseParts.push( child as BasePart )
+   }
+   file.dynamicArtInfos = ConvertToDynamicArtInfos( baseParts )
+
    AddCallback_OnPlayerCharacterAdded( function ( player: Player )
    {
-      let camera = file.camera
-      //camera.CameraType = Enum.CameraType.Scriptable
+      UpdatePlayerCamera()
+   } )
 
-      if ( true )
-         return
-
-      RunService.RenderStepped.Connect( function ()
+   let firstLoad = true
+   AddPlayerGuiFolderExistsCallback( function ( folder: Folder )
+   {
+      if ( firstLoad )
       {
-         if ( file.currentRoom === undefined )
-            return
+         firstLoad = false
+         file.cameraUI.Destroy()
+         file.cameraUI = GetFirstChildWithNameAndClassName( folder, 'CameraUI', 'ScreenGui' ) as EDITOR_CameraUI
+         file.cameraUI.Enabled = false
+         file.cameraUI.DisplayOrder = UIORDER.UIORDER_SCORE_TOTAL
+         file.cameraUI.Frame.CameraButton.MouseButton1Click.Connect(
+            function ()
+            {
+               ToggleOverheadCamera()
+            } )
 
-         // pop origin
-         let org = GetPosition( player )
-         let offset = file.currentRoom.cameraStart.sub( file.currentRoom.cameraEnd )
-         offset = VectorNormalize( offset )
-         offset = offset.mul( 25 )
-         camera.FieldOfView = 70
+         return
+      }
 
-         //offset = offset.mul( 0.667 )
-         camera.CFrame = new CFrame( org.add( offset ), org )
-
-         // blend fov
-         //let dif = 0.001
-         //camera.FieldOfView = ( camera.FieldOfView * dif ) + ( file.currentRoom.fieldOfView * ( 1.0 - dif ) )
-         //camera.FieldOfView = file.currentRoom.fieldOfView
-      } )
+      file.cameraUI.Parent = folder
+   } )
+   AddCallback_OnPlayerCharacterAncestryChanged( function ()
+   {
+      file.cameraUI.Parent = undefined
    } )
 }
 
@@ -67,98 +175,66 @@ export function SetPlayerCameraToRoom( room: Room )
    ResetCameraForCurrentRoom()
 }
 
+export function GetLocalCamera()
+{
+   return file.localCamera
+}
+
 function ResetCameraForCurrentRoom()
 {
-   if ( 1 )
-      return
-   //ahi
-   Assert( file.currentRoom !== undefined, "Current room is not set" )
-   let room = file.currentRoom as Room
-   file.camera.FieldOfView = room.fieldOfView
+   let cameras: Array<Camera> = [file.localCamera]
+   if ( IsOverheadCamera() )
+   {
+      cameras.push( file.viewCamera )
+   }
+   else
+   {
+      file.viewCamera.FieldOfView = 70
+   }
 
-   let cframe = new CFrame( room.cameraStart, room.cameraEnd )
-   cframe = cframe.mul( CFrame.Angles( math.rad( 0 ), math.rad( 0 ), math.rad( room.cameraRotation ) ) )
+   for ( let camera of cameras )
+   {
+      //ahi
+      Assert( file.currentRoom !== undefined, "Current room is not set" )
+      let room = file.currentRoom as Room
+      camera.FieldOfView = room.fieldOfView
 
-   // put camera in room center
-   let viewSize = file.camera.ViewportSize
-   let aspectRatio = viewSize.X / viewSize.Y
-   let position = new UDim2( 0, 0, 0, 0 )
+      let cframe = new CFrame( room.cameraStart, room.cameraEnd )
+      cframe = cframe.mul( CFrame.Angles( math.rad( 0 ), math.rad( 0 ), math.rad( room.cameraRotation ) ) )
 
-   let scale = aspectRatio * room.cameraAspectRatioMultiplier * 0.7
-   if ( scale > 1.0 )
-      scale = 1.0
+      // put camera in room center
+      let viewSize = camera.ViewportSize
+      let aspectRatio = viewSize.X / viewSize.Y
+      let position = new UDim2( 0, 0, 0, 0 )
 
-   let size = new UDim2( scale, 0, scale, 0 )
+      let scale = aspectRatio * room.cameraAspectRatioMultiplier * 0.7
+      if ( scale > 1.0 )
+         scale = 1.0
 
-   let centerOffset = GetOffSet( position, size )
-   camera.CFrame = cframe.mul( centerOffset )
+      let size = new UDim2( scale, 0, scale, 0 )
 
-   /*
-let bounds = room.bounds
-if (  bounds !== undefined )
-{
-   // put camera in room center
-   let xy = GetBoundsMidXY( bounds )
-   let camStart = new Vector3( room.cameraStart.X, room.cameraStart.Y, xy.X )
-   let camEnd = new Vector3( room.cameraEnd.X, room.cameraEnd.Y, xy.X )
-
-   let viewSize = file.camera.ViewportSize
-   let aspectRatio = viewSize.X / viewSize.Y
-   //if ( aspectRatio > 1.50 )
-   //   aspectRatio = 1.50
-
-   let totalZ = bounds.maxZ - bounds.minZ
-   let totalX = bounds.maxX - bounds.minX
-   let total = math.max( totalZ, totalX )
-   let sizeX = totalX / total
-   let sizeZ = totalZ / total
-   let min = math.min( sizeX, sizeZ )
-   let scale = aspectRatio * min * 0.8
-
-   //let scale = aspectRatio * room.cameraAspectRatioMultiplier * 0.8
-
-   let cframe = new CFrame( camStart, camEnd )
-   let position = new UDim2( 0, 0, 0, 0 )
-   if ( scale > 1.0 )
-      scale = 1.0
-   let size = new UDim2( scale, 0, scale, 0 )
-   print( "scale " + scale )
-
-
-   let centerOffset = GetOffSet( position, size )
-   camera.CFrame = cframe.mul( centerOffset )
-}
-else
-{
-   let cframe = new CFrame( room.cameraStart, room.cameraEnd )
-   let position = new UDim2( 0.1, 0, 0, 0 )
-   let size = new UDim2( 1, 0, 1, 0 )
-
-   let centerOffset = GetOffSet( position, size )
-   camera.CFrame = cframe.mul( centerOffset )
-}
-*/
-
-   //print( "Set room to " + room.name + " with camera start " + room.cameraStart + " and fov " + room.fieldOfView )
+      let centerOffset = GetOffSet( camera, position, size )
+      camera.CFrame = cframe.mul( centerOffset )
+   }
 
 }
 
 
-function ComputePosition( fromPos: UDim2 ): Array<number>
+function ComputePosition( camera: Camera, fromPos: UDim2 ): Array<number>
 {
-   let viewSize = file.camera.ViewportSize
+   let viewSize = camera.ViewportSize
    let aspectRatio = viewSize.X / viewSize.Y
-   let offset = UDim2Absolute( fromPos )
+   let offset = UDim2Absolute( camera, fromPos )
    let position = offset.div( viewSize )
 
-   let hFactor = math.tan( math.rad( file.camera.FieldOfView ) / 2 )
+   let hFactor = math.tan( math.rad( camera.FieldOfView ) / 2 )
    let wFactor = hFactor * aspectRatio
 
    return [-position.X * wFactor * 2, position.Y * hFactor * 2]
 }
 
 
-function UDim2Absolute( udim2: UDim2 ): Vector2
+function UDim2Absolute( camera: Camera, udim2: UDim2 ): Vector2
 {
    let viewSize = camera.ViewportSize
    return new Vector2(
@@ -167,16 +243,16 @@ function UDim2Absolute( udim2: UDim2 ): Vector2
    )
 }
 
-function ComputeSize( fromSize: UDim2 ): Array<number>
+function ComputeSize( camera: Camera, fromSize: UDim2 ): Array<number>
 {
-   let size = UDim2Absolute( fromSize ).div( camera.ViewportSize )
+   let size = UDim2Absolute( camera, fromSize ).div( camera.ViewportSize )
    return [size.X, size.Y]
 }
 
-function GetOffSet( position: UDim2, size: UDim2 ): CFrame
+function GetOffSet( camera: Camera, position: UDim2, size: UDim2 ): CFrame
 {
-   let xy = ComputePosition( position )
-   let wh = ComputeSize( size )
+   let xy = ComputePosition( camera, position )
+   let wh = ComputeSize( camera, size )
 
    return new CFrame(
       0, 0, 0,

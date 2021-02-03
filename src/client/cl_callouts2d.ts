@@ -7,10 +7,12 @@ import { Assert } from "shared/sh_assert"
 import { ClearMinimapIcons } from "./cl_minimap"
 import { CanUseTask, NETVAR_JSON_ASSIGNMENTS, NETVAR_JSON_GAMESTATE } from "shared/sh_gamestate"
 import { GetCurrentRoom, GetRooms } from "./cl_rooms"
-import { TextLabels, GetLocalPlayer, Graph, Thread } from "shared/sh_utils"
+import { TextLabels, GetLocalPlayer, Graph, Thread, VectorNormalize } from "shared/sh_utils"
 import { GetLocalAssignments, GetLocalMatch } from "./cl_gamestate"
 import { Room, Task } from "shared/sh_rooms"
-import { Workspace } from "@rbxts/services"
+import { RunService, Workspace } from "@rbxts/services"
+import { AddCameraUpdateCallback, IsOverheadCamera } from "./cl_camera"
+import { GetPosition } from "shared/sh_utils_geometry"
 
 const LOCAL_PLAYER = GetLocalPlayer()
 const CALLOUTS_NAME = "TASKLIST_CALLOUTS"
@@ -18,6 +20,7 @@ const CALLOUTS_NAME = "TASKLIST_CALLOUTS"
 class File
 {
    activeCallouts = new Map<string, TextLabels>()
+   renderCallouts = new Map<string, RBXScriptConnection>()
    screenUI: ScreenGui | undefined
 }
 let file = new File()
@@ -42,6 +45,8 @@ export function CL_CalloutsSetup()
       file.screenUI = screenUI
       RedrawAssignmentCalloutsAndMapIcons()
    } )
+
+   AddCameraUpdateCallback( RedrawAssignmentCalloutsAndMapIcons )
 
    AddCallback_OnPlayerCharacterAncestryChanged( function ()
    {
@@ -93,13 +98,15 @@ export function ClearCallouts( name: string )
       callout.Destroy()
    }
    file.activeCallouts.set( name, [] )
+
+   let renderCallout = file.renderCallouts.get( name )
+   if ( renderCallout !== undefined )
+      renderCallout.Disconnect()
 }
 
-export function AddCallout( name: string, worldPoint: Vector3 )
+export function AddCallout( name: string, worldPoint: Vector3 ): TextLabel
 {
-   let camera = Workspace.CurrentCamera
-   if ( camera === undefined )
-      return
+   let camera = Workspace.CurrentCamera as Camera
 
    let [vector, onScreen] = camera.WorldToScreenPoint( worldPoint )
    let viewSize = camera.ViewportSize
@@ -118,6 +125,7 @@ export function AddCallout( name: string, worldPoint: Vector3 )
 
    //let screenPoint = new Vector2( vector.X, vector.Y )
    //let depth = vector.Z
+   return textLabel
 }
 
 function RedrawAssignmentCalloutsAndMapIcons()
@@ -151,18 +159,54 @@ function RedrawAssignmentCalloutsAndMapIcons()
    }
 
    {
-      let room: Room = GetCurrentRoom( LOCAL_PLAYER )
-
-      for ( let assignment of assignments )
+      let calloutTasks: Array<Task> = []
+      let positions: Array<Vector3> = []
+      let textLabels: Array<TextLabel> = []
       {
-         if ( assignment.roomName !== room.name )
-            continue
-         if ( assignment.status !== 0 )
-            continue
+         let room: Room = GetCurrentRoom( LOCAL_PLAYER )
+         for ( let assignment of assignments )
+         {
+            if ( assignment.roomName !== room.name )
+               continue
+            if ( assignment.status !== 0 )
+               continue
 
-         Assert( room.tasks.has( assignment.taskName ), "Room " + room.name + " has no task " + assignment.taskName )
-         let task = room.tasks.get( assignment.taskName ) as Task
-         AddCallout( CALLOUTS_NAME, task.volume.Position )
+            Assert( room.tasks.has( assignment.taskName ), "Room " + room.name + " has no task " + assignment.taskName )
+            let task = room.tasks.get( assignment.taskName ) as Task
+            textLabels.push( AddCallout( CALLOUTS_NAME, task.volume.Position ) )
+            positions.push( task.volume.Position )
+            calloutTasks.push( task )
+         }
+      }
+
+      if ( !IsOverheadCamera() )
+      {
+         let camera = Workspace.CurrentCamera as Camera
+
+         let render = RunService.RenderStepped.Connect( function ()
+         {
+            let viewSize = camera.ViewportSize
+            let playerPos = GetPosition( LOCAL_PLAYER )
+            let forward = camera.CFrame.LookVector
+
+            //print( "Forward: " + forward )
+            for ( let i = 0; i < positions.size(); i++ ) 
+            {
+               let position = positions[i]
+               let textLabel = textLabels[i]
+               let [vector, onScreen] = camera.WorldToScreenPoint( position )
+
+               let offset = position.sub( playerPos )
+               let norm = VectorNormalize( offset )
+               let dot = forward.Dot( norm )
+               textLabel.Visible = dot > 0
+
+               let X = Graph( vector.X, 0, viewSize.X, 0, 1.0 )
+               let Y = Graph( vector.Y, 0, viewSize.Y, 0, 1.0 )
+               textLabel.Position = new UDim2( X, 0, Y, 0 )
+            }
+         } )
+         file.renderCallouts.set( CALLOUTS_NAME, render )
       }
    }
 }

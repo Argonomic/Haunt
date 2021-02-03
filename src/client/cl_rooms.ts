@@ -2,7 +2,7 @@ import { AddRPC } from "shared/sh_rpc"
 import { AddCallback_OnRoomSetup, Room, AddRoomsFromWorkspace, FAST_ROOM_ITERATION } from "shared/sh_rooms"
 import { GetLocalPlayer, GetPlayerFromDescendant, Resume, UserIDToPlayer, GetWorkspaceChildByName, GetChildren_NoFutureOffspring } from "shared/sh_utils"
 import { Assert } from "shared/sh_assert"
-import { SetPlayerCameraToRoom } from "./cl_camera"
+import { IsOverheadCamera, SetPlayerCameraToRoom } from "./cl_camera"
 import { ClearCoinPopUps } from "./cl_coins"
 import { AddCallback_OnPlayerConnected } from "shared/sh_onPlayerConnect"
 import { SPAWN_ROOM } from "shared/sh_settings"
@@ -143,7 +143,9 @@ function SetCurrentRoom( player: Player, room: Room )
       return
 
    SetPlayerCameraToRoom( room )
-   //CreateDynamicArtForRoom( room )
+
+   if ( IsOverheadCamera() )
+      CreateDynamicArtForRoom( room )
    ClearCoinPopUps()
 
    for ( let roomChangedCallback of file.roomChangedCallbacks )
@@ -156,7 +158,19 @@ export function SetLocalViewToRoom( room: Room )
 {
    print( "SetLocalViewToRoom to " + room.name )
    SetPlayerCameraToRoom( room )
-   //CreateDynamicArtForRoom( room )
+
+   if ( IsOverheadCamera() )
+   {
+      CreateDynamicArtForRoom( room )
+   }
+   else
+   {
+      for ( let part of file.currentDynamicArt )
+      {
+         part.Destroy()
+      }
+      file.currentDynamicArt = []
+   }
 }
 
 function OnTriggerDoorSetup( door: BasePart, room: Room )

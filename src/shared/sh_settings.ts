@@ -9,9 +9,9 @@ export enum GAMEMODES
 }
 export const GAME_MODE: GAMEMODES = GAMEMODES.MODE_ROUNDBASED
 
-export const DEV_SKIP_INTRO = TEST && false
+export const DEV_SKIP_INTRO = TEST && true
 export const DEV_1_TASK = TEST && true
-export let DEV_FAST_TIMERS: boolean = TEST && false
+export let DEV_FAST_TIMERS: boolean = TEST && true
 
 // MATCHMAKING
 export const MATCHMAKE_SERVER_VERSION = 1
@@ -46,7 +46,7 @@ export const REPORT_DIST = 5
 export const MEETING_VOTE_TIME = 35
 export const MEETING_VOTE_RESULTS = 8
 export const SUDDEN_DEATH_TIME = 90
-export const SPECTATOR_TRANS = 0.5 // 0.6
+export const SPECTATOR_TRANS = 0.4 // 0.6
 export const STORE_BUY_IMPOSTOR = 250
 
 export let MEETING_DISCUSS_TIME = 0
@@ -77,5 +77,5 @@ export const PLAYER_COLORS =
 
 export const ADMINS = ["Argonomic", "ArgonomicDev"]
 
-print( "SRV 2.1.21 3.2" )
+print( "SRV 2.3.21 1.0" )
 print( " " )

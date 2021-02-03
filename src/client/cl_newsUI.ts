@@ -27,6 +27,8 @@ function GetNewsUI(): ScreenGui
 
 export function CL_NewsUISetup()
 {
+   if ( 1 )
+      return
    AddPlayerGuiFolderExistsCallback( function ( folder: Folder )
    {
       if ( file.storeUI !== undefined )

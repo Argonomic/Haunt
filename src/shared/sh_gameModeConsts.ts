@@ -2,7 +2,7 @@ import { Players } from "@rbxts/services"
 import { Assert } from "./sh_assert"
 import { Match } from "./sh_gamestate"
 import { TEST } from "./sh_settings"
-import { GraphCapped } from "./sh_utils"
+import { Graph, GraphCapped } from "./sh_utils"
 
 class File
 {
@@ -52,7 +52,12 @@ export function GetMinPlayersToStartGame(): number
    let gameModeData = GetGameModeConsts()
    let minPlayersToStartGame = gameModeData.minPlayersToStartGame
 
-   return math.floor( GraphCapped( Players.GetPlayers().size(), minPlayersToStartGame, IDEAL_PLAYERS, minPlayersToStartGame, IDEAL_PLAYERS ) )
+   let range = math.floor( Players.GetPlayers().size() * 0.825 )
+   if ( range < minPlayersToStartGame )
+      return minPlayersToStartGame
+   if ( range > IDEAL_PLAYERS )
+      return IDEAL_PLAYERS
+   return range
 }
 
 export function SetGameModeConsts( gameStateFuncs: GameModeConsts )

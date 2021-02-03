@@ -3,7 +3,7 @@ import { NS_Corpse, TASK_RESTORE_LIGHTS, PlayerNumToGameViewable, ROLE, Match, G
 import { AddCallback_OnPlayerCharacterAdded, AddCallback_OnPlayerCharacterAncestryChanged, GetPlayerFromUserID } from "shared/sh_onPlayerConnect"
 import { PLAYER_COLORS, SPECTATOR_TRANS } from "shared/sh_settings"
 import { TweenPlayerParts } from "shared/sh_tween"
-import { GetFirstChildWithNameAndClassName, GetLocalPlayer, GraphCapped, IsAlive, SetCharacterTransparency, SetPlayerTransparency, Thread, UserIDToPlayer } from "shared/sh_utils"
+import { GetFirstChildWithNameAndClassName, GetLocalPlayer, Graph, GraphCapped, IsAlive, SetCharacterTransparency, SetPlayerTransparency, Thread, UserIDToPlayer } from "shared/sh_utils"
 import { Assert } from "shared/sh_assert"
 import { GetCorpseClientModel, ClientGetAssignmentAssignedTime, ClientHasAssignment, GetLocalMatch, GetLocalIsSpectator, GetLocalRole } from "./cl_gamestate"
 import { AddPlayerGuiFolderExistsCallback, UIORDER } from "./cl_ui"
@@ -12,31 +12,21 @@ import { Tween } from "shared/sh_tween";
 import { GetCurrentRoom } from "./cl_rooms"
 import { GetPosition } from "shared/sh_utils_geometry"
 import { GetGameModeConsts } from "shared/sh_gameModeConsts"
+import { GetLocalCamera, IsOverheadCamera } from "./cl_camera"
 
 const FADE_CIRCLE = 'rbxassetid://6006022378'
 const TRANSPARENCY = 0.333
 const LOCAL_PLAYER = GetLocalPlayer()
 
-Assert( Workspace.CurrentCamera !== undefined, "Workspace has no camera" )
 class File
 {
    screenUI: ScreenGui | undefined
-   camera: Camera
-
    characterToPlayer = new Map<Model, Player>()
-
-   constructor( camera: Camera )
-   {
-      this.camera = camera
-   }
 }
-let file = new File( Workspace.CurrentCamera as Camera )
-
+let file = new File()
 
 export function CL_FadeOverlaySetup()
 {
-   if ( 1 )
-      return
    AddCallback_OnPlayerCharacterAdded( function ( player: Player )
    {
       if ( player !== LOCAL_PLAYER )
@@ -102,6 +92,7 @@ export function CL_FadeOverlaySetup()
       fadeCircle.ImageTransparency = TRANSPARENCY
       fadeCircle.BackgroundTransparency = 1.0
       fadeCircle.AnchorPoint = new Vector2( 0.5, 0.5 )
+      fadeCircle.SizeConstraint = Enum.SizeConstraint.RelativeYY
       fadeCircle.Parent = screenUI
       fadeCircle.Size = new UDim2( 0.25, 0, 0.25, 0 )
 
@@ -166,7 +157,6 @@ export function CL_FadeOverlaySetup()
          CreateOutsideFrames( i )
       }
 
-      let camera = file.camera
       let lightsLastDimmedTime = 0
       const LIGHT_NORMAL = 50
       const LIGHT_DIM = 9
@@ -239,6 +229,7 @@ export function CL_FadeOverlaySetup()
 
       let gmc = GetGameModeConsts()
 
+      let lastCameraOverhead: boolean | undefined
       RunService.RenderStepped.Connect( function ()      
       {
          let match = GetLocalMatch()
@@ -266,15 +257,45 @@ export function CL_FadeOverlaySetup()
                break
          }
 
+         let isOverheadCamera = IsOverheadCamera()
+         if ( lastCameraOverhead !== isOverheadCamera )
+         {
+            lastCameraOverhead = isOverheadCamera
+            //fadeCircle.Visible = isOverheadCamera
+            /*
+            for ( let child of fadeCircle.GetChildren() )
+            {
+               ( child as GuiObject ).Visible = isOverheadCamera
+            }
+            */
+         }
+
          let pos = GetPosition( viewPlayer )
          let offset = pos.add( new Vector3( 0, 0, LIGHTDIST ) )
-         let [offsetLightDistFromCenter, _1] = camera.WorldToScreenPoint( offset )
-         let [screenCenter, _2] = camera.WorldToScreenPoint( pos )
+         let camera = Workspace.CurrentCamera as Camera
+         let VISUAL_DIST: number
 
-         let dist = offsetLightDistFromCenter.sub( screenCenter ).Magnitude
-         fadeCircle.Position = new UDim2( 0, screenCenter.X, 0, screenCenter.Y )
-         fadeCircle.Size = new UDim2( 0, dist, 0, dist )
-         const VISUAL_DIST = fadeCircle.AbsoluteSize.X * 0.5
+         let screenCenter: Vector3 | undefined
+         if ( isOverheadCamera )
+         {
+            let [offsetLightDistFromCenter, _1] = camera.WorldToScreenPoint( offset )
+            let [_screenCenter, _2] = camera.WorldToScreenPoint( pos )
+            screenCenter = _screenCenter
+
+            let dist = offsetLightDistFromCenter.sub( screenCenter ).Magnitude
+            fadeCircle.Position = new UDim2( 0, screenCenter.X, 0, screenCenter.Y )
+            fadeCircle.Size = new UDim2( 0, dist, 0, dist )
+            VISUAL_DIST = fadeCircle.AbsoluteSize.X * 0.5
+         }
+         else
+         {
+            screenCenter = new Vector3( 0, 0, 0 )
+
+            let scale = Graph( LIGHTDIST, 0, 50, 0, 1.2 )
+            fadeCircle.Position = new UDim2( 0.5, 0, 0.5, 0 )
+            fadeCircle.Size = new UDim2( scale, 0, scale, 0 )
+            VISUAL_DIST = Graph( LIGHTDIST, 0, 50, 0, 25 )
+         }
 
          let coins = GetCoins( match )
          let search = math.min( 30, coins.size() )
@@ -283,8 +304,17 @@ export function CL_FadeOverlaySetup()
             let index = ( i + coinSearchIndex ) % coins.size()
 
             let coin = coins[index]
-            let [partScreenCenter, _2] = camera.WorldToScreenPoint( coin.Position )
-            let dist = partScreenCenter.sub( screenCenter ).Magnitude
+            let dist: number
+            if ( isOverheadCamera )
+            {
+               let [partScreenCenter, _2] = camera.WorldToScreenPoint( coin.Position )
+               dist = partScreenCenter.sub( screenCenter ).Magnitude
+            }
+            else
+            {
+               dist = coin.Position.sub( pos ).Magnitude
+            }
+
             let isVisible = dist < VISUAL_DIST
             let wasVisible = visibleCoins.has( coin )
             if ( knownCoins.has( coin ) )
@@ -410,8 +440,16 @@ export function CL_FadeOverlaySetup()
                continue
             }
 
+            let dist: number
             let [partScreenCenter, _2] = camera.WorldToScreenPoint( head.Position )
-            let dist = partScreenCenter.sub( screenCenter ).Magnitude
+            if ( isOverheadCamera )
+            {
+               dist = partScreenCenter.sub( screenCenter ).Magnitude
+            }
+            else
+            {
+               dist = head.Position.sub( pos ).Magnitude
+            }
 
             isVisible =
                IsAlive( player ) &&
@@ -483,8 +521,16 @@ export function CL_FadeOverlaySetup()
             if ( corpseModel === undefined )
                continue
 
+            let dist: number
             let [partScreenCenter, _2] = camera.WorldToScreenPoint( corpseModel.pos )
-            let dist = partScreenCenter.sub( screenCenter ).Magnitude
+            if ( isOverheadCamera )
+            {
+               dist = partScreenCenter.sub( screenCenter ).Magnitude
+            }
+            else
+            {
+               dist = corpseModel.pos.sub( pos ).Magnitude
+            }
 
             let isVisible = dist < VISUAL_DIST
             if ( isVisible )

@@ -9,13 +9,14 @@ import { UpdateMeeting } from "./cl_meeting"
 import { DrawMatchRound, DrawMatchScreen_EmergencyMeeting, DrawMatchScreen_Escaped, DrawMatchScreen_VoteResults } from "./content/cl_matchScreen_content"
 import { GetLastStashed } from "shared/sh_score"
 import { DEV_SKIP_INTRO, SPECTATOR_TRANS } from "shared/sh_settings"
-import { SetLocalViewToRoom, GetRoom, GetCurrentRoom } from "./cl_rooms"
+import { SetLocalViewToRoom, GetRoom, GetCurrentRoom, AddRoomChangedCallback } from "./cl_rooms"
 import { GetDeltaTime } from "shared/sh_time"
 import { CanKill, CanReportBody, SharedKillGetter } from "shared/content/sh_use_content"
 import { CoinFloatsAway, COIN_TYPE, GetCoinDataFromType, GetCoinFolder, HasCoinFolder } from "shared/sh_coins"
 import { DrawRisingNumberFromWorldPos } from "./cl_coins"
 import { AddRPC } from "shared/sh_rpc"
 import { GetGameModeConsts } from "shared/sh_gameModeConsts"
+import { AddCameraUpdateCallback, DisableCameraModeUI, EnableCameraModeUI, GetCameraUI, SetOverheadCameraOverride } from "./cl_camera"
 
 const LOCAL_PLAYER = GetLocalPlayer()
 
@@ -266,8 +267,7 @@ export function CL_GameStateSetup()
       if ( match.HasPlayer( player ) )
          match.Shared_OnGameStateChanged_PerPlayer( player, match )
 
-      let room = GetCurrentRoom( LOCAL_PLAYER )
-      SetLocalViewToRoom( room )
+      SetLocalViewToCorrectRoom( match )
    } )
 
    {
@@ -456,9 +456,28 @@ export function CL_GameStateSetup()
          throw undefined
       }
 
+      RefreshCamera()
+
       if ( coroutine.status( match.gameThread ) === "suspended" )
          Resume( match.gameThread )
    } )
+
+
+   function RefreshCamera()
+   {
+      GetCameraUI().Enabled = match.GetGameState() <= GAME_STATE.GAME_STATE_COUNTDOWN
+
+      SetLocalViewToCorrectRoom( match )
+
+      let gameState = GetLocalMatch().GetGameState()
+      if ( gameState < GAME_STATE.GAME_STATE_INTRO )
+         EnableCameraModeUI()
+      else
+         DisableCameraModeUI()
+   }
+
+   AddCameraUpdateCallback( RefreshCamera )
+   AddRoomChangedCallback( RefreshCamera )
 }
 
 
@@ -550,8 +569,21 @@ function CLGameStateChanged( match: Match, oldGameState: number )
    if ( newGameState <= GAME_STATE.GAME_STATE_PLAYING )
    {
       // restore local view
-      let room = GetCurrentRoom( LOCAL_PLAYER )
-      SetLocalViewToRoom( room )
+      SetLocalViewToCorrectRoom( match )
+   }
+
+   // entering this match state
+   switch ( newGameState )
+   {
+      case GAME_STATE.GAME_STATE_MEETING_DISCUSS:
+      case GAME_STATE.GAME_STATE_MEETING_RESULTS:
+      case GAME_STATE.GAME_STATE_MEETING_VOTE:
+         SetOverheadCameraOverride( true )
+         break
+
+      default:
+         SetOverheadCameraOverride( false )
+         break
    }
 
    // entering this match state
@@ -600,14 +632,12 @@ function CLGameStateChanged( match: Match, oldGameState: number )
                   break
 
                case MEETING_TYPE.MEETING_REPORT:
-                  let room = GetRoom( meetingCallerRoomName )
-
                   report = true
                   Thread(
                      function ()
                      {
                         wait( 1 ) // wait for match screen to fade out
-                        SetLocalViewToRoom( room )
+                        SetLocalViewToCorrectRoom( match )
                      } )
                   break
 
@@ -624,6 +654,30 @@ function CLGameStateChanged( match: Match, oldGameState: number )
          break
 
    }
+}
+
+function SetLocalViewToCorrectRoom( match: Match )
+{
+   switch ( match.GetGameState() )
+   {
+      case GAME_STATE.GAME_STATE_MEETING_DISCUSS:
+      case GAME_STATE.GAME_STATE_MEETING_VOTE:
+         let meetingDetails = match.GetMeetingDetails()
+         if ( meetingDetails === undefined )
+            break
+
+         let meetingType = meetingDetails.meetingType
+         let meetingCallerRoomName = meetingDetails.meetingCallerRoomName
+         if ( meetingType === MEETING_TYPE.MEETING_REPORT )
+         {
+            let room = GetRoom( meetingCallerRoomName )
+            SetLocalViewToRoom( room )
+            return
+         }
+   }
+
+   let room = GetCurrentRoom( LOCAL_PLAYER )
+   SetLocalViewToRoom( room )
 }
 
 function CreateCorpse( player: Player, pos: Vector3 ): ClientCorpseModel | undefined

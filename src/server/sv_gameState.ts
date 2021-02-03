@@ -3,7 +3,7 @@ import { AddRPC, GetRPCRemoteEvent } from "shared/sh_rpc"
 import { ArrayRandomize, GraphCapped, Resume, Thread, UserIDToPlayer, Wait, GetHealth, SetHealth, FilterHasCharactersAndPrimaryPart } from "shared/sh_utils"
 import { Assert } from "shared/sh_assert"
 import { Assignment, GAME_STATE, NETVAR_JSON_ASSIGNMENTS, ROLE, Match, GetVoteResults, TASK_EXIT, AssignmentIsSame, TASK_RESTORE_LIGHTS, NETVAR_JSON_GAMESTATE, SetPlayerWalkspeedForGameState, USERID, PlayerVote, NS_SharedMatchState, PlayerInfo, AddRoleChangeCallback, PICKUPS, IsSpectatorRole, ExecRoleChangeCallbacks, NETVAR_MEETINGS_CALLED, NETVAR_PURCHASED_IMPOSTOR, REMOTESOUNDS, GetTaskValueForRound, COOLDOWN_NAME_KILL, } from "shared/sh_gamestate"
-import { MIN_TASKLIST_SIZE, MAX_TASKLIST_SIZE, MATCHMAKE_PLAYERCOUNT_STARTSERVER, SPAWN_ROOM, DEV_1_TASK, } from "shared/sh_settings"
+import { MIN_TASKLIST_SIZE, MAX_TASKLIST_SIZE, MATCHMAKE_PLAYERCOUNT_STARTSERVER, SPAWN_ROOM, DEV_1_TASK, DEV_FAST_TIMERS, } from "shared/sh_settings"
 import { GetNetVar_Number, ResetNetVar, SetNetVar } from "shared/sh_player_netvars"
 import { AddCallback_OnPlayerCharacterAdded, AddCallback_OnPlayerConnected } from "shared/sh_onPlayerConnect"
 import { GetAllRoomsAndTasks, GetCurrentRoom, GetRoomByName, PlayerHasCurrentRoom, PutPlayersInRoom } from "./sv_rooms"
@@ -385,6 +385,9 @@ function ServerGameThread( match: Match )
                let cooldown = 20
                if ( match.shState.roundNum > 1 )
                   cooldown += 6
+               if ( DEV_FAST_TIMERS )
+                  cooldown = 3
+
                let players = match.GetLivingImpostors()
                for ( let player of players )
                {
@@ -1464,3 +1467,4 @@ function SendPlayersToLiveMatch( match: Match ): boolean
 
    return false
 }
+

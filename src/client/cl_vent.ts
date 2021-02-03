@@ -1,4 +1,4 @@
-import { Workspace } from "@rbxts/services"
+import { RunService, Workspace } from "@rbxts/services"
 import { AddCallback_OnPlayerCharacterAncestryChanged } from "shared/sh_onPlayerConnect"
 import { AddCallback_OnRoomSetup, EDITOR_Vent, Room } from "shared/sh_rooms"
 import { GetLocalPlayer, GetPlayerFromDescendant, LoadSound } from "shared/sh_utils"
@@ -9,6 +9,7 @@ import { SendRPC_Client } from "shared/sh_rpc"
 import { GAME_STATE, IsImpostorRole, NETVAR_JSON_GAMESTATE } from "shared/sh_gamestate"
 import { GetLocalMatch } from "./cl_gamestate"
 import { AddNetVarChangedCallback } from "shared/sh_player_netvars"
+import { AddCameraUpdateCallback, IsOverheadCamera } from "./cl_camera"
 
 const LOCAL_PLAYER = GetLocalPlayer()
 const ARROW = 'rbxassetid://144168163'
@@ -57,11 +58,132 @@ export function CL_VentSetup()
       folder = guiFolder
    } )
 
+   let lastVent: EDITOR_Vent | undefined
+   let lastVentRoomName: string | undefined
+   function RedrawUI()
+   {
+      if ( ui !== undefined )
+         ui.Destroy()
+      wait()
+      if ( lastVent !== undefined && lastVentRoomName !== undefined )
+         DrawUI( lastVent, lastVentRoomName )
+   }
+
    function DrawUI( vent: EDITOR_Vent, ventRoomName: string )
    {
       if ( ui !== undefined )
          ui.Destroy()
+      lastVent = vent
+      lastVentRoomName = ventRoomName
+      print( "DrawUI" )
+      if ( IsOverheadCamera() )
+         DrawUIOverhead( vent, ventRoomName )
+      else
+         DrawUIShoulder( vent, ventRoomName )
+   }
 
+   function DrawUIShoulder( vent: EDITOR_Vent, ventRoomName: string )
+   {
+      if ( folder === undefined )
+         return
+
+      let camera = Workspace.CurrentCamera as Camera
+      ui = new Instance( 'ScreenGui' )
+      ui.Name = "Vent Overlay"
+      ui.Enabled = true
+      ui.ResetOnSpawn = false
+      ui.Parent = folder
+      ui.DisplayOrder = UIORDER.UIORDER_VENT
+
+
+      //let bounds = math.min( screenPos.X, screenPos.Y, viewsize.X - screenPos.X, viewsize.Y - screenPos.Y )
+      let bounds = 0.7
+
+      let frame = new Instance( 'Frame' )
+      frame.Parent = ui
+      frame.AnchorPoint = new Vector2( 0.5, 0.5 )
+      frame.BackgroundTransparency = 1.0
+      frame.SizeConstraint = Enum.SizeConstraint.RelativeYY
+      frame.Size = new UDim2( bounds, 0, bounds, 0 )
+      frame.Position = new UDim2( 0.5, 0, 0.5, 0 )
+
+      let viewsize = camera.ViewportSize
+
+      let midPoint = new Vector2( viewsize.X * 0.5, viewsize.Y * 0.5 )
+
+      let arrowSize = new UDim2( 0.35, 0, 0.35, 0 )
+      let arrows: Array<ImageButton> = []
+      let vents: Array<EDITOR_Vent> = []
+      let roomNames: Array<string> = []
+      for ( let roomTarget of vent.scr_vent_trigger.GetChildren() )
+      {
+         if ( roomTarget.Name !== "scr_room_target" )
+            continue
+         let roomName = ( roomTarget as StringValue ).Value
+         let otherVent = ventsByRoom.get( roomName )
+         if ( otherVent === undefined )
+            continue
+
+         roomNames.push( roomName )
+         vents.push( otherVent )
+         let arrow = new Instance( 'ImageButton' )
+         arrow.Parent = frame
+         arrow.AnchorPoint = new Vector2( 0.5, 0.5 )
+         arrow.Image = ARROW
+         arrow.BackgroundTransparency = 1
+         arrow.Size = arrowSize
+         arrow.ZIndex = 5
+         arrow.MouseButton1Click.Connect(
+            function ()
+            {
+               SendRPC_Client( "RPC_FromClient_VentTeleport", ventRoomName, roomName )
+            } )
+
+         arrows.push( arrow )
+      }
+
+      let wasUi = ui
+      let render = RunService.RenderStepped.Connect( function ()
+      {
+         if ( wasUi !== ui )
+         {
+            render.Disconnect()
+            return
+         }
+
+         for ( let i = 0; i < arrows.size(); i++ )
+         {
+            let arrow = arrows[i]
+            let otherVent = vents[i]
+            let roomName = roomNames[i]
+            let targetPos = GetPosition( otherVent.Union )
+            let [ventPos, _1] = camera.WorldToScreenPoint( targetPos )
+            let yaw = GetBearingBetweenPoints( midPoint.X, midPoint.Y, ventPos.X, ventPos.Y )
+
+            DrawArrow( arrow, frame.AbsoluteSize.Y, yaw, ventRoomName, roomName )
+         }
+      } )
+   }
+
+   function DrawArrow( arrow: ImageButton, bounds: number, yaw: number, ventRoomName: string, roomName: string )
+   {
+      //yaw = ( 360 - yaw )
+      arrow.Rotation = ( 360 - yaw ) - 90
+      yaw -= 90
+
+      //print( "Points: " + math.floor( pos.X ) + "/" + math.floor( pos.Z ) + " " + math.floor( targetPos.X ) + "/" + math.floor( targetPos.Z ) + " to yaw " + math.floor( yaw ) )
+
+      let radians = yaw * ( PI / 180 )
+      let dist = bounds * 0.75
+
+      let X = math.floor( dist * math.cos( radians ) )
+      let Y = math.floor( dist * math.sin( radians ) ) * -1
+
+      arrow.Position = new UDim2( 0.5, X, 0.5, Y )
+   }
+
+   function DrawUIOverhead( vent: EDITOR_Vent, ventRoomName: string )
+   {
       if ( folder === undefined )
          return
 
@@ -127,6 +249,11 @@ export function CL_VentSetup()
          arrow.BackgroundTransparency = 1
          arrow.Size = arrowSize
          arrow.ZIndex = 5
+         arrow.MouseButton1Click.Connect(
+            function ()
+            {
+               SendRPC_Client( "RPC_FromClient_VentTeleport", ventRoomName, roomName )
+            } )
 
          let points = pos.sub( targetPos )
          let yaw = GetBearingBetweenPoints( 0, 0, points.Z, points.X )
@@ -134,53 +261,11 @@ export function CL_VentSetup()
          arrow.Rotation = ( 360 - yaw ) - 90
          yaw -= 90
 
-         //print( "Points: " + math.floor( pos.X ) + "/" + math.floor( pos.Z ) + " " + math.floor( targetPos.X ) + "/" + math.floor( targetPos.Z ) + " to yaw " + math.floor( yaw ) )
-
-         let radians = yaw * ( PI / 180 )
-         let dist = bounds * 0.75
-
-         let X = math.floor( dist * math.cos( radians ) )
-         let Y = math.floor( dist * math.sin( radians ) ) * -1
-
-         /*
-         if ( doPrint )
-         {
-            print( "To: " + roomName )
-            print( "Angle: " + yaw )
-            print( "Radians: " + radians )
-            print( "xy: " + X + "," + Y )
-            print( "Dist: " + dist )
-            print( "Magnitude: " + math.floor( new Vector2( X, Y ).Magnitude ) )
-            print( " " )
-         }
-         */
-
-         arrow.Position = new UDim2( 0.5, X, 0.5, Y )
-         arrow.MouseButton1Click.Connect(
-            function ()
-            {
-               SendRPC_Client( "RPC_FromClient_VentTeleport", ventRoomName, roomName )
-            } )
-         
-         AddNetVarChangedCallback( NETVAR_JSON_GAMESTATE,
-            function ()
-            {
-               let match = GetLocalMatch()
-               switch ( match.GetGameState() )
-               {
-                  case GAME_STATE.GAME_STATE_PLAYING:
-                  case GAME_STATE.GAME_STATE_SUDDEN_DEATH:
-                     break
-
-                  default:
-                     if ( ui !== undefined )
-                        ui.Destroy()
-                     return
-               }
-            })
+         DrawArrow( arrow, bounds, yaw, ventRoomName, roomName )
       }
    }
 
+   AddCameraUpdateCallback( RedrawUI )
 
    AddCallback_OnRoomSetup( "scr_vent", function ( vent: EDITOR_Vent, room: Room )
    {
@@ -194,7 +279,7 @@ export function CL_VentSetup()
             case GAME_STATE.GAME_STATE_PLAYING:
             case GAME_STATE.GAME_STATE_SUDDEN_DEATH:
                break
-            
+
             default:
                return
          }
@@ -221,6 +306,25 @@ export function CL_VentSetup()
             if ( ui !== undefined )
                ui.Destroy()
          } )
+
    } )
+
+
+   AddNetVarChangedCallback( NETVAR_JSON_GAMESTATE,
+      function ()
+      {
+         let match = GetLocalMatch()
+         switch ( match.GetGameState() )
+         {
+            case GAME_STATE.GAME_STATE_PLAYING:
+            case GAME_STATE.GAME_STATE_SUDDEN_DEATH:
+               break
+
+            default:
+               if ( ui !== undefined )
+                  ui.Destroy()
+               return
+         }
+      } )
 
 }
