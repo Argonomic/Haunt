@@ -88,7 +88,7 @@ export function CL_VentSetup()
       DestroyUI()
       lastVent = vent
       lastVentRoomName = ventRoomName
-      print( "DrawUI" )
+
       if ( IsOverheadCamera() )
          DrawUIOverhead( vent, ventRoomName )
       else
