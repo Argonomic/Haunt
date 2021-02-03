@@ -47,7 +47,7 @@ export class GameModeConsts
    canReturnToLobby = true
 }
 
-const IDEAL_PLAYERS = 15
+const MAX_REQUIRED_TO_START = 10
 export function GetMinPlayersToStartGame(): number
 {
    let gameModeData = GetGameModeConsts()
@@ -56,8 +56,8 @@ export function GetMinPlayersToStartGame(): number
    let range = math.floor( Players.GetPlayers().size() * 0.375 )
    if ( range < minPlayersToStartGame )
       return minPlayersToStartGame
-   if ( range > IDEAL_PLAYERS )
-      return IDEAL_PLAYERS
+   if ( range > MAX_REQUIRED_TO_START )
+      return MAX_REQUIRED_TO_START
    return range
 }
 

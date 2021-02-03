@@ -1,10 +1,9 @@
-import { GAME_STATE, Match, NETVAR_MEETINGS_CALLED, USETYPES } from "shared/sh_gamestate";
+import { EmergencyMeetingsRemaining, GAME_STATE, Match, USETYPES } from "shared/sh_gamestate";
 import { GetPosition, PlayerTouchesPart } from "shared/sh_utils_geometry";
-import { GetNetVar_Number } from "shared/sh_player_netvars";
 import { KILL_DIST, REPORT_DIST } from "shared/sh_settings";
-import { AddUseType, GetUseResultsForAttempt } from "shared/sh_use";
+import { AddUseType } from "shared/sh_use";
 import { GetGameModeConsts } from "shared/sh_gameModeConsts";
-import { GetHumanoid, IsAlive } from "shared/sh_utils";
+import { IsAlive } from "shared/sh_utils";
 
 const ICON_CORPSE = 'rbxassetid://6080134682'
 const TEXT_CORPSE = "REPORT"
@@ -56,11 +55,7 @@ export function CanCallMeeting( match: Match, player: Player ): boolean
          return false
    }
 
-   let meetingCount = 0
-   if ( match.IsDetective( player ) )
-      meetingCount = match.shState.startingImpostorCount
-
-   if ( GetNetVar_Number( player, NETVAR_MEETINGS_CALLED ) > meetingCount )
+   if ( EmergencyMeetingsRemaining( match, player ) <= 0 )
       return false
 
    return !match.IsSpectator( player )

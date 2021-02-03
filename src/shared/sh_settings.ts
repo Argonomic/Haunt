@@ -21,7 +21,7 @@ export const MATCHMAKE_PLAYER_CAN_MATCHMAKE_TIME = 1
 export const MATCHMAKE_PLAYER_WAITING_FOR_FRIEND_TIME = 45
 export const MATCHMAKE_PLAYER_OPENED_FRIEND_INVITE = 30
 
-export let START_COUNTDOWN = 32
+export let START_COUNTDOWN = 31
 if ( TEST )
    START_COUNTDOWN = 10
 
@@ -78,5 +78,5 @@ export const PLAYER_COLORS =
 
 export const ADMINS = ["Argonomic", "ArgonomicDev"]
 
-print( "SRV 2.3.21 2.2" )
+print( "SRV 2.3.21 2.5" )
 print( " " )

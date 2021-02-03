@@ -1,5 +1,5 @@
 import { Workspace } from "@rbxts/services"
-import { AddNetVar } from "shared/sh_player_netvars"
+import { AddNetVar, GetNetVar_Number } from "shared/sh_player_netvars"
 import { AddCooldown } from "./sh_cooldown"
 import { SetPlayerWalkSpeed, GetPlayerFromUserID, GetPlayerFromUserIDString } from "./sh_onPlayerConnect"
 import { MEETING_DISCUSS_TIME, MEETING_VOTE_TIME, PLAYER_WALKSPEED_SPECTATOR, PLAYER_WALKSPEED, SUDDEN_DEATH_TIME, DEV_SKIP_INTRO, INTRO_TIME, SKIP_INTRO_TIME, MEETING_VOTE_RESULTS, START_COUNTDOWN, TASK_VALUE } from "./sh_settings"
@@ -870,4 +870,13 @@ export function CanUseTask( match: Match, player: Player ): boolean
 export function GetTaskValueForRound( roundNum: number ): number
 {
    return math.max( 5, TASK_VALUE + math.floor( ( roundNum - 1 ) * TASK_VALUE ) )
+}
+
+export function EmergencyMeetingsRemaining( match: Match, player: Player ): number
+{
+   /*
+   if ( match.IsDetective( player ) )
+      return math.max( 0, ( match.shState.startingImpostorCount - GetNetVar_Number( player, NETVAR_MEETINGS_CALLED ) + 1 ) )
+   */
+   return math.max( 0, 1 - GetNetVar_Number( player, NETVAR_MEETINGS_CALLED ) )
 }

@@ -1,5 +1,5 @@
 import { GetTaskSpec } from "client/cl_tasks"
-import { NETVAR_JSON_GAMESTATE, NETVAR_JSON_ASSIGNMENTS, GAME_STATE, NETVAR_MEETINGS_CALLED } from "shared/sh_gamestate"
+import { NETVAR_JSON_GAMESTATE, NETVAR_JSON_ASSIGNMENTS, GAME_STATE, NETVAR_MEETINGS_CALLED, EmergencyMeetingsRemaining } from "shared/sh_gamestate"
 import { AddNetVarChangedCallback, GetNetVar_Number } from "shared/sh_player_netvars"
 import { GetFirstChildWithName, GetLocalPlayer, Graph, Thread } from "shared/sh_utils"
 import { GetMinimapReferencesFrame } from "./cl_minimap"
@@ -234,11 +234,9 @@ function RefreshTaskList()
    }
    else if ( match.IsDetective( LOCAL_PLAYER ) )
    {
-      print( "DETECTIVE match.shState.startingImpostorCount " + match.shState.startingImpostorCount )
-      print( "DETECTIVE GetNetVar_Number( LOCAL_PLAYER, NETVAR_MEETINGS_CALLED ) " + GetNetVar_Number( LOCAL_PLAYER, NETVAR_MEETINGS_CALLED ) )
       file.taskLabels[0].Text = "You are the Detective."
       file.taskLabels[1].Text = "Discover the Impostors before it's too late."
-      let remaining = math.max( 0, ( match.shState.startingImpostorCount - GetNetVar_Number( LOCAL_PLAYER, NETVAR_MEETINGS_CALLED ) + 1 ) )
+      let remaining = EmergencyMeetingsRemaining( match, LOCAL_PLAYER )
       file.taskLabels[2].Text = remaining + " emergency meetings remaining."
       startIndex = 3
    }
