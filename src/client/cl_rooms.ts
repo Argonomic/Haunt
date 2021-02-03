@@ -156,7 +156,7 @@ function SetCurrentRoom( player: Player, room: Room )
 
 export function SetLocalViewToRoom( room: Room )
 {
-   print( "SetLocalViewToRoom to " + room.name )
+   //print( "SetLocalViewToRoom to " + room.name )
    SetPlayerCameraToRoom( room )
 
    if ( IsOverheadCamera() )

@@ -1,5 +1,5 @@
 import { DamagePlayer, GetHealth, KillPlayer, Thread, Wait, } from "shared/sh_utils"
-import { GAME_STATE, NS_Corpse, USETYPES, COOLDOWN_NAME_KILL, MEETING_TYPE, NETVAR_MEETINGS_CALLED, CanUseTask, REMOTESOUNDS } from "shared/sh_gamestate"
+import { GAME_STATE, NS_Corpse, USETYPES, COOLDOWN_NAME_KILL, MEETING_TYPE, NETVAR_MEETINGS_CALLED, CanUseTask, REMOTESOUNDS, COOLDOWN_NAME_REPORT } from "shared/sh_gamestate"
 import { GetUsableByType, USABLETYPES } from "shared/sh_use"
 import { SetGameState, UpdateGame, PlayerHasUnfinishedAssignment, PlayerHasAssignments, PlayerToMatch, SV_SendRPC, SetPlayerKilled, BroadcastSound, TellOtherPlayersInMatchThatPlayersPutInRoom } from "server/sv_gameState"
 import { GetCurrentRoom } from "server/sv_rooms"
@@ -93,6 +93,7 @@ export function SV_UseContentSetup()
             SetPlayerSpawnLocation( target, GetPosition( target ) )
             SetPlayerKilled( match, target, player )
             ResetCooldownTime( player, COOLDOWN_NAME_KILL )
+            DoCooldown( player, COOLDOWN_NAME_REPORT, 2 )
 
             let gmc = GetGameModeConsts()
             if ( gmc.hasCorpses )

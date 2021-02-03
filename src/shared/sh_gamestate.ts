@@ -8,7 +8,6 @@ import { Assert } from "shared/sh_assert"
 import { GiveAbility, TakeAbility } from "./sh_ability"
 import { ABILITIES } from "./content/sh_ability_content"
 import { NETVAR_LAST_STASHED, NETVAR_SCORE, NETVAR_STASH } from "./sh_score"
-import { CreateSharedInt } from "./sh_sharedVar"
 import { GetGameModeConsts } from "./sh_gameModeConsts"
 
 export const NETVAR_JSON_ASSIGNMENTS = "JS_TL"
@@ -44,6 +43,7 @@ export enum USETYPES
 export const USE_COOLDOWNS = "USE_COOLDOWNS" // USE searches for these strings at runtime to identify if cooldown should happen
 export const COOLDOWN_NAME_KILL = USE_COOLDOWNS + USETYPES.USETYPE_KILL
 export const COOLDOWN_NAME_MEETING = USE_COOLDOWNS + USETYPES.USETYPE_MEETING
+export const COOLDOWN_NAME_REPORT = USE_COOLDOWNS + USETYPES.USETYPE_REPORT
 
 export enum GAMERESULTS
 {
@@ -651,6 +651,7 @@ export function SH_GameStateSetup()
    let gmc = GetGameModeConsts()
    AddCooldown( COOLDOWN_NAME_KILL, gmc.cooldownKill )
    AddCooldown( COOLDOWN_NAME_MEETING, gmc.meetingCooldown )
+   AddCooldown( COOLDOWN_NAME_REPORT, 2 )
 
    AddRoleChangeCallback( UpdatePlayerAbilities )
 }
