@@ -8,6 +8,8 @@ import { GetBearingBetweenPoints } from "shared/sh_utils_geometry"
 import { SendRPC_Client } from "shared/sh_rpc"
 import { GetLocalMatch } from "./cl_gamestate"
 import { AddCameraUpdateCallback, IsOverheadCamera } from "./cl_camera"
+import { AddNetVarChangedCallback } from "shared/sh_player_netvars"
+import { GAME_STATE, IsImpostorRole, NETVAR_JSON_GAMESTATE } from "shared/sh_gamestate"
 
 const LOCAL_PLAYER = GetLocalPlayer()
 const ARROW = 'rbxassetid://144168163'
@@ -323,20 +325,20 @@ export function CL_VentSetup()
 
    } )
 
-      AddNetVarChangedCallback( NETVAR_JSON_GAMESTATE,
-         function ()
+   AddNetVarChangedCallback( NETVAR_JSON_GAMESTATE,
+      function ()
+      {
+         let match = GetLocalMatch()
+         switch ( match.GetGameState() )
          {
-            let match = GetLocalMatch()
-            switch ( match.GetGameState() )
-            {
-               case GAME_STATE.GAME_STATE_PLAYING:
-               case GAME_STATE.GAME_STATE_SUDDEN_DEATH:
-                  break
-   
-               default:
-                  if ( ui !== undefined )
-                     ui.Destroy()
-                  return
-            }
-         } )
+            case GAME_STATE.GAME_STATE_PLAYING:
+            case GAME_STATE.GAME_STATE_SUDDEN_DEATH:
+               break
+
+            default:
+               if ( ui !== undefined )
+                  ui.Destroy()
+               return
+         }
+      } )
 }
