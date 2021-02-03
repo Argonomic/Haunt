@@ -142,6 +142,9 @@ export function CL_CameraSetup()
 
    AddCallback_OnPlayerCharacterAdded( function ( player: Player )
    {
+      if ( player !== LOCAL_PLAYER )
+         return
+
       UpdatePlayerCamera()
       Thread(
          function ()

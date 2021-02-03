@@ -267,7 +267,8 @@ export function CL_GameStateSetup()
       if ( match.HasPlayer( player ) )
          match.Shared_OnGameStateChanged_PerPlayer( player, match )
 
-      SetLocalViewToCorrectRoom( match )
+      if ( player === LOCAL_PLAYER )
+         SetLocalViewToCorrectRoom( match )
    } )
 
    {
@@ -456,28 +457,27 @@ export function CL_GameStateSetup()
          throw undefined
       }
 
-      RefreshCamera()
-
       if ( coroutine.status( match.gameThread ) === "suspended" )
          Resume( match.gameThread )
    } )
 
-
-   function RefreshCamera()
-   {
-      GetCameraUI().Enabled = match.GetGameState() <= GAME_STATE.GAME_STATE_COUNTDOWN
-
-      SetLocalViewToCorrectRoom( match )
-
-      let gameState = GetLocalMatch().GetGameState()
-      if ( gameState < GAME_STATE.GAME_STATE_INTRO )
-         EnableCameraModeUI()
-      else
-         DisableCameraModeUI()
-   }
-
    AddCameraUpdateCallback( RefreshCamera )
    AddRoomChangedCallback( RefreshCamera )
+}
+
+
+function RefreshCamera()
+{
+   let match = GetLocalMatch()
+   GetCameraUI().Enabled = match.GetGameState() <= GAME_STATE.GAME_STATE_COUNTDOWN
+
+   SetLocalViewToCorrectRoom( match )
+
+   let gameState = GetLocalMatch().GetGameState()
+   if ( gameState < GAME_STATE.GAME_STATE_INTRO )
+      EnableCameraModeUI()
+   else
+      DisableCameraModeUI()
 }
 
 
@@ -575,20 +575,6 @@ function CLGameStateChanged( match: Match, oldGameState: number )
    // entering this match state
    switch ( newGameState )
    {
-      case GAME_STATE.GAME_STATE_MEETING_DISCUSS:
-      case GAME_STATE.GAME_STATE_MEETING_RESULTS:
-      case GAME_STATE.GAME_STATE_MEETING_VOTE:
-         SetOverheadCameraOverride( true )
-         break
-
-      default:
-         SetOverheadCameraOverride( false )
-         break
-   }
-
-   // entering this match state
-   switch ( newGameState )
-   {
       case GAME_STATE.GAME_STATE_PLAYING:
 
          if ( file.lastKnownRound !== match.shState.roundNum )
@@ -624,7 +610,6 @@ function CLGameStateChanged( match: Match, oldGameState: number )
 
             let report = false
             let body = meetingDetails.meetingBody
-            let meetingCallerRoomName = meetingDetails.meetingCallerRoomName
             switch ( meetingType )
             {
                case MEETING_TYPE.MEETING_EMERGENCY:
@@ -637,6 +622,7 @@ function CLGameStateChanged( match: Match, oldGameState: number )
                      function ()
                      {
                         wait( 1 ) // wait for match screen to fade out
+                        SetOverheadCameraOverride( true )
                         SetLocalViewToCorrectRoom( match )
                      } )
                   break
@@ -648,13 +634,30 @@ function CLGameStateChanged( match: Match, oldGameState: number )
 
             DrawMatchScreen_EmergencyMeeting( meetingType, meetingCaller, body )
 
-            if ( report && !DEV_SKIP_INTRO )
+            if ( report )
                wait( 2.2 ) // time to look at crime scene
          } )
          break
-
    }
+
+
+   // entering this match state
+   switch ( newGameState )
+   {
+      case GAME_STATE.GAME_STATE_MEETING_DISCUSS:
+      case GAME_STATE.GAME_STATE_MEETING_RESULTS:
+      case GAME_STATE.GAME_STATE_MEETING_VOTE:
+         break
+
+      default:
+         SetOverheadCameraOverride( false )
+         break
+   }
+
+   RefreshCamera()
 }
+
+
 
 function SetLocalViewToCorrectRoom( match: Match )
 {

@@ -384,7 +384,7 @@ function ServerGameThread( match: Match )
 
                let cooldown = 20
                if ( match.shState.roundNum > 1 )
-                  cooldown += 6
+                  cooldown += 3
                if ( DEV_FAST_TIMERS )
                   cooldown = 3
 
