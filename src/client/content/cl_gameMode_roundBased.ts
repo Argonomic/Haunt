@@ -67,19 +67,10 @@ function GameStateChanged( match: Match, oldGameState: GAME_STATE )
             let timeOut = Workspace.DistributedGameTime + 5
             for ( ; ; )
             {
-               let allPlayersLoaded = true
                if ( Workspace.DistributedGameTime > timeOut )
                   break
 
-               for ( let player of match.GetAllPlayers() )
-               {
-                  if ( !PlayerHasClone( player ) )
-                  {
-                     allPlayersLoaded = false
-                     break
-                  }
-               }
-               if ( allPlayersLoaded )
+               if ( PlayerHasClone( LOCAL_PLAYER ) )
                   break
 
                wait()
