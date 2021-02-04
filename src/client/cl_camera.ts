@@ -36,6 +36,8 @@ class File
 
    dynamicArtInfos: Array<DynamicArtInfo> = []
    dynamicArtModels: Array<BasePart> = []
+
+   cameraLocked = false
 }
 
 export function EnableCameraModeUI()
@@ -70,14 +72,23 @@ export function AddCameraUpdateCallback( func: () => void )
    file.cameraUpdateCallbacks.push( func )
 }
 
-function UpdatePlayerCamera()
+export function LockCamera()
+{
+   file.cameraLocked = true
+}
+
+export function UnlockCamera()
+{
+   file.cameraLocked = false
+}
+
+export function UpdatePlayerCamera()
 {
    for ( let child of file.dynamicArtModels )
    {
       child.Destroy()
    }
    file.dynamicArtModels = []
-   file.localCamera.CameraType = Enum.CameraType.Scriptable
 
    if ( IsOverheadCamera() )
    {
@@ -93,6 +104,11 @@ function UpdatePlayerCamera()
       file.dynamicArtModels = CreateDynamicArt( file.dynamicArtInfos )
       file.cameraUI.Frame.CameraButton.Text = "Over Shoulder"
    }
+
+   if ( file.cameraLocked )
+      file.viewCamera.CameraType = Enum.CameraType.Scriptable
+
+
    for ( let callback of file.cameraUpdateCallbacks )
    {
       Thread(

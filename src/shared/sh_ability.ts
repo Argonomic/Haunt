@@ -1,6 +1,7 @@
 import { Assert } from "./sh_assert"
 import { GetPlayerCooldownTimeRemaining } from "./sh_cooldown"
 import { AddCallback_OnPlayerConnected } from "./sh_onPlayerConnect"
+import { Thread } from "./sh_utils"
 
 export const ABILITY_COOLDOWNS = "ABILITY_COOLDOWNS"
 
@@ -69,7 +70,11 @@ function AbilitiesChanged( player: Player )
 {
    for ( let func of file.abilitiesChangedCallbacks )
    {
-      func( player )
+      Thread(
+         function ()
+         {
+            func( player )
+         } )
    }
 }
 

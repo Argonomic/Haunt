@@ -8,11 +8,12 @@ import { ClearMinimapIcons } from "./cl_minimap"
 import { CanUseTask, NETVAR_JSON_ASSIGNMENTS, NETVAR_JSON_GAMESTATE } from "shared/sh_gamestate"
 import { GetCurrentRoom, GetRooms } from "./cl_rooms"
 import { TextLabels, GetLocalPlayer, Graph, Thread, VectorNormalize } from "shared/sh_utils"
-import { GetLocalAssignments, GetLocalMatch } from "./cl_gamestate"
+import { GetLocalAssignments } from "./cl_gamestate"
 import { Room, Task } from "shared/sh_rooms"
 import { RunService, Workspace } from "@rbxts/services"
 import { AddCameraUpdateCallback, IsOverheadCamera } from "./cl_camera"
 import { GetPosition } from "shared/sh_utils_geometry"
+import { GetLocalMatch } from "./cl_localMatch"
 
 const LOCAL_PLAYER = GetLocalPlayer()
 const CALLOUTS_NAME = "TASKLIST_CALLOUTS"

@@ -5,14 +5,15 @@ import { PLAYER_COLORS, SPECTATOR_TRANS } from "shared/sh_settings"
 import { TweenPlayerParts } from "shared/sh_tween"
 import { GetFirstChildWithNameAndClassName, GetLocalPlayer, Graph, GraphCapped, IsAlive, SetCharacterTransparency, SetPlayerTransparency, Thread, UserIDToPlayer } from "shared/sh_utils"
 import { Assert } from "shared/sh_assert"
-import { GetCorpseClientModel, ClientGetAssignmentAssignedTime, ClientHasAssignment, GetLocalMatch, GetLocalIsSpectator, GetLocalRole } from "./cl_gamestate"
+import { GetCorpseClientModel, ClientGetAssignmentAssignedTime, ClientHasAssignment, GetLocalIsSpectator, GetLocalRole } from "./cl_gamestate"
 import { AddPlayerGuiFolderExistsCallback, UIORDER } from "./cl_ui"
 import { GetAllCoins, GetCoins } from "shared/sh_coins"
 import { Tween } from "shared/sh_tween";
 import { GetCurrentRoom } from "./cl_rooms"
 import { GetPosition } from "shared/sh_utils_geometry"
 import { GetGameModeConsts } from "shared/sh_gameModeConsts"
-import { GetLocalCamera, IsOverheadCamera } from "./cl_camera"
+import { IsOverheadCamera } from "./cl_camera"
+import { GetLocalMatch } from "./cl_localMatch"
 
 const FADE_CIRCLE = 'rbxassetid://6006022378'
 const TRANSPARENCY = 0.333

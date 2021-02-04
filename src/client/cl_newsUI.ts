@@ -3,7 +3,7 @@ import { GAME_STATE, NETVAR_JSON_GAMESTATE } from "shared/sh_gamestate";
 import { AddCallback_OnPlayerCharacterAncestryChanged } from "shared/sh_onPlayerConnect";
 import { AddNetVarChangedCallback } from "shared/sh_player_netvars";
 import { GetFirstChildWithName, GetLocalPlayer } from "shared/sh_utils";
-import { GetLocalMatch } from "./cl_gamestate";
+import { GetLocalMatch } from "./cl_localMatch";
 import { AddPlayerGuiFolderExistsCallback, UIORDER } from "./cl_ui";
 
 const LOCAL_PLAYER = GetLocalPlayer()

@@ -638,9 +638,13 @@ export class Match
 
    public Shared_OnGameStateChanged_PerPlayer( player: Player, match: Match )
    {
-      SetPlayerWalkspeedForGameState( player, match )
+      Thread(
+         function ()
+         {
+            SetPlayerWalkspeedForGameState( player, match )
 
-      UpdatePlayerAbilities( player, match )
+            UpdatePlayerAbilities( player, match )
+         } )
    }
 }
 

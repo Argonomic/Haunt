@@ -3,7 +3,8 @@ import { ABILITIES } from "shared/content/sh_ability_content"
 import { SetAbilityCanUseFunc, SetAbilityClientFunc } from "shared/sh_ability"
 import { Assert } from "shared/sh_assert"
 import { GetLocalPlayer, LoadSound } from "shared/sh_utils"
-import { AddGainedTaskCallback, ClientHasAssignment, GetLocalMatch } from "client/cl_gamestate"
+import { AddGainedTaskCallback, ClientHasAssignment } from "client/cl_gamestate"
+import { GetLocalMatch } from "client/cl_localMatch"
 
 let LIGHTS_OUT_SOUND = LoadSound( 2028346649 )
 const LOCAL_PLAYER = GetLocalPlayer()

@@ -5,7 +5,7 @@ import { AddCallback_OnPlayerCharacterAncestryChanged } from "shared/sh_onPlayer
 import { AddNetVarChangedCallback } from "shared/sh_player_netvars";
 import { Tween } from "shared/sh_tween";
 import { GetExistingFirstChildWithNameAndClassName, GraphCapped, LoadSound, Thread } from "shared/sh_utils";
-import { GetLocalMatch } from "./cl_gamestate";
+import { GetLocalMatch } from "./cl_localMatch";
 import { AddPlayerGuiFolderExistsCallback, UIORDER } from "./cl_ui";
 
 const BEEP = LoadSound( 138081500 )

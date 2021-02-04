@@ -4,7 +4,7 @@ import { UserIDToPlayer, GetFirstChildWithNameAndClassName, GetLocalPlayer, Thre
 import { AddPlayerGuiFolderExistsCallback, ToggleButton, UIORDER } from "./cl_ui";
 import { SocialService } from "@rbxts/services";
 import { GAME_STATE, NETVAR_JSON_GAMESTATE } from "shared/sh_gamestate";
-import { GetLocalMatch } from "./cl_gamestate";
+import { GetLocalMatch } from "./cl_localMatch";
 import { SendRPC_Client } from "shared/sh_rpc";
 import { GetMinPlayersToStartGame } from "shared/sh_gameModeConsts";
 

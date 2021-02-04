@@ -8,7 +8,7 @@ import { GetStashScore } from "shared/sh_score";
 import { STORE_BUY_IMPOSTOR } from "shared/sh_settings";
 import { GetFirstChildWithName, GetLocalPlayer } from "shared/sh_utils";
 import { DrawBadPurchase } from "./cl_coins";
-import { GetLocalMatch } from "./cl_gamestate";
+import { GetLocalMatch } from "./cl_localMatch";
 import { PlayRemoteSound } from "./cl_remoteSound";
 import { AddPlayerGuiFolderExistsCallback, UIORDER } from "./cl_ui";
 

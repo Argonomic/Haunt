@@ -4,9 +4,10 @@ import { AddNetVarChangedCallback, GetNetVar_Number } from "shared/sh_player_net
 import { GetFirstChildWithName, GetLocalPlayer, Graph, Thread } from "shared/sh_utils"
 import { GetMinimapReferencesFrame } from "./cl_minimap"
 import { AddPlayerGuiFolderExistsCallback, ToggleButton, UIORDER } from "./cl_ui"
-import { GetLocalAssignments, GetLocalMatch } from "./cl_gamestate"
+import { GetLocalAssignments } from "./cl_gamestate"
 import { AddCallback_OnPlayerCharacterAncestryChanged } from "shared/sh_onPlayerConnect"
 import { Tween } from "shared/sh_tween"
+import { GetLocalMatch } from "./cl_localMatch"
 
 const LOCAL_PLAYER = GetLocalPlayer()
 

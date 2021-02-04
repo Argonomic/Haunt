@@ -1,5 +1,5 @@
 import { Workspace } from "@rbxts/services"
-import { GetLocalMatch } from "client/cl_gamestate"
+import { GetLocalMatch } from "client/cl_localMatch"
 import { CreateGameModeConsts } from "shared/content/sh_gameModeConsts_content"
 import { Assert } from "shared/sh_assert"
 import { SetGameModeConsts } from "shared/sh_gameModeConsts"

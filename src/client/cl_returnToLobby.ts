@@ -1,5 +1,5 @@
 import { GetFirstChildWithNameAndClassName, GetLocalPlayer, Thread } from "shared/sh_utils";
-import { GetLocalMatch } from "./cl_gamestate";
+import { GetLocalMatch } from "./cl_localMatch";
 import { ROLE, NETVAR_JSON_GAMESTATE, IsSpectatorRole, GAME_STATE } from "shared/sh_gamestate";
 import { AddPlayerGuiFolderExistsCallback, ToggleButton, UIORDER } from "./cl_ui";
 import { AddNetVarChangedCallback } from "shared/sh_player_netvars";

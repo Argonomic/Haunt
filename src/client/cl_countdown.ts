@@ -1,7 +1,7 @@
 import { GAME_STATE, NETVAR_JSON_GAMESTATE } from "shared/sh_gamestate";
 import { AddNetVarChangedCallback } from "shared/sh_player_netvars";
 import { GetExistingFirstChildWithNameAndClassName, GetLocalPlayer, LoadSound, Thread } from "shared/sh_utils";
-import { GetLocalMatch } from "./cl_gamestate";
+import { GetLocalMatch } from "./cl_localMatch";
 import { AddPlayerGuiFolderExistsCallback, UIORDER } from "./cl_ui";
 
 const LOCAL_PLAYER = GetLocalPlayer()

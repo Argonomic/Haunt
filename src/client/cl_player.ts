@@ -2,7 +2,7 @@ import { StarterGui } from "@rbxts/services"
 import { AddCallback_OnPlayerCharacterAdded } from "shared/sh_onPlayerConnect"
 import { SPECTATOR_TRANS } from "shared/sh_settings"
 import { GetLocalPlayer, SetPlayerTransparency, Thread } from "shared/sh_utils"
-import { GetLocalMatch } from "./cl_gamestate"
+import { GetLocalMatch } from "./cl_localMatch"
 import { AddPlayerGuiFolderExistsCallback } from "./cl_ui"
 
 const LOCAL_PLAYER = GetLocalPlayer()

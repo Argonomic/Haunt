@@ -1,5 +1,5 @@
 import { AddRPC, SendRPC_Client } from "shared/sh_rpc"
-import { Assignment, AssignmentIsSame, CanUseTask, GAME_STATE, NETVAR_JSON_ASSIGNMENTS, NETVAR_JSON_GAMESTATE, SetPlayerWalkspeedForGameState } from "shared/sh_gamestate"
+import { Assignment, AssignmentIsSame, CanUseTask, NETVAR_JSON_ASSIGNMENTS, NETVAR_JSON_GAMESTATE, SetPlayerWalkspeedForGameState } from "shared/sh_gamestate"
 import { AddNetVarChangedCallback, GetNetVar_String } from "shared/sh_player_netvars"
 import { ReleaseDraggedButton, AddCallback_MouseClick } from "client/cl_ui"
 import { GetLocalPlayer, LoadSound, Thread } from "shared/sh_utils"
@@ -8,7 +8,7 @@ import { SetPlayerWalkSpeed } from "shared/sh_onPlayerConnect"
 import { AddPlayerUseDisabledCallback, SetUseDebounceTime } from "./cl_use"
 import { Tween } from "shared/sh_tween"
 import { HttpService } from "@rbxts/services"
-import { GetLocalMatch } from "./cl_gamestate"
+import { GetLocalMatch } from "./cl_localMatch"
 
 const LOCAL_PLAYER = GetLocalPlayer()
 
@@ -27,6 +27,8 @@ class File
    successSound = LoadSound( 131323304 ) // 4612375233 )
 
    activeTaskStatus: TaskStatus | undefined
+
+   startActiveTaskCallbacks: Array<() => void> = []
 }
 
 class TaskSpec
@@ -41,6 +43,11 @@ class TaskSpec
       this.frame = frame
       this.startFunc = startFunc
    }
+}
+
+export function AddActiveTaskCallback( func: () => void )
+{
+   file.startActiveTaskCallbacks.push( func )
 }
 
 export function HasActiveTask(): boolean
@@ -108,15 +115,6 @@ export function CL_TasksSetup()
          CancelAnyOpenTask()
       } )
 
-
-   let lastKnownGameState = -1
-   AddNetVarChangedCallback( NETVAR_JSON_GAMESTATE,
-      function ()
-      {
-         wait() // for gamestate to update
-         if ( !CanUseTask( GetLocalMatch(), LOCAL_PLAYER ) )
-            CancelAnyOpenTask()
-      } )
 
 }
 
@@ -192,6 +190,8 @@ export function RPC_FromServer_OnPlayerUseTask( roomName: string, taskName: stri
 
    let activeTaskStatus = new TaskStatus( taskSpec, roomName, taskName )
    file.activeTaskStatus = activeTaskStatus
+   RunCallbacks()
+
    print( "CREATED TASK" )
 
    let closeFunction = function ()
@@ -214,6 +214,7 @@ export function RPC_FromServer_OnPlayerUseTask( roomName: string, taskName: stri
          closeButtonCallback.Disconnect()
 
       file.activeTaskStatus = undefined
+      RunCallbacks()
       Thread( function ()
       {
          wait( 0.15 )
@@ -238,3 +239,14 @@ export function RPC_FromServer_OnPlayerUseTask( roomName: string, taskName: stri
    activeTaskStatus.think = taskSpec.startFunc( newFrame, closeFunction, file.activeTaskStatus )
 }
 
+function RunCallbacks()
+{
+   for ( let callback of file.startActiveTaskCallbacks )
+   {
+      Thread(
+         function ()
+         {
+            callback()
+         } )
+   }
+}

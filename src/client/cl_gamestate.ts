@@ -1,5 +1,5 @@
 import { HttpService, Workspace } from "@rbxts/services"
-import { ROLE, Match, NETVAR_JSON_GAMESTATE, USETYPES, GAME_STATE, GetVoteResults, MEETING_TYPE, AddRoleChangeCallback, Assignment, AssignmentIsSame, NETVAR_JSON_ASSIGNMENTS, PlayerInfo, USERID, NS_SharedMatchState, ExecRoleChangeCallbacks, GetTaskValueForRound } from "shared/sh_gamestate"
+import { ROLE, Match, NETVAR_JSON_GAMESTATE, USETYPES, GAME_STATE, GetVoteResults, MEETING_TYPE, AddRoleChangeCallback, Assignment, AssignmentIsSame, NETVAR_JSON_ASSIGNMENTS, PlayerInfo, USERID, NS_SharedMatchState, ExecRoleChangeCallbacks, GetTaskValueForRound, CanUseTask } from "shared/sh_gamestate"
 import { AddCallback_OnPlayerCharacterAdded, AddCallback_OnPlayerConnected, ClonePlayerModel, GetPlayerFromUserID } from "shared/sh_onPlayerConnect"
 import { AddNetVarChangedCallback, GetNetVar_String } from "shared/sh_player_netvars"
 import { GetUsableByType } from "shared/sh_use"
@@ -8,7 +8,7 @@ import { Assert } from "shared/sh_assert"
 import { UpdateMeeting } from "./cl_meeting"
 import { DrawMatchRound, DrawMatchScreen_EmergencyMeeting, DrawMatchScreen_Escaped, DrawMatchScreen_VoteResults } from "./content/cl_matchScreen_content"
 import { GetLastStashed } from "shared/sh_score"
-import { DEV_SKIP_INTRO, SPECTATOR_TRANS } from "shared/sh_settings"
+import { SPECTATOR_TRANS } from "shared/sh_settings"
 import { SetLocalViewToRoom, GetRoom, GetCurrentRoom, AddRoomChangedCallback } from "./cl_rooms"
 import { GetDeltaTime } from "shared/sh_time"
 import { CanKill, CanReportBody, SharedKillGetter } from "shared/content/sh_use_content"
@@ -16,7 +16,9 @@ import { CoinFloatsAway, COIN_TYPE, GetCoinDataFromType, GetCoinFolder, HasCoinF
 import { DrawRisingNumberFromWorldPos } from "./cl_coins"
 import { AddRPC } from "shared/sh_rpc"
 import { GetGameModeConsts } from "shared/sh_gameModeConsts"
-import { AddCameraUpdateCallback, DisableCameraModeUI, EnableCameraModeUI, GetCameraUI, SetOverheadCameraOverride } from "./cl_camera"
+import { AddCameraUpdateCallback, DisableCameraModeUI, EnableCameraModeUI, GetCameraUI, LockCamera, SetOverheadCameraOverride, UnlockCamera, UpdatePlayerCamera } from "./cl_camera"
+import { AddActiveTaskCallback, HasActiveTask, CancelAnyOpenTask } from "./cl_tasks"
+import { GetLocalMatch } from "./cl_localMatch"
 
 const LOCAL_PLAYER = GetLocalPlayer()
 
@@ -36,7 +38,7 @@ class File
 {
    lastKnownRound = -1
 
-   readonly clientMatch = new Match()
+   clientMatch = GetLocalMatch()
 
    corpseToCorpseModel = new Map<USERID, ClientCorpseModel>()
 
@@ -66,10 +68,6 @@ let file = new File()
    file.clientMatch.shState.playerToInfo.set( LOCAL_PLAYER.UserId + "", playerInfo )
 }
 
-export function GetLocalMatch(): Match
-{
-   return file.clientMatch
-}
 
 export function GetLocalRole(): ROLE 
 {
@@ -95,7 +93,6 @@ function ClientGameThread( match: Match )
       throw undefined
    }
 
-
    for ( ; ; )
    {
       let gameState = match.GetGameState()
@@ -103,27 +100,46 @@ function ClientGameThread( match: Match )
       let lastGameStateForMeeting = lastGameState
       if ( gameState !== lastGameState )
       {
-         CLGameStateChanged( match, lastGameState )
-         gameStateFuncs.gameStateChanged( match, lastGameState )
+         WaitThread( function ()
+         {
+            CLGameStateChanged( match, lastGameState )
+         } )
+
+         WaitThread( function ()
+         {
+            gameStateFuncs.gameStateChanged( match, lastGameState )
+         } )
 
          lastGameState = gameState
       }
 
-      gameStateFuncs.gameStateThink( match )
-
-      UpdateMeeting( match, lastGameStateForMeeting )
-
-      for ( let player of match.GetAllPlayers() )
+      WaitThread( function ()
       {
-         let role = match.GetPlayerRole( player )
-         if ( !playersToLastKnownRole.has( player ) )
-            playersToLastKnownRole.set( player, role )
+         gameStateFuncs.gameStateThink( match )
+      } )
 
-         let lastRole = playersToLastKnownRole.get( player ) as ROLE
-         if ( lastRole !== role )
-            ExecRoleChangeCallbacks( player, match )
-         playersToLastKnownRole.set( player, role )
-      }
+      Thread(
+         function ()
+         {
+            UpdateMeeting( match, lastGameStateForMeeting )
+         } )
+
+
+      Thread(
+         function ()
+         {
+            for ( let player of match.GetAllPlayers() )
+            {
+               let role = match.GetPlayerRole( player )
+               if ( !playersToLastKnownRole.has( player ) )
+                  playersToLastKnownRole.set( player, role )
+
+               let lastRole = playersToLastKnownRole.get( player ) as ROLE
+               if ( lastRole !== role )
+                  ExecRoleChangeCallbacks( player, match )
+               playersToLastKnownRole.set( player, role )
+            }
+         } )
 
       coroutine.yield() // wait until something says update again
    }
@@ -457,12 +473,40 @@ export function CL_GameStateSetup()
          throw undefined
       }
 
-      if ( coroutine.status( match.gameThread ) === "suspended" )
-         Resume( match.gameThread )
+      let status = coroutine.status( match.gameThread )
+      switch ( status )
+      {
+         case "suspended":
+            Resume( match.gameThread )
+            break
+
+         default:
+            Thread( function ()
+            {
+               print( "WARNING: Coroutine status was " + status )
+               let gameThread = coroutine.create(
+                  function ()
+                  {
+                     ClientGameThread( match as Match )
+                  } )
+
+               match.gameThread = gameThread
+               Resume( match.gameThread )
+            } )
+            break
+      }
    } )
 
    AddCameraUpdateCallback( RefreshCamera )
    AddRoomChangedCallback( RefreshCamera )
+   AddActiveTaskCallback( function ()
+   {
+      if ( HasActiveTask() )
+         LockCamera()
+      else
+         UnlockCamera()
+      UpdatePlayerCamera()
+   } )
 }
 
 
@@ -659,6 +703,9 @@ function CLGameStateChanged( match: Match, oldGameState: number )
          SetOverheadCameraOverride( false )
          break
    }
+
+   if ( !CanUseTask( match, LOCAL_PLAYER ) )
+      CancelAnyOpenTask()
 
    RefreshCamera()
 }
