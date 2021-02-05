@@ -504,6 +504,8 @@ class ActiveMeeting
 
          if ( !this.drewVote.has( player ) )
          {
+            let activeMeeting = this
+
             this.drewVote.set( player, true )
             Thread( function ()
             {
@@ -520,7 +522,7 @@ class ActiveMeeting
 
                let connect = RunService.RenderStepped.Connect( function ()
                {
-                  if ( Workspace.DistributedGameTime >= endTime )
+                  if ( Workspace.DistributedGameTime >= endTime || activeMeeting !== file.activeMeeting )
                   {
                      connect.Disconnect()
                      if ( flyingVoteObject !== undefined )
