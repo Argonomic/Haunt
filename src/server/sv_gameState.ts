@@ -1175,7 +1175,11 @@ export function AddPlayer( match: Match, player: Player ): PlayerInfo
 
 export function PlayerHasMatch( player: Player ): boolean
 {
-   return file.playerToMatch.has( player )
+   let match = file.playerToMatch.get( player )
+   if ( match === undefined )
+      return false
+
+   return match.HasPlayer( player )
 }
 
 export function PlayerToMatch( player: Player ): Match
