@@ -613,8 +613,7 @@ export function DrawMatchScreen_VoteResults( skipTie: boolean, receivedHighestVo
    Tween( title, { TextTransparency: 1 }, FADE_OUT * 0.75 )
    Tween( subTitle, { TextTransparency: 1 }, FADE_OUT * 0.75 )
 
-   if ( RESULTS_TEXT.size() > 1 ) // tie
-      wait( 1.0 )
+   wait( 1.0 )
 
    Tween( lowerTitle, { TextTransparency: 1 }, FADE_OUT * 0.75 )
    wait( 1.0 )
@@ -779,18 +778,6 @@ export function DrawMatchScreen_Victory( playerInfos: Array<PlayerInfo>, imposto
    else
       title.Text = "Defeat"
 
-   if ( localWasInGame )
-   {
-      if ( mySurvived )
-         subTitle.Text = "You survived"
-      else
-         subTitle.Text = "You did not survive"
-   }
-   else
-   {
-      subTitle.Text = ""
-   }
-
    lowerTitle.Text = myWinnings + " Coins added to your stash"
 
 
@@ -872,10 +859,39 @@ export function DrawMatchScreen_Victory( playerInfos: Array<PlayerInfo>, imposto
    }
 
    let animLineup = new AnimateLineup( viewportFrame, viewportCamera )
-   wait( animLineup.GetArriveTime() )
+   let time = animLineup.GetArriveTime() - 1.0
+   if ( time > 0 )
+      wait( time )
 
-   Tween( subTitle, { TextTransparency: 0 }, FADE_IN )
-   wait( 0.4 )
+   if ( impostorsWin )
+      subTitle.Text = "Not enough Innocent remain"
+   else
+      subTitle.Text = "All Impostors died"
+
+   Tween( subTitle, { TextTransparency: 0 }, 1.0 )
+   wait( 2.5 )
+
+   Tween( subTitle, { TextTransparency: 1 }, 1.0 )
+   wait( 1 )
+
+   if ( localWasInGame )
+   {
+      if ( mySurvived )
+         subTitle.Text = "You survived"
+      else
+         subTitle.Text = "You did not survive"
+   }
+   else
+   {
+      subTitle.Text = ""
+   }
+
+   Tween( subTitle, { TextTransparency: 0 }, 1.0 )
+   wait( 2.0 )
+
+   Tween( subTitle, { TextTransparency: 1 }, 1.0 )
+   wait( 1 )
+
 
    if ( myWinnings > 0 )
    {
@@ -883,7 +899,7 @@ export function DrawMatchScreen_Victory( playerInfos: Array<PlayerInfo>, imposto
       Tween( lowerTitle, { TextTransparency: 0 }, FADE_IN )
    }
 
-   wait( 3 )
+   wait( 2 )
    const FADE_OUT = 2.0
    Tween( title, { TextTransparency: 1 }, FADE_OUT * 0.75 )
    Tween( subTitle, { TextTransparency: 1 }, FADE_OUT * 0.75 )

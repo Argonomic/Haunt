@@ -645,48 +645,52 @@ function CLGameStateChanged( match: Match, oldGameState: number )
 
       case GAME_STATE.GAME_STATE_MEETING_DISCUSS:
       case GAME_STATE.GAME_STATE_MEETING_VOTE:
-         match.ClearVotes()
-         WaitThread( function ()
+
+         if ( oldGameState !== GAME_STATE.GAME_STATE_MEETING_DISCUSS )
          {
-            let meetingDetails = match.GetMeetingDetails()
-            if ( meetingDetails === undefined )
+            match.ClearVotes()
+            WaitThread( function ()
             {
-               Assert( false, "No meeting details" )
-               throw undefined
-            }
+               let meetingDetails = match.GetMeetingDetails()
+               if ( meetingDetails === undefined )
+               {
+                  Assert( false, "No meeting details" )
+                  throw undefined
+               }
 
-            let meetingType = meetingDetails.meetingType
-            let meetingCaller = meetingDetails.meetingCaller
+               let meetingType = meetingDetails.meetingType
+               let meetingCaller = meetingDetails.meetingCaller
 
-            let report = false
-            let body = meetingDetails.meetingBody
-            switch ( meetingType )
-            {
-               case MEETING_TYPE.MEETING_EMERGENCY:
-                  body = undefined
-                  break
+               let report = false
+               let body = meetingDetails.meetingBody
+               switch ( meetingType )
+               {
+                  case MEETING_TYPE.MEETING_EMERGENCY:
+                     body = undefined
+                     break
 
-               case MEETING_TYPE.MEETING_REPORT:
-                  report = true
-                  Thread(
-                     function ()
-                     {
-                        wait( 1 ) // wait for match screen to fade out
-                        SetOverheadCameraOverride( true )
-                        SetLocalViewToCorrectRoom( match )
-                     } )
-                  break
+                  case MEETING_TYPE.MEETING_REPORT:
+                     report = true
+                     Thread(
+                        function ()
+                        {
+                           wait( 1 ) // wait for match screen to fade out
+                           SetOverheadCameraOverride( true )
+                           SetLocalViewToCorrectRoom( match )
+                        } )
+                     break
 
-               default:
-                  Assert( false, "Unhandled meeting type " + meetingType )
-                  break
-            }
+                  default:
+                     Assert( false, "Unhandled meeting type " + meetingType )
+                     break
+               }
 
-            DrawMatchScreen_EmergencyMeeting( meetingType, meetingCaller, body )
+               DrawMatchScreen_EmergencyMeeting( meetingType, meetingCaller, body )
 
-            if ( report )
-               wait( 2.2 ) // time to look at crime scene
-         } )
+               if ( report )
+                  wait( 2.6 ) // time to look at crime scene
+            } )
+         }
          break
    }
 
@@ -697,9 +701,11 @@ function CLGameStateChanged( match: Match, oldGameState: number )
       case GAME_STATE.GAME_STATE_MEETING_DISCUSS:
       case GAME_STATE.GAME_STATE_MEETING_RESULTS:
       case GAME_STATE.GAME_STATE_MEETING_VOTE:
+         LOCAL_PLAYER.CameraMinZoomDistance = 15
          break
 
       default:
+         LOCAL_PLAYER.CameraMinZoomDistance = 0
          SetOverheadCameraOverride( false )
          break
    }

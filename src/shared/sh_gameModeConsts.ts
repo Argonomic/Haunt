@@ -1,8 +1,9 @@
-import { Players } from "@rbxts/services"
+import { Players, RunService } from "@rbxts/services"
 import { Assert } from "./sh_assert"
 import { Match } from "./sh_gamestate"
 import { TEST } from "./sh_settings"
-import { Graph, GraphCapped } from "./sh_utils"
+
+const LOCAL = RunService.IsStudio()
 
 class File
 {
@@ -48,12 +49,18 @@ export class GameModeConsts
 }
 
 const MAX_REQUIRED_TO_START = 10
+const MIN_REQUIRED_TO_START = 8
 export function GetMinPlayersToStartGame(): number
 {
    let gameModeData = GetGameModeConsts()
    let minPlayersToStartGame = gameModeData.minPlayersToStartGame
 
    let range = math.floor( Players.GetPlayers().size() * 0.375 )
+   if ( !LOCAL )
+   {
+      if ( range < MIN_REQUIRED_TO_START )
+         return MIN_REQUIRED_TO_START
+   }
    if ( range < minPlayersToStartGame )
       return minPlayersToStartGame
    if ( range > MAX_REQUIRED_TO_START )

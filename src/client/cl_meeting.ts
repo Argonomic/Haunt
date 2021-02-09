@@ -426,9 +426,9 @@ class ActiveMeeting
             return
          }
 
-         let timeRemaining = math.floor( match.GetTimeRemainingForState() )
-         if ( timeRemaining > 0 )
-            timeRemaining++
+         let timeRemaining = math.floor( match.GetTimeRemainingForState() ) + 1
+         if ( timeRemaining < 1 )
+            timeRemaining = 1
          let timeRemainingMsg = " (" + timeRemaining + ")"
 
          if ( match.IsSpectator( localPlayer ) )

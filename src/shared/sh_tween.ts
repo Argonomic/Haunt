@@ -117,6 +117,12 @@ export function TweenModel( model: Model, goalCFrame: CFrame, time: number, easi
    CFrameValue.GetPropertyChangedSignal( "Value" ).Connect(
       function ()
       {
+         if ( model === undefined )
+            return
+         if ( CFrameValue === undefined )
+            return
+         if ( model.GetPrimaryPartCFrame() === undefined )
+            return
          model.SetPrimaryPartCFrame( CFrameValue.Value )
       } )
 

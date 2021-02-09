@@ -153,7 +153,6 @@ export function ExecOnChildWhenItExists( parent: Instance, name: string, func: F
 
 function OnChildConnect( instance: Instance, name: string, func: Function )
 {
-   //huzz
    let connection: RBXScriptConnection | undefined
    let connectTable = { connection: connection }
 

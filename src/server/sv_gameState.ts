@@ -2,7 +2,7 @@ import { HttpService, Players, RunService, Workspace } from "@rbxts/services"
 import { AddRPC, GetRPCRemoteEvent } from "shared/sh_rpc"
 import { ArrayRandomize, GraphCapped, Resume, Thread, UserIDToPlayer, Wait, GetHealth, SetHealth, FilterHasCharactersAndPrimaryPart } from "shared/sh_utils"
 import { Assert } from "shared/sh_assert"
-import { Assignment, GAME_STATE, NETVAR_JSON_ASSIGNMENTS, ROLE, Match, GetVoteResults, TASK_EXIT, AssignmentIsSame, TASK_RESTORE_LIGHTS, NETVAR_JSON_GAMESTATE, SetPlayerWalkspeedForGameState, USERID, PlayerVote, NS_SharedMatchState, PlayerInfo, AddRoleChangeCallback, PICKUPS, IsSpectatorRole, ExecRoleChangeCallbacks, NETVAR_MEETINGS_CALLED, NETVAR_PURCHASED_IMPOSTOR, REMOTESOUNDS, GetTaskValueForRound, COOLDOWN_NAME_KILL, } from "shared/sh_gamestate"
+import { Assignment, GAME_STATE, NETVAR_JSON_ASSIGNMENTS, ROLE, Match, GetVoteResults, TASK_EXIT, AssignmentIsSame, TASK_RESTORE_LIGHTS, NETVAR_JSON_GAMESTATE, SetPlayerWalkspeedForGameState, USERID, PlayerVote, NS_SharedMatchState, PlayerInfo, AddRoleChangeCallback, PICKUPS, IsSpectatorRole, ExecRoleChangeCallbacks, NETVAR_MEETINGS_CALLED, NETVAR_PURCHASED_IMPOSTOR, REMOTESOUNDS, GetTaskValueForRound, COOLDOWN_NAME_KILL, MEETING_TYPE, } from "shared/sh_gamestate"
 import { MIN_TASKLIST_SIZE, MAX_TASKLIST_SIZE, MATCHMAKE_PLAYERCOUNT_STARTSERVER, SPAWN_ROOM, DEV_1_TASK, DEV_FAST_TIMERS, DETECTIVE_BONUS, } from "shared/sh_settings"
 import { GetNetVar_Number, ResetNetVar, SetNetVar } from "shared/sh_player_netvars"
 import { AddCallback_OnPlayerCharacterAdded, AddCallback_OnPlayerConnected } from "shared/sh_onPlayerConnect"
@@ -1043,7 +1043,13 @@ function SetVote( match: Match, player: Player, voteUserID: number | undefined )
 export function SetGameState( match: Match, state: GAME_STATE )
 {
    if ( state === GAME_STATE.GAME_STATE_MEETING_DISCUSS )
-      state = GAME_STATE.GAME_STATE_MEETING_VOTE
+   {
+      // skip discuss if its just emergency meeting
+      let meetingDetails = match.GetMeetingDetails()
+      if ( meetingDetails !== undefined && meetingDetails.meetingType === MEETING_TYPE.MEETING_EMERGENCY )
+         state = GAME_STATE.GAME_STATE_MEETING_VOTE
+   }
+
    print( "\nSet Match State " + state + ", Time since last change: " + math.floor( ( Workspace.DistributedGameTime - match.shState._gameStateChangedTime ) ) )
    if ( match.GetGameState() >= GAME_STATE.GAME_STATE_COMPLETE )
       print( "Complete: Stack: " + debug.traceback() )
